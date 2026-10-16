@@ -247,24 +247,19 @@ func load_db_maps():
 					file.store_string(Time.get_datetime_string_from_system(true))
 				file.close()
 
-			var nmp = parse_json(netmaps_res.body.get_string_from_utf8())
-			if not (nmp is Dictionary):
+			if not yield(_import_netmaps_threaded(netmaps_res.body.get_string_from_utf8()), "completed"):
 				print("Map database %s downloaded but JSON is malformed" % current_api)
 				failed_dbs += 1
-			else:
-				yield(_import_netmaps(nmp), "completed")
 
 		elif netmaps_res.response_code == 304:
 			print("Cache hit for %s!" % current_api)
 			var res = file.open(cache_file, File.READ)
 			if res == OK:
-				var nmp = parse_json(file.get_as_text())
-				if not (nmp is Dictionary):
+				var cache_text = file.get_as_text()
+				file.close()
+				if not yield(_import_netmaps_threaded(cache_text), "completed"):
 					dir.remove(cache_file)
 					dir.remove(update_file)
-				else:
-					yield(_import_netmaps(nmp), "completed")
-			file.close()
 		else:
 			print("Map database %s download failed. HTTP Code: %s" % [current_api, netmaps_res.response_code])
 			failed_dbs += 1
@@ -292,11 +287,33 @@ func _slugify_id(id: String) -> String:
 		out = "m" + out
 	return out
 
+signal _netmaps_imported
+
+# Parsing and importing thousands of maps on the main thread causes big
+# frame hitches, so it runs on a worker thread. Registry adds are
+# mutex-protected. Returns true if the JSON was a valid map database.
+func _import_netmaps_threaded(json_text: String):
+	var thread := Thread.new()
+	if thread.start(self, "_netmaps_worker", json_text) != OK:
+		yield(get_tree(), "idle_frame")
+		var nmp = parse_json(json_text)
+		if not (nmp is Dictionary):
+			return false
+		_import_netmaps(nmp)
+		return true
+	yield(self, "_netmaps_imported")
+	return thread.wait_to_finish()
+
+func _netmaps_worker(json_text: String) -> bool:
+	var nmp = parse_json(json_text)
+	var ok = nmp is Dictionary
+	if ok:
+		_import_netmaps(nmp)
+	call_deferred("emit_signal", "_netmaps_imported")
+	return ok
+
 func _import_netmaps(netmaps: Dictionary):
-	yield(get_tree(), "idle_frame")
 	var dir := Directory.new()
-	var i = 0
-	var interval = max(1, floor(float(netmaps.size()) / 100))
 
 
 
@@ -323,15 +340,6 @@ func _import_netmaps(netmaps: Dictionary):
 		else:
 			print("[MapDB Import] Map %s errored with code %s" % [id, result.error])
 
-
-
-
-
-
-		i += 1
-		if fmod(i, interval) == 0:
-			yield(get_tree(), "idle_frame")
-
 var latest_version_data
 signal latest_version
 signal update_finished
@@ -354,9 +362,11 @@ func _on_version_request_completed(result, response_code, headers, body):
 		return
 
 	var json = JSON.parse(body.get_string_from_utf8())
-	if json.error == OK:
+	if json.error == OK and typeof(json.result) == TYPE_DICTIONARY and json.result.has("tag_name"):
 		latest_version_data = json.result
 		emit_signal("latest_version", latest_version_data.tag_name)
+	else:
+		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
 
 func attempt_update():
 	if not latest_version_data or not latest_version_data.has("assets"):

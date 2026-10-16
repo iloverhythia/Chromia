@@ -670,7 +670,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b"
 ]
 
 
@@ -706,6 +706,7 @@ const VERSION_NOTES = {
 	"sep27-2026-web-a": "- Web release",
 	"sep27-2026-web-b": "- Web 2",
 	"oct16-2026-a": "- Desktop release (web-only code removed)\n- Removed GUI scale setting\n- Maps load instantly",
+	"oct16-2026-b": "- Smooth map loading (maps import in the background)\n- Fixed pixelated/blurry resolution\n- Auto-updates now come from iloverhythia/savia",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -871,7 +872,33 @@ var was_replay: bool = false
 var replaying: bool = false
 
 
-var load_target_frame_time: float = 0.25
+var load_target_frame_time: float = 1.0 / 40.0
+
+var _sspm_import_progress: int = 0
+var _sspm_import_done: bool = false
+func _import_sspm_worker(args: Array) -> Array:
+	var smaps: Array = args[0]
+	var caches: Dictionary = args[1]
+	var from_cache = 0
+	var from_file = 0
+	for i in range(smaps.size()):
+		_sspm_import_progress = i + 1
+		var single_map_start = OS.get_ticks_usec()
+		if caches.has(smaps[i]):
+			if registry_song.add_sspm_cached_map(smaps[i], caches.get(smaps[i])):
+				from_cache += 1
+			else:
+				print("Failed loading a map from cache")
+				from_file += 1
+				registry_song.add_sspm_map(smaps[i])
+		else:
+			from_file += 1
+			registry_song.add_sspm_map(smaps[i])
+		var single_map_usec = OS.get_ticks_usec() - single_map_start
+		if single_map_usec > 1000000:
+			print("SLOW MAP LOAD (%s usec): %s" % [Globals.comma_sep(single_map_usec), smaps[i]])
+	_sspm_import_done = true
+	return [from_cache, from_file]
 var rainbow_t: float = 0
 var note_spin_t: float = 0
 var alert: String = ""
@@ -3404,7 +3431,7 @@ func do_init(_ud = null):
 		var latest_version = yield(Online, "latest_version")
 		if ProjectSettings.get_setting("application/config/version") != latest_version:
 			var sel = 1
-			if not Online.latest_version_data.body.begins_with("-a"):
+			if not String(Online.latest_version_data.get("body", "")).begins_with("-a"):
 
 				Globals.confirm_prompt.open("loud sound = gone\nYou are on an outdated version of the game! Would you like to automatically update?", "Outdated", [{text = "Ignore", wait = 0}, {text = "Update", wait = 1}])
 				sel = yield(Globals.confirm_prompt, "option_selected")
@@ -3611,26 +3638,20 @@ func do_init(_ud = null):
 		var load_start = OS.get_ticks_usec()
 		var from_file = 0
 		var from_cache = 0
-		for i in range(smaps.size()):
-			if (OS.get_ticks_msec() - lt) >= load_target_frame_time * 1000:
-				lt = OS.get_ticks_msec()
-				emit_signal("init_stage_reached", "Register content 1/5\nImport Rhythia maps\n%d / %s" % [i + 1, smaps.size()])
+		# Import on a worker thread so the loading screen stays smooth.
+		_sspm_import_progress = 0
+		_sspm_import_done = false
+		var import_thread := Thread.new()
+		var counts: Array
+		if import_thread.start(self, "_import_sspm_worker", [smaps, caches]) == OK:
+			while not _sspm_import_done:
+				emit_signal("init_stage_reached", "Register content 1/5\nImport Rhythia maps\n%d / %s" % [_sspm_import_progress, smaps.size()])
 				yield(get_tree(), "idle_frame")
-
-			var single_map_start = OS.get_ticks_usec()
-			if caches.has(smaps[i]):
-				if registry_song.add_sspm_cached_map(smaps[i], caches.get(smaps[i])):
-					from_cache += 1
-				else:
-					print("Failed loading a map from cache")
-					from_file += 1
-					registry_song.add_sspm_map(smaps[i])
-			else:
-				from_file += 1
-				registry_song.add_sspm_map(smaps[i])
-			var single_map_usec = OS.get_ticks_usec() - single_map_start
-			if single_map_usec > 1000000:
-				print("SLOW MAP LOAD (%s usec): %s" % [Globals.comma_sep(single_map_usec), smaps[i]])
+			counts = import_thread.wait_to_finish()
+		else:
+			counts = _import_sspm_worker([smaps, caches])
+		from_cache = counts[0]
+		from_file = counts[1]
 		var load_end = OS.get_ticks_usec()
 		var load_time = load_end - load_start
 

@@ -1,18 +1,21 @@
 name: Release
 
+# Pushing to main publishes a release for the version in project.godot
+# (application/config/version) if that version has no release yet.
+# The game's auto-updater downloads Savia.pck from the latest release.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Tag for the release (e.g. sep27-2026)"
-        required: true
-      title:
-        description: "Release title (defaults to the tag)"
-        required: false
       notes:
-        description: "Release notes"
+        description: "Release notes (start with -a to update players without asking)"
         required: false
-        default: "Windows build. Unzip and run Savia.exe."
+        default: ""
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -26,7 +29,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Read version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^config\/version="\(.*\)"$/\1/p' project.godot | head -n1)
+          test -n "$version"
+          echo "tag=$version" >> "$GITHUB_OUTPUT"
+          if gh release view "$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $version already exists; nothing to do."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install Godot and Windows export templates
+        if: steps.version.outputs.exists == 'false'
         run: |
           base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
           curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux_headless.64.zip"
@@ -39,6 +58,7 @@ jobs:
           rm godot.zip templates.tpz
 
       - name: Import project
+        if: steps.version.outputs.exists == 'false'
         run: |
           cp .github/godot/export_presets.cfg export_presets.cfg
           # A fresh checkout has no .import cache; let the editor import everything once.
@@ -58,8 +78,9 @@ jobs:
           echo "imported $prev files"
 
       - name: Export Windows build
+        if: steps.version.outputs.exists == 'false'
         env:
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           mkdir -p dist
           "$GODOT" --no-window --path . --export "Windows Desktop" "$PWD/dist/Savia.exe"
@@ -67,9 +88,15 @@ jobs:
           (cd dist && zip -q -r "../Savia-$TAG-windows.zip" .)
 
       - name: Create release
+        if: steps.version.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag }}
-          TITLE: ${{ inputs.title || inputs.tag }}
+          TAG: ${{ steps.version.outputs.tag }}
           NOTES: ${{ inputs.notes }}
-        run: gh release create "$TAG" "Savia-$TAG-windows.zip" --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES"
+        run: |
+          notes="$NOTES"
+          if [ -z "$notes" ]; then
+            notes="Savia $TAG for Windows. Unzip and run Savia.exe. Existing installs update automatically."
+          fi
+          gh release create "$TAG" "Savia-$TAG-windows.zip" dist/Savia.pck \
+            --target "$GITHUB_SHA" --title "Savia $TAG" --notes "$notes"
