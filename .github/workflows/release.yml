@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag for the release (e.g. sep27-2026-recovered)"
+        description: "Tag for the release (e.g. sep27-2026)"
         required: true
       title:
         description: "Release title (defaults to the tag)"
@@ -12,10 +12,13 @@ on:
       notes:
         description: "Release notes"
         required: false
-        default: "Godot 3.5 project source. Open project.godot in Godot 3.5.x."
+        default: "Windows build. Unzip and run Savia.exe."
 
 permissions:
   contents: write
+
+env:
+  GODOT_VERSION: 3.5.3
 
 jobs:
   release:
@@ -23,12 +26,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build zip and create release
+      - name: Install Godot and Windows export templates
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux_headless.64.zip"
+          unzip -q godot.zip -d "$RUNNER_TEMP"
+          echo "GODOT=$RUNNER_TEMP/Godot_v${GODOT_VERSION}-stable_linux_headless.64" >> "$GITHUB_ENV"
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          tpl="$HOME/.local/share/godot/templates/${GODOT_VERSION}.stable"
+          mkdir -p "$tpl"
+          unzip -q -j templates.tpz templates/windows_64_release.exe templates/windows_64_debug.exe templates/version.txt -d "$tpl"
+          rm godot.zip templates.tpz
+
+      - name: Import project
+        run: |
+          cp .github/godot/export_presets.cfg export_presets.cfg
+          # A fresh checkout has no .import cache; let the editor import everything once.
+          # The editor never exits on its own, so stop it once .import stops growing for 60s.
+          "$GODOT" --no-window --editor --path . > import.log 2>&1 &
+          pid=$!
+          prev=-1; stable=0
+          for i in $(seq 1 180); do
+            sleep 5
+            n=$(ls .import 2>/dev/null | wc -l)
+            if [ "$n" -gt 0 ] && [ "$n" = "$prev" ]; then stable=$((stable + 1)); else stable=0; fi
+            prev=$n
+            [ "$stable" -ge 12 ] && break
+          done
+          kill "$pid" || true
+          wait "$pid" || true
+          echo "imported $prev files"
+
+      - name: Export Windows build
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p dist
+          "$GODOT" --no-window --path . --export "Windows Desktop" "$PWD/dist/Savia.exe"
+          test -f dist/Savia.exe && test -f dist/Savia.pck
+          (cd dist && zip -q -r "../Savia-$TAG-windows.zip" .)
+
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
           TITLE: ${{ inputs.title || inputs.tag }}
           NOTES: ${{ inputs.notes }}
-        run: |
-          git archive --format=zip --prefix=savia/ -o "savia-$TAG.zip" HEAD
-          gh release create "$TAG" "savia-$TAG.zip" --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES"
+        run: gh release create "$TAG" "Savia-$TAG-windows.zip" --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES"
