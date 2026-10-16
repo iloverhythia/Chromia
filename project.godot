@@ -308,14 +308,11 @@ config/description="testdesc
 config/disable_native_file_dialogs=false
 config/disable_native_file_dialogs.Android=true
 config/disable_native_file_dialogs.OSX=true
-config/disable_native_file_dialogs.web=true
 config/discord_rpc=false
-config/discord_rpc.HTML5=false
 config/discord_rpc.OSX=false
 config/discord_rpc.editor=false
 config/discord_rpc.mobile=false
 config/enable_new_content_mgr=true
-config/enable_new_content_mgr.HTML5=true
 config/enable_new_content_mgr.mobile=false
 config/fov=70.0
 config/github_repo="SavvyScripter-GH/savia_db"
@@ -331,7 +328,7 @@ config/save_dir.Android="user://"
 config/show_trail_debug=false
 config/use_custom_user_dir=true
 config/use_custom_user_dir.Android=false
-config/version="sep27-2026-web-b"
+config/version="oct16-2026-a"
 config/windows_native_icon="res://icon.ico"
 networking/enabled=true
 networking/github_repo="SavvyScripter-GH/savia_db"
@@ -390,7 +387,6 @@ enabled=PoolStringArray( "res://addons/discord_game_sdk/plugin.cfg", "res://addo
 [gdnative]
 
 singletons=[ "res://addons/godot-openvr/godot_openvr.gdnlib" ]
-singletons.HTML5=PoolStringArray(  )
 
 [gui]
 

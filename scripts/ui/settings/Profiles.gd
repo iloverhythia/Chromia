@@ -12,86 +12,15 @@ var file: File
 var overwrite_submenu = PopupMenu.new()
 var delete_submenu = PopupMenu.new()
 
-var _web_content_cb
 
 func import_profile():
-	if OS.has_feature("HTML5") and OS.has_feature("JavaScript"):
-		_open_web_content_picker()
-	else:
-		Globals.file_sel.open_file(
-			self,
-			"_on_content_files_selected",
-			PoolStringArray(["*.json, *.txt, *.obj, *.mtl ; (profile, colorset, mesh)"]),
-			false,
-			"user://"
-		)
-
-func _open_web_content_picker():
-	if _web_content_cb == null:
-		_web_content_cb = JavaScript.create_callback(self, "_on_web_content_picked")
-	var win = JavaScript.get_interface("window")
-	win.saviaContentPickCb = _web_content_cb
-	JavaScript.eval( \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-		"\n\t(function () {\n\t\tvar input = document.createElement('input');\n\t\tinput.type = 'file';\n\t\tinput.multiple = true;\n\t\tinput.accept = '.json,.txt,.obj,.mtl,application/json,text/plain';\n\t\tinput.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';\n\t\tdocument.body.appendChild(input);\n\t\tinput.addEventListener('change', function () {\n\t\t\tvar files = Array.prototype.slice.call(input.files || []);\n\t\t\tif (!files.length) { input.remove(); return; }\n\t\t\tvar results = [];\n\t\t\tvar remaining = files.length;\n\t\t\tfiles.forEach(function (f) {\n\t\t\t\tvar reader = new FileReader();\n\t\t\t\treader.onload = function () {\n\t\t\t\t\tvar bytes = new Uint8Array(reader.result);\n\t\t\t\t\tvar bin = '';\n\t\t\t\t\tfor (var i = 0; i < bytes.length; i += 0x8000) {\n\t\t\t\t\t\tbin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));\n\t\t\t\t\t}\n\t\t\t\t\tresults.push({ name: f.name, data: btoa(bin) });\n\t\t\t\t\tremaining--;\n\t\t\t\t\tif (remaining === 0) {\n\t\t\t\t\t\twindow.saviaContentPickCb(JSON.stringify(results));\n\t\t\t\t\t\tinput.remove();\n\t\t\t\t\t}\n\t\t\t\t};\n\t\t\t\treader.readAsArrayBuffer(f);\n\t\t\t});\n\t\t});\n\t\tinput.click();\n\t})();\n\t", true)
-
-func _on_web_content_picked(args):
-	if args.size() < 1:
-		return
-	var parsed = JSON.parse(str(args[0]))
-	if parsed.error != OK or typeof(parsed.result) != TYPE_ARRAY:
-		Globals.notify(Globals.NOTIFY_ERROR, "Could not read the picked files.", "Import Failed")
-		return
-
-	var dir := Directory.new()
-	if dir.dir_exists(Globals.p(_PICKED_TMP_DIR)):
-		_clear_dir(Globals.p(_PICKED_TMP_DIR))
-	else:
-		dir.make_dir_recursive(Globals.p(_PICKED_TMP_DIR))
-
-	var paths := PoolStringArray()
-	for entry in parsed.result:
-		var raw = Marshalls.base64_to_raw(String(entry.data))
-		var tmp_path = Globals.p(_PICKED_TMP_DIR.plus_file(String(entry.name)))
-		var f := File.new()
-		if f.open(tmp_path, File.WRITE) != OK:
-			continue
-		f.store_buffer(raw)
-		f.close()
-		paths.append(tmp_path)
-
-	_on_content_files_selected(paths)
+	Globals.file_sel.open_file(
+		self,
+		"_on_content_files_selected",
+		PoolStringArray(["*.json, *.txt, *.obj, *.mtl ; (profile, colorset, mesh)"]),
+		false,
+		"user://"
+	)
 
 func _clear_dir(path: String):
 	var dir := Directory.new()
@@ -235,12 +164,8 @@ func export_profile():
 		return
 	var profile_bytes := profile_file.get_buffer(profile_file.get_len())
 	profile_file.close()
-	var filename := profile_path.get_file()
-	if OS.has_feature("HTML5") and OS.has_feature("JavaScript"):
-		JavaScript.download_buffer(profile_bytes, filename, "application/json")
-	else:
-		Globals.file_sel.save_file(self, "_save_exported_profile", PoolStringArray(["*.json ; Savia settings profile"]), "user://")
-		_export_profile_bytes = profile_bytes
+	Globals.file_sel.save_file(self, "_save_exported_profile", PoolStringArray(["*.json ; Savia settings profile"]), "user://")
+	_export_profile_bytes = profile_bytes
 
 var _export_profile_bytes := PoolByteArray()
 

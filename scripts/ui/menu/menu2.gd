@@ -1986,7 +1986,6 @@ func _on_map_upload_progress(_song_id, bytes_sent: int, total_bytes: int):
 	lobby_error_label.visible = true
 
 func idle_status():
-	if OS.has_feature("HTML5"): return
 
 	var lobby_manager = _get_lobby_manager()
 	if lobby_canvas == null or lobby_manager == null:
@@ -2079,40 +2078,39 @@ func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 	if ProjectSettings.get_setting("application/config/discord_rpc"):
-		if not OS.has_feature("HTML5"):
-			var lobby_active = lobby_manager.lobby_active
-			var is_host = lobby_manager.is_host
-			var activity = Discord.Activity.new()
-			activity.set_type(Discord.ActivityType.Playing)
-			if OS.has_feature("debug"):
-				if lobby_active:
-					if is_host:
-						activity.set_details("Main Menu - Developing and hosting a lobby")
-						activity.set_state("Selecting a song")
-					else:
-						activity.set_details("Main Menu - Developing and in a lobby")
-						activity.set_state("Selecting a song")
+		var lobby_active = lobby_manager.lobby_active
+		var is_host = lobby_manager.is_host
+		var activity = Discord.Activity.new()
+		activity.set_type(Discord.ActivityType.Playing)
+		if OS.has_feature("debug"):
+			if lobby_active:
+				if is_host:
+					activity.set_details("Main Menu - Developing and hosting a lobby")
+					activity.set_state("Selecting a song")
 				else:
-					activity.set_details("Main Menu - Developing")
+					activity.set_details("Main Menu - Developing and in a lobby")
 					activity.set_state("Selecting a song")
 			else:
-				if lobby_active:
-					if is_host:
-						activity.set_details("Main Menu - Hosting a lobby")
-						activity.set_state("Selecting a song")
-					else:
-						activity.set_details("Main Menu - In a lobby")
-						activity.set_state("Selecting a song")
-				else:
-					activity.set_details("Main Menu")
+				activity.set_details("Main Menu - Developing")
+				activity.set_state("Selecting a song")
+		else:
+			if lobby_active:
+				if is_host:
+					activity.set_details("Main Menu - Hosting a lobby")
 					activity.set_state("Selecting a song")
+				else:
+					activity.set_details("Main Menu - In a lobby")
+					activity.set_state("Selecting a song")
+			else:
+				activity.set_details("Main Menu")
+				activity.set_state("Selecting a song")
 
-			var assets = activity.get_assets()
-			assets.set_large_image("icon-bg")
+		var assets = activity.get_assets()
+		assets.set_large_image("icon-bg")
 
-			Discord.activity_manager.update_activity(activity)
+		Discord.activity_manager.update_activity(activity)
 
-			get_tree().create_timer(300).connect("timeout", self, "idle_status")
+		get_tree().create_timer(300).connect("timeout", self, "idle_status")
 var black_fade_target: bool = false
 var black_fade: float = 1
 

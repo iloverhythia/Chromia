@@ -159,8 +159,6 @@ func start():
 	mutex = Mutex.new()
 	semaphore = Semaphore.new()
 	thread = Thread.new()
-	if OS.has_feature("HTML5"):
-		return
 	thread_started = thread.start(self, "thread_func", 0) == OK
 
 func _process(_delta):

@@ -4,7 +4,6 @@ func _ready():
 	update_activity()
 
 func update_activity() -> void:
-	if OS.has_feature("HTML5"): return
 	var activity = Discord.Activity.new()
 	activity.set_type(Discord.ActivityType.Playing)
 	activity.set_state("market your game on Discord!!!")

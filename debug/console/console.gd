@@ -68,8 +68,6 @@ func close(_ct = null):
 	CommandBar.release_focus()
 
 func history_down():
-	if OS.has_feature("HTML5"):
-		return
 	CommandBar.grab_focus()
 	if HistoryPosition == -1: return
 	HistoryPosition -= 1

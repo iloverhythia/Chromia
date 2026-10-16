@@ -255,7 +255,7 @@ func _ready():
 
 
 
-	if ProjectSettings.get_setting("application/config/discord_rpc") and not OS.has_feature("HTML5"):
+	if ProjectSettings.get_setting("application/config/discord_rpc"):
 		discore_core_ = DiscordCore.new()
 		if discore_core_:
 			discore_core_.create(1507913571055702117, CreateFlags.NoRequireDiscord)

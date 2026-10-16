@@ -55,9 +55,8 @@ func _mapdl_handler(id: String, map: Song):
 		mapdl_error(id, "MapDB APIs Invalid", map); return
 	print(id)
 
-	if not OS.has_feature("HTML5"):
-		call_deferred("test_connection")
-	if not OS.has_feature("HTML5") and not yield(self, "_connection_test"):
+	call_deferred("test_connection")
+	if not yield(self, "_connection_test"):
 		mapdl_error(id, "Failed to connect", map); return
 
 	var dir: Directory = Directory.new()
@@ -172,9 +171,8 @@ func load_db_maps():
 		emit_signal("db_maps_done")
 		return
 
-	if not OS.has_feature("HTML5"):
-		call_deferred("test_connection")
-	if not OS.has_feature("HTML5") and not yield(self, "_connection_test"):
+	call_deferred("test_connection")
+	if not yield(self, "_connection_test"):
 		Globals.notify(
 			Globals.NOTIFY_ERROR,
 			"Online maps will not be loaded - failed to connect to map databases.\n\nMake sure your system clock is Synchronized!",
@@ -205,17 +203,16 @@ func load_db_maps():
 
 		var hr := HTTPRequest.new()
 		add_child(hr)
-		hr.use_threads = not OS.has_feature("HTML5")
+		hr.use_threads = true
 		hr.timeout = 80
 		hr.connect("request_completed", self, "_on_dbmap_request_completed", [api_idx])
 		requesters.append(hr)
 		var request_headers := PoolStringArray()
-		if not OS.has_feature("HTML5"):
-			request_headers.append("If-Modified-Since: %s, %02d %s %04d %02d:%02d:%02d GMT" % [
-				weekday[dict_date.weekday],
-				dict_date.day, month[dict_date.month - 1], dict_date.year,
-				dict_date.hour, dict_date.minute, dict_date.second
-			])
+		request_headers.append("If-Modified-Since: %s, %02d %s %04d %02d:%02d:%02d GMT" % [
+			weekday[dict_date.weekday],
+			dict_date.day, month[dict_date.month - 1], dict_date.year,
+			dict_date.hour, dict_date.minute, dict_date.second
+		])
 		var request_error = hr.request(current_api, request_headers)
 		if request_error != OK:
 			_on_dbmap_request_completed(request_error, 0, PoolStringArray(), PoolByteArray(), api_idx)
@@ -416,7 +413,7 @@ func _on_update_request_completed(result, response_code, headers, body):
 
 func _ready():
 	add_child(ctest_hr)
-	ctest_hr.use_threads = not OS.has_feature("HTML5")
+	ctest_hr.use_threads = true
 	ctest_hr.timeout = 5
 	ctest_hr.connect("request_completed", self, "_on_ctest_request_completed")
 
@@ -426,12 +423,12 @@ func _ready():
 	mapdl_hr.connect("request_completed", self, "_on_mapdl_request_completed")
 
 	add_child(version_hr)
-	version_hr.use_threads = not OS.has_feature("HTML5")
+	version_hr.use_threads = true
 	version_hr.timeout = 5
 	version_hr.connect("request_completed", self, "_on_version_request_completed")
 
 	add_child(update_hr)
-	update_hr.use_threads = not OS.has_feature("HTML5")
+	update_hr.use_threads = true
 	update_hr.timeout = 0
 	update_hr.connect("request_completed", self, "_on_update_request_completed")
 

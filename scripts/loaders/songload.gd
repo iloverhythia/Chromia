@@ -86,7 +86,8 @@ func finish():
 		yield(Rhythia.replay, "done_loading")
 
 	black_fade_target = true
-	yield(get_tree().create_timer(0.5), "timeout")
+	black_fade = 1
+	$BlackFade.color = Color(0, 0, 0, black_fade)
 
 
 

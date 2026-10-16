@@ -1,4 +1,4 @@
-[gd_scene load_steps=95 format=2]
+[gd_scene load_steps=94 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -59,7 +59,6 @@
 [ext_resource path="res://scripts/ui/settings/NoteOpacity.gd" type="Script" id=63]
 [ext_resource path="res://scripts/ui/settings/ReplayIntro.gd" type="Script" id=64]
 [ext_resource path="res://scripts/ui/settings/LockMouseResize.gd" type="Script" id=65]
-[ext_resource path="res://scripts/ui/settings/RenderScale.gd" type="Script" id=66]
 [ext_resource path="res://scripts/ui/settings/ReplayLimit.gd" type="Script" id=67]
 [ext_resource path="res://scripts/ui/settings/ReplayMode.gd" type="Script" id=68]
 [ext_resource path="res://scripts/ui/settings/CollapsibleColorSets.gd" type="Script" id=69]
@@ -6000,52 +5999,6 @@ flat = true
 script = ExtResource( 54 )
 target = "disable_intro"
 
-[node name="RenderScale" type="Control" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_top = 277.0
-margin_right = 955.0
-margin_bottom = 309.0
-rect_min_size = Vector2( 200, 32 )
-
-[node name="Scale" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/RenderScale"]
-margin_right = 200.0
-margin_bottom = 32.0
-rect_min_size = Vector2( 200, 32 )
-rect_pivot_offset = Vector2( 286, -176 )
-focus_mode = 2
-theme = ExtResource( 1 )
-min_value = 0.5
-max_value = 2.0
-step = 0.1
-value = 1.0
-suffix = "x"
-script = ExtResource( 66 )
-
-[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/RenderScale"]
-margin_left = 118.0
-margin_top = -1.0
-margin_right = 288.0
-margin_bottom = 31.0
-focus_mode = 2
-theme = ExtResource( 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 3 )
-text = "Render Scale"
-align = 2
-valign = 1
-
-[node name="Desc" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/RenderScale"]
-margin_left = 299.0
-margin_top = -1.0
-margin_right = 646.0
-margin_bottom = 31.0
-focus_mode = 2
-theme = ExtResource( 1 )
-custom_colors/font_color = Color( 0.690196, 0.690196, 0.690196, 1 )
-custom_colors/font_color_shadow = Color( 0, 0, 0, 0 )
-custom_fonts/font = SubResource( 4 )
-text = "GUI scale, higher = smaller"
-valign = 1
-
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Replays & Misc"]
 margin_top = 501.0
 margin_right = 1280.0
@@ -6161,4 +6114,3 @@ margin_right = 1280.0
 margin_bottom = 1117.0
 
 [connection signal="pressed" from="TabContainer/Replays & Misc/Experimental/Group/H/Intro/Play" to="TabContainer/Replays & Misc/Experimental/Group/H/Intro/Play" method="_on_Play_pressed"]
-[connection signal="value_changed" from="TabContainer/Replays & Misc/Experimental/Group/H/RenderScale/Scale" to="TabContainer/Replays & Misc/Experimental/Group/H/RenderScale/Scale" method="_on_Scale_value_changed"]

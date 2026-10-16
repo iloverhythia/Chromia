@@ -57,12 +57,7 @@ func set_client_id():
 	Rhythia.cid = client_id
 	cid = client_id
 
-	if OS.has_feature("HTML5"):
-		if OS.has_touchscreen_ui_hint():
-			dev = "mobile"
-		else:
-			dev = "web"
-	elif OS.has_feature("Android"):
+	if OS.has_feature("Android"):
 		dev = "android"
 	else:
 		dev = "pc"
@@ -70,7 +65,6 @@ func set_client_id():
 	Rhythia.dev = dev
 
 func device(input):
-	if input == "web" and Rhythia.dev == "mobile": return true
 	return Rhythia.dev == input
 
 func apply_rotated_client_id(new_id: String):
@@ -676,7 +670,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b"
+	"sep27-2026-web-b", "oct16-2026-a"
 ]
 
 
@@ -711,6 +705,7 @@ const VERSION_NOTES = {
 	"august6-2026-a": "- Added Play timestamps\n- Updated filters to save\n- ",
 	"sep27-2026-web-a": "- Web release",
 	"sep27-2026-web-b": "- Web 2",
+	"oct16-2026-a": "- Desktop release (web-only code removed)\n- Removed GUI scale setting\n- Maps load instantly",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -876,7 +871,7 @@ var was_replay: bool = false
 var replaying: bool = false
 
 
-var load_target_frame_time: float = 1.0 / 40.0
+var load_target_frame_time: float = 0.25
 var rainbow_t: float = 0
 var note_spin_t: float = 0
 var alert: String = ""
@@ -1028,16 +1023,15 @@ func start_vr():
 		viewport.arvr = true
 
 		setup_controller_bindings()
-	if not OS.has_feature("HTML5"):
-		var vr_player: VRPlayer
+	var vr_player: VRPlayer
 
-		var vr_av = load("res://vr/VRPlayer.tscn").instance()
-		rootg.add_child(vr_av)
-		vr_av.name = "VRPlayer"
-		vr_player = vr_av
+	var vr_av = load("res://vr/VRPlayer.tscn").instance()
+	rootg.add_child(vr_av)
+	vr_av.name = "VRPlayer"
+	vr_player = vr_av
 
-		menu_target = "res://vr/vrmenu.tscn"
-		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+	menu_target = "res://vr/vrmenu.tscn"
+	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
 func setup_controller_bindings():
 
@@ -1188,18 +1182,15 @@ func _input(event):
 
 func _advertise_game():
 	var Discord
-	if OS.has_feature("HTML5"):
+	if not ProjectSettings.get_setting("application/config/discord_rpc"):
 		return
-	else:
-		if not ProjectSettings.get_setting("application/config/discord_rpc"):
-			return
-		var activity = Discord.Activity.new()
-		activity.set_type(Discord.ActivityType.Playing)
-		activity.set_details("Join us Now")
-		activity.set_state("discord.gg/Hs2E5w5N68")
-		var assets = activity.get_assets()
-		assets.set_large_image("icon-bg")
-		Discord.activity_manager.update_activity(activity)
+	var activity = Discord.Activity.new()
+	activity.set_type(Discord.ActivityType.Playing)
+	activity.set_details("Join us Now")
+	activity.set_state("discord.gg/Hs2E5w5N68")
+	var assets = activity.get_assets()
+	assets.set_large_image("icon-bg")
+	Discord.activity_manager.update_activity(activity)
 
 func _change_volume(amount: float):
 	if not is_instance_valid(volume_canvas):
@@ -1322,16 +1313,15 @@ func update_rpc_song():
 			if i != 0: txt += ", "
 			txt += mods[i]
 
-	if not OS.has_feature("HTML5"):
-		var activity = Discord.Activity.new()
-		activity.set_type(Discord.ActivityType.Playing)
-		activity.set_state(txt)
-		activity.set_details(selected_song.name)
+	var activity = Discord.Activity.new()
+	activity.set_type(Discord.ActivityType.Playing)
+	activity.set_state(txt)
+	activity.set_details(selected_song.name)
 
-		var assets = activity.get_assets()
-		assets.set_large_image("icon-bg")
+	var assets = activity.get_assets()
+	assets.set_large_image("icon-bg")
 
-		Discord.activity_manager.update_activity(activity)
+	Discord.activity_manager.update_activity(activity)
 
 func get_stream_with_default(path: String, default: AudioStream) -> AudioStream:
 	path = Globals.p(path)
@@ -1695,7 +1685,6 @@ var bloom: float = 0
 var vhs_shader: bool = false
 
 
-var render_scale: float = 1
 var ensure_hitsync: bool = false
 var hitsync_offset: float = 0
 var retain_song_pitch: bool = false
@@ -1971,8 +1960,6 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			auto_preview_song = data.auto_preview_song
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
-		if data.has("render_scale"):
-			render_scale = data.render_scale
 		if data.has("vsync_enabled"):
 			OS.vsync_enabled = data.vsync_enabled
 
@@ -2518,7 +2505,6 @@ func save_settings(saveFile: String = Globals.p("user://settings.json")):
 			play_miss_snd = play_miss_snd,
 			auto_preview_song = auto_preview_song,
 			disable_bg_effects = disable_bg_effects,
-			render_scale = render_scale,
 			vsync_enabled = OS.vsync_enabled,
 
 			window_fullscreen = OS.window_fullscreen,
@@ -3705,9 +3691,9 @@ func do_init(_ud = null):
 		yield(get_tree(), "idle_frame")
 
 		if last_search_incl_online:
+			# Fetch online maps in the background; the map list refreshes when they arrive.
 			_online_maps_fetched = true
 			Online.load_db_maps()
-			yield(Online, "db_maps_done")
 
 	emit_signal("init_stage_num", 4)
 

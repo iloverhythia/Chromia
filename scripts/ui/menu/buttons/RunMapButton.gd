@@ -40,7 +40,6 @@ func files_dropped(files: PoolStringArray, _screen: int):
 		Rhythia.replaying = true
 		Rhythia.replay_path = files[0]
 		get_viewport().get_node("Menu").black_fade_target = true
-		yield(get_tree().create_timer(0.35), "timeout")
 		get_tree().change_scene("res://scenes/loaders/songload.tscn")
 	elif files.size() == 1 and files[0].get_extension() == "json" and _is_settings_json(files[0]):
 		_import_settings_json(files[0])
@@ -127,7 +126,6 @@ func _begin_start(in_lobby: bool, lobby_manager):
 		lobby_manager.start_game()
 	else:
 		get_viewport().get_node("Menu").black_fade_target = true
-		yield(get_tree().create_timer(0.35), "timeout")
 		get_tree().change_scene("res://scenes/loaders/songload.tscn")
 
 func _ready():

@@ -43,15 +43,11 @@ func _ready():
 		stage("", true)
 		return
 	elif Rhythia.first_init_done:
-		if OS.has_feature("HTML5"):
-			Rhythia.do_init()
-		else:
-			thread.start(Rhythia, "do_init")
+		thread.start(Rhythia, "do_init")
 
 	Rhythia.is_init = false
 
 	if ProjectSettings.get_setting("application/config/discord_rpc"):
-		if OS.has_feature("HTML5"): return
 		var activity = Discord.Activity.new()
 		activity.set_type(Discord.ActivityType.Playing)
 		activity.set_details("Initialization")

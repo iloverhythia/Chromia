@@ -34,7 +34,7 @@ func folder_sel(folder: String):
 
 func _ready():
 	visible = false
-	if not OS.has_feature("HTML5") and not ProjectSettings.get_setting("application/config/disable_native_file_dialogs"):
+	if not ProjectSettings.get_setting("application/config/disable_native_file_dialogs"):
 		$OpenFile.set_script(load("res://addons/native_dialogs/bin/native_dialog_open_file.gdns"))
 		$SaveFile.set_script(load("res://addons/native_dialogs/bin/native_dialog_save_file.gdns"))
 		$Folder.set_script(load("res://addons/native_dialogs/bin/native_dialog_select_folder.gdns"))
@@ -76,7 +76,6 @@ func open_file(
 	target_method = method
 
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
-	$C/OpenFile.rect_scale = Vector2(clamp(Rhythia.render_scale, 0.5, 1), clamp(Rhythia.render_scale, 0.5, 1))
 
 	if use_native:
 		$OpenFile.filters = filters
@@ -111,7 +110,6 @@ func save_file(
 	target_method = method
 
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
-	$C/OpenFile.rect_scale = Vector2(clamp(Rhythia.render_scale, 0.5, 1), clamp(Rhythia.render_scale, 0.5, 1))
 
 	if use_native:
 		$SaveFile.filters = filters

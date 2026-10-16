@@ -611,111 +611,8 @@ var fps_disp: Label = Label.new()
 
 var console_open: bool = false
 var con: LineEdit
-var _browser_storage_persist_requested: bool = false
-var _web_file_picker_target: Object = null
-var _web_file_picker_method: String = ""
-var _web_file_picker_timer: Timer = null
-var _web_file_picker_sequence: int = 0
-
-func open_web_file_picker(target: Object, method: String, accept: String):
-	if not OS.has_feature("HTML5") or not OS.has_feature("JavaScript"):
-		return ERR_UNAVAILABLE
-	if _web_file_picker_target != null:
-		return ERR_BUSY
-	_web_file_picker_target = target
-	_web_file_picker_method = method
-	JavaScript.eval("window.__saviaFilePickerReady = false; window.__saviaFilePickerBytes = null; window.__saviaFilePickerName = '';", true)
-	var picker_script := \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-	 \
-		"\n\t(function(acceptText) {\n\t\tvar input = document.getElementById('savia-device-file-picker');\n\t\tif (!input) {\n\t\t\tinput = document.createElement('input');\n\t\t\tinput.id = 'savia-device-file-picker';\n\t\t\tinput.type = 'file';\n\t\t\tinput.style.position = 'fixed';\n\t\t\tinput.style.left = '-10000px';\n\t\t\tinput.style.top = '0';\n\t\t\tdocument.body.appendChild(input);\n\t\t}\n\t\tinput.accept = acceptText;\n\t\tinput.multiple = false;\n\t\tinput.onchange = function() {\n\t\t\tvar selected = input.files && input.files.length ? input.files[0] : null;\n\t\t\tif (!selected) {\n\t\t\t\twindow.__saviaFilePickerReady = true;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tvar reader = new FileReader();\n\t\t\treader.onload = function() {\n\t\t\t\twindow.__saviaFilePickerName = selected.name;\n\t\t\t\twindow.__saviaFilePickerBytes = new Uint8Array(reader.result);\n\t\t\t\twindow.__saviaFilePickerReady = true;\n\t\t\t};\n\t\t\treader.onerror = function() {\n\t\t\t\twindow.__saviaFilePickerReady = true;\n\t\t\t};\n\t\t\treader.readAsArrayBuffer(selected);\n\t\t};\n\t\tinput.value = '';\n\t\tinput.click();\n\t})(%s);\n\t" % JSON.print(accept)
-	JavaScript.eval(picker_script, true)
-	if _web_file_picker_timer == null:
-		_web_file_picker_timer = Timer.new()
-		_web_file_picker_timer.wait_time = 0.15
-		_web_file_picker_timer.connect("timeout", self, "_poll_web_file_picker")
-		add_child(_web_file_picker_timer)
-	_web_file_picker_timer.start()
-	return OK
-
-func _poll_web_file_picker():
-	if not JavaScript.eval("window.__saviaFilePickerReady === true", true):
-		return
-	_web_file_picker_timer.stop()
-	var filename: String = JavaScript.eval("window.__saviaFilePickerName || ''", true)
-	var bytes = JavaScript.eval("window.__saviaFilePickerBytes || new Uint8Array(0)", true)
-	JavaScript.eval("window.__saviaFilePickerReady = false; window.__saviaFilePickerBytes = null; window.__saviaFilePickerName = '';", true)
-	var target := _web_file_picker_target
-	var method := _web_file_picker_method
-	_web_file_picker_target = null
-	_web_file_picker_method = ""
-	if filename == "" or typeof(bytes) != TYPE_RAW_ARRAY:
-		if target and is_instance_valid(target):
-			target.call(method, PoolStringArray())
-		return
-	var extension := filename.get_extension().to_lower()
-	if not extension.is_valid_identifier():
-		extension = "bin"
-	_web_file_picker_sequence += 1
-	var temporary_path := "user://web_import_%d.%s" % [_web_file_picker_sequence, extension]
-	var file := File.new()
-	if file.open(Globals.p(temporary_path), File.WRITE) != OK:
-		if target and is_instance_valid(target):
-			target.call(method, PoolStringArray())
-		return
-	file.store_buffer(bytes)
-	file.close()
-	if target and is_instance_valid(target):
-		target.call(method, PoolStringArray([Globals.p(temporary_path)]))
-	var dir := Directory.new()
-	dir.remove(Globals.p(temporary_path))
 
 signal console_sent
-func _input(event):
-	if not OS.has_feature("HTML5") or not OS.has_feature("JavaScript") or _browser_storage_persist_requested:
-		return
-	var user_gesture = (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)
-	if user_gesture:
-		_browser_storage_persist_requested = true
-		JavaScript.eval( \
-		 \
-		 \
-		 \
-		 \
-		 \
-			"\n\t\t\tif (navigator.storage && navigator.storage.persist) {\n\t\t\t\tnavigator.storage.persist().then(function(persisted) {\n\t\t\t\t\tconsole.info('Savia browser storage persistence:', persisted);\n\t\t\t\t});\n\t\t\t}\n\t\t")
-
 func _process(delta):
 	notify_gui.raise()
 
@@ -766,14 +663,11 @@ var cmdline: Dictionary = {}
 func _ready():
 	var thread: Thread = null
 	Rhythia.is_init = true
-	if OS.has_feature("HTML5"):
-		Rhythia.do_init()
-	else:
-		thread = Thread.new()
-		if thread.start(Rhythia, "do_init") != OK:
-			thread = null
+	thread = Thread.new()
+	if thread.start(Rhythia, "do_init") != OK:
+		thread = null
 
-	var disable_intro = OS.has_feature("HTML5")
+	var disable_intro = false
 	var file: File = File.new()
 	if file.file_exists(Globals.p("user://settings.json")):
 		var err = file.open(Globals.p("user://settings.json"), File.READ)

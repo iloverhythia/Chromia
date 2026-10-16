@@ -1,16 +1,13 @@
 extends Button
 
 func _pressed():
-	if OS.has_feature("HTML5") and OS.has_feature("JavaScript"):
-		Globals.open_web_file_picker(self, "_on_map_files_selected", ".sspm,.sspm2")
-	else:
-		Globals.file_sel.open_file(
-			self,
-			"_on_map_files_selected",
-			PoolStringArray(["*.sspm, *.sspm2 ; Sound Space maps"]),
-			true,
-			"user://"
-		)
+	Globals.file_sel.open_file(
+		self,
+		"_on_map_files_selected",
+		PoolStringArray(["*.sspm, *.sspm2 ; Sound Space maps"]),
+		true,
+		"user://"
+	)
 
 func _on_map_files_selected(files: PoolStringArray):
 	var imported := 0

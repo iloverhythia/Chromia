@@ -56,7 +56,6 @@ func member_connect_(lobby_id: int, user_id: int) -> void:
 	refresh_members(lobby_id)
 
 func update_activity_() -> void:
-	if OS.has_feature("HTML5"): return
 	var activity = Discord.Activity.new()
 	activity.set_type(Discord.ActivityType.Playing)
 	activity.set_state("Reached: 2-2")

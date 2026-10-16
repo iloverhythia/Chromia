@@ -15,7 +15,6 @@ func _ready():
 		$Info.get("custom_fonts/font").size = 28
 		$Info.text += "\n\nNote: Rhythia currently needs storage permissions to create its user folder.\nYou can remove the permission afterwards.\n(this'll be fixed when godot 3.5 releases)"
 	if ProjectSettings.get_setting("application/config/discord_rpc"):
-		if OS.has_feature("HTML5"): return
 		var activity = Discord.Activity.new()
 		activity.set_type(Discord.ActivityType.Playing)
 		activity.set_details("experiencing a cattr moment")
