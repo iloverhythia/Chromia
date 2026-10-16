@@ -23,14 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build source zip
-        run: git archive --format=zip --prefix=savia/ -o "savia-${{ inputs.tag }}.zip" HEAD
-
-      - name: Create release
+      - name: Build zip and create release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          TITLE: ${{ inputs.title || inputs.tag }}
+          NOTES: ${{ inputs.notes }}
         run: |
-          gh release create "${{ inputs.tag }}" "savia-${{ inputs.tag }}.zip" \
-            --target "${{ github.sha }}" \
-            --title "${{ inputs.title || inputs.tag }}" \
-            --notes "${{ inputs.notes }}"
+          git archive --format=zip --prefix=savia/ -o "savia-$TAG.zip" HEAD
+          gh release create "$TAG" "savia-$TAG.zip" --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES"
