@@ -1,0 +1,171 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://scripts/game/ReplayControls.gd" type="Script" id=1]
+[ext_resource path="res://uitheme.tres" type="Theme" id=2]
+[ext_resource path="res://assets/images/branding/logo.png" type="Texture" id=3]
+
+[sub_resource type="StyleBoxFlat" id=1]
+content_margin_left = 22.0
+content_margin_right = 22.0
+content_margin_top = 16.0
+content_margin_bottom = 16.0
+bg_color = Color( 0.12549, 0.121569, 0.164706, 0.929412 )
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color( 0.286275, 0.45098, 0.980392, 0.219608 )
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color( 0, 0, 0, 0.35 )
+shadow_size = 12
+
+[sub_resource type="StyleBoxFlat" id=3]
+content_margin_left = 16.0
+content_margin_right = 16.0
+content_margin_top = 6.0
+content_margin_bottom = 6.0
+bg_color = Color( 0.65098, 0.698039, 0.8, 1 )
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+corner_detail = 6
+
+[sub_resource type="StyleBoxFlat" id=4]
+content_margin_left = 16.0
+content_margin_right = 16.0
+content_margin_top = 6.0
+content_margin_bottom = 6.0
+bg_color = Color( 0.631373, 0.72549, 0.964706, 1 )
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+corner_detail = 6
+
+[sub_resource type="StyleBoxFlat" id=2]
+content_margin_left = 16.0
+content_margin_right = 16.0
+content_margin_top = 6.0
+content_margin_bottom = 6.0
+bg_color = Color( 0.74902, 0.803922, 0.94902, 1 )
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+corner_detail = 6
+
+[sub_resource type="StyleBoxFlat" id=5]
+bg_color = Color( 0.243137, 0.207843, 0.27451, 1 )
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+corner_detail = 6
+
+[sub_resource type="StyleBoxFlat" id=6]
+bg_color = Color( 0.313726, 0.478431, 0.905882, 1 )
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+corner_detail = 6
+
+[node name="ReplayControls" type="CanvasLayer"]
+layer = 15
+script = ExtResource( 1 )
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 24.0
+margin_top = -88.0
+margin_right = -24.0
+margin_bottom = -16.0
+theme = ExtResource( 2 )
+custom_styles/panel = SubResource( 1 )
+
+[node name="Row" type="HBoxContainer" parent="Panel"]
+margin_left = 22.0
+margin_top = 16.0
+margin_right = 1210.0
+margin_bottom = 56.0
+custom_constants/separation = 18
+
+[node name="PlayButton" type="Button" parent="Panel/Row"]
+margin_right = 90.0
+margin_bottom = 40.0
+rect_min_size = Vector2( 90, 36 )
+custom_colors/font_color_focus = Color( 0.117647, 0.145098, 0.180392, 1 )
+custom_colors/font_color = Color( 0.117647, 0.141176, 0.180392, 1 )
+custom_colors/font_color_hover = Color( 0.117647, 0.133333, 0.180392, 1 )
+custom_colors/font_color_pressed = Color( 1, 1, 1, 1 )
+custom_styles/hover = SubResource( 3 )
+custom_styles/pressed = SubResource( 4 )
+custom_styles/focus = SubResource( 3 )
+custom_styles/disabled = SubResource( 2 )
+custom_styles/normal = SubResource( 2 )
+text = "Pause"
+
+[node name="ScrubSlider" type="HSlider" parent="Panel/Row"]
+margin_left = 108.0
+margin_top = 12.0
+margin_right = 984.0
+margin_bottom = 28.0
+rect_min_size = Vector2( 0, 10 )
+size_flags_horizontal = 3
+size_flags_vertical = 4
+custom_styles/slider = SubResource( 5 )
+custom_styles/grabber_area_highlight = SubResource( 6 )
+custom_styles/grabber_area = SubResource( 6 )
+max_value = 1.0
+
+[node name="SpeedBox" type="HBoxContainer" parent="Panel/Row"]
+margin_left = 1002.0
+margin_top = 10.0
+margin_right = 1188.0
+margin_bottom = 30.0
+size_flags_vertical = 4
+custom_constants/separation = 8
+
+[node name="SpeedLabel" type="Label" parent="Panel/Row/SpeedBox"]
+margin_right = 48.0
+margin_bottom = 20.0
+rect_min_size = Vector2( 48, 0 )
+custom_colors/font_color = Color( 0.74902, 0.807843, 0.94902, 1 )
+text = "1.00x"
+align = 2
+valign = 1
+
+[node name="SpeedSlider" type="HSlider" parent="Panel/Row/SpeedBox"]
+margin_left = 56.0
+margin_top = 2.0
+margin_right = 186.0
+margin_bottom = 18.0
+rect_min_size = Vector2( 130, 10 )
+size_flags_vertical = 4
+custom_styles/slider = SubResource( 5 )
+custom_styles/grabber_area_highlight = SubResource( 6 )
+custom_styles/grabber_area = SubResource( 6 )
+min_value = 0.1
+max_value = 2.0
+step = 0.05
+value = 1.0
+
+[node name="LogoButton" type="TextureButton" parent="."]
+visible = false
+anchor_top = 1.0
+anchor_bottom = 1.0
+margin_left = 24.0
+margin_top = -64.0
+margin_right = 72.0
+margin_bottom = -16.0
+rect_min_size = Vector2( 48, 48 )
+mouse_default_cursor_shape = 2
+texture_normal = ExtResource( 3 )
+expand = true
+stretch_mode = 5
