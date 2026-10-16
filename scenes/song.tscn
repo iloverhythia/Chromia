@@ -1,4 +1,4 @@
-[gd_scene load_steps=47 format=2]
+[gd_scene load_steps=48 format=2]
 
 [ext_resource path="res://scripts/game/Camera.gd" type="Script" id=1]
 [ext_resource path="res://scripts/game/NoteManager.gd" type="Script" id=2]
@@ -21,6 +21,7 @@
 [ext_resource path="res://assets/images/approach.svg" type="Texture" id=44]
 [ext_resource path="res://scripts/game/FaceNote.gd" type="Script" id=45]
 [ext_resource path="res://assets/shaders/VHS.shader" type="Shader" id=55]
+[ext_resource path="res://uitheme.tres" type="Theme" id=90]
 
 [sub_resource type="ShaderMaterial" id=84]
 shader = ExtResource( 55 )
@@ -312,7 +313,6 @@ script = ExtResource( 23 )
 
 [node name="AbsCamera" type="Camera" parent="."]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3.75 )
-current = true
 far = 500.0
 
 [node name="Camera" type="Camera" parent="."]
@@ -371,6 +371,45 @@ mesh = SubResource( 34 )
 material/0 = SubResource( 35 )
 
 [node name="HUD" parent="Game" instance=ExtResource( 5 )]
+
+[node name="LobbyScoreUI" type="CanvasLayer" parent="Game"]
+layer = 15
+visible = false
+
+[node name="Panel" type="PanelContainer" parent="Game/LobbyScoreUI"]
+self_modulate = Color( 1, 1, 1, 0.92 )
+margin_left = 16.0
+margin_top = 16.0
+margin_right = 316.0
+rect_min_size = Vector2( 300, 0 )
+theme = ExtResource( 90 )
+
+[node name="Margin" type="MarginContainer" parent="Game/LobbyScoreUI/Panel"]
+custom_constants/margin_right = 12
+custom_constants/margin_top = 10
+custom_constants/margin_left = 12
+custom_constants/margin_bottom = 10
+
+[node name="Outer" type="VBoxContainer" parent="Game/LobbyScoreUI/Panel/Margin"]
+custom_constants/separation = 8
+
+[node name="Title" type="Label" parent="Game/LobbyScoreUI/Panel/Margin/Outer"]
+custom_colors/font_color = Color( 0.65, 0.68, 0.75, 1 )
+text = "LEADERBOARD"
+
+[node name="Rows" type="VBoxContainer" parent="Game/LobbyScoreUI/Panel/Margin/Outer"]
+custom_constants/separation = 4
+
+[node name="Countdown" type="Label" parent="Game/LobbyScoreUI/Panel/Margin/Outer"]
+visible = false
+theme = ExtResource( 90 )
+custom_colors/font_color = Color( 0.65, 0.68, 0.75, 1 )
+align = 1
+
+[node name="Continue" type="Button" parent="Game/LobbyScoreUI/Panel/Margin/Outer"]
+visible = false
+theme = ExtResource( 90 )
+text = "Continue"
 
 [node name="Spawn" type="Spatial" parent="Game"]
 pause_mode = 1

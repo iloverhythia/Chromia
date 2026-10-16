@@ -77,10 +77,10 @@ margin_top = 15.0
 margin_right = 78.0
 margin_bottom = 34.0
 custom_fonts/font = SubResource( 3 )
-text = "ssp version: %s
+text = "savia version: %s
 platform: %s
 error code: %s
-https://discord.gg/ssp"
+https://discord.gg/savia"
 
 [node name="BlackFade" type="ColorRect" parent="."]
 anchor_right = 1.0

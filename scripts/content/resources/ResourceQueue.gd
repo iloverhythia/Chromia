@@ -1,12 +1,13 @@
 extends Node
-#class_name ResourceQueue
+
 
 var thread
+var thread_started: bool = false
 var mutex
 var semaphore
 var exit_thread = false
 
-var time_max = 100 # Milliseconds.
+var time_max = 100
 
 var queue = []
 var pending = {}
@@ -40,7 +41,7 @@ func queue_resource(path, p_in_front = false):
 		return OK
 	else:
 		var res = ResourceLoader.load_interactive(path)
-		if !res: return FAILED
+		if not res: return FAILED
 		res.set_meta("path", path)
 		if p_in_front:
 			queue.insert(0, res)
@@ -77,7 +78,7 @@ func is_ready(path):
 	var ret
 	_lock("is_ready")
 	if path in pending:
-		ret = !(pending[path] is ResourceInteractiveLoader)
+		ret = not (pending[path] is ResourceInteractiveLoader)
 	else:
 		ret = false
 	_unlock("is_ready")
@@ -87,10 +88,10 @@ func is_ready(path):
 func _wait_for_resource(res, path):
 	_unlock("wait_for_resource")
 	while true:
-		VisualServer.sync()
-		OS.delay_usec(16000) # Wait approximately 1 frame.
+		VisualServer. sync ()
+		OS.delay_usec(16000)
 		_lock("wait_for_resource")
-		if queue.size() == 0 || queue[0] != res:
+		if queue.size() == 0 or queue[0] != res:
 			return pending[path]
 		_unlock("wait_for_resource")
 
@@ -119,25 +120,26 @@ func get_resource(path):
 		return ResourceLoader.load(path)
 
 
-func thread_process():
-	_wait("thread_process")
-	
+func thread_process(wait_for_signal: bool = true):
+	if wait_for_signal:
+		_wait("thread_process")
+
 	_lock("process")
 	while queue.size() > 0:
 		var res = queue[0]
 		_unlock("process_poll")
 		var ret = OK
-		if !Input.is_key_pressed(KEY_P): ret = res.poll()
+		if not Input.is_key_pressed(KEY_P): ret = res.poll()
 		_lock("process_check_queue")
 
-		if ret == ERR_FILE_EOF || ret != OK:
+		if ret == ERR_FILE_EOF or ret != OK:
 			var path = res.get_meta("path")
-			if path in pending: # Else, it was already retrieved.
+			if path in pending:
 				if ret == ERR_FILE_EOF:
 					pending[res.get_meta("path")] = res.get_resource()
 				else: pending[res.get_meta("path")] = false
-			# Something might have been put at the front of the queue while
-			# we polled, so use erase instead of remove.
+
+
 			queue.erase(res)
 	_unlock("process")
 
@@ -145,7 +147,7 @@ func thread_process():
 func thread_func(_u):
 	while true:
 		mutex.lock()
-		var should_exit = exit_thread # Protect with Mutex.
+		var should_exit = exit_thread
 		mutex.unlock()
 
 		if should_exit:
@@ -157,18 +159,26 @@ func start():
 	mutex = Mutex.new()
 	semaphore = Semaphore.new()
 	thread = Thread.new()
-	thread.start(self, "thread_func", 0)
+	if OS.has_feature("HTML5"):
+		return
+	thread_started = thread.start(self, "thread_func", 0) == OK
 
-# Triggered by calling "get_tree().quit()".
+func _process(_delta):
+	if not thread_started:
+		thread_process(false)
+
+
 func _exit_tree():
+	if not thread_started or not thread.is_active():
+		return
 	mutex.lock()
-	exit_thread = true # Protect with Mutex.
+	exit_thread = true
 	mutex.unlock()
 
-	# Unblock by posting.
+
 	semaphore.post()
 
-	# Wait until it exits.
+
 	thread.wait_to_finish()
 
 func _ready(): start()

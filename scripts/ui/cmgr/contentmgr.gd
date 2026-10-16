@@ -1,7 +1,8 @@
 extends Node
 
-func set_rpc_status(state:String):
+func set_rpc_status(state: String):
 	if not OS.has_feature("Android"):
+		if OS.has_feature("HTML5"): return
 		var activity = Discord.Activity.new()
 		activity.set_type(Discord.ActivityType.Playing)
 		activity.set_details("Content Manager")
@@ -15,17 +16,17 @@ func set_rpc_status(state:String):
 func _ready():
 	get_tree().paused = false
 	$BlackFade.visible = true
-	$BlackFade.color = Color(0,0,0,black_fade)
+	$BlackFade.color = Color(0, 0, 0, black_fade)
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
-var black_fade_target:bool = false
-var black_fade:float = 1
+var black_fade_target: bool = false
+var black_fade: float = 1
 
 func _process(delta):
-	if black_fade_target && black_fade != 1:
-		black_fade = min(black_fade + (delta/0.3),1)
-		$BlackFade.color = Color(0,0,0,black_fade)
-	elif !black_fade_target && black_fade != 0:
-		black_fade = max(black_fade - (delta/0.5),0)
-		$BlackFade.color = Color(0,0,0,black_fade)
+	if black_fade_target and black_fade != 1:
+		black_fade = min(black_fade + (delta / 0.3), 1)
+		$BlackFade.color = Color(0, 0, 0, black_fade)
+	elif not black_fade_target and black_fade != 0:
+		black_fade = max(black_fade - (delta / 0.5), 0)
+		$BlackFade.color = Color(0, 0, 0, black_fade)
 	$BlackFade.visible = black_fade != 0

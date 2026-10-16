@@ -5,5 +5,4 @@ func upd():
 
 func _ready():
 	upd()
-	Rhythia.connect("mods_changed",self,"upd")
-	Rhythia.connect("speed_mod_changed",self,"upd")
+	Rhythia.connect("mods_changed", self, "upd")

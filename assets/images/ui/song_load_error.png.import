@@ -14,7 +14,7 @@ dest_files=[ "res://.import/song_load_error.png-578ac038d4e22cd0a3e64cb60c0d65a4
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/lossy_quality=0.7
 compress/hdr_mode=0
 compress/bptc_ldr=0

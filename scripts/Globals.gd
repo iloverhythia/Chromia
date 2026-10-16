@@ -63,16 +63,16 @@ enum {
 	SPEED_PPPP = 8
 }
 
-onready var speed_multi:Array = [
-	1, # normal
-	1/1.35, # ---
-	1/1.25, # --
-	1/1.15, # -
-	1.15, # +
-	1.25, # ++
-	1.35, # +++
+onready var speed_multi: Array = [
+	1,
+	1 / 1.35,
+	1 / 1.25,
+	1 / 1.15,
+	1.15,
+	1.25,
+	1.35,
 	Rhythia.custom_speed,
-	1.45, # ++++
+	1.45,
 ]
 
 enum {
@@ -138,34 +138,37 @@ enum {
 	NOTIFY_SUCCEED = 3
 }
 
-const difficulty_names:Dictionary = {
+const difficulty_names: Dictionary = {
 	-1: "N/A",
 	0: "EASY",
 	1: "MEDIUM",
 	2: "HARD",
 	3: "LOGIC?",
 	4: "助",
-#	4: "包",
 }
 
-const difficulty_colors:Dictionary = {
+const difficulty_colors: Dictionary = {
 	-1: Color("#ffffff"),
 	0: Color("#00ff00"),
 	1: Color("#ffb900"),
 	2: Color("#ff0000"),
 	3: Color("#d76aff"),
 	4: Color("#36304f"),
-#	4: Color("#00f3ff"),
 }
 
-const locale:Array = [
+const locale: Array = [
 	"en",
 	"ja",
 	"fr",
 	"es"
-]	
+]
 
-const official_map_difficulties:Dictionary = {
+const LANGUAGE_DUDE_YOUR_VOICE: int = 4
+
+func apply_language_locale(index: int):
+	TranslationServer.set_locale(locale[index] if index < locale.size() else locale[0])
+
+const official_map_difficulties: Dictionary = {
 	2078819639: 0, 3666416563: 0, 2075061500: 1, 238047242: 0, 245187339: 0, 1699595302: 0, 249267198: 0,
 	559268903: 0, 386985639: 0, 650896988: 1, 281483823: 0, 681860111: 1, 578191186: 1, 1575860312: 3,
 	1062766900: 1, 214902446: 1, 504638621: 1, 669964370: 1, 274104495: 1, 1427790366: 1, 6231292063: 1,
@@ -491,214 +494,335 @@ const official_map_difficulties:Dictionary = {
 	7607527463: 3, 6972935934: 3
 }
 
-var errornum:int = 0
-func p(path:String) -> String:
+var errornum: int = 0
+func p(path: String) -> String:
 	var base_path = "user://"
 	if OS.has_feature("Android"):
-		base_path = OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP, false) + "/" #OS.get_user_data_dir() + "/"
-	return path.replace("user://",base_path)
+		base_path = OS.get_system_dir(OS.SYSTEM_DIR_DESKTOP, false) + "/"
+	return path.replace("user://", base_path)
 
-var error_sound:AudioStream
+var error_sound: AudioStream
 
-var audioLoader:AudioLoader = AudioLoader.new()
-var imageLoader:ImageLoader = ImageLoader.new()
-var confirm_prompt:ConfirmationPrompt2D
-var string_prompt:StringPrompt2D
-var file_sel:FileSelector2D
-var notify_gui:Notify2D
+var audioLoader: AudioLoader = AudioLoader.new()
+var imageLoader: ImageLoader = ImageLoader.new()
+var confirm_prompt: ConfirmationPrompt2D
+var string_prompt: StringPrompt2D
+var file_sel: FileSelector2D
+var notify_gui: Notify2D
 
 func comma_sep(number):
 	var string = str(number)
 	var mod = string.length() % 3
 	var res = ""
 	for i in range(0, string.length()):
-		if i != 0 && i % 3 == mod:
+		if i != 0 and i % 3 == mod:
 			res += ","
 		res += string[i]
 	return res
 
 signal recurse_result
 func get_files_recursive(
-	paths:Array,
-	max_layers:int=5,
-	filter_ext:String="",
-	folders_with:String="",
-	pause_amt:int=(-1) # Outputs through the signal recurse_result if used
+	paths: Array,
+	max_layers: int = 5,
+	filter_ext: String = "",
+	folders_with: String = "",
+	pause_amt: int = (-1)
 ):
 	var a = OS.get_ticks_usec()
-	if pause_amt != -1: yield(get_tree(),"idle_frame")
-	#print("-- start recurse --")
+	if pause_amt != -1: yield(get_tree(), "idle_frame")
+
 	print(paths)
-	var dir:Directory = Directory.new()
-	
-	var files:Array = []
-	var folders:Array = []
-	
-	var subfolders:Array = []
-	var subfolders2:Array = paths
-	
+	var dir: Directory = Directory.new()
+
+	var files: Array = []
+	var folders: Array = []
+
+	var subfolders: Array = []
+	var subfolders2: Array = paths
+
 	var i = 0
 	var layer = 0
 	while subfolders2.size() != 0:
 		layer += 1
-		
+
 		if layer > max_layers:
-			#print("recursed too deep! stopping!")
+
 			break
-		
+
 		i += 1
-		if pause_amt != -1 and (pause_amt == 0 or ((i%pause_amt) == 0)):
-			yield(get_tree(),"idle_frame")
-		
-#		print("start layer %s" % layer)
+		if pause_amt != -1 and (pause_amt == 0 or ((i % pause_amt) == 0)):
+			yield(get_tree(), "idle_frame")
+
+
 		subfolders = subfolders2
 		subfolders2 = []
-		
+
 		while subfolders.size() != 0:
 			i += 1
-			if pause_amt != -1 and (pause_amt == 0 or ((i%pause_amt) == 0)):
-				yield(get_tree(),"idle_frame")
-			
-			var cpath:String = ProjectSettings.globalize_path(subfolders.pop_back().strip_edges())
+			if pause_amt != -1 and (pause_amt == 0 or ((i % pause_amt) == 0)):
+				yield(get_tree(), "idle_frame")
+
+			var cpath: String = ProjectSettings.globalize_path(subfolders.pop_back().strip_edges())
 			cpath = cpath.simplify_path()
 			var err = dir.open(cpath)
 			if err == OK:
 				err = dir.list_dir_begin(true)
 				if err == OK:
-					var n:String = dir.get_next()
-					var p:String = cpath.plus_file(n)
+					var n: String = dir.get_next()
+					var p: String = cpath.plus_file(n)
 					while n:
 						i += 1
-						if pause_amt != -1 and (pause_amt == 0 or ((i%pause_amt) == 0)):
-							yield(get_tree(),"idle_frame")
-						
+						if pause_amt != -1 and (pause_amt == 0 or ((i % pause_amt) == 0)):
+							yield(get_tree(), "idle_frame")
+
 						if folders_with != "" and n == folders_with:
 							folders.append(cpath)
-						
+
 						if dir.dir_exists(p):
 							if folders_with == "": folders.append(p)
 							subfolders2.append(p)
 						elif filter_ext == "" or p.get_extension() == filter_ext:
 							files.append(p)
-						
+
 						n = dir.get_next()
 						p = cpath.plus_file(n)
 					dir.list_dir_end()
 				else:
-					print("failed to list files in folder %s (error code %s)" % [cpath,err])
+					print("failed to list files in folder %s (error code %s)" % [cpath, err])
 			else:
-				print("failed to change to folder %s (error code %s)" % [cpath,err])
-			
-	
-	#print("-- end recurse - took %s usec --" % [Globals.comma_sep(OS.get_ticks_usec() - a)])
+				print("failed to change to folder %s (error code %s)" % [cpath, err])
+
+
+
 	if pause_amt != -1:
-		emit_signal("recurse_result",{files = files, folders = folders})
+		emit_signal("recurse_result", {files = files, folders = folders})
 	return {files = files, folders = folders}
 
-func notify(type:int,body:String,title:String="Notification",time:float=5):
-	notify_gui.notify(type,body,title,time)
+func notify(type: int, body: String, title: String = "Notification", time: float = 5):
+	notify_gui.notify(type, body, title, time)
 
-var url_regex:RegEx = RegEx.new()
-func is_valid_url(text:String):
+var url_regex: RegEx = RegEx.new()
+func is_valid_url(text: String):
 	if text == "valid": return false
-	return (url_regex.sub(text,"valid") == "valid")
+	return (url_regex.sub(text, "valid") == "valid")
 
-var fps_visible:bool = false
-var fps_disp:Label = Label.new()
+var fps_visible: bool = false
+var fps_disp: Label = Label.new()
 
-var console_open:bool = false
-var con:LineEdit
+var console_open: bool = false
+var con: LineEdit
+var _browser_storage_persist_requested: bool = false
+var _web_file_picker_target: Object = null
+var _web_file_picker_method: String = ""
+var _web_file_picker_timer: Timer = null
+var _web_file_picker_sequence: int = 0
+
+func open_web_file_picker(target: Object, method: String, accept: String):
+	if not OS.has_feature("HTML5") or not OS.has_feature("JavaScript"):
+		return ERR_UNAVAILABLE
+	if _web_file_picker_target != null:
+		return ERR_BUSY
+	_web_file_picker_target = target
+	_web_file_picker_method = method
+	JavaScript.eval("window.__saviaFilePickerReady = false; window.__saviaFilePickerBytes = null; window.__saviaFilePickerName = '';", true)
+	var picker_script := \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+	 \
+		"\n\t(function(acceptText) {\n\t\tvar input = document.getElementById('savia-device-file-picker');\n\t\tif (!input) {\n\t\t\tinput = document.createElement('input');\n\t\t\tinput.id = 'savia-device-file-picker';\n\t\t\tinput.type = 'file';\n\t\t\tinput.style.position = 'fixed';\n\t\t\tinput.style.left = '-10000px';\n\t\t\tinput.style.top = '0';\n\t\t\tdocument.body.appendChild(input);\n\t\t}\n\t\tinput.accept = acceptText;\n\t\tinput.multiple = false;\n\t\tinput.onchange = function() {\n\t\t\tvar selected = input.files && input.files.length ? input.files[0] : null;\n\t\t\tif (!selected) {\n\t\t\t\twindow.__saviaFilePickerReady = true;\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tvar reader = new FileReader();\n\t\t\treader.onload = function() {\n\t\t\t\twindow.__saviaFilePickerName = selected.name;\n\t\t\t\twindow.__saviaFilePickerBytes = new Uint8Array(reader.result);\n\t\t\t\twindow.__saviaFilePickerReady = true;\n\t\t\t};\n\t\t\treader.onerror = function() {\n\t\t\t\twindow.__saviaFilePickerReady = true;\n\t\t\t};\n\t\t\treader.readAsArrayBuffer(selected);\n\t\t};\n\t\tinput.value = '';\n\t\tinput.click();\n\t})(%s);\n\t" % JSON.print(accept)
+	JavaScript.eval(picker_script, true)
+	if _web_file_picker_timer == null:
+		_web_file_picker_timer = Timer.new()
+		_web_file_picker_timer.wait_time = 0.15
+		_web_file_picker_timer.connect("timeout", self, "_poll_web_file_picker")
+		add_child(_web_file_picker_timer)
+	_web_file_picker_timer.start()
+	return OK
+
+func _poll_web_file_picker():
+	if not JavaScript.eval("window.__saviaFilePickerReady === true", true):
+		return
+	_web_file_picker_timer.stop()
+	var filename: String = JavaScript.eval("window.__saviaFilePickerName || ''", true)
+	var bytes = JavaScript.eval("window.__saviaFilePickerBytes || new Uint8Array(0)", true)
+	JavaScript.eval("window.__saviaFilePickerReady = false; window.__saviaFilePickerBytes = null; window.__saviaFilePickerName = '';", true)
+	var target := _web_file_picker_target
+	var method := _web_file_picker_method
+	_web_file_picker_target = null
+	_web_file_picker_method = ""
+	if filename == "" or typeof(bytes) != TYPE_RAW_ARRAY:
+		if target and is_instance_valid(target):
+			target.call(method, PoolStringArray())
+		return
+	var extension := filename.get_extension().to_lower()
+	if not extension.is_valid_identifier():
+		extension = "bin"
+	_web_file_picker_sequence += 1
+	var temporary_path := "user://web_import_%d.%s" % [_web_file_picker_sequence, extension]
+	var file := File.new()
+	if file.open(Globals.p(temporary_path), File.WRITE) != OK:
+		if target and is_instance_valid(target):
+			target.call(method, PoolStringArray())
+		return
+	file.store_buffer(bytes)
+	file.close()
+	if target and is_instance_valid(target):
+		target.call(method, PoolStringArray([Globals.p(temporary_path)]))
+	var dir := Directory.new()
+	dir.remove(Globals.p(temporary_path))
 
 signal console_sent
+func _input(event):
+	if not OS.has_feature("HTML5") or not OS.has_feature("JavaScript") or _browser_storage_persist_requested:
+		return
+	var user_gesture = (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)
+	if user_gesture:
+		_browser_storage_persist_requested = true
+		JavaScript.eval( \
+		 \
+		 \
+		 \
+		 \
+		 \
+			"\n\t\t\tif (navigator.storage && navigator.storage.persist) {\n\t\t\t\tnavigator.storage.persist().then(function(persisted) {\n\t\t\t\t\tconsole.info('Savia browser storage persistence:', persisted);\n\t\t\t\t});\n\t\t\t}\n\t\t")
+
 func _process(delta):
 	notify_gui.raise()
-	
+
 	if Input.is_action_just_pressed("debug_notify"):
-		notify(NOTIFY_INFO,"This is a notification!","Debug Notify")
+		notify(NOTIFY_INFO, "This is a notification!", "Debug Notify")
 	if Input.is_action_just_pressed("console"):
-		if !console_open:
+		if not console_open:
 			console_open = true
 			con = LineEdit.new()
 			con.expand_to_text_length = true
 			con.theme = load("res://uitheme.tres")
-			con.set("custom_fonts/font",load("res://assets/font/console.tres"))
+			con.set("custom_fonts/font", load("res://assets/font/console.tres"))
 			get_parent().add_child(con)
-			con.rect_position = Vector2(5,5)
+			con.rect_position = Vector2(5, 5)
 			con.rect_size.x = 400
 			con.raise()
 			con.grab_focus()
-			
-			yield(con,"text_entered")
+
+			yield(con, "text_entered")
 			var ctxt = con.text
 			console_open = false
 			con.queue_free()
 			if ctxt.strip_edges() != "":
-				var all = ctxt.split(";",true)
+				var all = ctxt.split(";", true)
 				for txt in all:
 					txt = txt.strip_edges()
-					var cmd = txt.split(" ",true,1)[0]
-					emit_signal("console_sent",cmd,txt.trim_prefix(cmd).strip_edges())
+					var cmd = txt.split(" ", true, 1)[0]
+					emit_signal("console_sent", cmd, txt.trim_prefix(cmd).strip_edges())
 	if console_open:
 		con.raise()
 	elif fps_visible:
 		fps_disp.text = "%s fps" % Engine.get_frames_per_second()
 		fps_disp.raise()
-	
+
 	if Input.is_action_just_pressed("fps"):
-		if !fps_disp.is_inside_tree():
+		if not fps_disp.is_inside_tree():
 			rootg.add_child(fps_disp)
-		fps_visible = !fps_visible
+		fps_visible = not fps_visible
 		fps_disp.visible = fps_visible
 
-var cmdline:Dictionary = {}
+func _set_mouse_filter_ignore_recursive(node: Node):
+	if node is Control:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_set_mouse_filter_ignore_recursive(child)
+
+var cmdline: Dictionary = {}
 func _ready():
-	var thread = Thread.new()
+	var thread: Thread = null
 	Rhythia.is_init = true
-	thread.start(Rhythia,"do_init")
-	
-	var disable_intro = false
-	var file:File = File.new()
+	if OS.has_feature("HTML5"):
+		Rhythia.do_init()
+	else:
+		thread = Thread.new()
+		if thread.start(Rhythia, "do_init") != OK:
+			thread = null
+
+	var disable_intro = OS.has_feature("HTML5")
+	var file: File = File.new()
 	if file.file_exists(Globals.p("user://settings.json")):
-		var err = file.open(Globals.p("user://settings.json"),File.READ)
+		var err = file.open(Globals.p("user://settings.json"), File.READ)
 		if err != OK:
 			print("file.open failed"); return -2
 		var decode = JSON.parse(file.get_as_text())
 		file.close()
-		if !decode.error:
-			disable_intro = decode.result.has("disable_intro") and decode.result.disable_intro
-	if !disable_intro: get_tree().call_deferred("change_scene","res://scenes/Intro.tscn")
-	
+		if not decode.error:
+			disable_intro = disable_intro or (decode.result.has("disable_intro") and decode.result.disable_intro)
+	if not disable_intro:
+
+		get_tree().call_deferred("change_scene", "res://scenes/Intro.tscn")
+
 	url_regex.compile(
 		"((https?)://)[\\w\\-.]{2,256}(:\\d{1,5})?(/[\\w@:%._\\-+~&=]+)+/?"
 	)
-	
+
 	confirm_prompt = load("res://prefabs/menu/confirm.tscn").instance()
-	rootg.call_deferred("add_child",confirm_prompt)
+	rootg.call_deferred("add_child", confirm_prompt)
 
 	string_prompt = load("res://prefabs/menu/string.tscn").instance()
-	rootg.call_deferred("add_child",string_prompt)
-	
+	rootg.call_deferred("add_child", string_prompt)
+
 	file_sel = load("res://prefabs/menu/filesel.tscn").instance()
-	rootg.call_deferred("add_child",file_sel)
-	
+	rootg.call_deferred("add_child", file_sel)
+
 	notify_gui = load("res://prefabs/menu/notification_gui.tscn").instance()
-	rootg.call_deferred("add_child",notify_gui)
-	
+
+	var notify_layer = CanvasLayer.new()
+	notify_layer.layer = 100
+	_set_mouse_filter_ignore_recursive(notify_gui)
+	notify_layer.add_child(notify_gui)
+	rootg.call_deferred("add_child", notify_layer)
+
 	fps_disp.margin_left = 15
 	fps_disp.margin_top = 15
 	fps_disp.margin_right = 0
 	fps_disp.margin_bottom = 0
-	fps_disp.set("custom_fonts/font",load("res://assets/font/debug2.tres"))
-	
+	fps_disp.set("custom_fonts/font", load("res://assets/font/debug2.tres"))
+
 	for arg in OS.get_cmdline_args():
 		if arg.find("=") > -1:
 			var key_value = arg.split("=")
 			cmdline[key_value[0].lstrip("--")] = key_value[1]
 		else:
 			cmdline[arg.lstrip("--")] = ""
-	
+
 	if OS.has_feature("debug"):
-		rootg.call_deferred("add_child",fps_disp)
+		rootg.call_deferred("add_child", fps_disp)
 		fps_visible = true
-	#wait for thread
-	thread.wait_to_finish()
+	if thread != null and thread.is_active():
+		thread.wait_to_finish()

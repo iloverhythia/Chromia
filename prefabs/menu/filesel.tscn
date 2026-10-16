@@ -1,14 +1,9 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf" type="DynamicFontData" id=2]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=3]
 [ext_resource path="res://scripts/ui/FileSelector.gd" type="Script" id=4]
-[ext_resource path="res://addons/native_dialogs/bin/native_dialog_select_folder.gdns" type="Script" id=5]
-[ext_resource path="res://assets/font/NotoColorEmoji.ttf" type="DynamicFontData" id=6]
-[ext_resource path="res://addons/native_dialogs/bin/native_dialog_open_file.gdns" type="Script" id=7]
-[ext_resource path="res://addons/native_dialogs/bin/native_dialog_save_file.gdns" type="Script" id=8]
-
 
 [sub_resource type="GDScript" id=1]
 script/source = "extends Control
@@ -39,8 +34,7 @@ func _process(delta):
 size = 18
 use_filter = true
 font_data = ExtResource( 3 )
-fallback/0 = ExtResource( 6 )
-fallback/1 = ExtResource( 2 )
+fallback/0 = ExtResource( 2 )
 
 [node name="FileSelect" type="ColorRect"]
 pause_mode = 2
@@ -52,17 +46,10 @@ color = Color( 0.0980392, 0.0980392, 0.0980392, 0.705882 )
 script = ExtResource( 4 )
 
 [node name="OpenFile" type="Node" parent="."]
-script = ExtResource( 7 )
-title = "Select file"
-initial_path = "~/Downloads"
-filters = PoolStringArray( "*.png, *.jpg, *.jpeg, *.webp, *.bmp ; Image files" )
 
 [node name="SaveFile" type="Node" parent="."]
-script = ExtResource( 8 )
-title = "Save file..."
 
 [node name="Folder" type="Node" parent="."]
-script = ExtResource( 5 )
 
 [node name="Spinner" type="ReferenceRect" parent="."]
 pause_mode = 2

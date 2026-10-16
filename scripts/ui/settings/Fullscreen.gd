@@ -5,6 +5,4 @@ func _pressed():
 		OS.window_fullscreen = pressed
 
 func _ready():
-	visible = OS.has_feature("pc")
-#	OS.window_fullscreen = true
-#	pressed = true
+	visible = Rhythia.device("pc")

@@ -8,301 +8,337 @@
 
 config_version=4
 
+_global_script_class_icons={
+"NoteMesh": "",
+"NoteEffect": "",
+"GameState": "",
+"DiscordPartySize": "",
+"DiscordLobbyManager": "",
+"ColorSet": "",
+"StreamPeerUnix": "",
+"GifDecoder": "",
+"DiscordActivityTimestamps": "",
+"DanceMover": "",
+"BouncyDanceMover": "",
+"VRPlayer": "",
+"Replay": "",
+"DiscordOverlayManager": "",
+"DiscordActivityParty": "",
+"DiscordActivity": "",
+"ChatMessage": "",
+"SimpleDanceMover": "",
+"ObjParse": "",
+"Note": "",
+"NamedSound": "",
+"MomentumDanceMover": "",
+"DiscordLobbyTransaction": "",
+"DiscordActivitySecrets": "",
+"Border": "",
+"StringPrompt2D": "",
+"SongPlayerManager": "",
+"Song": "",
+"RhsImporter": "",
+"Notify2D": "",
+"FileSelector2D": "",
+"DiscordUser": "",
+"DiscordResult": "",
+"Member": "",
+"DiscordLobby": "",
+"DiscordActivityManager": "",
+"DiscordActivityAssets": "",
+"BackgroundWorld": "",
+"RhmImporter": "",
+"Registry": "",
+"NoteManager": "",
+"DiscordCore": "",
+"ConfirmationPrompt2D": "",
+"AudioLoader": "",
+"ImageLoader": "",
+"DirectionalDanceMover": ""
+}
 _global_script_classes=[ {
-"base": "Node",
 "class": "AudioLoader",
 "language": "GDScript",
-"path": "res://scripts/content/resources/AudioLoader.gd"
+"path": "res://scripts/content/resources/AudioLoader.gd",
+"base": "Node"
 }, {
-"base": "Resource",
 "class": "BackgroundWorld",
 "language": "GDScript",
-"path": "res://scripts/content/game/BackgroundWorld.gd"
+"path": "res://scripts/content/game/BackgroundWorld.gd",
+"base": "Resource"
 }, {
-"base": "DanceMover",
+"class": "Border",
+"language": "GDScript",
+"path": "res://scripts/content/game/Border.gd",
+"base": "Resource"
+}, {
 "class": "BouncyDanceMover",
 "language": "GDScript",
-"path": "res://scripts/cursordance/Bouncy.gd"
+"path": "res://scripts/cursordance/Bouncy.gd",
+"base": "DanceMover"
 }, {
-"base": "Resource",
 "class": "ChatMessage",
 "language": "GDScript",
-"path": "res://addons/discord_game_sdk/example/lobby/chat_message.gd"
+"path": "res://addons/discord_game_sdk/example/lobby/chat_message.gd",
+"base": "Resource"
 }, {
-"base": "Resource",
 "class": "ColorSet",
 "language": "GDScript",
-"path": "res://scripts/content/game/ColorSet.gd"
+"path": "res://scripts/content/game/ColorSet.gd",
+"base": "Resource"
 }, {
-"base": "ColorRect",
 "class": "ConfirmationPrompt2D",
 "language": "GDScript",
-"path": "res://scripts/ui/ConfirmationPrompt2D.gd"
+"path": "res://scripts/ui/ConfirmationPrompt2D.gd",
+"base": "ColorRect"
 }, {
-"base": "Resource",
 "class": "DanceMover",
 "language": "GDScript",
-"path": "res://scripts/cursordance/DanceMover.gd"
+"path": "res://scripts/cursordance/DanceMover.gd",
+"base": "Resource"
 }, {
-"base": "DanceMover",
 "class": "DirectionalDanceMover",
 "language": "GDScript",
-"path": "res://scripts/cursordance/Directional.gd"
+"path": "res://scripts/cursordance/Directional.gd",
+"base": "DanceMover"
 }, {
-"base": "",
 "class": "DiscordActivity",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_activity.gdns"
+"path": "res://addons/discord_game_sdk/discord_activity.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordActivityAssets",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_activity_assets.gdns"
+"path": "res://addons/discord_game_sdk/discord_activity_assets.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordActivityManager",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_activity_manager.gdns"
+"path": "res://addons/discord_game_sdk/discord_activity_manager.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordActivityParty",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_activity_party.gdns"
+"path": "res://addons/discord_game_sdk/discord_activity_party.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordActivitySecrets",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_activity_secrets.gdns"
+"path": "res://addons/discord_game_sdk/discord_activity_secrets.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordActivityTimestamps",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_activity_timestamps.gdns"
+"path": "res://addons/discord_game_sdk/discord_activity_timestamps.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordCore",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_core.gdns"
+"path": "res://addons/discord_game_sdk/discord_core.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordLobby",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_lobby.gdns"
+"path": "res://addons/discord_game_sdk/discord_lobby.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordLobbyManager",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_lobby_manager.gdns"
+"path": "res://addons/discord_game_sdk/discord_lobby_manager.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordLobbyTransaction",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_lobby_transaction.gdns"
+"path": "res://addons/discord_game_sdk/discord_lobby_transaction.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordOverlayManager",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_overlay_manager.gdns"
+"path": "res://addons/discord_game_sdk/discord_overlay_manager.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordPartySize",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_party_size.gdns"
+"path": "res://addons/discord_game_sdk/discord_party_size.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordResult",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_result.gdns"
+"path": "res://addons/discord_game_sdk/discord_result.gdns",
+"base": ""
 }, {
-"base": "",
 "class": "DiscordUser",
 "language": "NativeScript",
-"path": "res://addons/discord_game_sdk/discord_user.gdns"
+"path": "res://addons/discord_game_sdk/discord_user.gdns",
+"base": ""
 }, {
-"base": "ColorRect",
 "class": "FileSelector2D",
 "language": "GDScript",
-"path": "res://scripts/ui/FileSelector.gd"
+"path": "res://scripts/ui/FileSelector.gd",
+"base": "ColorRect"
 }, {
-"base": "Resource",
 "class": "GameState",
 "language": "GDScript",
-"path": "res://addons/discord_game_sdk/example/lobby/game_state.gd"
+"path": "res://addons/discord_game_sdk/example/lobby/game_state.gd",
+"base": "Resource"
 }, {
-"base": "Node",
+"class": "GifDecoder",
+"language": "GDScript",
+"path": "res://scripts/content/resources/GifDecoder.gd",
+"base": "Reference"
+}, {
 "class": "ImageLoader",
 "language": "GDScript",
-"path": "res://scripts/content/resources/ImageLoader.gd"
+"path": "res://scripts/content/resources/ImageLoader.gd",
+"base": "Node"
 }, {
-"base": "Resource",
 "class": "Member",
 "language": "GDScript",
-"path": "res://addons/discord_game_sdk/example/lobby/member.gd"
+"path": "res://addons/discord_game_sdk/example/lobby/member.gd",
+"base": "Resource"
 }, {
-"base": "DanceMover",
 "class": "MomentumDanceMover",
 "language": "GDScript",
-"path": "res://scripts/cursordance/Momentum.gd"
+"path": "res://scripts/cursordance/Momentum.gd",
+"base": "DanceMover"
 }, {
-"base": "Reference",
+"class": "NamedSound",
+"language": "GDScript",
+"path": "res://scripts/content/game/NamedSound.gd",
+"base": "Resource"
+}, {
 "class": "Note",
 "language": "GDScript",
-"path": "res://scripts/content/game/Note.gd"
+"path": "res://scripts/content/game/Note.gd",
+"base": "Spatial"
 }, {
-"base": "Resource",
 "class": "NoteEffect",
 "language": "GDScript",
-"path": "res://scripts/content/game/NoteEffect.gd"
+"path": "res://scripts/content/game/NoteEffect.gd",
+"base": "Resource"
 }, {
-"base": "Spatial",
 "class": "NoteManager",
 "language": "GDScript",
-"path": "res://scripts/game/NoteManager.gd"
+"path": "res://scripts/game/NoteManager.gd",
+"base": "Spatial"
 }, {
-"base": "Resource",
 "class": "NoteMesh",
 "language": "GDScript",
-"path": "res://scripts/content/game/NoteMesh.gd"
+"path": "res://scripts/content/game/NoteMesh.gd",
+"base": "Resource"
 }, {
-"base": "VBoxContainer",
 "class": "Notify2D",
 "language": "GDScript",
-"path": "res://scripts/ui/Notify2D.gd"
+"path": "res://scripts/ui/Notify2D.gd",
+"base": "VBoxContainer"
 }, {
-"base": "Reference",
 "class": "ObjParse",
 "language": "GDScript",
-"path": "res://scripts/content/resources/ObjParse.gd"
+"path": "res://scripts/content/resources/ObjParse.gd",
+"base": "Reference"
 }, {
-"base": "Resource",
 "class": "Registry",
 "language": "GDScript",
-"path": "res://scripts/content/Registry.gd"
+"path": "res://scripts/content/Registry.gd",
+"base": "Resource"
 }, {
-"base": "Resource",
 "class": "Replay",
 "language": "GDScript",
-"path": "res://scripts/content/game/Replay.gd"
+"path": "res://scripts/content/game/Replay.gd",
+"base": "Resource"
 }, {
-"base": "DanceMover",
+"class": "RhmImporter",
+"language": "GDScript",
+"path": "res://scripts/content/RhmImporter.gd",
+"base": "Node"
+}, {
+"class": "RhsImporter",
+"language": "GDScript",
+"path": "res://scripts/content/RhsImporter.gd",
+"base": "Node"
+}, {
 "class": "SimpleDanceMover",
 "language": "GDScript",
-"path": "res://scripts/cursordance/Simple.gd"
+"path": "res://scripts/cursordance/Simple.gd",
+"base": "DanceMover"
 }, {
-"base": "Resource",
 "class": "Song",
 "language": "GDScript",
-"path": "res://scripts/content/game/Song.gd"
+"path": "res://scripts/content/game/Song.gd",
+"base": "Resource"
 }, {
-"base": "Spatial",
 "class": "SongPlayerManager",
 "language": "GDScript",
-"path": "res://scripts/game/Game.gd"
+"path": "res://scripts/game/Game.gd",
+"base": "Spatial"
 }, {
-"base": "ColorRect",
+"class": "StreamPeerUnix",
+"language": "NativeScript",
+"path": "res://addons/godot-unix-socket/unix-socket.gdns",
+"base": ""
+}, {
 "class": "StringPrompt2D",
 "language": "GDScript",
-"path": "res://scripts/ui/StringPrompt2D.gd"
+"path": "res://scripts/ui/StringPrompt2D.gd",
+"base": "ColorRect"
 }, {
-"base": "Spatial",
 "class": "VRPlayer",
 "language": "GDScript",
-"path": "res://vr/VRPlayer.gd"
+"path": "res://vr/VRPlayer.gd",
+"base": "Spatial"
 } ]
-_global_script_class_icons={
-"AudioLoader": "",
-"BackgroundWorld": "",
-"BouncyDanceMover": "",
-"ChatMessage": "",
-"ColorSet": "",
-"ConfirmationPrompt2D": "",
-"DanceMover": "",
-"DirectionalDanceMover": "",
-"DiscordActivity": "",
-"DiscordActivityAssets": "",
-"DiscordActivityManager": "",
-"DiscordActivityParty": "",
-"DiscordActivitySecrets": "",
-"DiscordActivityTimestamps": "",
-"DiscordCore": "",
-"DiscordLobby": "",
-"DiscordLobbyManager": "",
-"DiscordLobbyTransaction": "",
-"DiscordOverlayManager": "",
-"DiscordPartySize": "",
-"DiscordResult": "",
-"DiscordUser": "",
-"FileSelector2D": "",
-"GameState": "",
-"ImageLoader": "",
-"Member": "",
-"MomentumDanceMover": "",
-"Note": "",
-"NoteEffect": "",
-"NoteManager": "",
-"NoteMesh": "",
-"Notify2D": "",
-"ObjParse": "",
-"Registry": "",
-"Replay": "",
-"SimpleDanceMover": "",
-"Song": "",
-"SongPlayerManager": "",
-"StringPrompt2D": "",
-"VRPlayer": ""
-}
 
 [application]
 
-config/name="Savia"
-config/description="testdesc
-"
-run/main_scene="res://scenes/init.tscn"
-config/use_custom_user_dir=true
-config/custom_user_dir_name="SoundSpacePlus"
-run/delta_sync_after_draw=true
-boot_splash/image="res://assets/images/branding/splash.png"
-boot_splash/fullsize=false
 boot_splash/bg_color=Color( 0, 0, 0, 1 )
-config/icon="res://assets/images/branding/icon.png"
-config/windows_native_icon="res://icon.ico"
-config/quit_on_go_back=false
-config/autoload_map_registries="test maps|res://test_assets/test_maps.sspmr;built in|res://content/songs/built_in_maps.sspmr"
-config/enable_new_content_mgr=true
-config/default_menu_target="res://scenes/menu/menu2.tscn"
-config/default_menu_target.mobile="res://scenes/menu/menu2.tscn"
-config/default_menu_target.editor="res://scenes/menu/menu2.tscn"
+boot_splash/fullsize=false
+boot_splash/image="res://assets/images/branding/splash.png"
 config/7zip_binary_path=""
 config/7zip_binary_path.Windows="install_dir/util/7z.exe"
 config/7zip_binary_path.X11="install_dir/util/7zz"
 config/auto_maximize=true
 config/auto_maximize.editor=false
-config/use_custom_user_dir.Android=false
-config/discord_rpc.OSX=false
-config/save_dir="user://"
-config/save_dir.Android="user://"
-config/fov=70.0
-config/enable_new_content_mgr.mobile=false
-config/discord_rpc.mobile=false
-config/replays=true
-config/replays.editor=true
-config/show_trail_debug=false
-config/project_settings_override.standalone="user://override.cfg"
-networking/enabled=true
-networking/mapdb_api="https://cdn.rhythia.net/index.json"
-networking/test_url="https://google.com"
-config/discord_rpc.HTML5=false
-config/enable_new_content_mgr.HTML5=false
+config/autoload_map_registries="test maps|res://test_assets/test_maps.sspmr;built in|res://content/songs/built_in_maps.sspmr"
+config/custom_user_dir_name="SoundSpacePlus"
+config/default_menu_target="res://scenes/menu/menu2.tscn"
+config/default_menu_target.editor="res://scenes/menu/menu2.tscn"
+config/default_menu_target.mobile="res://scenes/menu/menu2.tscn"
+config/description="testdesc
+"
 config/disable_native_file_dialogs=false
 config/disable_native_file_dialogs.Android=true
-config/disable_native_file_dialogs.web=true
 config/disable_native_file_dialogs.OSX=true
-config/is_using_controller=true
-config/discord_rpc=true
-config/discord_rpc.editor=true
-networking/github_repo="SavvyScripter-GH/savia_db"
-config/version="may29-2026-b"
+config/disable_native_file_dialogs.web=true
+config/discord_rpc=false
+config/discord_rpc.HTML5=false
+config/discord_rpc.OSX=false
+config/discord_rpc.editor=false
+config/discord_rpc.mobile=false
+config/enable_new_content_mgr=true
+config/enable_new_content_mgr.HTML5=true
+config/enable_new_content_mgr.mobile=false
+config/fov=70.0
 config/github_repo="SavvyScripter-GH/savia_db"
+config/icon="res://assets/images/branding/icon.png"
+config/is_using_controller=true
+config/name="Savia"
+config/project_settings_override.standalone="user://override.cfg"
+config/quit_on_go_back=false
+config/replays=true
+config/replays.editor=true
+config/save_dir="user://"
+config/save_dir.Android="user://"
+config/show_trail_debug=false
+config/use_custom_user_dir=true
+config/use_custom_user_dir.Android=false
+config/version="sep27-2026-web-b"
+config/windows_native_icon="res://icon.ico"
+networking/enabled=true
+networking/github_repo="SavvyScripter-GH/savia_db"
+networking/mapdb_api="https://cdn.rhythia.net/index.json"
+networking/test_url="https://google.com"
+run/delta_sync_after_draw=true
+run/main_scene="res://scenes/init.tscn"
 
 [audio]
 
@@ -311,19 +347,24 @@ channel_disable_time=15.0
 
 [autoload]
 
-Globals="*res://scripts/Globals.gd"
-Online="*res://scripts/Online.gd"
-Rhythia="*res://scripts/Savia.gd"
-RQueue="*res://scripts/content/resources/ResourceQueue.gd"
-Discord="*res://addons/discord_game_sdk/discord.gd"
 Dance="*res://scripts/cursordance/Dance.gd"
+Discord="*res://scripts/discord/DiscordBridge.gd"
+Globals="*res://scripts/Globals.gd"
+LobbyManager="*res://scripts/LobbyManager.gd"
+Online="*res://scripts/Online.gd"
+RQueue="*res://scripts/content/resources/ResourceQueue.gd"
+Rhythia="*res://scripts/Savia.gd"
 SFXManager="*res://scripts/game/SFXManager.gd"
 
 [debug]
 
-gdscript/warnings/unused_argument=false
+gdscript/warnings/integer_division=false
 gdscript/warnings/narrowing_conversion=false
+gdscript/warnings/return_value_discarded=false
+gdscript/warnings/shadowed_variable=false
+gdscript/warnings/unused_argument=false
 gdscript/warnings/unused_signal=false
+gdscript/warnings/unused_variable=false
 
 [discord_presence]
 
@@ -332,12 +373,15 @@ settings/change_time_per_screen=true
 
 [display]
 
-window/size/width=1280
-window/size/height=720
-window/vsync/use_vsync=false
+window/dpi/allow_hidpi=true
 window/handheld/orientation="sensor_landscape"
+window/size/height=720
+window/size/width=1280
+window/stretch/aspect="keep"
+window/stretch/aspect.mobile="keep_width"
+window/stretch/mode="viewport"
 window/stretch/mode.mobile="2d"
-window/stretch/aspect.mobile="keep_height"
+window/vsync/use_vsync=false
 
 [editor_plugins]
 
@@ -346,6 +390,7 @@ enabled=PoolStringArray( "res://addons/discord_game_sdk/plugin.cfg", "res://addo
 [gdnative]
 
 singletons=[ "res://addons/godot-openvr/godot_openvr.gdnlib" ]
+singletons.HTML5=PoolStringArray(  )
 
 [gui]
 
@@ -353,195 +398,159 @@ timers/tooltip_delay_sec=0.05
 
 [input]
 
-pause={
-"deadzone": 0.8,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":32,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777217,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":2,"pressure":0.0,"pressed":false,"script":null)
- ]
-}
-give_up={
-"deadzone": 0.8,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":82,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":1,"pressure":0.0,"pressed":false,"script":null)
- ]
-}
-fullscreen={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777254,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":true,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777221,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-fc_front={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":87,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":1,"axis_value":-1.0,"script":null)
- ]
-}
-fc_back={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":83,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":1,"axis_value":1.0,"script":null)
- ]
-}
-fc_left={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":65,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":0,"axis_value":-1.0,"script":null)
- ]
-}
-fc_right={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":68,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":0,"axis_value":1.0,"script":null)
- ]
-}
-fc_up={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":69,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":7,"axis_value":1.0,"script":null)
- ]
-}
-fc_down={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":81,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":6,"axis_value":1.0,"script":null)
- ]
-}
-fc_trigger={
-"deadzone": 0.5,
-"events": [ Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":2,"pressed":false,"doubleclick":false,"script":null)
- ]
-}
-debug_freecam_toggle={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":79,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-debug_enable_mouse={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":73,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-vr_switch_hands={
-"deadzone": 0.8,
-"events": [  ]
-}
-vr_click={
-"deadzone": 0.5,
-"events": [  ]
-}
-debug_notify={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":true,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":80,"unicode":0,"echo":false,"script":null)
- ]
-}
-console={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":true,"control":false,"meta":false,"command":false,"pressed":false,"scancode":92,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-fps={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777246,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-skip_convert={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":true,"meta":false,"command":true,"pressed":false,"scancode":77,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
-warning_test={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":true,"shift":true,"control":false,"meta":false,"command":false,"pressed":false,"scancode":87,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
-}
 arcw1={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":65,"unicode":0,"echo":false,"script":null)
- ]
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":65,"unicode":0,"echo":false,"script":null) ]
 }
 arcw2={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":82,"unicode":0,"echo":false,"script":null)
- ]
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":82,"unicode":0,"echo":false,"script":null) ]
 }
 arcw3={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":67,"unicode":0,"echo":false,"script":null)
- ]
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":67,"unicode":0,"echo":false,"script":null) ]
 }
 arcw4={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":87,"unicode":0,"echo":false,"script":null)
- ]
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":87,"unicode":0,"echo":false,"script":null) ]
 }
-joy_up={
-"deadzone": 0.05,
-"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":1,"axis_value":-1.0,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":3,"axis_value":-1.0,"script":null)
- ]
-}
-joy_down={
-"deadzone": 0.05,
-"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":1,"axis_value":1.0,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":3,"axis_value":1.0,"script":null)
- ]
-}
-joy_left={
-"deadzone": 0.05,
-"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":0,"axis_value":-1.0,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":2,"axis_value":-1.0,"script":null)
- ]
-}
-joy_right={
-"deadzone": 0.05,
-"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":0,"axis_value":1.0,"script":null)
-, Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":2,"axis_value":1.0,"script":null)
- ]
-}
-toggle_mouse_lock={
+console={
 "deadzone": 0.5,
-"events": [ Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":2,"pressed":false,"doubleclick":false,"script":null)
- ]
-}
-menu_click={
-"deadzone": 0.5,
-"events": [ Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":1,"pressed":false,"doubleclick":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":0,"pressure":0.0,"pressed":false,"script":null)
- ]
-}
-retry={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":96,"unicode":0,"echo":false,"script":null)
- ]
-}
-ui_quicksettings={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":true,"meta":false,"command":true,"pressed":false,"scancode":79,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":11,"pressure":0.0,"pressed":false,"script":null)
- ]
-}
-menu_quickbar={
-"deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777217,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
-, Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":10,"pressure":0.0,"pressed":false,"script":null)
- ]
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":true,"control":false,"meta":false,"command":false,"pressed":false,"scancode":92,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
 }
 debug={
 "deadzone": 0.5,
 "events": [  ]
 }
+debug_enable_mouse={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":73,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
+}
+debug_freecam_toggle={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":79,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
+}
+debug_notify={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":true,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":80,"unicode":0,"echo":false,"script":null) ]
+}
+fc_back={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":83,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":1,"axis_value":1.0,"script":null) ]
+}
+fc_down={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":81,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":6,"axis_value":1.0,"script":null) ]
+}
+fc_front={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":87,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":1,"axis_value":-1.0,"script":null) ]
+}
+fc_left={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":65,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":0,"axis_value":-1.0,"script":null) ]
+}
+fc_right={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":68,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":0,"axis_value":1.0,"script":null) ]
+}
+fc_trigger={
+"deadzone": 0.5,
+"events": [ Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":2,"pressed":false,"doubleclick":false,"script":null) ]
+}
+fc_up={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":69,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":0,"axis":7,"axis_value":1.0,"script":null) ]
+}
+fps={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777246,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
+}
+fullscreen={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777254,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":true,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777221,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
+}
+give_up={
+"deadzone": 0.8,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":82,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":1,"pressure":0.0,"pressed":false,"script":null) ]
+}
+joy_down={
+"deadzone": 0.05,
+"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":1,"axis_value":1.0,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":3,"axis_value":1.0,"script":null) ]
+}
+joy_left={
+"deadzone": 0.05,
+"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":0,"axis_value":-1.0,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":2,"axis_value":-1.0,"script":null) ]
+}
+joy_right={
+"deadzone": 0.05,
+"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":0,"axis_value":1.0,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":2,"axis_value":1.0,"script":null) ]
+}
+joy_up={
+"deadzone": 0.05,
+"events": [ Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":1,"axis_value":-1.0,"script":null), Object(InputEventJoypadMotion,"resource_local_to_scene":false,"resource_name":"","device":-1,"axis":3,"axis_value":-1.0,"script":null) ]
+}
+menu_click={
+"deadzone": 0.5,
+"events": [ Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":1,"pressed":false,"doubleclick":false,"script":null), Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":0,"pressure":0.0,"pressed":false,"script":null) ]
+}
+menu_quickbar={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777217,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":10,"pressure":0.0,"pressed":false,"script":null) ]
+}
+pause={
+"deadzone": 0.8,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":32,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777217,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":2,"pressure":0.0,"pressed":false,"script":null) ]
+}
+quit_game={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":true,"meta":false,"command":true,"pressed":false,"scancode":0,"physical_scancode":81,"unicode":0,"echo":false,"script":null) ]
+}
+retry={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":96,"unicode":0,"echo":false,"script":null) ]
+}
+skip_convert={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":true,"meta":false,"command":true,"pressed":false,"scancode":77,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
+}
+toggle_mouse_lock={
+"deadzone": 0.5,
+"events": [ Object(InputEventMouseButton,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"button_mask":0,"position":Vector2( 0, 0 ),"global_position":Vector2( 0, 0 ),"factor":1.0,"button_index":2,"pressed":false,"doubleclick":false,"script":null) ]
+}
+toggle_profile={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":0,"physical_scancode":80,"unicode":0,"echo":false,"script":null) ]
+}
+ui_quicksettings={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":true,"meta":false,"command":true,"pressed":false,"scancode":79,"physical_scancode":0,"unicode":0,"echo":false,"script":null), Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":11,"pressure":0.0,"pressed":false,"script":null) ]
+}
 volumeslider={
 "deadzone": 0.5,
-"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777240,"physical_scancode":0,"unicode":0,"echo":false,"script":null)
- ]
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":false,"shift":false,"control":false,"meta":false,"command":false,"pressed":false,"scancode":16777240,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
+}
+vr_click={
+"deadzone": 0.5,
+"events": [  ]
+}
+vr_recenter={
+"deadzone": 0.5,
+"events": [ Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":0,"button_index":16,"pressure":0.0,"pressed":false,"script":null) ]
+}
+vr_switch_hands={
+"deadzone": 0.8,
+"events": [  ]
+}
+warning_test={
+"deadzone": 0.5,
+"events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":true,"shift":true,"control":false,"meta":false,"command":false,"pressed":false,"scancode":87,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
 }
 
 [locale]
 
-translations=PoolStringArray( "res://localization/localization.csv", "res://localization/localization.en.translation", "res://localization/localization.ja.translation", "res://localization/localization.fr.translation", "res://localization/localization.es.translation" )
 locale_filter=[ 0, [ "en", "ja" ] ]
+translations=PoolStringArray( "res://localization/localization.en.translation", "res://localization/localization.ja.translation", "res://localization/localization.fr.translation", "res://localization/localization.es.translation" )
 
 [logging]
 
@@ -551,25 +560,31 @@ file_logging/max_log_files=1
 
 project/assembly_name="Rhythia"
 
+[network]
+
+limits/websocket_client/max_in_buffer_kb=4096
+limits/websocket_client/max_in_packets=4096
+limits/websocket_client/max_out_buffer_kb=4096
+limits/websocket_client/max_out_packets=4096
+
 [physics]
 
-common/physics_fps=120
 common/enable_pause_aware_picking=true
+common/physics_fps=120
 
 [rendering]
 
-quality/driver/fallback_to_gles2=true
-threads/thread_model=2
-vram_compression/import_etc=true
+2d/options/use_software_skinning=false
+environment/default_clear_color=Color( 0, 0, 0, 1 )
 quality/directional_shadow/size=1024
 quality/directional_shadow/size.mobile=512
+quality/driver/fallback_to_gles2=true
+quality/filters/anisotropic_filter_level=2
+quality/filters/msaa=1
+quality/lightmapping/use_bicubic_sampling=false
+quality/reflections/texture_array_reflections=false
 quality/shadow_atlas/size=2048
 quality/shadow_atlas/size.mobile=1024
 quality/shadows/filter_mode=0
-quality/reflections/texture_array_reflections=false
-quality/filters/anisotropic_filter_level=2
-2d/options/use_software_skinning=false
-quality/lightmapping/use_bicubic_sampling=false
-environment/default_clear_color=Color( 0, 0, 0, 1 )
-quality/filters/msaa=1
-environment/default_environment="res://default_env.tres"
+threads/thread_model=2
+vram_compression/import_etc=true

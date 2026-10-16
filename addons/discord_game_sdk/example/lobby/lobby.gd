@@ -2,7 +2,7 @@ extends Control
 
 var lobby_id_
 var secret_
-var game_state_:GameState
+var game_state_: GameState
 
 func _ready() -> void:
 	game_state_ = get_parent().game_state_
@@ -12,21 +12,21 @@ func _ready() -> void:
 	Discord.activity_manager.connect("activity_join_request", self, "activity_join_request_")
 	Discord.lobby_manager.connect("lobby_message", self, "lobby_message_")
 	Discord.lobby_manager.connect("member_connect", self, "member_connect_")
-	
+
 	var res = Discord.activity_manager.register_command("/media/sam/adffc9be-fe94-4c6b-87db-cca9cb566739/work/godot-discord/app/export/game.x86_64")
 	if res != Discord.Result.Ok:
 		push_error(res)
 
 func log_(message) -> void:
 	pass
-	#$debug.text += message + "\n"
 
-func activity_join_(secret:String) -> void:
+
+func activity_join_(secret: String) -> void:
 	var result = yield(Discord.lobby_manager.connect_lobby_with_activity_secret(secret), "result")
 	if result.result == Discord.Result.Ok:
 		lobby_id_ = result.data.get_id()
 		refresh_members(lobby_id_)
-		
+
 func refresh_members(lobby_id) -> void:
 	game_state_.members.clear()
 
@@ -36,26 +36,27 @@ func refresh_members(lobby_id) -> void:
 		member.id = user.get_id()
 		member.username = user.get_username()
 		game_state_.members[member.id] = member
-	
+
 	game_state_.emit_signal("members_changed")
-	
+
 func activity_invite_() -> void:
 	pass
 
 func activity_join_request_() -> void:
 	pass
 
-func lobby_message_(lobby_id:int, user_id:int, message:String) -> void:
+func lobby_message_(lobby_id: int, user_id: int, message: String) -> void:
 	var chat_mesasge := ChatMessage.new()
 	chat_mesasge.member_id = user_id
 	chat_mesasge.message = message
 	game_state_.chat.push_back(chat_mesasge)
 	game_state_.emit_signal("chat_changed")
 
-func member_connect_(lobby_id:int, user_id:int) -> void:
+func member_connect_(lobby_id: int, user_id: int) -> void:
 	refresh_members(lobby_id)
 
 func update_activity_() -> void:
+	if OS.has_feature("HTML5"): return
 	var activity = Discord.Activity.new()
 	activity.set_type(Discord.ActivityType.Playing)
 	activity.set_state("Reached: 2-2")
@@ -76,7 +77,7 @@ func update_activity_() -> void:
 	var result = yield(Discord.activity_manager.update_activity(activity), "result").result
 	if result != Discord.Result.Ok:
 		push_error(result)
-		
+
 	invite_to_join_()
 
 func invite_to_join_() -> void:
@@ -84,7 +85,7 @@ func invite_to_join_() -> void:
 	if result != Discord.Result.Ok:
 		push_error(result)
 
-func send_message(new_text:String):
+func send_message(new_text: String):
 	var result = yield(Discord.lobby_manager.send_lobby_message(lobby_id_, new_text), "result").result
 	if result != Discord.Result.Ok:
 		push_error(result)

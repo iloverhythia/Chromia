@@ -1,4 +1,4 @@
-[gd_scene load_steps=208 format=2]
+[gd_scene load_steps=212 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -56,7 +56,7 @@
 [ext_resource path="res://assets/images/ui/add_icon.png" type="Texture" id=54]
 [ext_resource path="res://assets/images/ui/old_menu.png" type="Texture" id=55]
 [ext_resource path="res://assets/images/ui/quit_to_desktop.png" type="Texture" id=56]
-[ext_resource path="res://addons/native_dialogs/bin/native_dialog_save_file.gdns" type="Script" id=57]
+[ext_resource path="res://scenes/menu/S.gd" type="Script" id=57]
 [ext_resource path="res://scripts/ui/menu/buttons/ExportTxt.gd" type="Script" id=58]
 [ext_resource path="res://scripts/ui/menu/StartOffset.gd" type="Script" id=59]
 [ext_resource path="res://scripts/ui/menu/buttons/ModChaos.gd" type="Script" id=60]
@@ -64,7 +64,6 @@
 [ext_resource path="res://scripts/ui/menu/GradeSystem.gd" type="Script" id=62]
 [ext_resource path="res://scripts/ui/menu/buttons/VisualMode.gd" type="Script" id=63]
 [ext_resource path="res://assets/sfx/beep.wav" type="AudioStream" id=64]
-[ext_resource path="res://assets/font/NotoColorEmoji.ttf" type="DynamicFontData" id=65]
 [ext_resource path="res://scripts/ui/menu/DownloadScreen.gd" type="Script" id=66]
 [ext_resource path="res://assets/images/ui/cloud_32.png" type="Texture" id=67]
 [ext_resource path="res://assets/images/modifiers/128/speed_mmm_dark.png" type="Texture" id=68]
@@ -106,6 +105,10 @@
 [ext_resource path="res://scenes/menu/language.tscn" type="PackedScene" id=104]
 [ext_resource path="res://scripts/ui/menu/buttons/v3MapList.gd" type="Script" id=105]
 [ext_resource path="res://scenes/menu/Strobe.gd" type="Script" id=106]
+[ext_resource path="res://assets/images/ui/text_file.png" type="Texture" id=177]
+[ext_resource path="res://prefabs/menu/update_log.tscn" type="PackedScene" id=178]
+[ext_resource path="res://scripts/ui/menu/buttons/MapXPOnly.gd" type="Script" id=179]
+[ext_resource path="res://scripts/ui/menu/buttons/ImportMap.gd" type="Script" id=210]
 
 [sub_resource type="Gradient" id=163]
 offsets = PoolRealArray( 0, 0.5, 1 )
@@ -376,6 +379,12 @@ size = 24
 use_filter = true
 font_data = ExtResource( 2 )
 
+[sub_resource type="DynamicFont" id=177]
+size = 19
+use_filter = true
+font_data = ExtResource( 2 )
+fallback/0 = ExtResource( 15 )
+
 [sub_resource type="DynamicFont" id=92]
 size = 14
 font_data = ExtResource( 2 )
@@ -600,8 +609,7 @@ font_data = ExtResource( 2 )
 [sub_resource type="DynamicFont" id=157]
 use_filter = true
 font_data = ExtResource( 2 )
-fallback/0 = ExtResource( 65 )
-fallback/1 = ExtResource( 15 )
+fallback/0 = ExtResource( 15 )
 
 [sub_resource type="GDScript" id=132]
 script/source = "extends Control
@@ -631,8 +639,7 @@ func _process(delta):
 size = 18
 use_filter = true
 font_data = ExtResource( 2 )
-fallback/0 = ExtResource( 65 )
-fallback/1 = ExtResource( 15 )
+fallback/0 = ExtResource( 15 )
 
 [sub_resource type="Gradient" id=174]
 colors = PoolColorArray( 1, 1, 1, 1, 1, 1, 1, 0 )
@@ -784,10 +791,6 @@ clip_text = true
 script = ExtResource( 58 )
 
 [node name="SaveFile" type="Node" parent="Main/Maps/Results/Results/Actions/ExportTxt"]
-script = ExtResource( 57 )
-title = "Save map data..."
-initial_path = "~/Downloads"
-filters = PoolStringArray( "*.txt ; Text files" )
 
 [node name="RS" type="VBoxContainer" parent="Main/Maps/Results/Results"]
 margin_right = 636.0
@@ -1324,6 +1327,17 @@ clip_text = true
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
+[node name="XP" type="Label" parent="Main/Maps/Results/Results/RS/H1/Info"]
+visible = false
+margin_top = 22.0
+margin_right = 405.0
+margin_bottom = 44.0
+focus_mode = 2
+size_flags_horizontal = 3
+theme = ExtResource( 1 )
+custom_fonts/font = SubResource( 98 )
+valign = 1
 
 [node name="HSeparator4" type="HSeparator" parent="Main/Maps/Results/Results/RS/H1/Info"]
 modulate = Color( 1, 1, 1, 0 )
@@ -2038,6 +2052,18 @@ theme = ExtResource( 1 )
 custom_colors/font_color = Color( 0.623529, 0.67451, 1, 1 )
 custom_fonts/font = SubResource( 106 )
 text = "MAX COMBO"
+align = 1
+valign = 1
+
+[node name="PBTime" type="Label" parent="Main/Maps/Results/Results/RS/H2/EndInfo"]
+margin_left = 70.0
+margin_top = 332.0
+margin_right = 210.0
+margin_bottom = 352.0
+focus_mode = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.623529, 0.67451, 1, 1 )
+custom_fonts/font = SubResource( 177 )
 align = 1
 valign = 1
 
@@ -3078,14 +3104,14 @@ custom_constants/separation = 7
 
 [node name="VSeparator" type="VSeparator" parent="Main/Maps/MapRegistry/T"]
 modulate = Color( 1, 1, 1, 0 )
-margin_right = 52.0
+margin_right = 36.0
 margin_bottom = 50.0
 size_flags_horizontal = 3
 
 [node name="Search" type="LineEdit" parent="Main/Maps/MapRegistry/T"]
-margin_left = 59.0
+margin_left = 43.0
 margin_top = 11.0
-margin_right = 164.0
+margin_right = 115.0
 margin_bottom = 39.0
 size_flags_horizontal = 7
 size_flags_vertical = 4
@@ -3099,9 +3125,9 @@ __meta__ = {
 }
 
 [node name="AuthorSearch" type="LineEdit" parent="Main/Maps/MapRegistry/T"]
-margin_left = 171.0
+margin_left = 122.0
 margin_top = 11.0
-margin_right = 224.0
+margin_right = 168.0
 margin_bottom = 39.0
 size_flags_horizontal = 3
 size_flags_vertical = 4
@@ -3110,10 +3136,23 @@ clear_button_enabled = true
 placeholder_text = "Author"
 script = ExtResource( 91 )
 
-[node name="Random" type="Button" parent="Main/Maps/MapRegistry/T"]
-margin_left = 231.0
+[node name="ImportMap" type="Button" parent="Main/Maps/MapRegistry/T"]
+margin_left = 175.0
 margin_top = 10.0
-margin_right = 413.0
+margin_right = 223.0
+margin_bottom = 40.0
+rect_min_size = Vector2( 0, 30 )
+hint_tooltip = "Import a map file"
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme = ExtResource( 1 )
+text = "Import"
+script = ExtResource( 210 )
+
+[node name="Random" type="Button" parent="Main/Maps/MapRegistry/T"]
+margin_left = 230.0
+margin_top = 10.0
+margin_right = 412.0
 margin_bottom = 40.0
 rect_min_size = Vector2( 0, 30 )
 size_flags_horizontal = 3
@@ -3435,9 +3474,6 @@ margin_bottom = -6.0
 texture = ExtResource( 16 )
 expand = true
 stretch_mode = 7
-__meta__ = {
-"_edit_use_anchors_": false
-}
 
 [node name="Label" type="Label" parent="Main/Maps/MapRegistry/S/VBoxContainer/MEDIUM"]
 anchor_right = 1.0
@@ -4033,10 +4069,31 @@ flat = true
 script = ExtResource( 92 )
 target = "last_search_incl_online"
 
-[node name="DiffSort" type="CheckBox" parent="Main/Maps/Filters"]
+[node name="XPOnly" type="CheckBox" parent="Main/Maps/Filters"]
 margin_top = 148.0
 margin_right = 77.0
 margin_bottom = 173.0
+rect_min_size = Vector2( 0, 25 )
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_focus = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_hover = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_pressed = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_fonts/font = SubResource( 69 )
+action_mode = 0
+text = "ranked"
+flat = true
+script = ExtResource( 179 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="DiffSort" type="CheckBox" parent="Main/Maps/Filters"]
+margin_top = 180.0
+margin_right = 77.0
+margin_bottom = 205.0
 rect_min_size = Vector2( 0, 25 )
 theme = ExtResource( 1 )
 custom_colors/font_color_disabled = Color( 0.670588, 0.556863, 0.556863, 1 )
@@ -4057,9 +4114,9 @@ __meta__ = {
 }
 
 [node name="NameSort" type="CheckBox" parent="Main/Maps/Filters"]
-margin_top = 180.0
+margin_top = 212.0
 margin_right = 77.0
-margin_bottom = 205.0
+margin_bottom = 237.0
 rect_min_size = Vector2( 0, 25 )
 theme = ExtResource( 1 )
 custom_colors/font_color_disabled = Color( 0.670588, 0.556863, 0.556863, 1 )
@@ -4080,15 +4137,15 @@ __meta__ = {
 }
 
 [node name="space" type="Control" parent="Main/Maps/Filters"]
-margin_top = 212.0
+margin_top = 244.0
 margin_right = 77.0
-margin_bottom = 212.0
+margin_bottom = 244.0
 rect_min_size = Vector2( 20, 0 )
 
 [node name="NODIF" type="Panel" parent="Main/Maps/Filters"]
-margin_top = 219.0
+margin_top = 251.0
 margin_right = 32.0
-margin_bottom = 251.0
+margin_bottom = 283.0
 rect_min_size = Vector2( 32, 32 )
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -4138,9 +4195,9 @@ group = SubResource( 67 )
 
 [node name="EASY" type="Panel" parent="Main/Maps/Filters"]
 self_modulate = Color( 0, 1, 0, 1 )
-margin_top = 258.0
+margin_top = 290.0
 margin_right = 32.0
-margin_bottom = 290.0
+margin_bottom = 322.0
 rect_min_size = Vector2( 32, 32 )
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -4188,9 +4245,9 @@ group = SubResource( 67 )
 
 [node name="MEDIUM" type="Panel" parent="Main/Maps/Filters"]
 self_modulate = Color( 1, 0.72549, 0, 1 )
-margin_top = 297.0
+margin_top = 329.0
 margin_right = 32.0
-margin_bottom = 329.0
+margin_bottom = 361.0
 rect_min_size = Vector2( 32, 32 )
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -4247,9 +4304,9 @@ __meta__ = {
 
 [node name="HARD" type="Panel" parent="Main/Maps/Filters"]
 self_modulate = Color( 1, 0, 0, 1 )
-margin_top = 336.0
+margin_top = 368.0
 margin_right = 32.0
-margin_bottom = 368.0
+margin_bottom = 400.0
 rect_min_size = Vector2( 32, 32 )
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -4306,9 +4363,9 @@ __meta__ = {
 
 [node name="LOGIC" type="Panel" parent="Main/Maps/Filters"]
 self_modulate = Color( 0.843137, 0.415686, 1, 1 )
-margin_top = 375.0
+margin_top = 407.0
 margin_right = 32.0
-margin_bottom = 407.0
+margin_bottom = 439.0
 rect_min_size = Vector2( 32, 32 )
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -4356,15 +4413,12 @@ custom_styles/disabled = SubResource( 65 )
 custom_styles/normal = SubResource( 66 )
 action_mode = 0
 group = SubResource( 67 )
-__meta__ = {
-"_edit_use_anchors_": false
-}
 
 [node name="AMOGUS" type="Panel" parent="Main/Maps/Filters"]
 self_modulate = Color( 0.211765, 0.188235, 0.309804, 1 )
-margin_top = 414.0
+margin_top = 446.0
 margin_right = 32.0
-margin_bottom = 446.0
+margin_bottom = 478.0
 rect_min_size = Vector2( 32, 32 )
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -4433,6 +4487,7 @@ margin_left = 10.0
 mouse_filter = 1
 follow_focus = true
 scroll_horizontal_enabled = false
+script = ExtResource( 57 )
 
 [node name="F" parent="Main/Settings/S" instance=ExtResource( 49 )]
 anchor_right = 0.0
@@ -4467,7 +4522,7 @@ scroll_horizontal_enabled = false
 scroll_deadzone = 45
 
 [node name="L" parent="Main/Credits/C/S" instance=ExtResource( 7 )]
-margin_bottom = 1660.0
+margin_bottom = 1600.0
 
 [node name="Content" type="ReferenceRect" parent="Main"]
 visible = false
@@ -4495,6 +4550,19 @@ __meta__ = {
 }
 
 [node name="LanguageMenu" parent="Main/Language" instance=ExtResource( 104 )]
+
+[node name="UpdateLog" type="ReferenceRect" parent="Main"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 4.0
+margin_top = 4.0
+border_color = Color( 1, 0, 0, 0 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+
+[node name="Page" parent="Main/UpdateLog" instance=ExtResource( 178 )]
 
 [node name="Quit" type="Button" parent="."]
 visible = false
@@ -4743,10 +4811,41 @@ custom_fonts/font = SubResource( 6 )
 text = "Language"
 valign = 1
 
-[node name="StartVR" type="Button" parent="Sidebar/L"]
+[node name="UpdateLog" type="Button" parent="Sidebar/L"]
 margin_top = 290.0
 margin_right = 58.0
 margin_bottom = 348.0
+rect_min_size = Vector2( 0, 58 )
+custom_styles/hover = SubResource( 4 )
+custom_styles/pressed = SubResource( 2 )
+custom_styles/focus = SubResource( 3 )
+custom_styles/disabled = SubResource( 4 )
+custom_styles/normal = SubResource( 4 )
+toggle_mode = true
+action_mode = 0
+group = SubResource( 5 )
+
+[node name="Tex" type="TextureRect" parent="Sidebar/L/UpdateLog"]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 48.0
+margin_bottom = 48.0
+texture = ExtResource( 177 )
+expand = true
+stretch_mode = 6
+
+[node name="Label" type="Label" parent="Sidebar/L/UpdateLog"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 64.0
+custom_fonts/font = SubResource( 6 )
+text = "Update Log"
+valign = 1
+
+[node name="StartVR" type="Button" parent="Sidebar/L"]
+margin_top = 348.0
+margin_right = 58.0
+margin_bottom = 406.0
 rect_min_size = Vector2( 0, 58 )
 custom_styles/hover = SubResource( 4 )
 custom_styles/pressed = SubResource( 2 )
@@ -4807,9 +4906,9 @@ text = "Switch to Old Menu"
 valign = 1
 
 [node name="Quit" type="Button" parent="Sidebar/L"]
-margin_top = 348.0
+margin_top = 406.0
 margin_right = 58.0
-margin_bottom = 406.0
+margin_bottom = 464.0
 rect_min_size = Vector2( 0, 58 )
 custom_styles/hover = SubResource( 4 )
 custom_styles/pressed = SubResource( 2 )

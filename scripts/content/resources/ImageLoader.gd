@@ -1,35 +1,35 @@
 
-#GDScriptAudioImport v0.1
 
-#MIT License
-#
-#Copyright (c) 2020 Gianclgar (Giannino Clemente) gianclgar@gmail.com
-#
-#Permission is hereby granted, free of charge, to any person obtaining a copy
-#of this software and associated documentation files (the "Software"), to deal
-#in the Software without restriction, including without limitation the rights
-#to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#copies of the Software, and to permit persons to whom the Software is
-#furnished to do so, subject to the following conditions:
-#
-#The above copyright notice and this permission notice shall be included in all
-#copies or substantial portions of the Software.
-#
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-#SOFTWARE.
 
-#I honestly don't care that much, Kopimi ftw, but it's my little baby and I want it to look nice :3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 extends Node
 class_name ImageLoader
 
 func report_errors(err, filepath):
-	# See: https://docs.godotengine.org/en/latest/classes/class_@globalscope.html#enum-globalscope-error
+
 	var result_hash = {
 		ERR_FILE_NOT_FOUND: "File: not found",
 		ERR_FILE_BAD_DRIVE: "File: Bad drive error",
@@ -49,55 +49,69 @@ func report_errors(err, filepath):
 	else:
 		print("Unknown error with file ", filepath, " error code: ", err)
 
-func get_format(bytes:PoolByteArray) -> String:
+func get_format(bytes: PoolByteArray) -> String:
 	if bytes.size() < 10: return "unknown"
-	# Figure out file format from signatures
-	# https://en.wikipedia.org/wiki/List_of_file_signatures
-	
-	if bytes.subarray(0,7) == PoolByteArray([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]): return "png"
-	if bytes.subarray(0,2) == PoolByteArray([0x42,0x4D]): return "bmp"
-	if bytes.subarray(0,2) == PoolByteArray([0xFF,0xD8,0xFF]): return "jpg"
-	if bytes.subarray(0,3) == PoolByteArray([0x52,0x49,0x46,0x46]) and bytes.subarray(8,11) == PoolByteArray([0x57,0x45,0x42,0x50]): return "webp"
-	
-	# unsupported
+
+
+
+	if bytes.subarray(0, 7) == PoolByteArray([137, 80, 78, 71, 13, 10, 26, 10]): return "png"
+	if bytes.subarray(0, 2) == PoolByteArray([66, 77]): return "bmp"
+	if bytes.subarray(0, 2) == PoolByteArray([255, 216, 255]): return "jpg"
+	if bytes.subarray(0, 3) == PoolByteArray([82, 73, 70, 70]) and bytes.subarray(8, 11) == PoolByteArray([87, 69, 66, 80]): return "webp"
+	if bytes.subarray(0, 3) == PoolByteArray([71, 73, 70, 56]): return "gif"
+
+
 	return "unknown"
 
-var error_texture:Texture = load("res://assets/images/error.jpg")
-var invalid_texture:Texture = load("res://assets/images/error2.jpg") # make the invalid texture show up instead of being treated 
+var error_texture: Texture = load("res://assets/images/error.jpg")
+var invalid_texture: Texture = load("res://assets/images/error2.jpg")
 
-func load_buffer(bytes:PoolByteArray) -> Texture:
+
+
+func load_buffer_image(bytes: PoolByteArray) -> Image:
 	var format = get_format(bytes)
-	var img:Image = Image.new()
-	
+	var img: Image = Image.new()
+
 	if format == "png": img.load_png_from_buffer(bytes)
 	elif format == "bmp": img.load_bmp_from_buffer(bytes)
 	elif format == "jpg": img.load_jpg_from_buffer(bytes)
 	elif format == "webp": img.load_webp_from_buffer(bytes)
-	else: return invalid_texture
-	
-	var imgtex:ImageTexture = ImageTexture.new()
+	elif format == "gif": return GifDecoder.decode_first_frame_image(bytes)
+	else: return null
+	return img
+
+func load_buffer(bytes: PoolByteArray) -> Texture:
+	if get_format(bytes) == "gif":
+		var anim = GifDecoder.decode_to_animated_texture(bytes)
+		return anim if anim != null else invalid_texture
+
+	var img = load_buffer_image(bytes)
+	if img == null: return invalid_texture
+
+	var imgtex: ImageTexture = ImageTexture.new()
 	imgtex.create_from_image(img)
 	return imgtex
 
-func load_file(filepath:String) -> Texture:
+func load_file(filepath: String) -> Texture:
 	var file = File.new()
 	var err = file.open(Globals.p(filepath), File.READ)
 	if err != OK:
 		report_errors(err, Globals.p(filepath))
 		file.close()
 		return error_texture
-	
-	var bytes:PoolByteArray = file.get_buffer(file.get_len())
+
+	var bytes: PoolByteArray = file.get_buffer(file.get_len())
 	file.close()
 	return load_buffer(bytes)
 
-func load_if_exists(path:String):
-	var file:File = File.new()
+func load_if_exists(path: String):
+	var file: File = File.new()
 	path = Globals.p(path)
 	if file.file_exists(path + ".png"): path += ".png"
 	elif file.file_exists(path + ".jpg"): path += ".jpg"
 	elif file.file_exists(path + ".jpeg"): path += ".jpeg"
 	elif file.file_exists(path + ".webp"): path += ".webp"
 	elif file.file_exists(path + ".bmp"): path += ".bmp"
+	elif file.file_exists(path + ".gif"): path += ".gif"
 	if file.file_exists(path): return load_file(path)
 	else: return null

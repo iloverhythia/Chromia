@@ -4,6 +4,7 @@ func _ready():
 	update_activity()
 
 func update_activity() -> void:
+	if OS.has_feature("HTML5"): return
 	var activity = Discord.Activity.new()
 	activity.set_type(Discord.ActivityType.Playing)
 	activity.set_state("market your game on Discord!!!")
@@ -14,7 +15,7 @@ func update_activity() -> void:
 	assets.set_large_text("ZONE 2 WOOO")
 	assets.set_small_image("capsule_main")
 	assets.set_small_text("ZONE 2 WOOO")
-	
+
 	var timestamps = activity.get_timestamps()
 	timestamps.set_start(OS.get_unix_time() + 100)
 	timestamps.set_end(OS.get_unix_time() + 500)

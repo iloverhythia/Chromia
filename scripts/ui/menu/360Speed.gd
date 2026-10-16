@@ -4,10 +4,13 @@ func value_changed(value):
 	Rhythia.mod_360_speed = value
 	upd_label()
 
+func on_map_selected(_map):
+	pass
+
 func _ready():
 	connect("value_changed", self, "value_changed")
 	$SpeedTextBox.connect("text_entered", self, "speed_text_entered")
-	Rhythia.connect("selected_song_changed",self,"on_map_selected")
+	Rhythia.connect("selected_song_changed", self, "on_map_selected")
 
 	min_value = -5
 	max_value = 5

@@ -14,7 +14,7 @@ dest_files=[ "res://.import/vaporwave.png-6e573d9728656130ea36278a39e03cfd.stex"
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/lossy_quality=0.7
 compress/hdr_mode=0
 compress/bptc_ldr=0

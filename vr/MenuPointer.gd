@@ -1,19 +1,37 @@
 extends Area
 
-onready var viewport:Viewport = get_node("Viewport")
+onready var viewport: Viewport = get_node("Viewport")
 export(Vector2) var size
 
-var last_screen_pos:Vector2 = Vector2(0,0)
-var active:bool = false
+var last_screen_pos: Vector2 = Vector2(0, 0)
+var active: bool = false
 
-func _input(event:InputEvent):
+func _input(event: InputEvent):
+	if event is InputEventJoypadButton:
+		var e: InputEventJoypadButton = event as InputEventJoypadButton
+		print("JoypadButton index=", e.button_index, " pressed=", e.is_pressed())
+	if event is InputEventMouseButton:
+		var e: InputEventMouseButton = event as InputEventMouseButton
+		print("MouseButton index=", e.button_index, " pressed=", e.is_pressed())
+	if event is InputEventKey:
+		var e: InputEventKey = event as InputEventKey
+		print("Key scancode=", e.scancode, " pressed=", e.is_pressed())
+
 	if active:
 		if event is InputEventKey:
 			viewport.input(event)
+		elif event is InputEventMouseButton:
+			var e: InputEventMouseButton = event as InputEventMouseButton
+			var ev: InputEventMouseButton = InputEventMouseButton.new()
+			ev.position = last_screen_pos
+			ev.button_index = e.button_index
+			ev.button_mask = e.button_mask
+			ev.pressed = e.is_pressed()
+			viewport.input(ev)
 		elif event is InputEventJoypadButton and (event as InputEventJoypadButton):
-			var e:InputEventJoypadButton = event
+			var e: InputEventJoypadButton = event
 			if e.button_index == 15:
-				var ev:InputEventMouseButton = InputEventMouseButton.new()
+				var ev: InputEventMouseButton = InputEventMouseButton.new()
 				ev.position = last_screen_pos
 				ev.button_index = BUTTON_LEFT
 				ev.button_mask = BUTTON_MASK_LEFT
@@ -23,47 +41,47 @@ func _input(event:InputEvent):
 func _process(delta):
 	active = (Rhythia.vr_player.primary_ray.is_colliding() and (Rhythia.vr_player.primary_ray.get_collider() == self))
 	if active:
-		# Cursor
+
 		var p = Rhythia.vr_player.primary_ray.get_collision_point()
-		
+
 		var lp3 = global_transform.xform_inv(p)
-		var local_pos = Vector2(lp3.x,lp3.y)
+		var local_pos = Vector2(lp3.x, lp3.y)
 		var percent = Vector2(
-			clamp((local_pos.x + (size.x/2.0)) / size.x,  0,1),
-			clamp(1.0 - ((local_pos.y + (size.y/2.0)) / size.y),  0,1)
+			clamp((local_pos.x + (size.x / 2.0)) / size.x, 0, 1),
+			clamp(1.0 - ((local_pos.y + (size.y / 2.0)) / size.y), 0, 1)
 		)
 		var screen_pos = Vector2(
 			round(percent.x * viewport.size.x),
 			round(percent.y * viewport.size.y)
 		)
 		if screen_pos != last_screen_pos:
-			var ev:InputEventMouseMotion = InputEventMouseMotion.new()
+			var ev: InputEventMouseMotion = InputEventMouseMotion.new()
 			var relative = screen_pos - last_screen_pos
 			ev.relative = relative
 			ev.speed = relative / delta
 			ev.pressure = Input.get_action_raw_strength("vr_click")
 			ev.position = screen_pos
 			ev.global_position = screen_pos
-			
+
 			viewport.input(ev)
 			last_screen_pos = screen_pos
-		
-		$Pointer.global_transform.origin = p + Vector3(0,0,0.001)
+
+		$Pointer.global_transform.origin = p + Vector3(24, 0, 0.001)
 		$PointerTrail.global_transform = $Pointer.global_transform
 		$Pointer.visible = true
 		$PointerTrail.emitting = Rhythia.cursor_trail
-		$Pointer.scale = Vector3(Rhythia.cursor_scale,Rhythia.cursor_scale,Rhythia.cursor_scale) * 0.5
-		var sc:CurveTexture = $PointerTrail.process_material.scale_curve
-		sc.curve.set_point_value(0,Rhythia.cursor_scale * 0.5)
-		
+		$Pointer.scale = Vector3(Rhythia.cursor_scale, Rhythia.cursor_scale, Rhythia.cursor_scale) * 0.5
+		var sc: CurveTexture = $PointerTrail.process_material.scale_curve
+		sc.curve.set_point_value(0, Rhythia.cursor_scale * 0.5)
+
 		var target_detail = Rhythia.trail_detail * (1 + float(Rhythia.smart_trail))
 		if $PointerTrail.amount != target_detail or $PointerTrail.lifetime != Rhythia.trail_time:
 			$PointerTrail.amount = target_detail
 			$PointerTrail.lifetime = Rhythia.trail_time
-		
+
 		if Rhythia.cursor_color_type == Globals.CURSOR_RAINBOW:
-			$Pointer.mesh.material.albedo_color = Color.from_hsv(Rhythia.rainbow_t*0.1,0.65,1)
-			$PointerTrail.draw_pass_1.material.albedo_color = Color.from_hsv(Rhythia.rainbow_t*0.1,0.65,1)
+			$Pointer.mesh.material.albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.65, 1)
+			$PointerTrail.draw_pass_1.material.albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.65, 1)
 		else:
 			$Pointer.mesh.material.albedo_color = Rhythia.cursor_color
 			$PointerTrail.draw_pass_1.material.albedo_color = Rhythia.cursor_color

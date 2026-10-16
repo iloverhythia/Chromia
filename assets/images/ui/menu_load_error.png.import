@@ -14,7 +14,7 @@ dest_files=[ "res://.import/menu_load_error.png-c8484f20ee7c29ececeaa0301a372aea
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/lossy_quality=0.7
 compress/hdr_mode=0
 compress/bptc_ldr=0
