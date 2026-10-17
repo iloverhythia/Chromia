@@ -1,4 +1,4 @@
-# Savia
-Official Savia Discord server
-https://discord.gg/Hs2E5w5N68
+# Furria
+Official Furria Discord server
+https://discord.gg/fortnite
 > "Rhyt-Rhythmia"
