@@ -674,7 +674,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e"
 ]
 
 
@@ -715,6 +715,7 @@ const VERSION_NOTES = {
 	"oct17-2026-b": "- Fixed changing the cursor/background/sounds getting stuck on \"waiting for file dialog\"\n- Online maps are in the list as soon as the menu opens",
 	"oct17-2026-c": "- Savia is now Furria! New name and icon\n- Map covers load during startup, so the map list is complete when the menu opens\n- Auto-updates only come from Furria's releases and never downgrade",
 	"oct17-2026-d": "- Added star ratings (shown next to the note count)\n- The profile you select is remembered after restarting, and settings changes save into it\n- Fixed Disable Intro Cutscene\n- Discord Rich Presence now shows Furria",
+	"oct17-2026-e": "- Fixed the game crashing on startup (Discord Rich Presence turned off for now)",
 }
 
 func _notify_latest_update(current_ver: String):
