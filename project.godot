@@ -305,7 +305,7 @@ config/default_menu_target.editor="res://scenes/menu/menu2.tscn"
 config/default_menu_target.mobile="res://scenes/menu/menu2.tscn"
 config/description="testdesc
 "
-config/disable_native_file_dialogs=false
+config/disable_native_file_dialogs=true
 config/disable_native_file_dialogs.Android=true
 config/disable_native_file_dialogs.OSX=true
 config/discord_rpc=false
@@ -328,7 +328,7 @@ config/save_dir.Android="user://"
 config/show_trail_debug=false
 config/use_custom_user_dir=true
 config/use_custom_user_dir.Android=false
-config/version="oct17-2026-a"
+config/version="oct17-2026-b"
 config/windows_native_icon="res://icon.ico"
 networking/enabled=true
 networking/github_repo="iloverhythia/savia"

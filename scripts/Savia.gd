@@ -674,7 +674,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b"
 ]
 
 
@@ -712,6 +712,7 @@ const VERSION_NOTES = {
 	"oct16-2026-a": "- Desktop release (web-only code removed)\n- Removed GUI scale setting\n- Maps load instantly",
 	"oct16-2026-b": "- Smooth map loading (maps import in the background)\n- Fixed pixelated/blurry resolution\n- Auto-updates now come from iloverhythia/savia",
 	"oct17-2026-a": "- Added a Stats page\n- Added Half Ghost Strength (Notes settings)\n- Added Hide Replay UI (Replays settings, F1 toggles it in replays)\n- Mouse pointer is visible in replays so you can use the replay bar\n- Added a setting to turn off XP notifications (Online settings)\n- GIF cursors and backgrounds no longer lag (decoded once and cached)",
+	"oct17-2026-b": "- Fixed changing the cursor/background/sounds getting stuck on \"waiting for file dialog\"\n- Online maps are in the list as soon as the menu opens",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -3840,9 +3841,14 @@ func do_init(_ud = null):
 		yield(get_tree(), "idle_frame")
 
 		if last_search_incl_online:
-			# Fetch online maps in the background; the map list refreshes when they arrive.
+			# Online maps from the last run's saved database load right away; the
+			# download then checks for new maps in the background (only the very
+			# first launch, with nothing saved yet, waits for it).
 			_online_maps_fetched = true
+			var had_cache = yield(Online.load_cached_db_maps(), "completed")
 			Online.load_db_maps()
+			if not had_cache:
+				yield(Online, "db_maps_done")
 
 	emit_signal("init_stage_num", 4)
 

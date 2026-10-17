@@ -17,7 +17,7 @@ func _pressed():
 	if new_name == "":
 		return
 	_pending_name = new_name
-	Globals.file_sel.open_file(self, "_on_file_selected", PoolStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp ; Image files"]), false)
+	Globals.file_sel.open_file(self, "_on_file_selected", PoolStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp ; Image files"]), false, OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS))
 
 func _on_file_selected(files: PoolStringArray):
 	if files.size() == 0:

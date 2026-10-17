@@ -51,6 +51,8 @@ func _ready():
 
 		$Spinner.visible = true
 		$Label.visible = true
+		$Label.text = "Waiting for file dialog...\n(click to cancel)"
+		$Label.margin_bottom = 100
 	else:
 		$C/SaveFile.connect("file_selected", self, "save_sel")
 		$C/OpenFile.connect("file_selected", self, "files_single")
@@ -65,6 +67,24 @@ func _ready():
 		$Label.visible = false
 
 
+# While a native dialog is open the game only shows "waiting for file dialog".
+# If that dialog never reports back (e.g. it opened behind a fullscreen window
+# or was closed without a result), clicking the overlay cancels.
+func _gui_input(event):
+	if use_native and visible and event is InputEventMouseButton and event.pressed:
+		_cancel()
+
+var _pending_kind: String = "open"
+
+func _cancel():
+	if target_object and target_object != self:
+		var obj = target_object
+		target_object = self
+		visible = false
+		obj.call(target_method, PoolStringArray() if _pending_kind == "open" else "")
+	else:
+		visible = false
+
 func open_file(
 	obj: Object,
 	method: String,
@@ -74,6 +94,7 @@ func open_file(
 ):
 	target_object = obj
 	target_method = method
+	_pending_kind = "open"
 
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
 
@@ -96,7 +117,7 @@ func open_file(
 			$C/OpenFile.mode = $C/OpenFile.MODE_OPEN_FILE
 			$C/OpenFile.window_title = "Select file..."
 		$C/OpenFile.show()
-		$C/OpenFile.call_deferred("set_current_dir", Globals.p(initial_path))
+		$C/OpenFile.call_deferred("set_current_dir", ProjectSettings.globalize_path(Globals.p(initial_path)))
 	visible = true
 	raise()
 
@@ -108,6 +129,7 @@ func save_file(
 ):
 	target_object = obj
 	target_method = method
+	_pending_kind = "save"
 
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
 
@@ -119,7 +141,7 @@ func save_file(
 	else:
 		$C/SaveFile.filters = filters
 		$C/SaveFile.show()
-		$C/SaveFile.call_deferred("set_current_dir", Globals.p(initial_path))
+		$C/SaveFile.call_deferred("set_current_dir", ProjectSettings.globalize_path(Globals.p(initial_path)))
 	visible = true
 	raise()
 
@@ -130,6 +152,7 @@ func open_folder(
 ):
 	target_object = obj
 	target_method = method
+	_pending_kind = "folder"
 
 	if use_native:
 		$Folder.initial_path = Globals.p(initial_path)
@@ -137,6 +160,6 @@ func open_folder(
 
 	else:
 		$C/Folder.show()
-		$C/Folder.call_deferred("set_current_dir", Globals.p(initial_path))
+		$C/Folder.call_deferred("set_current_dir", ProjectSettings.globalize_path(Globals.p(initial_path)))
 	visible = true
 	raise()

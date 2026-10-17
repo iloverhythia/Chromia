@@ -101,7 +101,7 @@ func sel(files: Array):
 func _pressed():
 	if kind != KIND.IMAGE:
 		return
-	Globals.file_sel.open_file(self, "sel", PoolStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp, *.gif ; Image files"]))
+	Globals.file_sel.open_file(self, "sel", PoolStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp, *.gif ; Image files"]), false, OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS))
 
 func _ready():
 	$Clear.connect("pressed", self, "reset_to_default")

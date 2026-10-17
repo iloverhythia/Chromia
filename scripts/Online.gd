@@ -153,6 +153,23 @@ func _migrate_legacy_cache_files():
 			continue
 		dir.rename(path, dest)
 
+# Imports the online map database saved from the last run, so online maps are
+# in the list as soon as the menu opens. Returns true if any cache was loaded.
+func load_cached_db_maps():
+	yield(get_tree(), "idle_frame")
+	_migrate_legacy_cache_files()
+	var loaded := false
+	for api_idx in range(mapdb_apis.size()):
+		var cache_file: String = Globals.p(CACHE_DIR.plus_file(".mapdb_cache_%d.json" % api_idx))
+		var file := File.new()
+		if not file.file_exists(cache_file) or file.open(cache_file, File.READ) != OK:
+			continue
+		var text := file.get_as_text()
+		file.close()
+		if yield(_import_netmaps_threaded(text), "completed"):
+			loaded = true
+	return loaded
+
 func load_db_maps():
 	yield(get_tree(), "idle_frame")
 
