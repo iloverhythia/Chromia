@@ -705,6 +705,11 @@ func read_notes() -> Array:
 			file.seek(file.get_position() + 4)
 			note_count = file.get_32()
 			file.seek(file.get_position() + 1)
+			# Each note is at least 7 bytes; a bigger count means a broken file.
+			if note_count < 0 or note_count * 7 > file.get_len():
+				print("broken sspm (note count) ", filePath)
+				file.close()
+				return []
 
 			var ct = file.get_8()
 			if ct == 1:
@@ -724,6 +729,8 @@ func read_notes() -> Array:
 
 
 			for i in range(note_count):
+				if file.eof_reached():
+					break
 				var n = [0, 0, -1]
 				n[2] = file.get_32()
 				if file.get_8() == 1:
@@ -791,13 +798,23 @@ func read_markers() -> Dictionary:
 			return markers
 
 		file.seek(112)
-		file.seek(file.get_64())
+		var marker_pos = file.get_64()
+		if marker_pos < 0 or marker_pos >= file.get_len() or marker_count < 0 or marker_count * 5 > file.get_len():
+			print("broken sspm2 (markers) ", filePath)
+			file.close()
+			return markers
+		file.seek(marker_pos)
 
 		for i in range(marker_count):
+			if file.eof_reached():
+				break
 			var m: Array = []
 			var ms = file.get_32()
 
 			var type_id = file.get_8()
+			if type_id >= mt_name.size():
+				print("broken sspm2 (marker type) ", filePath)
+				break
 			var name: String = mt_name[type_id]
 			var data: Array = mt_type[type_id]
 			m.resize(mt_size[type_id] + 1)

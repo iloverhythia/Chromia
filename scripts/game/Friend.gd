@@ -45,7 +45,7 @@ func upd():
 			return
 
 func _process(delta):
-	upd()
+	if visible: upd()
 
 func _ready():
 	for s in all_states:

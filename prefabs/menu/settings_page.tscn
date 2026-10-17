@@ -1,4 +1,4 @@
-[gd_scene load_steps=95 format=2]
+[gd_scene load_steps=98 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -68,6 +68,9 @@
 [ext_resource path="res://scripts/ui/settings/BorderGrid.gd" type="Script" id=74]
 [ext_resource path="res://scripts/ui/settings/AddBorderButton.gd" type="Script" id=75]
 [ext_resource path="res://scripts/ui/settings/HalfGhostStrength.gd" type="Script" id=76]
+[ext_resource path="res://scripts/ui/settings/TrailOpacity.gd" type="Script" id=77]
+[ext_resource path="res://scripts/ui/settings/ColorsetMaker.gd" type="Script" id=78]
+[ext_resource path="res://scripts/ui/settings/MaxFPSMode.gd" type="Script" id=79]
 
 [sub_resource type="StyleBoxLine" id=55]
 color = Color( 0.690196, 0.690196, 0.690196, 0.588235 )
@@ -1328,132 +1331,6 @@ margin_left = 66.0
 margin_right = 1280.0
 margin_bottom = 608.0
 
-[node name="ColorSet2" type="VBoxContainer" parent="TabContainer/Notes/Notes/Group/H"]
-margin_right = 1214.0
-margin_bottom = 72.0
-rect_min_size = Vector2( 200, 72 )
-size_flags_horizontal = 3
-size_flags_vertical = 9
-script = ExtResource( 69 )
-
-[node name="Label" type="Label" parent="TabContainer/Notes/Notes/Group/H/ColorSet2"]
-margin_right = 1214.0
-margin_bottom = 20.0
-focus_mode = 2
-theme = ExtResource( 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 3 )
-text = "Note Colors"
-valign = 1
-
-[node name="HSeparator" type="HSeparator" parent="TabContainer/Notes/Notes/Group/H/ColorSet2"]
-margin_top = 24.0
-margin_right = 1214.0
-margin_bottom = 28.0
-
-[node name="MarginContainer" type="MarginContainer" parent="TabContainer/Notes/Notes/Group/H/ColorSet2"]
-margin_top = 32.0
-margin_right = 1214.0
-margin_bottom = 56.0
-custom_constants/margin_top = 24
-
-[node name="ColorSet" type="GridContainer" parent="TabContainer/Notes/Notes/Group/H/ColorSet2"]
-margin_top = 60.0
-margin_right = 1214.0
-margin_bottom = 60.0
-rect_pivot_offset = Vector2( -180, -271 )
-custom_constants/vseparation = 42
-custom_constants/hseparation = 4
-columns = 8
-script = ExtResource( 29 )
-
-[node name="Color" type="Panel" parent="TabContainer/Notes/Notes/Group/H/ColorSet2/ColorSet"]
-visible = false
-margin_right = 96.0
-margin_bottom = 96.0
-rect_min_size = Vector2( 96, 96 )
-custom_styles/panel = SubResource( 33 )
-
-[node name="TextureRect" type="TextureRect" parent="TabContainer/Notes/Notes/Group/H/ColorSet2/ColorSet/Color"]
-modulate = Color( 0.501961, 0.501961, 0.501961, 1 )
-show_behind_parent = true
-material = SubResource( 43 )
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = 3.0
-margin_top = 3.0
-margin_right = -3.0
-margin_bottom = -3.0
-texture = ExtResource( 26 )
-expand = true
-__meta__ = {
-"_edit_use_anchors_": true
-}
-
-[node name="Select" type="Button" parent="TabContainer/Notes/Notes/Group/H/ColorSet2/ColorSet/Color"]
-material = SubResource( 44 )
-anchor_right = 1.0
-anchor_bottom = 1.0
-hint_tooltip = "color set"
-custom_styles/hover = SubResource( 36 )
-custom_styles/pressed = SubResource( 37 )
-custom_styles/focus = SubResource( 38 )
-custom_styles/disabled = SubResource( 37 )
-custom_styles/normal = SubResource( 40 )
-action_mode = 0
-group = SubResource( 45 )
-
-[node name="Colors" type="GridContainer" parent="TabContainer/Notes/Notes/Group/H/ColorSet2/ColorSet/Color"]
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_left = 5.0
-margin_top = 5.0
-margin_right = -5.0
-margin_bottom = -4.0
-mouse_filter = 2
-custom_constants/vseparation = 1
-custom_constants/hseparation = 1
-columns = 4
-
-[node name="T" type="ColorRect" parent="TabContainer/Notes/Notes/Group/H/ColorSet2/ColorSet/Color/Colors"]
-visible = false
-margin_right = 21.0
-margin_bottom = 86.0
-mouse_filter = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="Name" type="Label" parent="TabContainer/Notes/Notes/Group/H/ColorSet2/ColorSet/Color"]
-anchor_right = 1.0
-margin_top = -36.0
-margin_bottom = -2.0
-custom_constants/line_spacing = 0
-custom_fonts/font = SubResource( 46 )
-text = "Everybody Votes Channel"
-align = 1
-valign = 2
-autowrap = true
-clip_text = true
-
-[node name="Mirror" type="Label" parent="TabContainer/Notes/Notes/Group/H/ColorSet2/ColorSet/Color"]
-visible = false
-anchor_right = 1.0
-anchor_bottom = 1.0
-margin_right = -7.0
-margin_bottom = -6.0
-custom_constants/line_spacing = 0
-custom_fonts/font = SubResource( 47 )
-text = "M"
-align = 2
-valign = 2
-autowrap = true
-clip_text = true
-
-[node name="HSeparator2" type="HSeparator" parent="TabContainer/Notes/Notes/Group/H/ColorSet2"]
-margin_top = 64.0
-margin_right = 1214.0
-margin_bottom = 68.0
-
 [node name="Mesh" type="HBoxContainer" parent="TabContainer/Notes/Notes/Group/H"]
 margin_top = 76.0
 margin_right = 1214.0
@@ -2057,6 +1934,183 @@ margin_bottom = 668.0
 rect_min_size = Vector2( 0, 10 )
 custom_constants/separation = 30
 custom_styles/separator = SubResource( 55 )
+
+[node name="Colorsets" type="VBoxContainer" parent="TabContainer"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_top = 30.0
+custom_constants/separation = 0
+
+[node name="SEPARATOR2" type="HSeparator" parent="TabContainer/Colorsets"]
+margin_right = 1280.0
+margin_bottom = 30.0
+rect_min_size = Vector2( 0, 10 )
+custom_constants/separation = 30
+custom_styles/separator = SubResource( 55 )
+
+[node name="Colorsets" type="VBoxContainer" parent="TabContainer/Colorsets"]
+margin_top = 30.0
+margin_right = 1280.0
+margin_bottom = 638.0
+
+[node name="Group" type="MarginContainer" parent="TabContainer/Colorsets/Colorsets"]
+margin_right = 1280.0
+margin_bottom = 608.0
+mouse_filter = 1
+custom_constants/margin_left = 66
+custom_constants/margin_right = 66
+
+[node name="H" type="VBoxContainer" parent="TabContainer/Colorsets/Colorsets/Group"]
+margin_left = 66.0
+margin_right = 1214.0
+margin_bottom = 608.0
+custom_constants/separation = 8
+
+[node name="ColorsetMaker" type="VBoxContainer" parent="TabContainer/Colorsets/Colorsets/Group/H"]
+margin_right = 1148.0
+margin_bottom = 20.0
+theme = ExtResource( 1 )
+script = ExtResource( 78 )
+
+[node name="Title" type="Label" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorsetMaker"]
+margin_right = 1148.0
+margin_bottom = 20.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Colorset Maker"
+valign = 1
+
+[node name="MakerSeparator" type="HSeparator" parent="TabContainer/Colorsets/Colorsets/Group/H"]
+margin_right = 1148.0
+margin_bottom = 4.0
+
+[node name="ColorSet2" type="VBoxContainer" parent="TabContainer/Colorsets/Colorsets/Group/H"]
+margin_right = 1214.0
+margin_bottom = 72.0
+rect_min_size = Vector2( 200, 72 )
+size_flags_horizontal = 3
+size_flags_vertical = 9
+script = ExtResource( 69 )
+
+[node name="Label" type="Label" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2"]
+margin_right = 1214.0
+margin_bottom = 20.0
+focus_mode = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Note Colors"
+valign = 1
+
+[node name="HSeparator" type="HSeparator" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2"]
+margin_top = 24.0
+margin_right = 1214.0
+margin_bottom = 28.0
+
+[node name="MarginContainer" type="MarginContainer" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2"]
+margin_top = 32.0
+margin_right = 1214.0
+margin_bottom = 56.0
+custom_constants/margin_top = 24
+
+[node name="ColorSet" type="GridContainer" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2"]
+margin_top = 60.0
+margin_right = 1214.0
+margin_bottom = 60.0
+rect_pivot_offset = Vector2( -180, -271 )
+custom_constants/vseparation = 42
+custom_constants/hseparation = 4
+columns = 8
+script = ExtResource( 29 )
+
+[node name="Color" type="Panel" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet"]
+visible = false
+margin_right = 96.0
+margin_bottom = 96.0
+rect_min_size = Vector2( 96, 96 )
+custom_styles/panel = SubResource( 33 )
+
+[node name="TextureRect" type="TextureRect" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet/Color"]
+modulate = Color( 0.501961, 0.501961, 0.501961, 1 )
+show_behind_parent = true
+material = SubResource( 43 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 3.0
+margin_top = 3.0
+margin_right = -3.0
+margin_bottom = -3.0
+texture = ExtResource( 26 )
+expand = true
+__meta__ = {
+"_edit_use_anchors_": true
+}
+
+[node name="Select" type="Button" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet/Color"]
+material = SubResource( 44 )
+anchor_right = 1.0
+anchor_bottom = 1.0
+hint_tooltip = "color set"
+custom_styles/hover = SubResource( 36 )
+custom_styles/pressed = SubResource( 37 )
+custom_styles/focus = SubResource( 38 )
+custom_styles/disabled = SubResource( 37 )
+custom_styles/normal = SubResource( 40 )
+action_mode = 0
+group = SubResource( 45 )
+
+[node name="Colors" type="GridContainer" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet/Color"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 5.0
+margin_top = 5.0
+margin_right = -5.0
+margin_bottom = -4.0
+mouse_filter = 2
+custom_constants/vseparation = 1
+custom_constants/hseparation = 1
+columns = 4
+
+[node name="T" type="ColorRect" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet/Color/Colors"]
+visible = false
+margin_right = 21.0
+margin_bottom = 86.0
+mouse_filter = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Name" type="Label" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet/Color"]
+anchor_right = 1.0
+margin_top = -36.0
+margin_bottom = -2.0
+custom_constants/line_spacing = 0
+custom_fonts/font = SubResource( 46 )
+text = "Everybody Votes Channel"
+align = 1
+valign = 2
+autowrap = true
+clip_text = true
+
+[node name="Mirror" type="Label" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet/Color"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_right = -7.0
+margin_bottom = -6.0
+custom_constants/line_spacing = 0
+custom_fonts/font = SubResource( 47 )
+text = "M"
+align = 2
+valign = 2
+autowrap = true
+clip_text = true
+
+[node name="HSeparator2" type="HSeparator" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2"]
+margin_top = 64.0
+margin_right = 1214.0
+margin_bottom = 68.0
 
 [node name="World & Cursor" type="VBoxContainer" parent="TabContainer"]
 visible = false
@@ -2697,6 +2751,37 @@ theme = ExtResource( 1 )
 custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
 custom_fonts/font = SubResource( 3 )
 text = "Trail Time"
+align = 2
+valign = 1
+
+[node name="TrailOpacity" type="HBoxContainer" parent="TabContainer/World & Cursor/Cursor/Group/H"]
+margin_right = 316.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 100%] how see-through the cursor trail is (0% = invisible)"
+
+[node name="TrailOpacity" type="SpinBox" parent="TabContainer/World & Cursor/Cursor/Group/H/TrailOpacity"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 100%] how see-through the cursor trail is (0% = invisible)"
+focus_mode = 2
+theme = ExtResource( 1 )
+max_value = 100.0
+step = 5.0
+value = 100.0
+suffix = "%"
+script = ExtResource( 77 )
+
+[node name="Label" type="Label" parent="TabContainer/World & Cursor/Cursor/Group/H/TrailOpacity"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 300.0
+margin_bottom = 26.0
+focus_mode = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Trail Opacity"
 align = 2
 valign = 1
 
@@ -4852,6 +4937,24 @@ action_mode = 0
 text = "Vsync"
 flat = true
 script = ExtResource( 23 )
+
+[node name="MaxFPSMode" type="CheckBox" parent="TabContainer/Video & Audio/Graphics/Group/H"]
+margin_right = 269.0
+margin_bottom = 28.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "highest possible frame rate: removes the FPS cap and turns off VSync and anti-aliasing (MSAA)"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Max FPS mode"
+flat = true
+script = ExtResource( 79 )
 
 [node name="Fullscreen" type="CheckBox" parent="TabContainer/Video & Audio/Graphics/Group/H"]
 margin_top = 32.0

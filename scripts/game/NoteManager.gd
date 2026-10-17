@@ -80,7 +80,7 @@ func note_reposition(i: int):
 	var current_dist: float = approachSpeed * current_offset_ms / 1000
 
 	if (
-		(current_dist <= Rhythia.get("spawn_distance") and current_dist >= (grid_pushback * -1) and sign(approachSpeed) == 1) or
+		(current_dist <= _f_spawn_dist and current_dist >= (grid_pushback * -1) and sign(approachSpeed) == 1) or
 		(current_dist >= -50 and current_dist <= 0.1 and sign(approachSpeed) == -1) or
 		sign(approachSpeed) == 0
 	) and state == Globals.NSTATE_ACTIVE:
@@ -94,19 +94,19 @@ func note_reposition(i: int):
 		nt.origin.z = -current_dist
 
 
-		var spawn_effect_t = 1 - clamp(4 * (Rhythia.spawn_distance - current_dist) / Rhythia.spawn_distance, 0, 1)
-		if Rhythia.note_spawn_effect:
-			$SpawnEffect.multimesh.set_instance_color(i - current_note, Color(col.r, col.g, col.b, col.a))
+		if _f_spawn_effect:
+			var spawn_effect_t = 1 - clamp(4 * (_f_spawn_dist - current_dist) / _f_spawn_dist, 0, 1)
+			_n_spawn.multimesh.set_instance_color(i - current_note, Color(col.r, col.g, col.b, col.a))
 			if spawn_effect_t != 0:
 				var effect_transform = Transform.IDENTITY
 				effect_transform.origin = nt.origin
 				effect_transform.basis = effect_transform.basis.scaled(Vector3.ONE * 1 * Rhythia.note_size)
 				effect_transform.basis = effect_transform.basis.scaled(Vector3(1 * spawn_effect_t, 0.9 + (0.1 * spawn_effect_t), 1))
 				effect_transform.basis = effect_transform.basis.rotated(Vector3(1, 0, 0), deg2rad(90))
-				$SpawnEffect.multimesh.set_instance_transform(i - current_note, effect_transform)
-			else: $SpawnEffect.multimesh.set_instance_transform(i - current_note, Transform.IDENTITY.scaled(Vector3.ZERO))
+				_n_spawn.multimesh.set_instance_transform(i - current_note, effect_transform)
+			else: _n_spawn.multimesh.set_instance_transform(i - current_note, Transform.IDENTITY.scaled(Vector3.ZERO))
 
-		if Rhythia.mod_360 or Rhythia.mod_chaos or Rhythia.mod_earthquake:
+		if _f_any_offset_mod:
 			var base_pos = real_position
 			var base_z = nt.origin.z
 			if Rhythia.mod_360:
@@ -123,9 +123,9 @@ func note_reposition(i: int):
 
 		if Rhythia.mod_strobe:
 			if int(ms) % 500 > 250:
-				$Notes.visible = false
+				_n_notes.visible = false
 			else:
-				$Notes.visible = true
+				_n_notes.visible = true
 
 
 
@@ -136,27 +136,26 @@ func note_reposition(i: int):
 
 
 
-		nt.basis = nt.basis.rotated(Vector3(1, 0, 0), Rhythia.note_spin_x / 2000)
-		nt.basis = nt.basis.rotated(Vector3(0, 1, 0), Rhythia.note_spin_y / 2000)
-		nt.basis = nt.basis.rotated(Vector3(0, 0, 1), Rhythia.note_spin_z / 2000)
+		if _f_spin:
+			nt.basis = _f_spin_basis * nt.basis
 
-		var alpha: float = Rhythia.note_opacity
+		var alpha: float = _f_opacity
 		var fade_in: float = 1
 		var fade_out: float = 1
 
 		if fade_in_enabled or fade_out_enabled:
 			if fade_in_enabled:
-				fade_in = (pow(linstep(fade_in_start, fade_in_end, current_dist), 1.3)) * Rhythia.note_opacity
+				fade_in = (pow(linstep(fade_in_start, fade_in_end, current_dist), 1.3)) * _f_opacity
 			if fade_out_enabled:
-				fade_out = ((1 - fade_out_base) + (pow(linstep(fade_out_end, fade_out_start, current_dist), 1.3) * fade_out_base)) * Rhythia.note_opacity
+				fade_out = ((1 - fade_out_base) + (pow(linstep(fade_out_end, fade_out_start, current_dist), 1.3) * fade_out_base)) * _f_opacity
 
 			alpha = min(fade_in, fade_out)
 
 
-		$Notes.multimesh.set_instance_transform(i - current_note, nt)
-		$Notes.multimesh.set_instance_color(i - current_note, Color(col.r, col.g, col.b, col.a * alpha))
+		_n_notes.multimesh.set_instance_transform(i - current_note, nt)
+		_n_notes.multimesh.set_instance_color(i - current_note, Color(col.r, col.g, col.b, col.a * alpha))
 		if asq:
-			var sc = (linstep(0, Rhythia.get("spawn_distance"), current_dist) + 0.6) * 0.4
+			var sc = (linstep(0, _f_spawn_dist, current_dist) + 0.6) * 0.4
 
 			var at = Transform()
 			at = at.scaled(Vector3(sc, sc, sc))
@@ -164,24 +163,24 @@ func note_reposition(i: int):
 			if not Rhythia.visual_approach_follow:
 				at.origin.z = 0
 
-			$ASq.multimesh.set_instance_transform(i - current_note, at)
-			if Rhythia.mod_ghost:
-				$ASq.multimesh.set_instance_color(i - current_note, Color(1, 1, 1, 1 * alpha))
+			_n_asq.multimesh.set_instance_transform(i - current_note, at)
+			if _f_ghost:
+				_n_asq.multimesh.set_instance_color(i - current_note, Color(1, 1, 1, 1 * alpha))
 			else:
-				$ASq.multimesh.set_instance_color(i - current_note, Color(1, 1, 1, pow(linstep(Rhythia.get("spawn_distance"), 0, current_dist), 1.7)))
+				_n_asq.multimesh.set_instance_color(i - current_note, Color(1, 1, 1, pow(linstep(_f_spawn_dist, 0, current_dist), 1.7)))
 
 
 
 		return true
 	else:
-		$Notes.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
-		$Notes.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
+		_n_notes.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
+		_n_notes.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
 		if asq:
-			$ASq.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
-			$ASq.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
-		if Rhythia.note_spawn_effect:
-			$SpawnEffect.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
-			$SpawnEffect.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
+			_n_asq.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
+			_n_asq.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
+		if _f_spawn_effect:
+			_n_spawn.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
+			_n_spawn.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
 
 
 
@@ -195,8 +194,8 @@ func note_check_collision(i: int):
 	if Rhythia.replaying and Rhythia.replay.sv != 1:
 		return Rhythia.replay.should_hit(i)
 
-	var cursor_world_pos = $Cursor.global_transform.origin
-	var local_cpos = $Notes.to_local(cursor_world_pos)
+	var cursor_world_pos = _n_cursor.global_transform.origin
+	var local_cpos = _n_notes.to_local(cursor_world_pos)
 
 	var hbs: float = Rhythia.note_hitbox_size / 2
 	if hbs == 0.57: hbs = 0.56875
@@ -211,24 +210,51 @@ func note_check_collision(i: int):
 		(local_cpos.y <= target_pos.y + hbs and local_cpos.y >= target_pos.y - hbs)
 
 var asq = Rhythia.note_visual_approach
+
+# Cached once (nodes) and once per frame (settings) instead of per note.
+onready var _n_notes = $Notes
+onready var _n_asq = $ASq
+onready var _n_spawn = $SpawnEffect
+onready var _n_cursor = $Cursor
+onready var _n_label = $Label
+onready var _n_music = $Music
+onready var _lobby_manager = get_node_or_null("/root/LobbyManager")
+var _f_spawn_dist: float = 40.0
+var _f_spawn_effect: bool = false
+var _f_opacity: float = 1.0
+var _f_any_offset_mod: bool = false
+var _f_spin: bool = false
+var _f_spin_basis: Basis = Basis()
+var _f_ghost: bool = false
+
+func _cache_frame_settings():
+	_f_spawn_dist = Rhythia.get("spawn_distance")
+	_f_spawn_effect = Rhythia.note_spawn_effect
+	_f_opacity = Rhythia.note_opacity
+	_f_any_offset_mod = Rhythia.mod_360 or Rhythia.mod_chaos or Rhythia.mod_earthquake
+	_f_ghost = Rhythia.mod_ghost
+	_f_spin = Rhythia.note_spin_x != 0 or Rhythia.note_spin_y != 0 or Rhythia.note_spin_z != 0
+	if _f_spin:
+		_f_spin_basis = Basis().rotated(Vector3(1, 0, 0), Rhythia.note_spin_x / 2000).rotated(Vector3(0, 1, 0), Rhythia.note_spin_y / 2000).rotated(Vector3(0, 0, 1), Rhythia.note_spin_z / 2000)
 var last_reposition_ms: float = -10000
 var out_of_notes: bool = false
 func reposition_notes(force: bool = false, rerun_start: int = -1):
 	if Rhythia.mod_360:
-		$Notes.translation = Vector3(1, -1, 0)
-		$Notes.rotation.z = ms * (Rhythia.mod_360_speed * 0.0006)
+		_n_notes.translation = Vector3(1, -1, 0)
+		_n_notes.rotation.z = ms * (Rhythia.mod_360_speed * 0.0006)
 	else:
-		$Notes.rotation.z = 0
-		$Notes.translation = Vector3.ZERO
+		_n_notes.rotation.z = 0
+		_n_notes.translation = Vector3.ZERO
 
 	var rerun_required: bool = false
-	$Label.text = ""
+	if _n_label.text != "": _n_label.text = ""
+	_cache_frame_settings()
 
 	if current_note == notes.size():
 
-		$Notes.multimesh.visible_instance_count = 0
-		if asq: $ASq.multimesh.visible_instance_count = 0
-		if Rhythia.note_spawn_effect: $SpawnEffect.multimesh.visible_instance_count = 0
+		_n_notes.multimesh.visible_instance_count = 0
+		if asq: _n_asq.multimesh.visible_instance_count = 0
+		if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = 0
 		out_of_notes = true
 		return false
 
@@ -259,19 +285,19 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 		else:
 			if note_reposition(i) == false:
 
-				$Notes.multimesh.visible_instance_count = i - current_note + 1
-				if asq: $ASq.multimesh.visible_instance_count = i - current_note + 1
-				if Rhythia.note_spawn_effect: $SpawnEffect.multimesh.visible_instance_count = i - current_note
+				_n_notes.multimesh.visible_instance_count = i - current_note + 1
+				if asq: _n_asq.multimesh.visible_instance_count = i - current_note + 1
+				if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = i - current_note
 				if ms < notems:
 
 					if notes[i][2] == Globals.NSTATE_ACTIVE:
 						return note_passed
 
-		if (i - current_note + 2) > $Notes.multimesh.instance_count:
+		if (i - current_note + 2) > _n_notes.multimesh.instance_count:
 			rerun_required = true
-			$Notes.multimesh.instance_count = min($Notes.multimesh.instance_count + 10, notes.size())
-			if asq: $ASq.multimesh.instance_count = $Notes.multimesh.instance_count
-			if Rhythia.note_spawn_effect: $SpawnEffect.multimesh.instance_count = $Notes.multimesh.instance_count
+			_n_notes.multimesh.instance_count = min(_n_notes.multimesh.instance_count + 10, notes.size())
+			if asq: _n_asq.multimesh.instance_count = _n_notes.multimesh.instance_count
+			if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = _n_notes.multimesh.instance_count
 			break
 
 		if ms < notems and is_first:
@@ -313,8 +339,8 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				if Rhythia.play_hit_snd and not spectating_now:
 					SFXManager.play_hitsfx(notes[i][5])
 				var pos: Vector3 = Vector3(
-					$Cursor.global_transform.origin.x,
-					$Cursor.global_transform.origin.y,
+					_n_cursor.global_transform.origin.x,
+					_n_cursor.global_transform.origin.y,
 					0.002
 				)
 				if false and not Rhythia.visual_mode:
@@ -334,9 +360,9 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 			current_note = i + 1
 
-	$Notes.multimesh.visible_instance_count = notes.size() - current_note
-	if asq: $ASq.multimesh.visible_instance_count = notes.size() - current_note
-	if Rhythia.note_spawn_effect: $SpawnEffect.multimesh.instance_count = notes.size() - current_note
+	_n_notes.multimesh.visible_instance_count = notes.size() - current_note
+	if asq: _n_asq.multimesh.visible_instance_count = notes.size() - current_note
+	if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = notes.size() - current_note
 
 	if rerun_required: reposition_notes()
 	return note_passed
@@ -395,9 +421,9 @@ func spawn_notes(note_array: Array):
 
 	var last_ms = note_array[-1][2]
 	var inst_count = max(35, ceil(10000 * (float(notes.size()) / float(last_ms))))
-	$Notes.multimesh.instance_count = inst_count
+	_n_notes.multimesh.instance_count = inst_count
 	if asq:
-		$ASq.multimesh.instance_count = inst_count
+		_n_asq.multimesh.instance_count = inst_count
 
 	notes_loaded = true
 	call_deferred("reposition_notes", true)
@@ -410,7 +436,7 @@ func _on_networked_skip(target_ms: float):
 	emit_signal("ms_change", ms)
 	do_note_queue()
 	if (ms + Rhythia.music_offset) >= Rhythia.start_offset:
-		$Music.play((ms + Rhythia.music_offset) / 1000)
+		_n_music.play((ms + Rhythia.music_offset) / 1000)
 		music_started = true
 
 func _ready():
@@ -429,7 +455,7 @@ func _ready():
 		hit_window = hit_window * 0.8
 
 	$Note.speed_multi = speed_multi
-	$Music.pitch_scale = speed_multi * replay_view_speed
+	_n_music.pitch_scale = speed_multi * replay_view_speed
 	var border_tex = Rhythia.get_selected_border_texture()
 	if border_tex != null:
 		$Outer.get("material/0").albedo_texture = border_tex
@@ -478,20 +504,20 @@ func _ready():
 			fade_in_end = Rhythia.get("spawn_distance") * (1.0 - Rhythia.get("fade_length"))
 
 
-	$Notes.multimesh = MultiMesh.new()
-	$Notes.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	$Notes.multimesh.color_format = MultiMesh.COLOR_FLOAT
-	$Notes.multimesh.instance_count = 1
+	_n_notes.multimesh = MultiMesh.new()
+	_n_notes.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	_n_notes.multimesh.color_format = MultiMesh.COLOR_FLOAT
+	_n_notes.multimesh.instance_count = 1
 	if asq:
-		$ASq.multimesh = MultiMesh.new()
-		$ASq.multimesh.transform_format = MultiMesh.TRANSFORM_3D
-		$ASq.multimesh.color_format = MultiMesh.COLOR_8BIT
-		$ASq.multimesh.mesh = QuadMesh.new()
-		$ASq.multimesh.mesh.size = Vector2(3.35, 3.35)
-		$ASq.multimesh.mesh.surface_set_material(0, asq_mat)
-		$ASq.multimesh.instance_count = 1
+		_n_asq.multimesh = MultiMesh.new()
+		_n_asq.multimesh.transform_format = MultiMesh.TRANSFORM_3D
+		_n_asq.multimesh.color_format = MultiMesh.COLOR_8BIT
+		_n_asq.multimesh.mesh = QuadMesh.new()
+		_n_asq.multimesh.mesh.size = Vector2(3.35, 3.35)
+		_n_asq.multimesh.mesh.surface_set_material(0, asq_mat)
+		_n_asq.multimesh.instance_count = 1
 	else:
-		$ASq.visible = false
+		_n_asq.visible = false
 
 
 	var mesh: Mesh
@@ -518,20 +544,20 @@ func _ready():
 	if mesh.get_surface_count() > 2:
 		mesh.surface_set_material(2, note_solid_mat)
 
-	$Notes.multimesh.mesh = mesh
+	_n_notes.multimesh.mesh = mesh
 
 
 
 
 	yield(get_tree(), "idle_frame")
-	$Notes.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
-	$Notes.multimesh.set_instance_transform(0, Transform())
+	_n_notes.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
+	_n_notes.multimesh.set_instance_transform(0, Transform())
 	if asq:
-		$ASq.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
-		$ASq.multimesh.set_instance_transform(0, Transform())
+		_n_asq.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
+		_n_asq.multimesh.set_instance_transform(0, Transform())
 	if Rhythia.note_spawn_effect:
-		$SpawnEffect.multimesh.set_instance_transform(0, Transform(Basis(), Vector3(0, 0, 10)))
-		$SpawnEffect.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
+		_n_spawn.multimesh.set_instance_transform(0, Transform(Basis(), Vector3(0, 0, 10)))
+		_n_spawn.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
 	$Note.visible = true
 	$Note.transform.origin = Vector3(0, 0, -400)
 	yield(get_tree(), "idle_frame")
@@ -559,7 +585,7 @@ func do_half_lock():
 	if Grid.spectating and Grid.spectate_cursor != null:
 		cursorpos = Grid.spectate_cursor.transform.origin
 	else:
-		cursorpos = $Cursor.transform.origin
+		cursorpos = _n_cursor.transform.origin
 		if Rhythia.follow_drift_cursor:
 			cursorpos += $Cursor/Mesh2.transform.origin
 	var centeroff = cursorpos - cursor_offset
@@ -668,15 +694,15 @@ var replay_view_speed: float = 1.0
 func set_replay_view_speed(v: float):
 	replay_view_speed = v
 	if Rhythia.replaying:
-		$Music.pitch_scale = speed_multi * replay_view_speed
+		_n_music.pitch_scale = speed_multi * replay_view_speed
 
 func set_viewer_paused(p: bool):
 	viewer_paused = p
 	if not Rhythia.replaying: return
 	if p:
-		$Music.stop()
+		_n_music.stop()
 	elif (ms + Rhythia.music_offset) >= Rhythia.start_offset:
-		$Music.play((ms + Rhythia.music_offset) / 1000.0)
+		_n_music.play((ms + Rhythia.music_offset) / 1000.0)
 		music_started = true
 
 func _first_note_index_after(target_ms: float) -> int:
@@ -739,14 +765,14 @@ func seek_to_rms(target_rms: float):
 
 	emit_signal("ms_change", ms)
 	emit_signal("timer_update", ms, false)
-	$Music.stop()
+	_n_music.stop()
 	music_started = false
 
 	last_reposition_ms = -10000
 	reposition_notes(true)
 
 func _set_rec_interval(delta: float):
-	var newpos = $Cursor.transform.origin
+	var newpos = _n_cursor.transform.origin
 	var diff = last_cursor_position.distance_to(newpos) / delta
 
 	var min_interval = 30
@@ -784,21 +810,21 @@ func _process(delta: float):
 	else: do_half_lock()
 	_set_rec_interval(delta)
 
-	var lobby_manager = get_node_or_null("/root/LobbyManager")
+	var lobby_manager = _lobby_manager if is_instance_valid(_lobby_manager) else null
 	if lobby_manager != null and lobby_manager.lobby_active:
 		_live_send_timer += delta
 		if _live_send_timer >= lobby_manager.LIVE_STATE_SEND_INTERVAL:
 			_live_send_timer = 0.0
-			var cursor_pos = $Cursor.transform.origin
+			var cursor_pos = _n_cursor.transform.origin
 			var energy_pct = (get_parent().energy / get_parent().max_energy) if get_parent().max_energy > 0 else 0.0
 			var lvl_progress_pct = get_parent().lvl_progress / 10.0
 			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms)
 
 	if active and notes_loaded:
 		if not notes_loaded: return
-		can_skip = ((next_ms - prev_ms) > 5000) and (next_ms >= max(ms + (3000 * speed_multi), 1100 * speed_multi)) and ($Notes.multimesh.visible_instance_count <= 1)
+		can_skip = ((next_ms - prev_ms) > 5000) and (next_ms >= max(ms + (3000 * speed_multi), 1100 * speed_multi)) and (_n_notes.multimesh.visible_instance_count <= 1)
 
-		$Cursor.can_switch_move_modes = (ms < Rhythia.music_offset)
+		_n_cursor.can_switch_move_modes = (ms < Rhythia.music_offset)
 
 		if Rhythia.replaying and not Rhythia.replay.autoplayer and Rhythia.replay.sv != 1 and Input.is_action_just_pressed("pause"):
 			set_viewer_paused(not viewer_paused)
@@ -811,7 +837,7 @@ func _process(delta: float):
 					if Rhythia.record_replays:
 						Rhythia.replay.store_sig(rms, Globals.RS_CANCEL_UNPAUSE)
 					emit_signal("ms_change", ms)
-					$Music.stop()
+					_n_music.stop()
 			elif Input.is_action_just_pressed("pause"):
 				if pause_state == 0 and can_skip:
 					var in_lobby = lobby_manager != null and lobby_manager.lobby_active
@@ -839,7 +865,7 @@ func _process(delta: float):
 						pause_state = -1
 						emit_signal("ms_change", ms)
 						pause_ms = ms
-						$Music.stop()
+						_n_music.stop()
 						get_parent().combo_level = 1
 						get_parent().lvl_progress = 0
 						get_parent().update_hud()
@@ -849,17 +875,17 @@ func _process(delta: float):
 						pause_state = 1
 						ms = pause_ms - (pause_state * (750 * speed_multi))
 						emit_signal("ms_change", ms)
-						$Music.volume_db = -30
-						$Music.play(ms / 1000)
+						_n_music.volume_db = -30
+						_n_music.play(ms / 1000)
 			if Input.is_action_pressed("pause") and pause_state > 0:
 				var prev_state = pause_state
 				pause_state = max(pause_state - (delta / 0.75), 0)
-				$Music.volume_db = min($Music.volume_db + (delta * 30), 0)
+				_n_music.volume_db = min(_n_music.volume_db + (delta * 30), 0)
 				if pause_state == 0:
 
 					if (prev_state != pause_state) and Rhythia.record_replays:
 						Rhythia.replay.store_sig(rms, Globals.RS_FINISH_UNPAUSE)
-					$Music.volume_db = 0
+					_n_music.volume_db = 0
 					pause_state = 0
 					pause_cooldown = 1
 			elif pause_state == 0:
@@ -894,14 +920,14 @@ func _process(delta: float):
 				emit_signal("ms_change", ms)
 				do_note_queue()
 				if (ms + Rhythia.music_offset) >= Rhythia.start_offset:
-					$Music.play((ms + Rhythia.music_offset) / 1000)
+					_n_music.play((ms + Rhythia.music_offset) / 1000)
 					music_started = true
 			if just_cancelled_unpause:
 				pause_state = -1
 				ms = pause_ms
 				Rhythia.replay.store_sig(rms, Globals.RS_CANCEL_UNPAUSE)
 				emit_signal("ms_change", ms)
-				$Music.stop()
+				_n_music.stop()
 			elif should_pause:
 				print("PAUSED AT MS %.0f" % ms)
 				if Rhythia.record_replays:
@@ -911,7 +937,7 @@ func _process(delta: float):
 
 				emit_signal("ms_change", ms)
 				pause_ms = ms
-				$Music.stop()
+				_n_music.stop()
 				get_parent().combo_level = 1
 				get_parent().lvl_progress = 0
 				get_parent().update_hud()
@@ -921,14 +947,14 @@ func _process(delta: float):
 				pause_state = 1
 				ms = pause_ms - (pause_state * (750 * speed_multi))
 				emit_signal("ms_change", ms)
-				$Music.volume_db = -30
-				$Music.play((ms + Rhythia.music_offset) / 1000)
+				_n_music.volume_db = -30
+				_n_music.play((ms + Rhythia.music_offset) / 1000)
 			if replay_unpause and pause_state >= 0:
 				pause_state = max(pause_state - (delta / 0.75), 0)
-				$Music.volume_db = min($Music.volume_db + (delta * 30), 0)
+				_n_music.volume_db = min(_n_music.volume_db + (delta * 30), 0)
 				if should_end_unpause:
 
-					$Music.volume_db = Rhythia.music_volume_db
+					_n_music.volume_db = Rhythia.music_volume_db
 					pause_state = 0
 			if should_giveup: get_parent().end(Globals.END_GIVEUP)
 
@@ -942,7 +968,7 @@ func _process(delta: float):
 				emit_signal("ms_change", ms)
 				do_note_queue()
 				if (ms + Rhythia.music_offset) >= Rhythia.start_offset and not music_started:
-					$Music.play((ms + Rhythia.music_offset) / 1000)
+					_n_music.play((ms + Rhythia.music_offset) / 1000)
 					music_started = true
 
 			if Rhythia.replaying:
@@ -950,8 +976,8 @@ func _process(delta: float):
 
 			emit_signal("timer_update", ms, can_skip)
 
-			if $Music.playing and not Rhythia.disable_desync:
-				var playback_pos: float = $Music.get_playback_position() * 1000.0
+			if _n_music.playing and not Rhythia.disable_desync:
+				var playback_pos: float = _n_music.get_playback_position() * 1000.0
 				if abs(playback_pos - (ms + Rhythia.music_offset)) > (100 * max(speed_multi * view_mult, 1.0)):
 					if Rhythia.desync_alerts:
 						Globals.notify(
@@ -959,7 +985,7 @@ func _process(delta: float):
 							"Audio was desynced by %.2f ms, correcting." % [playback_pos - (ms + Rhythia.music_offset)],
 							"Music Sync Correction"
 						)
-					$Music.play((ms + Rhythia.music_offset) / 1000.0)
+					_n_music.play((ms + Rhythia.music_offset) / 1000.0)
 
 		var rn_res: bool = reposition_notes()
 		if not Rhythia.replaying and Rhythia.record_replays:
@@ -969,7 +995,7 @@ func _process(delta: float):
 			if rn_res or rec_t >= ri:
 				rec_t = 0
 				should_write_pos = true
-				Rhythia.replay.store_cursor_pos(rms, $Cursor.rpos.x, $Cursor.rpos.y)
+				Rhythia.replay.store_cursor_pos(rms, _n_cursor.rpos.x, _n_cursor.rpos.y)
 
 		if Rhythia.rainbow_grid:
 			$Outer.get("material/0").albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.65, 1)

@@ -11,7 +11,10 @@ onready var hud = get_node("../Game/HUD")
 var phase: int = 0
 
 func _physics_process(delta):
-	if Rhythia.hit_fov_decay != 0:
+	if Rhythia.hit_fov_instant:
+		# Instant mode: the hit kick lasts one tick, then snaps back to your FOV.
+		fov = Rhythia.get("fov")
+	elif Rhythia.hit_fov_decay != 0:
 		fov += (Rhythia.get("fov") - fov) / Rhythia.hit_fov_decay
 
 func _is_spectating() -> bool:

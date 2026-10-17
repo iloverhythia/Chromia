@@ -3,6 +3,10 @@ class_name FileSelector2D
 
 var use_native: bool = false
 
+const WinFileDialog = preload("res://scripts/ui/WinFileDialog.gd")
+var _win_dialog = null
+var _win_request: Array = []
+
 var target_object: Object
 var target_method: String
 var cancel_method: String
@@ -71,8 +75,51 @@ func _ready():
 # If that dialog never reports back (e.g. it opened behind a fullscreen window
 # or was closed without a result), clicking the overlay cancels.
 func _gui_input(event):
-	if use_native and visible and event is InputEventMouseButton and event.pressed:
+	if (use_native or _win_dialog != null) and visible and event is InputEventMouseButton and event.pressed:
+		_win_dialog = null
+		_set_waiting(false)
 		_cancel()
+
+func _set_waiting(on: bool):
+	$Spinner.visible = on or use_native
+	$Label.visible = on or use_native
+	if on:
+		$Label.text = "Waiting for file dialog...\n(click to cancel)"
+		$Label.margin_bottom = 100
+
+# Uses the real Windows file picker. Returns false if it isn't available.
+func _try_windows_dialog(mode: String, filters: PoolStringArray, multiselect: bool, initial_path: String, title: String) -> bool:
+	if not WinFileDialog.available():
+		return false
+	var d = WinFileDialog.new()
+	var dir: String = ProjectSettings.globalize_path(Globals.p(initial_path))
+	if not d.start(mode, filters, multiselect, dir, title):
+		return false
+	_win_dialog = d
+	_win_request = [mode, filters, multiselect, initial_path]
+	d.connect("done", self, "_on_win_dialog_done", [d])
+	_set_waiting(true)
+	visible = true
+	raise()
+	return true
+
+func _on_win_dialog_done(ok: bool, paths: Array, d):
+	if d != _win_dialog:
+		return # cancelled from the overlay meanwhile
+	_win_dialog = null
+	_set_waiting(false)
+	if not ok:
+		# PowerShell couldn't show it; use the in-game browser instead.
+		var r = _win_request
+		match r[0]:
+			"open": _open_ingame(r[1], r[2], r[3])
+			"save": _save_ingame(r[1], r[3])
+			"folder": _folder_ingame(r[3])
+		return
+	match _win_request[0]:
+		"open": files_sel(PoolStringArray(paths))
+		"save": save_sel(paths[0] if paths.size() > 0 else "")
+		"folder": folder_sel(paths[0] if paths.size() > 0 else "")
 
 var _pending_kind: String = "open"
 
@@ -95,7 +142,11 @@ func open_file(
 	target_object = obj
 	target_method = method
 	_pending_kind = "open"
+	if _try_windows_dialog("open", filters, multiselect, initial_path, "Select files..." if multiselect else "Select file..."):
+		return
+	_open_ingame(filters, multiselect, initial_path)
 
+func _open_ingame(filters: PoolStringArray, multiselect: bool, initial_path: String):
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
 
 	if use_native:
@@ -130,7 +181,11 @@ func save_file(
 	target_object = obj
 	target_method = method
 	_pending_kind = "save"
+	if _try_windows_dialog("save", filters, false, initial_path, "Save file..."):
+		return
+	_save_ingame(filters, initial_path)
 
+func _save_ingame(filters: PoolStringArray, initial_path: String):
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
 
 	if use_native:
@@ -153,6 +208,11 @@ func open_folder(
 	target_object = obj
 	target_method = method
 	_pending_kind = "folder"
+	if _try_windows_dialog("folder", PoolStringArray(), false, initial_path, "Select folder..."):
+		return
+	_folder_ingame(initial_path)
+
+func _folder_ingame(initial_path: String):
 
 	if use_native:
 		$Folder.initial_path = Globals.p(initial_path)

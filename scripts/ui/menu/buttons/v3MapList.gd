@@ -1,5 +1,7 @@
 extends VBoxContainer
 
+const MapFolders = preload("res://scripts/MapFolders.gd")
+
 signal search_updated
 signal reset_filters
 signal lock_type
@@ -31,6 +33,10 @@ var amogus: Array = []
 var unknown: Array = []
 
 var disp: Array = []
+
+var folders = MapFolders.get_store()
+# song id -> true for the active map folder, or null when showing all maps
+var folder_filter = null
 
 var ready: bool = false
 
@@ -64,7 +70,8 @@ func search_matches(s: Song):
 		(not s.is_broken or show_broken_maps) and
 		(search_text == "" or s.name.to_lower().find(search_text.to_lower()) != -1) and
 		(author_search_text == "" or s.creator.to_lower().find(author_search_text.to_lower()) != -1) and
-		(not xp_only_maps or ranked_song_ids.has(s.id))
+		(not xp_only_maps or ranked_song_ids.has(s.id)) and
+		(folder_filter == null or folder_filter.has(s.id))
 	)
 
 var has_been_pressed = false
@@ -210,6 +217,7 @@ func append_filtering_favorites(to: Array, from: Array):
 func build_list():
 	disp = []
 	favorite = []
+	folder_filter = folders.active_set()
 	for id in Rhythia.favorite_songs:
 		var s = Rhythia.registry_song.get_item(id)
 		if s and Rhythia.is_favorite(id) and search_matches(s):
@@ -330,6 +338,7 @@ func reset_filters():
 	update_search_flipped(false)
 	update_search_flip_name(false)
 	update_search_xponly(false)
+	folders.set_active(-1)
 
 func prepare_songs():
 	for i in range(songs.size()):
@@ -382,6 +391,17 @@ func make_song_button(id: int = -1):
 		else: btn.get_node("Name").modulate = Color(1, 1, 0.2)
 	var rbtn: Button = btn.get_node("Select")
 	if is_fav(map): btn.get_node("F").visible = true
+	var fcol = folders.color_for(map.id)
+	if fcol != null:
+		var strip := ColorRect.new()
+		strip.color = fcol
+		strip.mouse_filter = MOUSE_FILTER_IGNORE
+		strip.anchor_bottom = 1
+		strip.margin_left = 6
+		strip.margin_right = 12
+		strip.margin_top = 6
+		strip.margin_bottom = -6
+		btn.add_child(strip)
 	btn.get_node("Cloud").visible = map.is_online
 	rbtn.disabled = false
 	rbtn.connect("pressed", self, "on_pressed", [id, map])
@@ -471,6 +491,7 @@ func firstload():
 	reload_to_current_page()
 	ready = true
 	Rhythia.connect("favorite_songs_changed", self, "reload_to_current_page")
+	folders.connect("changed", self, "reload_to_current_page")
 	Rhythia.connect("download_done", self, "update_clouds")
 	get_viewport().connect("size_changed", self, "handle_window_resize")
 	Rhythia.emit_signal("map_list_ready")

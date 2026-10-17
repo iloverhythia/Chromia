@@ -1,4 +1,4 @@
-[gd_scene load_steps=215 format=2]
+[gd_scene load_steps=217 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -109,6 +109,8 @@
 [ext_resource path="res://prefabs/menu/update_log.tscn" type="PackedScene" id=178]
 [ext_resource path="res://scripts/ui/menu/buttons/MapXPOnly.gd" type="Script" id=179]
 [ext_resource path="res://scripts/ui/menu/buttons/ImportMap.gd" type="Script" id=210]
+[ext_resource path="res://scripts/ui/menu/buttons/MapFoldersButton.gd" type="Script" id=214]
+[ext_resource path="res://scripts/ui/menu/buttons/MapFolderAdd.gd" type="Script" id=215]
 [ext_resource path="res://prefabs/menu/stats_page.tscn" type="PackedScene" id=211]
 [ext_resource path="res://assets/images/ui/stats.png" type="Texture" id=212]
 [ext_resource path="res://scripts/ui/menu/buttons/StarSort.gd" type="Script" id=213]
@@ -1629,6 +1631,21 @@ toggle_mode = true
 action_mode = 0
 text = "Favorite"
 script = ExtResource( 38 )
+
+[node name="AddToFolder" type="MenuButton" parent="Main/Maps/Results/Results/RS/H1/Info/Control"]
+margin_left = 230.0
+margin_right = 405.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 0, 32 )
+size_flags_horizontal = 3
+size_flags_vertical = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0, 0, 0, 1 )
+custom_colors/font_color_hover = Color( 0, 0, 0, 1 )
+text = "Add to folder"
+flat = false
+clip_text = true
+script = ExtResource( 215 )
 
 [node name="PreviewMusic" type="Button" parent="Main/Maps/Results/Results/RS/H1/Info/Control"]
 margin_left = 230.0
@@ -3163,6 +3180,19 @@ size_flags_vertical = 4
 theme = ExtResource( 1 )
 action_mode = 0
 text = "Select random from search"
+
+[node name="Folders" type="Button" parent="Main/Maps/MapRegistry/T"]
+margin_left = 419.0
+margin_top = 10.0
+margin_right = 519.0
+margin_bottom = 40.0
+rect_min_size = Vector2( 0, 30 )
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme = ExtResource( 1 )
+action_mode = 0
+text = "Map Folders"
+script = ExtResource( 214 )
 
 [node name="S" type="Control" parent="Main/Maps/MapRegistry"]
 margin_top = 54.0

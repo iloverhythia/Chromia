@@ -27,7 +27,9 @@ func respawn(t_override=null,rot=0):
 		if Input.is_key_pressed(KEY_V):
 			global_transform.origin = Vector3((offset*3)-1.5,(offset*3)-1.5,-0.2)
 	
-	$Mesh.get("material/0").albedo_color = cursormesh.get("material/0").albedo_color
+	var col: Color = cursormesh.get("material/0").albedo_color
+	col.a *= Rhythia.trail_opacity
+	$Mesh.get("material/0").albedo_color = col
 	$Mesh.rotation = cursormesh.rotation
 
 func upd_dumb(delta):
@@ -35,7 +37,7 @@ func upd_dumb(delta):
 		t += (delta/Rhythia.trail_time)
 	var a = clamp((t - 0.2),0,1)
 	if Rhythia.trail_mode_opacity:
-		$Mesh.get("material/0").albedo_color.a = a * 0.6 * transp_multi
+		$Mesh.get("material/0").albedo_color.a = a * 0.6 * transp_multi * Rhythia.trail_opacity
 	if Rhythia.trail_mode_scale:
 		$Mesh.scale = Vector3(a*Rhythia.cursor_scale,1,a*Rhythia.cursor_scale)
 	if !Rhythia.smart_trail and t >= 1:
@@ -46,7 +48,7 @@ func update(delta):
 	t -= (delta/Rhythia.trail_time)
 	var a = clamp((t),0,1)
 	if Rhythia.trail_mode_opacity:
-		$Mesh.get("material/0").albedo_color.a = a * 0.6 * transp_multi
+		$Mesh.get("material/0").albedo_color.a = a * 0.6 * transp_multi * Rhythia.trail_opacity
 	if Rhythia.trail_mode_scale:
 		$Mesh.scale = Vector3(a*Rhythia.cursor_scale,1,a*Rhythia.cursor_scale)
 	if t <= 0:

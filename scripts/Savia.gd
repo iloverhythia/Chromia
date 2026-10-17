@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g"
 ]
 
 
@@ -720,6 +720,7 @@ const VERSION_NOTES = {
 	"oct17-2026-d": "- Added star ratings (shown next to the note count)\n- The profile you select is remembered after restarting, and settings changes save into it\n- Fixed Disable Intro Cutscene\n- Discord Rich Presence now shows Furria",
 	"oct17-2026-e": "- Fixed the game crashing on startup (Discord Rich Presence turned off for now)",
 	"oct17-2026-f": "- Discord Rich Presence is back (rewritten so it can't crash the game)\n- New \"stars\" filter: sort maps by star rating\n- The profile you had selected is now remembered after restarting",
+	"oct17-2026-g": "- Map Folders: create, name and color folders and add maps to them (button next to random map)\n- 12 new backgrounds from Rhythia\n- Colorsets have their own settings tab, with a colorset maker\n- Trail Opacity setting\n- New Hit FOV mode: Instant\n- Max FPS mode (Video settings) and faster gameplay code for higher FPS\n- Choosing a cursor/file now opens the real Windows file browser\n- Star ratings are calculated in the background so huge map libraries load fast and can't crash on startup",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -889,14 +890,58 @@ var load_target_frame_time: float = 1.0 / 40.0
 
 const STAR_CACHE_FILE = "user://caches/star_ratings.json"
 const STAR_CACHE_VERSION = 1
+const STAR_CURRENT_FILE = "user://caches/star_rating_current.txt"
 var _star_progress: int = 0
-var _star_done: bool = false
+var _star_total: int = 0
+var _star_done: bool = true
+var _star_paused: bool = false # set while playing so gameplay isn't slowed
+var _star_thread: Thread
+var _star_cache: Dictionary = {}
+signal star_ratings_updated
 
+# Rates maps one by one in the background after the menu is open.
+# Progress is saved every 100 maps, and the map being rated is written to a
+# marker file first: if the game ever crashes on a map, that map is skipped
+# on the next launch instead of crashing again.
 func _star_rating_worker(songs: Array):
+	var f := File.new()
 	for i in range(songs.size()):
-		songs[i].get_star_rating()
+		while (_star_paused or in_map) and not _star_quit:
+			OS.delay_msec(200)
+		if _star_quit:
+			break
+		var song = songs[i]
+		var id := String(song.id)
+		if f.open(Globals.p(STAR_CURRENT_FILE), File.WRITE) == OK:
+			f.store_string(id)
+			f.close()
+		_rate_one(song)
+		_star_cache[id] = [song._star_rating, _star_cache_key(song)]
 		_star_progress = i + 1
+		if _star_progress % 100 == 0:
+			_save_star_cache(_star_cache)
+	_save_star_cache(_star_cache)
+	Directory.new().remove(Globals.p(STAR_CURRENT_FILE))
 	_star_done = true
+	call_deferred("_star_rating_finished")
+
+var _star_quit: bool = false
+
+# Kept separate so a bad map only aborts this call, not the whole loop.
+func _rate_one(song):
+	song.get_star_rating()
+
+func _star_rating_finished():
+	if _star_thread:
+		_star_thread.wait_to_finish()
+		_star_thread = null
+	print("[stars] rated %d maps" % _star_progress)
+	emit_signal("star_ratings_updated")
+
+func _exit_tree():
+	_star_quit = true
+	if _star_thread and _star_thread.is_active():
+		_star_thread.wait_to_finish()
 
 func _star_cache_key(song) -> String:
 	var path: String = String(song.filePath) if song.filePath != null else ""
@@ -1629,6 +1674,7 @@ func get_fov():
 var hit_fov: bool = false
 var hit_fov_additive: bool = true
 var hit_fov_exponential: bool = false
+var hit_fov_instant: bool = false
 var hit_fov_amplifier: float = 2
 var hit_fov_decay: float = 20
 var camera_mode: int = Globals.CAMERA_HALF_LOCK
@@ -1662,6 +1708,18 @@ var trail_mode_opacity: bool = true
 var smart_trail: bool = false
 var trail_detail: int = 10
 var trail_time: float = 0.15
+var trail_opacity: float = 1.0
+var max_fps_mode: bool = false
+
+# Max FPS mode: uncapped frame rate, VSync off and no MSAA (anti-aliasing).
+func apply_max_fps_mode():
+	var vp = get_viewport()
+	if max_fps_mode:
+		Engine.target_fps = 0
+		OS.vsync_enabled = false
+		if vp: vp.msaa = Viewport.MSAA_DISABLED
+	elif vp:
+		vp.msaa = int(ProjectSettings.get_setting("rendering/quality/filters/msaa"))
 var cursor_scale: float = 1
 var enable_drift_cursor: bool = true
 var follow_drift_cursor: bool = false
@@ -2260,6 +2318,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			hit_fov_additive = data.hit_fov_additive
 		if data.has("hit_fov_exponential"):
 			hit_fov_exponential = data.hit_fov_exponential
+		if data.has("hit_fov_instant"):
+			hit_fov_instant = bool(data.hit_fov_instant)
 		if data.has("hit_fov_amplifier"):
 			hit_fov_amplifier = data.hit_fov_amplifier
 		if data.has("hit_fov_decay"):
@@ -2284,6 +2344,11 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			trail_detail = data.trail_detail
 		if data.has("trail_time"):
 			trail_time = data.trail_time
+		if data.has("trail_opacity"):
+			trail_opacity = clamp(float(data.trail_opacity), 0.0, 1.0)
+		if data.has("max_fps_mode"):
+			max_fps_mode = bool(data.max_fps_mode)
+			if max_fps_mode: call_deferred("apply_max_fps_mode")
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
@@ -2772,6 +2837,7 @@ func _write_settings_file(saveFile: String):
 			fov = fov,
 			hit_fov = hit_fov,
 			hit_fov_additive = hit_fov_additive,
+			hit_fov_instant = hit_fov_instant,
 			hit_fov_amplifier = hit_fov_amplifier,
 			hit_fov_exponential = hit_fov_exponential,
 			hit_fov_decay = hit_fov_decay,
@@ -2813,6 +2879,8 @@ func _write_settings_file(saveFile: String):
 			cursor_trail = cursor_trail,
 			trail_detail = trail_detail,
 			trail_time = trail_time,
+			trail_opacity = trail_opacity,
+			max_fps_mode = max_fps_mode,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,
 			show_timer = show_timer,
@@ -3049,19 +3117,67 @@ func register_worlds():
 		"res://assets/worlds/grid/grid.tscn", "hi",
 		"res://assets/worlds/custom/custom.png"
 	))
-
-
-
-
-
-
-
-
-
-
-
-
-
+	# Backgrounds recreated from Rhythia's (Godot 4 C#) spaces
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_void", "Void (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/void.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/void.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_solid", "Solid (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/solid.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/solid.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_grid", "Grid (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/grid.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/grid.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_tunnel", "Tunnel (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/tunnel.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/tunnel.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_circular_tunnel", "Circular Tunnel (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/circular_tunnel.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/circular_tunnel.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_tri_tunnel", "Tri Tunnel (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/tri_tunnel.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/tri_tunnel.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_galaxy", "Galaxy (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/galaxy.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/galaxy.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_squircles", "Squircles (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/squircles.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/squircles.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_vortex", "Vortex (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/vortex.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/vortex.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_waves", "Waves (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/waves.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/waves.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_conspiracy", "Conspiracy (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/conspiracy.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/conspiracy.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"furria_space_relic", "Relic (Rhythia)",
+		"res://assets/worlds/rhythia_spaces/relic.tscn", "Rhythia",
+		"res://assets/worlds/rhythia_spaces/relic.png"
+	))
 	registry_world.add_item(BackgroundWorld.new(
 		"ssp_custombg", "Custom Background",
 		"res://assets/worlds/custom/custombg.tscn", "Someone",
@@ -3974,33 +4090,43 @@ func do_init(_ud = null):
 			for i in range(made_textures, cover_songs.size()):
 				cover_songs[i]._get_cover()
 
-		# Star ratings for every local map, so sorting by stars is instant.
-		# Results are cached per map file, so only new/changed maps are rated.
-		var star_cache: Dictionary = _load_star_cache()
+		# Star ratings: cached ones are applied now; new/changed maps are
+		# rated in the background once the menu is open.
+		emit_signal("init_stage_reached", "Loading star ratings")
+		yield(get_tree(), "idle_frame")
+		_star_cache = _load_star_cache()
+		var f_cur := File.new()
+		if f_cur.open(Globals.p(STAR_CURRENT_FILE), File.READ) == OK:
+			# The game closed while rating this map last time; skip it.
+			var bad_id := f_cur.get_as_text().strip_edges()
+			f_cur.close()
+			var bad_song = registry_song.get_item(bad_id) if registry_song.idx_id.has(bad_id) else null
+			if bad_song:
+				print("[stars] skipping map that failed last time: ", bad_id)
+				_star_cache[bad_id] = [-1.0, _star_cache_key(bad_song)]
+			Directory.new().remove(Globals.p(STAR_CURRENT_FILE))
 		var star_songs: Array = []
+		var star_i := 0
 		for song in registry_song.get_items():
+			star_i += 1
+			if star_i % 500 == 0:
+				yield(get_tree(), "idle_frame")
 			if song.is_online:
 				continue
 			var key := _star_cache_key(song)
-			var cached = star_cache.get(String(song.id))
+			var cached = _star_cache.get(String(song.id))
 			if cached is Array and cached.size() == 2 and String(cached[1]) == key:
 				song._star_rating = float(cached[0])
 			else:
 				star_songs.append(song)
-		if star_songs.size() > 0:
+		if star_songs.size() > 0 and (_star_thread == null or not _star_thread.is_active()):
 			_star_progress = 0
+			_star_total = star_songs.size()
 			_star_done = false
-			var star_thread := Thread.new()
-			if star_thread.start(self, "_star_rating_worker", star_songs) == OK:
-				while not _star_done:
-					emit_signal("init_stage_reached", "Calculating star ratings\n%d / %d" % [_star_progress, star_songs.size()])
-					yield(get_tree(), "idle_frame")
-				star_thread.wait_to_finish()
-			else:
-				_star_rating_worker(star_songs)
-			for song in star_songs:
-				star_cache[String(song.id)] = [song._star_rating, _star_cache_key(song)]
-			_save_star_cache(star_cache)
+			_star_thread = Thread.new()
+			if _star_thread.start(self, "_star_rating_worker", star_songs, Thread.PRIORITY_LOW) != OK:
+				_star_thread = null
+				_star_done = true
 
 	emit_signal("init_stage_num", 4)
 

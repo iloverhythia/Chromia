@@ -610,7 +610,9 @@ func hit(col):
 	update_hud()
 
 	if Rhythia.hit_fov:
-		if Rhythia.hit_fov_additive:
+		if Rhythia.hit_fov_instant:
+			$"../Camera".fov = Rhythia.get("fov") - Rhythia.hit_fov_amplifier
+		elif Rhythia.hit_fov_additive:
 			$"../Camera".fov += Rhythia.hit_fov_amplifier
 		elif Rhythia.hit_fov_exponential:
 			$"../Camera".fov *= Rhythia.hit_fov_amplifier
