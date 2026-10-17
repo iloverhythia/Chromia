@@ -300,15 +300,16 @@ func _ready():
 	overwrite_submenu.name = "Overwrite"
 	delete_submenu.name = "Delete"
 
-	get_popup().call_deferred("add_child", overwrite_submenu)
-	get_popup().call_deferred("add_child", delete_submenu)
-
-	overwrite_submenu.connect("id_pressed", self, "overwrite_profile")
-	delete_submenu.connect("id_pressed", self, "delete_profile")
+	# _ready runs again whenever the list changes; only wire things up once.
+	if overwrite_submenu.get_parent() == null:
+		get_popup().call_deferred("add_child", overwrite_submenu)
+		get_popup().call_deferred("add_child", delete_submenu)
+		overwrite_submenu.connect("id_pressed", self, "overwrite_profile")
+		delete_submenu.connect("id_pressed", self, "delete_profile")
+		get_popup().connect("id_pressed", self, "on_pressed")
 
 	get_popup().add_submenu_item("Overwrite Profile", "Overwrite", -1)
 	get_popup().add_submenu_item("Delete Profile", "Delete", -1)
-	get_popup().connect("id_pressed", self, "on_pressed")
 
 func overwrite_profile(i):
 	var profile = profiles[i]

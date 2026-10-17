@@ -37,7 +37,11 @@ var _my_stats_best_xp: int = 0
 var _my_stats_best_sp: int = 0
 
 func _rebuild_data_label(map: Song):
-	$RS/H1/Info/Data/Data.text = "%s - %s notes" % [get_time_ms(map.last_ms), comma_sep(map.note_count)]
+	var data_text = "%s - %s notes" % [get_time_ms(map.last_ms), comma_sep(map.note_count)]
+	var stars: float = map.get_star_rating()
+	if stars >= 0.0:
+		data_text += " - %.2f stars" % stars
+	$RS/H1/Info/Data/Data.text = data_text
 	if _rank_is_ranked and _rank_song_id == map.id:
 		var effective = int(round(_rank_base_xp * Rhythia.current_xp_speed_multiplier()))
 		var txt = "XP: %d" % effective

@@ -99,6 +99,25 @@ func _decode_cover_pixels() -> Image:
 	file.close()
 	return img
 
+const StarRatingCalc = preload("res://scripts/content/game/StarRating.gd")
+var _star_rating: float = -1.0
+
+# Star rating (aim difficulty). Computed on first use and cached; returns -1
+# when the notes aren't available (e.g. an online map that isn't downloaded).
+func get_star_rating() -> float:
+	if _star_rating >= 0.0:
+		return _star_rating
+	if is_online and (filePath == null or filePath == "" or not File.new().file_exists(filePath)):
+		return -1.0
+	var had_notes := notes.size() > 0
+	var n: Array = read_notes()
+	if n.size() == 0:
+		return -1.0
+	_star_rating = StarRatingCalc.calculate(n)
+	if not had_notes and songType != Globals.MAP_RAW and songType != Globals.MAP_TXT:
+		discard_notes()
+	return _star_rating
+
 # True once the cover texture exists (does not trigger loading it).
 func cover_ready() -> bool:
 	return cover != null

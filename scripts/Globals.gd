@@ -498,7 +498,7 @@ var errornum: int = 0
 # Discord application used for Rich Presence. The name Discord shows
 # ("Playing ...") and the "icon-bg" image come from this application in the
 # Discord developer portal, so to show "Furria" put a Furria application's ID here.
-const DISCORD_APP_ID := 1507913571055702117
+const DISCORD_APP_ID := 1561141690084106250
 
 func p(path: String) -> String:
 	var base_path = "user://"
@@ -674,8 +674,9 @@ func _ready():
 
 	var disable_intro = false
 	var file: File = File.new()
-	if file.file_exists(Globals.p("user://settings.json")):
-		var err = file.open(Globals.p("user://settings.json"), File.READ)
+	var settings_path: String = Rhythia.get_startup_settings_path()
+	if file.file_exists(settings_path):
+		var err = file.open(settings_path, File.READ)
 		if err != OK:
 			print("file.open failed"); return -2
 		var decode = JSON.parse(file.get_as_text())

@@ -674,7 +674,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d"
 ]
 
 
@@ -714,6 +714,7 @@ const VERSION_NOTES = {
 	"oct17-2026-a": "- Added a Stats page\n- Added Half Ghost Strength (Notes settings)\n- Added Hide Replay UI (Replays settings, F1 toggles it in replays)\n- Mouse pointer is visible in replays so you can use the replay bar\n- Added a setting to turn off XP notifications (Online settings)\n- GIF cursors and backgrounds no longer lag (decoded once and cached)",
 	"oct17-2026-b": "- Fixed changing the cursor/background/sounds getting stuck on \"waiting for file dialog\"\n- Online maps are in the list as soon as the menu opens",
 	"oct17-2026-c": "- Savia is now Furria! New name and icon\n- Map covers load during startup, so the map list is complete when the menu opens\n- Auto-updates only come from Furria's releases and never downgrade",
+	"oct17-2026-d": "- Added star ratings (shown next to the note count)\n- The profile you select is remembered after restarting, and settings changes save into it\n- Fixed Disable Intro Cutscene\n- Discord Rich Presence now shows Furria",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -2652,7 +2653,31 @@ func dser_float(s):
 	else:
 		return s
 
+# The profile picked in Settings > Select Profile. It is the source of truth:
+# the game starts with it and every settings save is written back into it.
+func get_active_profile_path() -> String:
+	var config = ConfigFile.new()
+	if config.load("user://settings.cfg") != OK:
+		return ""
+	var path := String(config.get_value("profile", "active_profile_path", ""))
+	if path == "" or not File.new().file_exists(path):
+		return ""
+	return path
+
+# The settings file to read when the game starts.
+func get_startup_settings_path() -> String:
+	var active := get_active_profile_path()
+	return active if active != "" else Globals.p("user://settings.json")
+
 func save_settings(saveFile: String = Globals.p("user://settings.json")):
+	var result = _write_settings_file(saveFile)
+	if result is String and saveFile == Globals.p("user://settings.json"):
+		var active := get_active_profile_path()
+		if active != "" and active != saveFile:
+			_write_settings_file(active)
+	return result
+
+func _write_settings_file(saveFile: String):
 	var dir = Directory.new()
 	var folder_path = "user://"
 	if not dir.dir_exists(folder_path):
@@ -3937,7 +3962,7 @@ func do_init(_ud = null):
 
 	emit_signal("init_stage_reached", "Read user settings")
 	yield(get_tree(), "idle_frame")
-	var result = load_saved_settings()
+	var result = load_saved_settings(get_startup_settings_path())
 	if result != 0:
 		errornum = result
 
