@@ -393,10 +393,10 @@ func update_player_stats(score: int, hits: int, misses: int, total_notes: int):
 	_send({"type": "update_stats", "score": score, "hits": hits, "misses": misses, "total_notes": total_notes})
 
 func start_game():
-	print("[savia] start_game() called, lobby_active=", lobby_active, " is_host=", is_host)
+	print("[furria] start_game() called, lobby_active=", lobby_active, " is_host=", is_host)
 	if lobby_active and is_host:
 		_send({"type": "start_game"})
-		print("[savia] start_game message sent")
+		print("[furria] start_game message sent")
 
 func trigger_skip(target_ms: float):
 	if not lobby_active:
@@ -610,25 +610,25 @@ func _try_scroll_map_list(song_id: String):
 		_last_scrolled_song_id = song_id
 
 func _start_map_upload(song_id: String):
-	print("[savia] _start_map_upload(", song_id, ") is_host=", is_host, " active=", _map_upload_active)
+	print("[furria] _start_map_upload(", song_id, ") is_host=", is_host, " active=", _map_upload_active)
 	if _map_upload_active:
-		print("[savia] upload aborted: already have one in flight for ", _map_upload_song_id)
+		print("[furria] upload aborted: already have one in flight for ", _map_upload_song_id)
 		return
 	if not is_host:
-		print("[savia] upload aborted: this client isn't the host (server shouldn't have asked)")
+		print("[furria] upload aborted: this client isn't the host (server shouldn't have asked)")
 		return
 	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
 	if not song or not ("filePath" in song):
-		print("[savia] upload aborted: song not found in local registry for id ", song_id)
+		print("[furria] upload aborted: song not found in local registry for id ", song_id)
 		return
 	var f = File.new()
 	var open_err = f.open(song.filePath, File.READ)
 	if open_err != OK:
-		print("[savia] upload aborted: couldn't open ", song.filePath, " (error ", open_err, ")")
+		print("[furria] upload aborted: couldn't open ", song.filePath, " (error ", open_err, ")")
 		return
 	var bytes = f.get_buffer(f.get_len())
 	f.close()
-	print("[savia] uploading ", song.filePath, " — ", bytes.size(), " bytes")
+	print("[furria] uploading ", song.filePath, " — ", bytes.size(), " bytes")
 	_map_upload_b64 = Marshalls.raw_to_base64(bytes)
 	_map_upload_song_id = song_id
 	_map_upload_pos = 0
@@ -636,7 +636,7 @@ func _start_map_upload(song_id: String):
 	_map_upload_last_progress_msec = OS.get_ticks_msec()
 	var start_err = _send({"type": "upload_map_start", "song_id": song_id, "total_bytes": bytes.size()})
 	if start_err != OK:
-		push_error("[savia] upload_map_start failed to send: %s" % start_err)
+		push_error("[furria] upload_map_start failed to send: %s" % start_err)
 		_abort_map_upload("Failed to start uploading the map to the server.")
 
 const _MAP_UPLOAD_STALL_TIMEOUT_MSEC: int = 15000
@@ -664,7 +664,7 @@ func _process_map_upload_step():
 		_map_upload_next_attempt_msec = OS.get_ticks_msec() + _MAP_CHUNK_RETRY_COOLDOWN_MSEC
 		if OS.get_ticks_msec() - _map_upload_last_progress_msec < _MAP_UPLOAD_STALL_TIMEOUT_MSEC:
 			return
-		push_error("[savia] map upload stalled (%s), giving up: %s" % [payload.type, send_err])
+		push_error("[furria] map upload stalled (%s), giving up: %s" % [payload.type, send_err])
 		_abort_map_upload("Failed to upload the map to the server.")
 		return
 
@@ -803,12 +803,12 @@ func _finish_map_download(song_id: String):
 	_map_download_chunks = []
 	_map_download_song_id = ""
 	var bytes = Marshalls.base64_to_raw(full_b64)
-	print("[savia] map_download_end ", song_id, " — decoded ", bytes.size(), " of ", _map_download_total_bytes, " declared bytes")
+	print("[furria] map_download_end ", song_id, " — decoded ", bytes.size(), " of ", _map_download_total_bytes, " declared bytes")
 	if bytes.size() == 0:
 		emit_signal("lobby_error", "Received an empty map download.")
 		return
 	if _map_download_total_bytes > 0 and bytes.size() < _map_download_total_bytes * 0.95:
-		push_error("[savia] map download size mismatch: got %d, expected %d" % [bytes.size(), _map_download_total_bytes])
+		push_error("[furria] map download size mismatch: got %d, expected %d" % [bytes.size(), _map_download_total_bytes])
 		emit_signal("lobby_error", "The map download was incomplete — try again.")
 		return
 	var dir = Directory.new()
@@ -824,7 +824,7 @@ func _finish_map_download(song_id: String):
 	if Rhythia.registry_song:
 		Rhythia.registry_song.check_and_remove_id(song_id)
 	var song = Rhythia.registry_song.add_sspm_map(path) if Rhythia.registry_song else null
-	print("[savia] add_sspm_map(", path, ") -> ", "OK" if song else "FAILED")
+	print("[furria] add_sspm_map(", path, ") -> ", "OK" if song else "FAILED")
 	if song:
 		emit_signal("map_download_complete", song_id)
 
@@ -901,11 +901,11 @@ func _handle_message(msg: Dictionary):
 			emit_signal("lobby_state_changed")
 		"game_started":
 			lobby_state = msg.get("state", lobby_state)
-			print("[savia] applying mods before transition: ", lobby_state.get("mods", {}))
+			print("[furria] applying mods before transition: ", lobby_state.get("mods", {}))
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
 			Rhythia.apply_lobby_lead_in()
-			print("[savia] Rhythia.mod_speed_level after apply: ", Rhythia.mod_speed_level)
+			print("[furria] Rhythia.mod_speed_level after apply: ", Rhythia.mod_speed_level)
 			var t = get_tree().create_timer(0.4)
 			t.connect("timeout", self, "_scene_transition_now")
 			emit_signal("game_started")
@@ -936,7 +936,7 @@ func _handle_message(msg: Dictionary):
 			emit_signal("player_missing_map", mmp)
 		"request_map_upload":
 			var upload_song_id = String(msg.get("song_id", ""))
-			print("[savia] received request_map_upload for ", upload_song_id)
+			print("[furria] received request_map_upload for ", upload_song_id)
 			if upload_song_id != "":
 				_start_map_upload(upload_song_id)
 		"map_download_start":
@@ -944,7 +944,7 @@ func _handle_message(msg: Dictionary):
 			_map_download_chunks = []
 			_map_download_chars_received = 0
 			_map_download_total_bytes = int(msg.get("total_bytes", 0))
-			print("[savia] map_download_start ", _map_download_song_id, " (", _map_download_total_bytes, " bytes)")
+			print("[furria] map_download_start ", _map_download_song_id, " (", _map_download_total_bytes, " bytes)")
 			emit_signal("map_download_started", _map_download_song_id)
 			emit_signal("map_download_progress", _map_download_song_id, 0, _map_download_total_bytes)
 		"map_download_chunk":
@@ -959,7 +959,7 @@ func _handle_message(msg: Dictionary):
 			if dl_song_id == _map_download_song_id and dl_song_id != "":
 				_finish_map_download(dl_song_id)
 		"map_unavailable":
-			print("[savia] map_unavailable: ", String(msg.get("reason", "")))
+			print("[furria] map_unavailable: ", String(msg.get("reason", "")))
 			emit_signal("lobby_error", String(msg.get("reason", "That map isn't available.")))
 		"round_ended":
 			emit_signal("round_ended")
@@ -1036,7 +1036,7 @@ func _scene_transition_now():
 	if lobby_state.has("song_id") and lobby_state.song_id != "":
 		var song = Rhythia.registry_song.get_item(lobby_state.song_id, Globals.SEARCH_ID) if Rhythia.registry_song else null
 		if song and song.read_notes().size() == 0:
-			print("[savia] cached song ", lobby_state.song_id, " has 0 notes — treating as missing, re-requesting")
+			print("[furria] cached song ", lobby_state.song_id, " has 0 notes — treating as missing, re-requesting")
 			if song.note_count <= 0:
 				_send({"type": "report_corrupt_map", "song_id": lobby_state.song_id})
 			if Rhythia.registry_song:

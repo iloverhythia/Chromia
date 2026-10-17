@@ -99,6 +99,10 @@ func _decode_cover_pixels() -> Image:
 	file.close()
 	return img
 
+# True once the cover texture exists (does not trigger loading it).
+func cover_ready() -> bool:
+	return cover != null
+
 var _cover_mutex := Mutex.new()
 var _decoded_cover_image: Image = null
 

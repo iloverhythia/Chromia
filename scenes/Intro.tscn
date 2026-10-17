@@ -6,7 +6,7 @@
 [ext_resource path="res://assets/accessories/alt_cubella_hair/hair.obj" type="ArrayMesh" id=4]
 [ext_resource path="res://assets/meshes/LowCube.obj" type="ArrayMesh" id=15]
 [ext_resource path="res://assets/meshes/Happy.obj" type="ArrayMesh" id=16]
-[ext_resource path="res://assets/images/branding/icon.svg" type="Texture" id=25]
+[ext_resource path="res://assets/images/branding/icon.png" type="Texture" id=25]
 [ext_resource path="res://assets/animations/Idle.tres" type="Animation" id=26]
 [ext_resource path="res://scripts/Intro.gd" type="Script" id=27]
 [ext_resource path="res://assets/sfx/music/yay.mp3" type="AudioStream" id=28]
@@ -674,20 +674,20 @@ script = ExtResource( 27 )
 [node name="Sprite3D" type="Sprite3D" parent="."]
 transform = Transform( 1, 0.000560265, -2.44899e-11, 0, -4.37114e-08, -1, -0.000560265, 1, -4.37114e-08, 0, 5, 0 )
 modulate = Color( 1, 1, 1, 0.0980392 )
-pixel_size = 0.0025
+pixel_size = 0.00386
 texture = ExtResource( 25 )
 
 [node name="Sprite3D2" type="Sprite3D" parent="."]
 transform = Transform( 1.06125, -1.06007, 3.08914e-08, 0, -6.55671e-08, -1, 1.06007, 1.06125, -3.09258e-08, 0, 5.5, 0 )
 modulate = Color( 1, 1, 1, 0.196078 )
 opacity = 0.27
-pixel_size = 0.0025
+pixel_size = 0.00386
 texture = ExtResource( 25 )
 
 [node name="Sprite3D3" type="Sprite3D" parent="."]
 transform = Transform( 1.06125, -1.06007, 3.08914e-08, 0, -6.55671e-08, -1, 1.06007, 1.06125, -3.09258e-08, 0, 6.09594, 0 )
 modulate = Color( 1, 1, 1, 0.196078 )
-pixel_size = 0.0025
+pixel_size = 0.00386
 texture = ExtResource( 25 )
 
 [node name="Avatar" type="Spatial" parent="."]

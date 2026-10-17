@@ -74,7 +74,7 @@ func apply_rotated_client_id(new_id: String):
 	db["client_id"] = new_id
 	_write_client_db(db)
 	cid = new_id
-	Globals.notify(Globals.NOTIFY_WARN, "Your account ID was rotated by an admin. Please restart Savia.", "Account Updated")
+	Globals.notify(Globals.NOTIFY_WARN, "Your account ID was rotated by an admin. Please restart Furria.", "Account Updated")
 
 func load_keybinds():
 	var config = ConfigFile.new()
@@ -674,7 +674,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c"
 ]
 
 
@@ -713,6 +713,7 @@ const VERSION_NOTES = {
 	"oct16-2026-b": "- Smooth map loading (maps import in the background)\n- Fixed pixelated/blurry resolution\n- Auto-updates now come from iloverhythia/savia",
 	"oct17-2026-a": "- Added a Stats page\n- Added Half Ghost Strength (Notes settings)\n- Added Hide Replay UI (Replays settings, F1 toggles it in replays)\n- Mouse pointer is visible in replays so you can use the replay bar\n- Added a setting to turn off XP notifications (Online settings)\n- GIF cursors and backgrounds no longer lag (decoded once and cached)",
 	"oct17-2026-b": "- Fixed changing the cursor/background/sounds getting stuck on \"waiting for file dialog\"\n- Online maps are in the list as soon as the menu opens",
+	"oct17-2026-c": "- Savia is now Furria! New name and icon\n- Map covers load during startup, so the map list is complete when the menu opens\n- Auto-updates only come from Furria's releases and never downgrade",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -879,6 +880,18 @@ var replaying: bool = false
 
 
 var load_target_frame_time: float = 1.0 / 40.0
+
+var _cover_preload_progress: int = 0
+var _cover_preload_done: bool = false
+func _decode_covers_worker(songs: Array):
+	for i in range(songs.size()):
+		var song = songs[i]
+		var img = song._decode_cover_pixels()
+		song._cover_mutex.lock()
+		song._decoded_cover_image = img
+		song._cover_mutex.unlock()
+		_cover_preload_progress = i + 1
+	_cover_preload_done = true
 
 var _sspm_import_progress: int = 0
 var _sspm_import_done: bool = false
@@ -3575,9 +3588,8 @@ func do_init(_ud = null):
 				OS.execute(OS.get_executable_path(), [], false)
 				return
 		var rdir = Directory.new()
-		rdir.open(OS.get_executable_path().get_base_dir())
-		if rdir.file_exists("Savia.pck.old"):
-			rdir.remove("Savia.pck.old")
+		if rdir.file_exists(Online.local_pck_path() + ".old"):
+			rdir.remove(Online.local_pck_path() + ".old")
 
 
 	emit_signal("init_stage_reached", "Init filesystem")
@@ -3849,6 +3861,30 @@ func do_init(_ud = null):
 			Online.load_db_maps()
 			if not had_cache:
 				yield(Online, "db_maps_done")
+
+		# Load every map cover now, while the loading screen is up, so the
+		# map list is complete (no covers popping in) when the menu opens.
+		var cover_songs: Array = []
+		for song in registry_song.get_items():
+			if song.has_cover and not song.cover_ready():
+				cover_songs.append(song)
+		if cover_songs.size() > 0:
+			_cover_preload_progress = 0
+			_cover_preload_done = false
+			var cover_thread := Thread.new()
+			var made_textures := 0
+			if cover_thread.start(self, "_decode_covers_worker", cover_songs) == OK:
+				while not _cover_preload_done:
+					emit_signal("init_stage_reached", "Loading map covers\n%d / %d" % [_cover_preload_progress, cover_songs.size()])
+					# Turn decoded covers into textures while the worker keeps going.
+					var frame_start := OS.get_ticks_msec()
+					while made_textures < _cover_preload_progress and OS.get_ticks_msec() - frame_start < 12:
+						cover_songs[made_textures]._get_cover()
+						made_textures += 1
+					yield(get_tree(), "idle_frame")
+				cover_thread.wait_to_finish()
+			for i in range(made_textures, cover_songs.size()):
+				cover_songs[i]._get_cover()
 
 	emit_signal("init_stage_num", 4)
 

@@ -1930,10 +1930,10 @@ func _on_join_public_pressed(code: String):
 	_join_by_code(code, name_text)
 
 func _on_start_game_pressed():
-	print("[savia] Start Game button pressed")
+	print("[furria] Start Game button pressed")
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager == null or not lobby_manager.is_host:
-		print("[savia] aborting — lobby_manager null? ", lobby_manager == null, " is_host=", lobby_manager.is_host if lobby_manager else "n/a")
+		print("[furria] aborting — lobby_manager null? ", lobby_manager == null, " is_host=", lobby_manager.is_host if lobby_manager else "n/a")
 		return
 	lobby_manager.push_current_mods()
 	lobby_manager.start_game()

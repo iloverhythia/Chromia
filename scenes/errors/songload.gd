@@ -5,7 +5,7 @@ func _ready():
 	$Info.text = \
 	 \
 	 \
-		"-- song player load error --\nsavia version: %s\nplatform: %s\nerror info: %s" % [
+		"-- song player load error --\nfurria version: %s\nplatform: %s\nerror info: %s" % [
 		ProjectSettings.get_setting("application/config/version"),
 		OS.get_name(),
 		Rhythia.errorstr,

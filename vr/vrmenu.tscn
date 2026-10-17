@@ -1,7 +1,7 @@
 [gd_scene load_steps=63 format=2]
 
 [ext_resource path="res://scenes/menu/menu2.tscn" type="PackedScene" id=1]
-[ext_resource path="res://assets/images/branding/icon.svg" type="Texture" id=2]
+[ext_resource path="res://assets/images/branding/icon.png" type="Texture" id=2]
 [ext_resource path="res://vr/MenuPointer.gd" type="Script" id=3]
 [ext_resource path="res://vr/vrmenu.gd" type="Script" id=4]
 [ext_resource path="res://assets/meshes/LowCube.obj" type="ArrayMesh" id=5]
@@ -839,20 +839,20 @@ depth = 0.3
 [node name="Sprite3D" type="Sprite3D" parent="."]
 transform = Transform( 1, 0.000560265, 1.74821e-07, -0.000560265, 1, -1.06581e-14, -1.74821e-07, -9.79492e-11, 1, 1.41707e-07, 6.03115, -6.91845 )
 modulate = Color( 1, 1, 1, 0.0980392 )
-pixel_size = 0.0025
+pixel_size = 0.00386
 texture = ExtResource( 2 )
 
 [node name="Sprite3D2" type="Sprite3D" parent="."]
 transform = Transform( 1.06125, -1.06007, 2.05737e-07, 1.06007, 1.06125, 1.27856e-08, -2.31892e-07, 2.04527e-07, 1, 5.42846e-08, 6.03115, -7.41845 )
 modulate = Color( 1, 1, 1, 0.196078 )
 opacity = 0.27
-pixel_size = 0.0025
+pixel_size = 0.00386
 texture = ExtResource( 2 )
 
 [node name="Sprite3D3" type="Sprite3D" parent="."]
 transform = Transform( 1.06125, -1.06007, 2.05737e-07, 1.06007, 1.06125, 1.27856e-08, -2.31892e-07, 2.04527e-07, 1, -4.99131e-08, 6.03115, -8.01439 )
 modulate = Color( 1, 1, 1, 0.196078 )
-pixel_size = 0.0025
+pixel_size = 0.00386
 texture = ExtResource( 2 )
 
 [node name="Avatar" type="Spatial" parent="."]

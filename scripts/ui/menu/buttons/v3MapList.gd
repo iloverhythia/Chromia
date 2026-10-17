@@ -556,7 +556,8 @@ func _load_covers():
 		if _stop_loading_covers:
 			return
 		var song = allmaps[i]
-		if song.has_cover:
+		# Covers are normally all loaded during startup already.
+		if song.has_cover and not song.cover_ready():
 			var img = song._decode_cover_pixels()
 			song._cover_mutex.lock()
 			song._decoded_cover_image = img

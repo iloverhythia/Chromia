@@ -364,13 +364,24 @@ signal update_finished
 onready var version_hr: HTTPRequest = HTTPRequest.new()
 onready var update_hr: HTTPRequest = HTTPRequest.new()
 
+# Updates only ever come from this repository. It is fixed in code on purpose:
+# a project setting could be changed by an override.cfg left behind by
+# another game that shares the same user folder.
+const UPDATE_REPO := "iloverhythia/savia"
+# Release asset names, newest first ("Savia.pck" is what older releases used).
+const UPDATE_PCK_NAMES := ["Furria.pck", "Savia.pck"]
+
+# The .pck that belongs to the running exe (Furria.exe -> Furria.pck).
+static func local_pck_path() -> String:
+	var exe := OS.get_executable_path()
+	return exe.get_base_dir().plus_file(exe.get_file().get_basename() + ".pck")
+
 func check_latest_version():
 	if not OS.has_feature("Windows") or not ProjectSettings.get_setting("application/networking/enabled"):
 		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
 		return
 
-	var repo = ProjectSettings.get_setting("application/networking/github_repo")
-	var github_url = "https://api.github.com/repos/%s/releases/latest" % repo
+	var github_url = "https://api.github.com/repos/%s/releases/latest" % UPDATE_REPO
 	version_hr.request(github_url)
 
 func _on_version_request_completed(result, response_code, headers, body):
@@ -379,9 +390,15 @@ func _on_version_request_completed(result, response_code, headers, body):
 		return
 
 	var json = JSON.parse(body.get_string_from_utf8())
+	var current: String = ProjectSettings.get_setting("application/config/version")
 	if json.error == OK and typeof(json.result) == TYPE_DICTIONARY and json.result.has("tag_name"):
 		latest_version_data = json.result
-		emit_signal("latest_version", latest_version_data.tag_name)
+		var tag := String(latest_version_data.tag_name)
+		# Never "update" to a version that is older than this one.
+		var seq: Array = Rhythia.VERSION_SEQUENCE
+		if seq.has(tag) and seq.has(current) and seq.find(tag) <= seq.find(current):
+			tag = current
+		emit_signal("latest_version", tag)
 	else:
 		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
 
@@ -391,28 +408,28 @@ func attempt_update():
 		return
 
 	var download_url = ""
-	for asset in latest_version_data.assets:
-		if asset.name == "Savia.pck":
-			download_url = asset.browser_download_url
+	for wanted in UPDATE_PCK_NAMES:
+		for asset in latest_version_data.assets:
+			if asset.name == wanted:
+				download_url = asset.browser_download_url
+				break
+		if download_url != "":
 			break
 
 	if download_url == "":
-		print("Savia.pck not found in release assets.")
+		print("No game .pck found in release assets.")
 		emit_signal("update_finished")
 		return
 
-	var exec_dir = OS.get_executable_path().get_base_dir()
-	var final_path = exec_dir.plus_file("Savia.pck")
-	var temp_path = exec_dir.plus_file("Savia.pck.tmp")
+	var temp_path = local_pck_path() + ".tmp"
 
 	update_hr.download_file = temp_path
 	update_hr.request(download_url)
 
 func _on_update_request_completed(result, response_code, headers, body):
-	var exec_dir = OS.get_executable_path().get_base_dir()
-	var final_path = exec_dir.plus_file("Savia.pck")
-	var temp_path = exec_dir.plus_file("Savia.pck.tmp")
-	var backup_path = exec_dir.plus_file("Savia.pck.old")
+	var final_path = local_pck_path()
+	var temp_path = final_path + ".tmp"
+	var backup_path = final_path + ".old"
 
 	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
 		print("Download failed.")

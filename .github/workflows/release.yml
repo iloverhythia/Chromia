@@ -2,7 +2,7 @@ name: Release
 
 # Pushing to main publishes a release for the version in project.godot
 # (application/config/version) if that version has no release yet.
-# The game's auto-updater downloads Savia.pck from the latest release.
+# The game's auto-updater downloads Furria.pck (older builds: Savia.pck) from the latest release.
 on:
   push:
     branches: [main]
@@ -83,9 +83,14 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           mkdir -p dist
-          "$GODOT" --no-window --path . --export "Windows Desktop" "$PWD/dist/Savia.exe"
-          test -f dist/Savia.exe && test -f dist/Savia.pck
-          (cd dist && zip -q -r "../Savia-$TAG-windows.zip" .)
+          "$GODOT" --no-window --path . --export "Windows Desktop" "$PWD/dist/Furria.exe"
+          test -f dist/Furria.exe && test -f dist/Furria.pck
+          # Put the Furria icon on the exe (replaces the template's GODOT_ICON group).
+          npx -y resedit-cli@2.0.0 --in dist/Furria.exe --out dist/Furria-icon.exe --icon GODOT_ICON,icon.ico
+          mv dist/Furria-icon.exe dist/Furria.exe
+          (cd dist && zip -q -r "../Furria-$TAG-windows.zip" .)
+          # Installs from before the rename look for Savia.pck when updating.
+          mkdir -p legacy && cp dist/Furria.pck legacy/Savia.pck
 
       - name: Create release
         if: steps.version.outputs.exists == 'false'
@@ -96,7 +101,7 @@ jobs:
         run: |
           notes="$NOTES"
           if [ -z "$notes" ]; then
-            notes="Savia $TAG for Windows. Unzip and run Savia.exe. Existing installs update automatically."
+            notes="Furria $TAG for Windows. Unzip and run Furria.exe. Existing installs update automatically."
           fi
-          gh release create "$TAG" "Savia-$TAG-windows.zip" dist/Savia.pck \
-            --target "$GITHUB_SHA" --title "Savia $TAG" --notes "$notes"
+          gh release create "$TAG" "Furria-$TAG-windows.zip" dist/Furria.pck legacy/Savia.pck \
+            --target "$GITHUB_SHA" --title "Furria $TAG" --notes "$notes"

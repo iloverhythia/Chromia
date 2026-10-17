@@ -1,6 +1,5 @@
 extends Reference
 
-const DISCORD_CLIENT_ID := "1507913571055702117"
 const OP_HANDSHAKE := 0
 const OP_FRAME := 1
 
@@ -54,7 +53,7 @@ func _try_connect() -> bool:
 	return false
 
 func _handshake() -> bool:
-	if not _write_frame(OP_HANDSHAKE, {"v": 1, "client_id": DISCORD_CLIENT_ID}):
+	if not _write_frame(OP_HANDSHAKE, {"v": 1, "client_id": str(Globals.DISCORD_APP_ID)}):
 		return false
 	return not _read_frame().empty()
 
