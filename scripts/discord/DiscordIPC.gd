@@ -7,25 +7,49 @@ var _pipe: File = null
 var _connected := false
 var _thread: Thread = null
 
-func request_activity(details: String, state: String, large_image: String, buttons: Array) -> void:
+var _mutex := Mutex.new()
+var _queued = null
+var _busy := false
+
+# Sends on a worker thread. If a send is in progress, the newest request is
+# kept and sent right after it (older queued ones are dropped).
+func request_activity(details: String, state: String, assets: Dictionary, buttons: Array) -> void:
+	var args = {"details": details, "state": state, "assets": assets, "buttons": buttons}
+	_mutex.lock()
+	if _busy:
+		_queued = args
+		_mutex.unlock()
+		return
+	_busy = true
+	_mutex.unlock()
 	if _thread != null:
-		if _thread.is_active():
-			return
+		_thread.wait_to_finish()
+	_thread = Thread.new()
+	_thread.start(self, "_worker", args)
+
+func _worker(args) -> void:
+	while args != null:
+		_do_set_activity(args.details, args.state, args.assets, args.buttons)
+		_mutex.lock()
+		args = _queued
+		_queued = null
+		if args == null:
+			_busy = false
+		_mutex.unlock()
+
+func shutdown() -> void:
+	if _thread != null:
 		_thread.wait_to_finish()
 		_thread = null
-	_thread = Thread.new()
-	_thread.start(self, "_worker", {"details": details, "state": state, "large_image": large_image, "buttons": buttons})
+	_disconnect()
 
-func _worker(args: Dictionary) -> void:
-	_do_set_activity(args.details, args.state, args.large_image, args.buttons)
-
-func _do_set_activity(details: String, state: String, large_image: String, buttons: Array) -> void:
+func _do_set_activity(details: String, state: String, assets: Dictionary, buttons: Array) -> void:
 	if not _connected and not _try_connect():
 		return
 	var activity = {
 		"details": details,
 		"state": state,
-		"assets": {"large_image": large_image}
+		"assets": assets
 	}
 	if buttons.size() > 0:
 		activity["buttons"] = buttons

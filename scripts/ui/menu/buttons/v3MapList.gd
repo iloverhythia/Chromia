@@ -216,7 +216,13 @@ func build_list():
 			favorite.append(s)
 	favorite.sort_custom(self, "sortsong")
 	disp.append_array(favorite)
-	if flip_display:
+	if Rhythia.sort_by_stars:
+		var rest := []
+		for bucket in [easy, medium, hard, logic, amogus, unknown]:
+			append_filtering_favorites(rest, bucket)
+		rest.sort_custom(self, "sortstars")
+		disp.append_array(rest)
+	elif flip_display:
 		append_filtering_favorites(disp, amogus)
 		append_filtering_favorites(disp, logic)
 		append_filtering_favorites(disp, hard)
@@ -283,6 +289,19 @@ func update_search_flip_name(flip: bool):
 	if ready: reload_to_current_page()
 
 func sortab(a, b): return a < b
+
+func update_search_sort_stars(_on: bool):
+	if ready: reload_to_current_page()
+
+# Maps without a rating (e.g. online maps not downloaded yet) go last.
+func sortstars(a: Song, b: Song):
+	var sa: float = a.star_rating_cached()
+	var sb: float = b.star_rating_cached()
+	if (sa < 0.0) != (sb < 0.0):
+		return sb < 0.0
+	if sa != sb:
+		return sa > sb if flip_display else sa < sb
+	return a.name.to_lower() < b.name.to_lower()
 
 func sortsongsimple(a: Song, b: Song):
 	if flip_name:

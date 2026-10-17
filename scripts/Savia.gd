@@ -613,6 +613,9 @@ func check_for_update_log():
 	if current_version != last_seen_version:
 		send_analytics_event("app_update", {}, client_id)
 		_notify_latest_update(current_version)
+		# Reload first so changes made since the start of this function aren't lost.
+		config = ConfigFile.new()
+		config.load("user://settings.cfg")
 		config.set_value("internal", "last_version", current_version)
 		config.save("user://settings.cfg")
 
@@ -674,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f"
 ]
 
 
@@ -716,6 +719,7 @@ const VERSION_NOTES = {
 	"oct17-2026-c": "- Savia is now Furria! New name and icon\n- Map covers load during startup, so the map list is complete when the menu opens\n- Auto-updates only come from Furria's releases and never downgrade",
 	"oct17-2026-d": "- Added star ratings (shown next to the note count)\n- The profile you select is remembered after restarting, and settings changes save into it\n- Fixed Disable Intro Cutscene\n- Discord Rich Presence now shows Furria",
 	"oct17-2026-e": "- Fixed the game crashing on startup (Discord Rich Presence turned off for now)",
+	"oct17-2026-f": "- Discord Rich Presence is back (rewritten so it can't crash the game)\n- New \"stars\" filter: sort maps by star rating\n- The profile you had selected is now remembered after restarting",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -882,6 +886,41 @@ var replaying: bool = false
 
 
 var load_target_frame_time: float = 1.0 / 40.0
+
+const STAR_CACHE_FILE = "user://caches/star_ratings.json"
+const STAR_CACHE_VERSION = 1
+var _star_progress: int = 0
+var _star_done: bool = false
+
+func _star_rating_worker(songs: Array):
+	for i in range(songs.size()):
+		songs[i].get_star_rating()
+		_star_progress = i + 1
+	_star_done = true
+
+func _star_cache_key(song) -> String:
+	var path: String = String(song.filePath) if song.filePath != null else ""
+	var mtime := 0
+	if path != "" and File.new().file_exists(path):
+		mtime = File.new().get_modified_time(path)
+	return "%d:%s:%d" % [STAR_CACHE_VERSION, path.get_file(), mtime]
+
+func _load_star_cache() -> Dictionary:
+	var f := File.new()
+	if f.open(Globals.p(STAR_CACHE_FILE), File.READ) != OK:
+		return {}
+	var parsed = parse_json(f.get_as_text())
+	f.close()
+	return parsed if parsed is Dictionary else {}
+
+func _save_star_cache(cache: Dictionary):
+	Directory.new().make_dir_recursive(Globals.p(STAR_CACHE_FILE).get_base_dir())
+	var f := File.new()
+	if f.open(Globals.p(STAR_CACHE_FILE), File.WRITE) == OK:
+		f.store_string(to_json(cache))
+		f.close()
+
+var sort_by_stars: bool = false
 
 var _cover_preload_progress: int = 0
 var _cover_preload_done: bool = false
@@ -2275,6 +2314,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			alt_cam = data.alt_cam
 		if data.has("hide_replay_ui"):
 			hide_replay_ui = bool(data.hide_replay_ui)
+		if data.has("sort_by_stars"):
+			sort_by_stars = bool(data.sort_by_stars)
 		if data.has("show_xp_notifications"):
 			show_xp_notifications = bool(data.show_xp_notifications)
 		if data.has("half_ghost_strength"):
@@ -2656,14 +2697,34 @@ func dser_float(s):
 
 # The profile picked in Settings > Select Profile. It is the source of truth:
 # the game starts with it and every settings save is written back into it.
+# Stored in its own file (just the profile's file name) because several
+# parts of the game rewrite settings.cfg and could drop it.
+const ACTIVE_PROFILE_FILE = "user://active_profile.txt"
+const PROFILES_DIR = "user://profiles"
+
 func get_active_profile_path() -> String:
-	var config = ConfigFile.new()
-	if config.load("user://settings.cfg") != OK:
+	var name := ""
+	var f := File.new()
+	if f.open(Globals.p(ACTIVE_PROFILE_FILE), File.READ) == OK:
+		name = f.get_as_text().strip_edges()
+		f.close()
+	else:
+		# Older versions kept the full path in settings.cfg.
+		var config = ConfigFile.new()
+		if config.load("user://settings.cfg") == OK:
+			name = String(config.get_value("profile", "active_profile_path", "")).replace("\\", "/").get_file()
+	if name == "":
 		return ""
-	var path := String(config.get_value("profile", "active_profile_path", ""))
-	if path == "" or not File.new().file_exists(path):
+	var path: String = Globals.p(PROFILES_DIR).plus_file(name)
+	if not f.file_exists(path):
 		return ""
 	return path
+
+func set_active_profile_path(path: String):
+	var f := File.new()
+	if f.open(Globals.p(ACTIVE_PROFILE_FILE), File.WRITE) == OK:
+		f.store_string(path.replace("\\", "/").get_file())
+		f.close()
 
 # The settings file to read when the game starts.
 func get_startup_settings_path() -> String:
@@ -2767,6 +2828,7 @@ func _write_settings_file(saveFile: String):
 			record_replays = record_replays,
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
+			sort_by_stars = sort_by_stars,
 			show_xp_notifications = show_xp_notifications,
 			half_ghost_strength = half_ghost_strength,
 			record_mode = record_mode,
@@ -3911,6 +3973,34 @@ func do_init(_ud = null):
 				cover_thread.wait_to_finish()
 			for i in range(made_textures, cover_songs.size()):
 				cover_songs[i]._get_cover()
+
+		# Star ratings for every local map, so sorting by stars is instant.
+		# Results are cached per map file, so only new/changed maps are rated.
+		var star_cache: Dictionary = _load_star_cache()
+		var star_songs: Array = []
+		for song in registry_song.get_items():
+			if song.is_online:
+				continue
+			var key := _star_cache_key(song)
+			var cached = star_cache.get(String(song.id))
+			if cached is Array and cached.size() == 2 and String(cached[1]) == key:
+				song._star_rating = float(cached[0])
+			else:
+				star_songs.append(song)
+		if star_songs.size() > 0:
+			_star_progress = 0
+			_star_done = false
+			var star_thread := Thread.new()
+			if star_thread.start(self, "_star_rating_worker", star_songs) == OK:
+				while not _star_done:
+					emit_signal("init_stage_reached", "Calculating star ratings\n%d / %d" % [_star_progress, star_songs.size()])
+					yield(get_tree(), "idle_frame")
+				star_thread.wait_to_finish()
+			else:
+				_star_rating_worker(star_songs)
+			for song in star_songs:
+				star_cache[String(song.id)] = [song._star_rating, _star_cache_key(song)]
+			_save_star_cache(star_cache)
 
 	emit_signal("init_stage_num", 4)
 

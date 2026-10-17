@@ -102,6 +102,10 @@ func _decode_cover_pixels() -> Image:
 const StarRatingCalc = preload("res://scripts/content/game/StarRating.gd")
 var _star_rating: float = -1.0
 
+# The star rating if it has been calculated already, otherwise -1 (no work done).
+func star_rating_cached() -> float:
+	return _star_rating
+
 # Star rating (aim difficulty). Computed on first use and cached; returns -1
 # when the notes aren't available (e.g. an online map that isn't downloaded).
 func get_star_rating() -> float:

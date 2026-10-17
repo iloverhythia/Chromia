@@ -191,16 +191,10 @@ func save_profile(path: String):
 		_ready()
 
 func _get_active_profile_path() -> String:
-	var config = ConfigFile.new()
-	if config.load(_SETTINGS_PATH) != OK:
-		return ""
-	return String(config.get_value("profile", "active_profile_path", ""))
+	return Rhythia.get_active_profile_path()
 
 func _set_active_profile_path(path: String):
-	var config = ConfigFile.new()
-	config.load(_SETTINGS_PATH)
-	config.set_value("profile", "active_profile_path", path)
-	config.save(_SETTINGS_PATH)
+	Rhythia.set_active_profile_path(path)
 
 func on_pressed(i):
 	if i == profiles.size() + 1:
@@ -285,7 +279,7 @@ func _ready():
 		get_popup().add_item(profileName, i)
 		delete_submenu.add_item(profileName, i)
 		overwrite_submenu.add_item(profileName, i)
-		if profiles[i] == active_path:
+		if active_path != "" and profiles[i].replace("\\", "/").get_file() == active_path.get_file():
 			get_popup().set_item_as_checkable(i, true)
 			get_popup().set_item_checked(i, true)
 

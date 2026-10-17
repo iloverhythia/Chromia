@@ -1,4 +1,4 @@
-[gd_scene load_steps=214 format=2]
+[gd_scene load_steps=215 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -111,6 +111,7 @@
 [ext_resource path="res://scripts/ui/menu/buttons/ImportMap.gd" type="Script" id=210]
 [ext_resource path="res://prefabs/menu/stats_page.tscn" type="PackedScene" id=211]
 [ext_resource path="res://assets/images/ui/stats.png" type="Texture" id=212]
+[ext_resource path="res://scripts/ui/menu/buttons/StarSort.gd" type="Script" id=213]
 
 [sub_resource type="Gradient" id=163]
 offsets = PoolRealArray( 0, 0.5, 1 )
@@ -4137,6 +4138,25 @@ script = ExtResource( 23 )
 __meta__ = {
 "_edit_use_anchors_": false
 }
+
+[node name="StarSort" type="CheckBox" parent="Main/Maps/Filters"]
+margin_top = 244.0
+margin_right = 77.0
+margin_bottom = 269.0
+rect_min_size = Vector2( 0, 25 )
+hint_tooltip = "sort maps by star rating (the difficulty arrow flips the order)"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_focus = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_hover = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_pressed = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_fonts/font = SubResource( 69 )
+action_mode = 0
+text = "stars"
+flat = true
+script = ExtResource( 213 )
 
 [node name="space" type="Control" parent="Main/Maps/Filters"]
 margin_top = 244.0
