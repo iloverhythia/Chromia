@@ -1,4 +1,4 @@
-[gd_scene load_steps=94 format=2]
+[gd_scene load_steps=95 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -67,6 +67,7 @@
 [ext_resource path="res://scripts/ui/settings/AddSoundButton.gd" type="Script" id=73]
 [ext_resource path="res://scripts/ui/settings/BorderGrid.gd" type="Script" id=74]
 [ext_resource path="res://scripts/ui/settings/AddBorderButton.gd" type="Script" id=75]
+[ext_resource path="res://scripts/ui/settings/HalfGhostStrength.gd" type="Script" id=76]
 
 [sub_resource type="StyleBoxLine" id=55]
 color = Color( 0.690196, 0.690196, 0.690196, 0.588235 )
@@ -1813,6 +1814,38 @@ text = "Half Ghost"
 flat = true
 script = ExtResource( 54 )
 target = "half_ghost"
+
+[node name="HalfGhostStrength" type="HBoxContainer" parent="TabContainer/Notes/Notes/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 80%] how much notes fade out with Half Ghost (100% = fully invisible near the grid, like Sound Space)"
+
+[node name="Strength" type="SpinBox" parent="TabContainer/Notes/Notes/Group/H/HalfGhostStrength"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 80%] how much notes fade out with Half Ghost (100% = fully invisible near the grid, like Sound Space)"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = 10.0
+max_value = 100.0
+step = 5.0
+value = 80.0
+suffix = "%"
+script = ExtResource( 76 )
+
+[node name="Label" type="Label" parent="TabContainer/Notes/Notes/Group/H/HalfGhostStrength"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 380.0
+margin_bottom = 26.0
+focus_mode = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Half Ghost Strength"
+align = 2
+valign = 1
 
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Notes/Notes/Group/H"]
 margin_top = 370.0
@@ -5679,6 +5712,25 @@ flat = true
 script = ExtResource( 54 )
 target = "alt_cam"
 
+[node name="HideReplayUI" type="CheckBox" parent="TabContainer/Replays & Misc/Recording/Group/H"]
+margin_right = 318.0
+margin_bottom = 28.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "hides the replay bar and mouse pointer while watching replays, for clean recordings (press F1 in a replay to toggle)"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Hide Replay UI"
+flat = true
+script = ExtResource( 54 )
+target = "hide_replay_ui"
+
 [node name="Mode" type="HBoxContainer" parent="TabContainer/Replays & Misc/Recording/Group/H"]
 margin_top = 64.0
 margin_right = 318.0
@@ -6061,6 +6113,25 @@ margin_bottom = 32.0
 rect_min_size = Vector2( 160, 32 )
 theme = ExtResource( 1 )
 text = "Connect Discord"
+
+[node name="XPNotifications" type="CheckBox" parent="TabContainer/Online/Account/Group/H"]
+margin_right = 318.0
+margin_bottom = 28.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "show popups when a map is ranked for XP and when XP is awarded or rejected"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "XP Notifications"
+flat = true
+script = ExtResource( 54 )
+target = "show_xp_notifications"
 
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Online/Account/Group/H"]
 margin_top = 36.0

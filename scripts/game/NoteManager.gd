@@ -465,7 +465,7 @@ func _ready():
 		fade_out_enabled = true
 		fade_out_start = ((12.0 / 50) * approach_rate)
 		fade_out_end = ((3.0 / 50.0) * approach_rate)
-		fade_out_base = 0.8
+		fade_out_base = clamp(Rhythia.half_ghost_strength, 0.1, 1.0)
 
 	if Rhythia.mod_nearsighted:
 		fade_in_enabled = true

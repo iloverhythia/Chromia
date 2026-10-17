@@ -136,15 +136,38 @@ func _ready():
 	speed_slider.connect("value_changed", self, "_on_speed_value_changed")
 	speed_label.text = "%.2fx" % speed_slider.value
 	logo_button.connect("pressed", self, "_set_collapsed", [false])
+	_hidden = Rhythia.hide_replay_ui
+	# Run after the cursor sets up the mouse mode for the replay.
+	call_deferred("_apply_visibility")
+
+# _hidden: nothing on screen (for recording). _collapsed: only the small logo button.
+var _hidden: bool = false
 
 func _set_collapsed(value: bool):
 	_collapsed = value
-	$Panel.visible = not _collapsed
-	logo_button.visible = _collapsed
+	_hidden = false
+	_apply_visibility()
+
+func _apply_visibility():
+	$Panel.visible = not _hidden and not _collapsed
+	logo_button.visible = not _hidden and _collapsed
+	# The "replaying" mod icon is part of the replay UI too.
+	var hud = get_parent()
+	if hud != null and hud.get("modicons") != null and hud.modicons.has_node("Replaying"):
+		hud.modicons.get_node("Replaying").visible = not _hidden
+	# Show the mouse pointer whenever the replay bar can be used.
+	if _hidden:
+		Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	else:
+		Input.set_custom_mouse_cursor(null)
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 
 func _unhandled_input(event):
 	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_F1:
-		_set_collapsed(not _collapsed)
+		# F1 toggles the whole replay UI on and off.
+		_hidden = not _hidden
+		_collapsed = false
+		_apply_visibility()
 		get_tree().set_input_as_handled()
 
 func _on_play_pressed():

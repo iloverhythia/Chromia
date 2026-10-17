@@ -80,6 +80,55 @@ func load_buffer_image(bytes: PoolByteArray) -> Image:
 	else: return null
 	return img
 
+# Decoding a GIF in GDScript can take seconds, and the same GIF (custom cursor,
+# background, ...) is requested every time a song or menu loads. Decoded GIFs are
+# kept in memory for the session and in a compressed cache file on disk, keyed
+# on the file's path, size and modified time.
+const GIF_CACHE_DIR = "user://caches/gif"
+const GIF_CACHE_VERSION = 1
+var _gif_cache := {}
+var _gif_cache_mutex := Mutex.new()
+
+func _load_gif_cached(path: String, bytes: PoolByteArray) -> Texture:
+	var file := File.new()
+	var key: String = ("%s|%s|%s" % [path, bytes.size(), file.get_modified_time(path)]).md5_text()
+	_gif_cache_mutex.lock()
+	var hit = _gif_cache.get(key)
+	_gif_cache_mutex.unlock()
+	if hit != null:
+		return hit
+
+	var tex: Texture = null
+	var cache_path: String = Globals.p(GIF_CACHE_DIR).plus_file(key + ".gifc")
+	if file.file_exists(cache_path) and file.open_compressed(cache_path, File.READ, File.COMPRESSION_ZSTD) == OK:
+		var meta = file.get_var()
+		if meta is Dictionary and meta.get("v", 0) == GIF_CACHE_VERSION:
+			var frames := []
+			var frame_len: int = int(meta.width) * int(meta.height) * 4
+			for i in range(meta.count):
+				frames.append(file.get_buffer(frame_len))
+			tex = GifDecoder.texture_from_decoded({"frames": frames, "delays": meta.delays, "width": meta.width, "height": meta.height})
+		file.close()
+
+	if tex == null:
+		var result = GifDecoder.decode(bytes)
+		if result.empty():
+			return invalid_texture
+		tex = GifDecoder.texture_from_decoded(result)
+		var dir := Directory.new()
+		dir.make_dir_recursive(Globals.p(GIF_CACHE_DIR))
+		if file.open_compressed(cache_path, File.WRITE, File.COMPRESSION_ZSTD) == OK:
+			file.store_var({"v": GIF_CACHE_VERSION, "width": result.width, "height": result.height,
+				"count": result.frames.size(), "delays": result.delays})
+			for frame in result.frames:
+				file.store_buffer(frame)
+			file.close()
+
+	_gif_cache_mutex.lock()
+	_gif_cache[key] = tex
+	_gif_cache_mutex.unlock()
+	return tex
+
 func load_buffer(bytes: PoolByteArray) -> Texture:
 	if get_format(bytes) == "gif":
 		var anim = GifDecoder.decode_to_animated_texture(bytes)
@@ -102,6 +151,8 @@ func load_file(filepath: String) -> Texture:
 
 	var bytes: PoolByteArray = file.get_buffer(file.get_len())
 	file.close()
+	if get_format(bytes) == "gif":
+		return _load_gif_cached(Globals.p(filepath), bytes)
 	return load_buffer(bytes)
 
 func load_if_exists(path: String):

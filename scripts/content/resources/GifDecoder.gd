@@ -70,18 +70,24 @@ static func _lzw_decode(data: PoolByteArray, min_code_size: int, expected_pixels
 	var code_size = min_code_size + 1
 	var next_code = end_code + 1
 
-	var bit_pos = 0
-	var total_bits = data.size() * 8
+	# Read codes through a bit buffer, a byte at a time (much faster than bit by bit).
+	var bit_buf = 0
+	var bit_count = 0
+	var byte_pos = 0
+	var data_size = data.size()
+	var out_size = 0
 	var prev_indices := PoolIntArray()
 
-	while bit_pos + code_size <= total_bits and out.size() < expected_pixels:
-		var code = 0
-		for b in range(code_size):
-			var byte_index = (bit_pos + b) >> 3
-			var bit_index = (bit_pos + b) & 7
-			var bit = (data[byte_index] >> bit_index) & 1
-			code |= (bit << b)
-		bit_pos += code_size
+	while out_size < expected_pixels:
+		while bit_count < code_size and byte_pos < data_size:
+			bit_buf |= data[byte_pos] << bit_count
+			byte_pos += 1
+			bit_count += 8
+		if bit_count < code_size:
+			break
+		var code = bit_buf & ((1 << code_size) - 1)
+		bit_buf >>= code_size
+		bit_count -= code_size
 
 		if code == clear_code:
 			dict = _make_initial_dict(min_code_size)
@@ -102,6 +108,7 @@ static func _lzw_decode(data: PoolByteArray, min_code_size: int, expected_pixels
 			break
 
 		out.append_array(entry)
+		out_size += entry.size()
 
 		if prev_indices.size() > 0 and next_code < 4096:
 			var new_entry: PoolIntArray = prev_indices
@@ -323,6 +330,10 @@ static func decode_to_animated_texture(bytes: PoolByteArray) -> Texture:
 	var result = decode(bytes)
 	if result.empty():
 		return null
+	return texture_from_decoded(result)
+
+# Builds the texture from decode() output (also used for the on-disk GIF cache).
+static func texture_from_decoded(result: Dictionary) -> Texture:
 	var frame_bytes_list: Array = result.frames
 	var delays: Array = result.delays
 	var w: int = result.width

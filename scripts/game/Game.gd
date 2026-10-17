@@ -98,6 +98,8 @@ func end(end_type: int):
 	Rhythia.song_end_type = end_type
 	Rhythia.song_end_combo = max_combo
 	print("song max combo: ", max_combo)
+	if not Rhythia.replaying:
+		Rhythia.record_play_stats()
 
 	if Rhythia.record_replays and not Rhythia.replaying:
 		Rhythia.replay.end_recording()

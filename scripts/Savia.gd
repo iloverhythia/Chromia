@@ -282,6 +282,8 @@ func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, conten
 		reasons.append("Autoplay is on")
 	if start_offset != 0:
 		reasons.append("not starting from 0:00")
+	if not show_xp_notifications:
+		return
 	if reasons.size() > 0:
 		Globals.notify(Globals.NOTIFY_WARN, "Won't count for XP — %s" % reasons.join(", "), "XP Not Valid")
 	else:
@@ -363,12 +365,14 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 			msg += "\n+%d SP (%d → %d)" % [sp_awarded, before_sp, sp]
 		else:
 			msg += "\nSP unchanged (%d) — not a new best on this map" % sp
-		Globals.notify(Globals.NOTIFY_SUCCEED, msg, "Score Submitted")
+		if show_xp_notifications:
+			Globals.notify(Globals.NOTIFY_SUCCEED, msg, "Score Submitted")
 		if record_replays:
 			upload_replay_for_pass(song_id, replay_id_snapshot)
 	elif data.has("reason"):
 		var reason_text = XP_REJECT_REASONS.get(String(data.reason), String(data.reason))
-		Globals.notify(Globals.NOTIFY_WARN, "No XP awarded — %s" % reason_text, "Score Not Submitted")
+		if show_xp_notifications:
+			Globals.notify(Globals.NOTIFY_WARN, "No XP awarded — %s" % reason_text, "Score Not Submitted")
 
 func _save_discord_profile():
 	var config = ConfigFile.new()
@@ -670,7 +674,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a"
 ]
 
 
@@ -707,6 +711,7 @@ const VERSION_NOTES = {
 	"sep27-2026-web-b": "- Web 2",
 	"oct16-2026-a": "- Desktop release (web-only code removed)\n- Removed GUI scale setting\n- Maps load instantly",
 	"oct16-2026-b": "- Smooth map loading (maps import in the background)\n- Fixed pixelated/blurry resolution\n- Auto-updates now come from iloverhythia/savia",
+	"oct17-2026-a": "- Added a Stats page\n- Added Half Ghost Strength (Notes settings)\n- Added Hide Replay UI (Replays settings, F1 toggles it in replays)\n- Mouse pointer is visible in replays so you can use the replay bar\n- Added a setting to turn off XP notifications (Online settings)\n- GIF cursors and backgrounds no longer lag (decoded once and cached)",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -1585,6 +1590,9 @@ var disable_intro: bool = false
 
 var record_replays: bool = false
 var alt_cam: bool = false
+var hide_replay_ui: bool = false
+var show_xp_notifications: bool = true
+var half_ghost_strength: float = 0.8
 var record_limit: int = 0
 var record_mode: int = 1
 var resolution: int = 3
@@ -1753,6 +1761,117 @@ func _load_covers():
 		allmaps[i]._get_cover()
 
 
+
+# ---- Lifetime stats (shown on the Stats page) ----
+const STATS_FILE = "user://stats.json"
+var lifetime_stats: Dictionary = {}
+var _lifetime_stats_loaded: bool = false
+
+func _default_lifetime_stats() -> Dictionary:
+	return {
+		"plays": 0, "passes": 0, "fails": 0, "give_ups": 0,
+		"notes_hit": 0, "notes_missed": 0, "play_time_ms": 0,
+		"best_combo": 0, "first_play_ts": 0, "last_play_ts": 0,
+		"map_plays": {},
+	}
+
+func get_lifetime_stats() -> Dictionary:
+	if not _lifetime_stats_loaded:
+		_lifetime_stats_loaded = true
+		lifetime_stats = _default_lifetime_stats()
+		var file := File.new()
+		if file.open(Globals.p(STATS_FILE), File.READ) == OK:
+			var parsed = parse_json(file.get_as_text())
+			file.close()
+			if parsed is Dictionary:
+				for k in parsed.keys():
+					lifetime_stats[k] = parsed[k]
+	return lifetime_stats
+
+func _save_lifetime_stats():
+	var file := File.new()
+	if file.open(Globals.p(STATS_FILE), File.WRITE) == OK:
+		file.store_string(to_json(lifetime_stats))
+		file.close()
+
+# Called by the game when a play ends (not for replays or autoplay).
+func record_play_stats():
+	if single_map_mode or selected_song == null:
+		return
+	var st := get_lifetime_stats()
+	var now := OS.get_unix_time()
+	st.plays = int(st.plays) + 1
+	match song_end_type:
+		Globals.END_PASS: st.passes = int(st.passes) + 1
+		Globals.END_GIVEUP: st.give_ups = int(st.give_ups) + 1
+		_: st.fails = int(st.fails) + 1
+	st.notes_hit = int(st.notes_hit) + int(song_end_hits)
+	st.notes_missed = int(st.notes_missed) + int(song_end_misses)
+	st.play_time_ms = int(st.play_time_ms) + int(max(0, song_end_position - start_offset) / max(Globals.speed_multi[mod_speed_level], 0.01))
+	st.best_combo = max(int(st.best_combo), int(song_end_combo))
+	if int(st.first_play_ts) == 0:
+		st.first_play_ts = now
+	st.last_play_ts = now
+	var id := String(selected_song.id)
+	var counts: Dictionary = st.map_plays
+	counts[id] = int(counts.get(id, 0)) + 1
+	_save_lifetime_stats()
+
+# Summary of personal bests across all maps (from user://bests).
+func get_pb_summary() -> Dictionary:
+	var out := {"maps_played": 0, "maps_passed": 0, "full_combos": 0, "avg_best_accuracy": 0.0}
+	var dir := Directory.new()
+	if dir.open(user_best_dir) != OK:
+		return out
+	var acc_total := 0.0
+	dir.list_dir_begin(true, true)
+	var fn := dir.get_next()
+	while fn != "":
+		if not dir.current_is_dir():
+			var best := _read_best_file(user_best_dir.plus_file(fn))
+			if not best.empty():
+				out.maps_played += 1
+				if best.passed:
+					out.maps_passed += 1
+					acc_total += best.accuracy
+					if best.fc:
+						out.full_combos += 1
+		fn = dir.get_next()
+	dir.list_dir_end()
+	if out.maps_passed > 0:
+		out.avg_best_accuracy = acc_total / out.maps_passed
+	return out
+
+func _read_best_file(path: String) -> Dictionary:
+	var file := File.new()
+	if file.open(path, File.READ) != OK:
+		return {}
+	if file.get_buffer(5) != PoolByteArray([83, 83, 43, 112, 66]):
+		file.close()
+		return {}
+	var sv: int = file.get_16()
+	var amt: int = file.get_64()
+	var result := {"passed": false, "fc": false, "accuracy": 0.0}
+	for i in range(amt):
+		if file.eof_reached():
+			break
+		file.get_line()
+		var passed = bool(file.get_8())
+		file.get_16()
+		var hit: int = file.get_32()
+		var total: int = file.get_32()
+		file.get_32()
+		file.get_32()
+		if sv >= 3: file.get_16()
+		if sv >= 4: file.get_64()
+		if passed and total > 0:
+			result.passed = true
+			var acc := float(hit) / float(total)
+			result.accuracy = max(result.accuracy, acc)
+			if hit >= total:
+				result.fc = true
+	file.close()
+	return result
 
 func do_pb_check_and_set() -> bool:
 	if mod_nofail or was_replay or start_offset != 0 or just_ended_queue or OS.has_feature("debug"): return false
@@ -2138,6 +2257,12 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			record_replays = data.record_replays
 		if data.has("alt_cam"):
 			alt_cam = data.alt_cam
+		if data.has("hide_replay_ui"):
+			hide_replay_ui = bool(data.hide_replay_ui)
+		if data.has("show_xp_notifications"):
+			show_xp_notifications = bool(data.show_xp_notifications)
+		if data.has("half_ghost_strength"):
+			half_ghost_strength = clamp(float(data.half_ghost_strength), 0.1, 1.0)
 		if data.has("record_mode"):
 			record_mode = data.record_mode
 		if data.has("resolution"):
@@ -2601,6 +2726,9 @@ func save_settings(saveFile: String = Globals.p("user://settings.json")):
 			show_warnings = show_warnings,
 			record_replays = record_replays,
 			alt_cam = alt_cam,
+			hide_replay_ui = hide_replay_ui,
+			show_xp_notifications = show_xp_notifications,
+			half_ghost_strength = half_ghost_strength,
 			record_mode = record_mode,
 			resolution = resolution,
 			record_limit = record_limit,

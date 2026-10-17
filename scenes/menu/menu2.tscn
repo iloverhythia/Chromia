@@ -1,4 +1,4 @@
-[gd_scene load_steps=212 format=2]
+[gd_scene load_steps=214 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -109,6 +109,8 @@
 [ext_resource path="res://prefabs/menu/update_log.tscn" type="PackedScene" id=178]
 [ext_resource path="res://scripts/ui/menu/buttons/MapXPOnly.gd" type="Script" id=179]
 [ext_resource path="res://scripts/ui/menu/buttons/ImportMap.gd" type="Script" id=210]
+[ext_resource path="res://prefabs/menu/stats_page.tscn" type="PackedScene" id=211]
+[ext_resource path="res://assets/images/ui/stats.png" type="Texture" id=212]
 
 [sub_resource type="Gradient" id=163]
 offsets = PoolRealArray( 0, 0.5, 1 )
@@ -4564,6 +4566,16 @@ __meta__ = {
 
 [node name="Page" parent="Main/UpdateLog" instance=ExtResource( 178 )]
 
+[node name="Stats" type="ReferenceRect" parent="Main"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 4.0
+margin_top = 4.0
+border_color = Color( 1, 0, 0, 0 )
+
+[node name="Page" parent="Main/Stats" instance=ExtResource( 211 )]
+
 [node name="Quit" type="Button" parent="."]
 visible = false
 modulate = Color( 1, 0.6, 0.6, 1 )
@@ -4840,6 +4852,37 @@ anchor_bottom = 1.0
 margin_left = 64.0
 custom_fonts/font = SubResource( 6 )
 text = "Update Log"
+valign = 1
+
+[node name="Stats" type="Button" parent="Sidebar/L"]
+margin_top = 348.0
+margin_right = 58.0
+margin_bottom = 406.0
+rect_min_size = Vector2( 0, 58 )
+custom_styles/hover = SubResource( 4 )
+custom_styles/pressed = SubResource( 2 )
+custom_styles/focus = SubResource( 3 )
+custom_styles/disabled = SubResource( 4 )
+custom_styles/normal = SubResource( 4 )
+toggle_mode = true
+action_mode = 0
+group = SubResource( 5 )
+
+[node name="Tex" type="TextureRect" parent="Sidebar/L/Stats"]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 48.0
+margin_bottom = 48.0
+texture = ExtResource( 212 )
+expand = true
+stretch_mode = 6
+
+[node name="Label" type="Label" parent="Sidebar/L/Stats"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 64.0
+custom_fonts/font = SubResource( 6 )
+text = "Stats"
 valign = 1
 
 [node name="StartVR" type="Button" parent="Sidebar/L"]
