@@ -160,6 +160,10 @@ func _physics_process(delta):
 				call_deferred("pg_down")
 
 	if scrolling_to:
+		# Inside a pinned range the list doesn't move, so go there directly.
+		if scroll_target != cur_map and _pin_zone(scroll_target) != 0 and _pin_zone(scroll_target) == _pin_zone(cur_map):
+			cur_map = scroll_target
+			load_pg()
 		if scroll_target < cur_map:
 			call_deferred("pg_up")
 		elif scroll_target > cur_map:
@@ -477,8 +481,42 @@ func make_song_button(id: int = -1):
 		btn.get_node("Select").pressed = true
 	return btn
 
+# Near the start or end of the list, the list is pinned to the edge (see
+# _edge_target), so moving cur_map there wouldn't move anything on screen.
+# Scrolling skips over that range so every scroll step visibly moves the list.
+func _pin_bounds() -> Array:
+	if _base_margins == null or disp.size() == 0:
+		return [0, disp.size() - 1]
+	var h: float = get_parent().rect_size.y
+	var step: float = 90.0 + get_constant("separation")
+	var center: float = (_base_margins[0] + anchor_bottom * h + _base_margins[1]) / 2.0
+	var lo := int(ceil((center - 45.0) / step))
+	var hi := int(floor(disp.size() - 1 - (h - center - 45.0) / step))
+	return [max(lo, 0), min(hi, disp.size() - 1)]
+
+func _pin_zone(i: int) -> int:
+	var b := _pin_bounds()
+	if b[0] > b[1]: return -1
+	if i < b[0]: return -1
+	if i > b[1]: return 1
+	return 0
+
+func _jump_to(i: int):
+	cur_map = i
+	$Press.play()
+	load_pg()
+
 func pg_up():
-	if cur_map < 0: return
+	if cur_map <= 0: return
+	var b := _pin_bounds()
+	if b[0] > b[1]: return # the whole list fits, nothing to scroll
+	if cur_map < b[0]: return
+	if cur_map == b[0]:
+		_jump_to(max(b[0] - 1, 0))
+		return
+	if cur_map > b[1]:
+		_jump_to(b[1])
+		return
 	cur_map -= 1
 
 	$Press.play()
@@ -494,6 +532,15 @@ func pg_up():
 
 func pg_down():
 	if cur_map >= disp.size() - 1: return
+	var b := _pin_bounds()
+	if b[0] > b[1]: return
+	if cur_map > b[1]: return
+	if cur_map == b[1]:
+		_jump_to(min(b[1] + 1, disp.size() - 1))
+		return
+	if cur_map < b[0]:
+		_jump_to(b[0])
+		return
 	cur_map += 1
 
 	$Press.play()

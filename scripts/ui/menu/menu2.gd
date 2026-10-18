@@ -2418,7 +2418,6 @@ func _center_mods():
 	if mods == null or title == null:
 		return
 	var tr: Rect2 = title.get_global_rect()
-	var tf = title.get_font("font")
 	var mid: float = tr.position.x + tr.size.x / 2.0
 	var scale: float = max(mods.get_global_transform().get_scale().x, 0.01)
 	var speed = mods.get_node_or_null("SpeedMod")
@@ -2426,21 +2425,16 @@ func _center_mods():
 	if row != null:
 		row.add_constant_override("separation", 1)
 	yield(get_tree(), "idle_frame")
-	var rest := []
+	# Every row is centered on the title's middle line: the checkbox grid as
+	# one block, and each other row (sliders, speed, health model) on its own.
+	var grid := []
 	for c in mods.get_children():
-		if c is Control and c != speed:
-			rest.append(c)
-	# The checkbox grid sets the center; the slider rows move along with it.
-	var grid_box = null
-	for c in rest:
 		if c is CheckBox:
-			grid_box = _union_visible(c, grid_box)
-	var rest_box = _shift_to_center(rest, mid, scale, null, grid_box)
-	if speed != null and row != null:
-		var sbox = _shift_to_center([speed], mid, scale, row)
-		# Don't let the wide speed row stick out further left than the rest.
-		if rest_box != null and sbox != null and sbox.position.x < rest_box.position.x - 20.0:
-			speed.rect_position.x += (rest_box.position.x - 20.0 - sbox.position.x) / scale
+			grid.append(c)
+	_shift_to_center(grid, mid, scale, null)
+	for c in mods.get_children():
+		if c is Control and not (c is CheckBox):
+			_shift_to_center([c], mid, scale, row if c == speed else null)
 
 # Returns the drawn area after the shift.
 func _shift_to_center(nodes: Array, mid: float, scale: float, measure, given = null):
