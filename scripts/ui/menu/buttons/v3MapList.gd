@@ -61,15 +61,20 @@ func next_index():
 func prev_index():
 	return cur_map - int(floor(((page_size + 1) / 2) * 1.2))
 
-func is_fav(s: Song): return favorite.has(s)
+var _fav_set: Dictionary = {}
+func is_fav(s: Song): return _fav_set.has(s)
+
+# Lowercased search text, worked out once per list rebuild instead of per map.
+var _st: String = ""
+var _at: String = ""
 
 func search_matches(s: Song):
 	return (
 		difficulty_filter.has(s.difficulty) and
 		(not s.is_online or show_online_maps) and
 		(not s.is_broken or show_broken_maps) and
-		(search_text == "" or s.name.to_lower().find(search_text.to_lower()) != -1) and
-		(author_search_text == "" or s.creator.to_lower().find(author_search_text.to_lower()) != -1) and
+		(_st == "" or s.lname().find(_st) != -1) and
+		(_at == "" or s.creator.to_lower().find(_at) != -1) and
 		(not xp_only_maps or ranked_song_ids.has(s.id)) and
 		(folder_filter == null or folder_filter.has(s.id))
 	)
@@ -214,22 +219,64 @@ func append_filtering_favorites(to: Array, from: Array):
 		if not is_fav(s) and search_matches(s):
 			to.append(s)
 
+# Sorting thousands of maps with a script compare function is slow, so sort
+# text keys with the engine's built-in sort instead.
+func _sorted_by_keys(arr: Array, keys: Array, desc: bool) -> Array:
+	var by_key := {}
+	var sk := []
+	for i in range(arr.size()):
+		var k: String = keys[i] + "\u0001%08d" % i
+		by_key[k] = arr[i]
+		sk.append(k)
+	sk.sort()
+	if desc: sk.invert()
+	var out := []
+	out.resize(sk.size())
+	for i in range(sk.size()):
+		out[i] = by_key[sk[i]]
+	return out
+
+func _sorted_by_name(arr: Array, desc: bool) -> Array:
+	var keys := []
+	keys.resize(arr.size())
+	for i in range(arr.size()):
+		keys[i] = arr[i].lname() + "\u0001" + String(arr[i].id)
+	return _sorted_by_keys(arr, keys, desc)
+
+func _sorted_by_stars(arr: Array, desc: bool) -> Array:
+	var rated := []
+	var unrated := []
+	var keys := []
+	for s in arr:
+		var r: float = s.star_rating_cached()
+		if r < 0.0:
+			unrated.append(s)
+		else:
+			rated.append(s)
+			keys.append("%012.4f\u0001%s" % [r, s.lname()])
+	var out := _sorted_by_keys(rated, keys, desc)
+	out.append_array(_sorted_by_name(unrated, false))
+	return out
+
 func build_list():
 	disp = []
 	favorite = []
+	_fav_set = {}
+	_st = search_text.to_lower()
+	_at = author_search_text.to_lower()
 	folder_filter = folders.active_set()
 	for id in Rhythia.favorite_songs:
 		var s = Rhythia.registry_song.get_item(id)
 		if s and Rhythia.is_favorite(id) and search_matches(s):
 			favorite.append(s)
 	favorite.sort_custom(self, "sortsong")
+	for s in favorite: _fav_set[s] = true
 	disp.append_array(favorite)
 	if Rhythia.sort_by_stars:
 		var rest := []
 		for bucket in [easy, medium, hard, logic, amogus, unknown]:
 			append_filtering_favorites(rest, bucket)
-		rest.sort_custom(self, "sortstars")
-		disp.append_array(rest)
+		disp.append_array(_sorted_by_stars(rest, flip_display))
 	elif flip_display:
 		append_filtering_favorites(disp, amogus)
 		append_filtering_favorites(disp, logic)
@@ -250,15 +297,29 @@ func reload_to_current_page(_a = null):
 	build_list()
 	load_pg()
 
+# Typing in the search boxes waits for a short pause before rebuilding the
+# list, so big libraries don't lag on every key press.
+const SEARCH_DELAY = 0.15
+var _search_timer: SceneTreeTimer = null
+
+func _queue_search():
+	if not ready: return
+	_search_timer = get_tree().create_timer(SEARCH_DELAY)
+	_search_timer.connect("timeout", self, "_run_queued_search", [_search_timer])
+
+func _run_queued_search(t):
+	if t != _search_timer or not is_inside_tree(): return
+	_search_timer = null
+	reload_to_current_page()
+	emit_signal("search_updated")
+
 func update_search_text(txt: String):
 	search_text = txt
-	if ready: reload_to_current_page()
-	emit_signal("search_updated")
+	_queue_search()
 
 func update_author_search_text(txt: String):
 	author_search_text = txt
-	if ready: reload_to_current_page()
-	emit_signal("search_updated")
+	_queue_search()
 
 func update_search_dfil(dfil: Array):
 	difficulty_filter = dfil
@@ -289,11 +350,7 @@ func update_search_flipped(flip: bool):
 
 func update_search_flip_name(flip: bool):
 	flip_name = flip
-	easy.sort_custom(self, "sortsongsimple")
-	medium.sort_custom(self, "sortsongsimple")
-	hard.sort_custom(self, "sortsongsimple")
-	logic.sort_custom(self, "sortsongsimple")
-	amogus.sort_custom(self, "sortsongsimple")
+	_sort_buckets()
 	if ready: reload_to_current_page()
 
 func sortab(a, b): return a < b
@@ -340,25 +397,31 @@ func reset_filters():
 	update_search_xponly(false)
 	folders.set_active(-1)
 
+# Groups maps by difficulty. The groups are rebuilt from scratch so maps that
+# were removed or re-imported don't linger as duplicates.
 func prepare_songs():
+	easy = []; medium = []; hard = []; logic = []; amogus = []; unknown = []
+	var seen := {}
 	for i in range(songs.size()):
 		var map: Song = songs[i]
-		var add_to: Array
+		if seen.has(map): continue
+		seen[map] = true
 		match map.difficulty:
-			Globals.DIFF_EASY: add_to = easy
-			Globals.DIFF_MEDIUM: add_to = medium
-			Globals.DIFF_HARD: add_to = hard
-			Globals.DIFF_LOGIC: add_to = logic
-			Globals.DIFF_AMOGUS: add_to = amogus
-			_: add_to = unknown
+			Globals.DIFF_EASY: easy.append(map)
+			Globals.DIFF_MEDIUM: medium.append(map)
+			Globals.DIFF_HARD: hard.append(map)
+			Globals.DIFF_LOGIC: logic.append(map)
+			Globals.DIFF_AMOGUS: amogus.append(map)
+			_: unknown.append(map)
+	_sort_buckets()
 
-		if add_to.find(map) == -1:
-			add_to.append(map)
-	easy.sort_custom(self, "sortsongsimple")
-	medium.sort_custom(self, "sortsongsimple")
-	hard.sort_custom(self, "sortsongsimple")
-	logic.sort_custom(self, "sortsongsimple")
-	amogus.sort_custom(self, "sortsongsimple")
+func _sort_buckets():
+	easy = _sorted_by_name(easy, flip_name)
+	medium = _sorted_by_name(medium, flip_name)
+	hard = _sorted_by_name(hard, flip_name)
+	logic = _sorted_by_name(logic, flip_name)
+	amogus = _sorted_by_name(amogus, flip_name)
+	unknown = _sorted_by_name(unknown, flip_name)
 
 func make_song_button(id: int = -1):
 	if id < 0 or id >= disp.size():
@@ -493,6 +556,7 @@ func firstload():
 	Rhythia.connect("favorite_songs_changed", self, "reload_to_current_page")
 	folders.connect("changed", self, "reload_to_current_page")
 	Rhythia.connect("download_done", self, "update_clouds")
+	Rhythia.connect("thumbs_ready", self, "update_clouds")
 	get_viewport().connect("size_changed", self, "handle_window_resize")
 	Rhythia.emit_signal("map_list_ready")
 

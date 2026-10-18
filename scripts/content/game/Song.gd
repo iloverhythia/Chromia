@@ -179,14 +179,29 @@ func get_cover_thumb() -> Texture:
 	if is_online:
 		# Online maps keep using the normal cover path.
 		return cover
-	var img := build_thumb_file(true)
-	if img == null:
+	var path := _thumb_path()
+	if not File.new().file_exists(path):
+		# Not built yet: let the background builder make it next instead of
+		# decoding the full cover here (which stalls the map list).
+		Rhythia.request_thumb(self)
+		return null
+	var img := Image.new()
+	if img.load(path) != OK:
 		return null
 	var tex := ImageTexture.new()
 	tex.create_from_image(img, Texture.FLAG_FILTER)
 	_thumb = tex
 	Rhythia.touch_thumb(self)
 	return _thumb
+
+# Lowercased name, cached for fast searching/sorting of big map lists.
+var _lname_src: String = ""
+var _lname: String = ""
+func lname() -> String:
+	if name != _lname_src:
+		_lname_src = name
+		_lname = name.to_lower()
+	return _lname
 
 const StarRatingCalc = preload("res://scripts/content/game/StarRating.gd")
 var _star_rating: float = -1.0

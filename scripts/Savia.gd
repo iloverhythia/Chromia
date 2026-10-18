@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d"
 ]
 
 
@@ -724,6 +724,7 @@ const VERSION_NOTES = {
 	"oct18-2026-a": "- Map covers are cached: each cover is processed once, then loads instantly on every launch (and big libraries use far less memory)\n- The map cache is only rewritten when your maps change\n- Higher FPS: the in-game HUD redraws at most 240 times a second and no longer uses anti-aliasing, Max FPS mode also turns off HDR\n- Importing broken or unusual map files no longer crashes the game",
 	"oct18-2026-b": "- Fixed crashes when importing .sspm maps: they're now copied as-is instead of being re-encoded\n- Map files are saved to a temporary file first, so an import can never leave a map with missing notes\n- Maps whose notes went missing from an earlier failed import are marked with a warning; drag the map in again to fix it\n- Map warnings now actually show on the map screen",
 	"oct18-2026-c": "- New experimental setting: Wave Menu (Settings > Replays & Misc > Experimental) replaces the dark menu background with animated topographic waves",
+	"oct18-2026-d": "- Wave Menu: slower waves, and light text gets black outlines so it stays readable\n- Much faster map list with big libraries (sorting, searching and filtering)\n- Search waits until you stop typing for a moment instead of rebuilding the list on every key\n- The map list no longer stalls on covers that haven't been cached yet; they appear a moment later\n- Fixed re-imported or deleted maps sometimes leaving a duplicate in the list",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -991,17 +992,36 @@ func touch_thumb(song):
 		old._thumb = null
 
 # Builds missing cover thumbnails after the menu is up, one map at a time,
-# paused while playing. Already-built ones are skipped instantly.
+# paused while playing. Already-built ones are skipped instantly. Maps shown
+# in the list that still lack one are moved to the front of the queue.
 var _thumb_thread: Thread
 var _thumb_quit: bool = false
-func _start_thumb_builder():
+var _thumb_priority: Array = []
+var _thumb_mutex := Mutex.new()
+signal thumbs_ready
+
+func request_thumb(song):
+	_thumb_mutex.lock()
+	if _thumb_priority.find(song) == -1:
+		_thumb_priority.append(song)
+	_thumb_mutex.unlock()
+	if _thumb_thread == null or not _thumb_thread.is_active():
+		_start_thumb_builder(false)
+
+func _pop_priority_thumb():
+	_thumb_mutex.lock()
+	var s = _thumb_priority.pop_front() if not _thumb_priority.empty() else null
+	_thumb_mutex.unlock()
+	return s
+func _start_thumb_builder(full: bool = true):
 	if _thumb_thread != null and _thumb_thread.is_active():
 		return
 	var list: Array = []
-	for song in registry_song.get_items():
-		if song.has_cover and not song.is_online:
-			list.append(song)
-	if list.empty():
+	if full:
+		for song in registry_song.get_items():
+			if song.has_cover and not song.is_online:
+				list.append(song)
+	if list.empty() and _thumb_priority.empty():
 		return
 	_thumb_thread = Thread.new()
 	if _thumb_thread.start(self, "_thumb_builder_worker", list, Thread.PRIORITY_LOW) != OK:
@@ -1009,13 +1029,21 @@ func _start_thumb_builder():
 
 func _thumb_builder_worker(list: Array):
 	var built := 0
-	for song in list:
+	var i := 0
+	while i < list.size() or not _thumb_priority.empty():
 		while in_map and not _thumb_quit:
 			OS.delay_msec(200)
 		if _thumb_quit:
 			break
-		if song.build_thumb_file(false) != null:
+		var wanted = _pop_priority_thumb()
+		if wanted != null:
+			if wanted.build_thumb_file(false) != null:
+				built += 1
+			call_deferred("emit_signal", "thumbs_ready")
+			continue
+		if list[i].build_thumb_file(false) != null:
 			built += 1
+		i += 1
 	call_deferred("_thumb_builder_finished", built)
 
 func _thumb_builder_finished(built: int):
@@ -1023,6 +1051,9 @@ func _thumb_builder_finished(built: int):
 		_thumb_thread.wait_to_finish()
 		_thumb_thread = null
 	print("[covers] built %d new cover thumbnails" % built)
+	# Requests that arrived while the builder was finishing.
+	if not _thumb_priority.empty():
+		_start_thumb_builder(false)
 func _decode_covers_worker(songs: Array):
 	for i in range(songs.size()):
 		var song = songs[i]

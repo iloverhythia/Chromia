@@ -4,7 +4,7 @@ shader_type canvas_item;
 // A smooth height field made of layered waves; lines are drawn where the
 // height crosses evenly spaced levels, like the lines on a hiking map.
 
-uniform float speed = 0.12;
+uniform float speed = 0.05;
 uniform float scale = 5.0;          // how zoomed-in the pattern is (bigger = more hills on screen)
 uniform float levels = 9.0;        // lines per unit of height
 uniform vec4 bg_color : hint_color = vec4(0.13, 0.025, 0.03, 1.0);
