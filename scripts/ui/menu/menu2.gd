@@ -2274,6 +2274,7 @@ func _ready():
 	_layout_lobby_ui()
 	_build_keybinds_settings_tab()
 	_setup_furry_secret()
+	_center_mods()
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
 		settings_tab_container.move_child(settings_tab_container.get_node("Online"), settings_tab_container.get_node("Keybinds").get_index() + 1)
@@ -2404,3 +2405,50 @@ func _setup_furry_secret():
 func _on_furry_icon_input(ev):
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT:
 		furry_tree.open()
+
+
+# Line the modifier controls up under the centered "Modifiers" title.
+func _center_mods():
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	var mods = get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")
+	var title = get_node_or_null("Main/Maps/Results/Results/RS/HBoxContainer/ModsTitle")
+	if mods == null or title == null:
+		return
+	var tr: Rect2 = title.get_global_rect()
+	var mid: float = tr.position.x + tr.size.x / 2.0
+	var scale: float = max(mods.get_global_transform().get_scale().x, 0.01)
+	# The speed row is wider than the rest, so it's centered on its own.
+	var speed = mods.get_node_or_null("SpeedMod")
+	var rest := []
+	for c in mods.get_children():
+		if c is Control and c != speed:
+			rest.append(c)
+	_shift_to_center(rest, mid, scale)
+	if speed != null:
+		_shift_to_center([speed], mid, scale, speed.get_node_or_null("C"))
+
+func _shift_to_center(nodes: Array, mid: float, scale: float, measure = null):
+	var box = null
+	if measure != null:
+		box = _union_visible(measure, null)
+	else:
+		for c in nodes:
+			box = _union_visible(c, box)
+	if box == null:
+		return
+	var dx: float = (mid - (box.position.x + box.size.x / 2.0)) / scale
+	if abs(dx) < 1.0:
+		return
+	for c in nodes:
+		c.rect_position.x += dx
+
+func _union_visible(n, box):
+	if not (n is Control) or not n.visible:
+		return box
+	var r: Rect2 = n.get_global_rect()
+	if r.size.x > 0 and r.size.y > 0:
+		box = r if box == null else box.merge(r)
+	for c in n.get_children():
+		box = _union_visible(c, box)
+	return box

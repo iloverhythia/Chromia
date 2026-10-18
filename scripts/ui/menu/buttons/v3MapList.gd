@@ -514,12 +514,40 @@ func tween_in(p: Panel):
 	var tween = get_tree().create_tween()
 	tween.tween_property(p, "rect_min_size", Vector2(size_x - (next_index() - prev_index()) / 2 * 10, _slot_height(p)), 0.2)
 
-# Empty slots (above the first map or below the last) take no space, so the
-# list starts right at the top instead of leaving a big gap.
-func _slot_height(p: Panel) -> float:
-	return 90.0 if p.get("song") != null else 0.0
+func _slot_height(_p: Panel) -> float:
+	return 90.0
+
+# The selected map normally sits in the middle of the list. Near the start or
+# end of the list that leaves empty space, so slide the whole list to line the
+# first map up with the top edge (or the last map with the bottom edge).
+var _base_margins = null
+var _edge_shift: float = 0.0
+func _edge_target() -> float:
+	if disp.size() == 0: return 0.0
+	var h: float = get_parent().rect_size.y
+	var step: float = 90.0 + get_constant("separation")
+	var center: float = (_base_margins[0] + anchor_bottom * h + _base_margins[1]) / 2.0
+	var first_top: float = center - 45.0 - step * cur_map
+	if first_top > 0.0:
+		return -first_top
+	var last_bottom: float = center + 45.0 + step * (disp.size() - 1 - cur_map)
+	if last_bottom < h:
+		return min(h - last_bottom, -first_top)
+	return 0.0
+
+func _apply_edge_shift():
+	if _base_margins == null:
+		_base_margins = [margin_top, margin_bottom]
+	var target := _edge_target()
+	if abs(target - _edge_shift) < 0.5:
+		_edge_shift = target
+	else:
+		_edge_shift = lerp(_edge_shift, target, 0.3)
+	margin_top = _base_margins[0] + _edge_shift
+	margin_bottom = _base_margins[1] + _edge_shift
 
 func tween_length():
+	_apply_edge_shift()
 	for i in btns.size():
 		var tween = get_tree().create_tween()
 		tween.tween_property(btns[i], "rect_min_size", Vector2(size_x - (15 * (abs((next_index() - prev_index()) / 2 - i))), _slot_height(btns[i])), 0.15)

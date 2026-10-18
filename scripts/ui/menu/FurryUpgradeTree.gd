@@ -5,7 +5,7 @@ extends Control
 # while this screen is open. Progress is saved to user://furry_tree.json.
 
 const SAVE_PATH = "user://furry_tree.json"
-const NODE_SIZE = Vector2(170, 62)
+const NODE_SIZE = Vector2(170, 52)
 const MIN_GAP = 195.0
 
 const ADJ = ["Fluffy", "Soft", "Silky", "Bushy", "Glossy", "Cozy", "Wiggly", "Bouncy",
@@ -40,8 +40,15 @@ var _hover_id := -1
 var _sb_bought: StyleBoxFlat
 var _sb_ready: StyleBoxFlat
 var _sb_locked: StyleBoxFlat
+var _sb_bought_hover: StyleBoxFlat
+var _sb_ready_hover: StyleBoxFlat
+const LILAC = Color(0.764706, 0.65098, 0.8)
+const LILAC_HOVER = Color(0.913725, 0.74902, 0.94902)
+const PINK = Color(1, 0.756863, 0.960784)
+const DARK_TEXT = Color(0.1, 0.07, 0.12)
 var _font_small: DynamicFont
 var _font_big: DynamicFont
+var _font_tiny: DynamicFont
 
 func _font(size: int) -> DynamicFont:
 	var f := DynamicFont.new()
@@ -49,12 +56,12 @@ func _font(size: int) -> DynamicFont:
 	f.size = size
 	return f
 
-func _sb(bg: Color, border: Color) -> StyleBoxFlat:
+func _sb(bg: Color, border: Color, width: int = 2) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
 	s.border_color = border
-	s.set_border_width_all(3)
-	s.set_corner_radius_all(12)
+	s.set_border_width_all(width)
+	s.set_corner_radius_all(6)
 	return s
 
 func _ready():
@@ -64,12 +71,16 @@ func _ready():
 	visible = false
 	_font_small = _font(14)
 	_font_big = _font(30)
-	_sb_bought = _sb(Color(0.55, 0.2, 0.45), Color(1, 0.6, 0.9))
-	_sb_ready = _sb(Color(0.1, 0.2, 0.12), Color(0.4, 1, 0.5))
-	_sb_locked = _sb(Color(0.1, 0.1, 0.13), Color(0.4, 0.4, 0.45))
+	_font_tiny = _font(12)
+	# Same colors as the menu's buttons (uitheme.tres).
+	_sb_bought = _sb(LILAC, LILAC, 0)
+	_sb_bought_hover = _sb(LILAC_HOVER, LILAC_HOVER, 0)
+	_sb_ready = _sb(Color(0.317647, 0.227451, 0.345098), LILAC)
+	_sb_ready_hover = _sb(Color(0.4, 0.3, 0.44), LILAC_HOVER)
+	_sb_locked = _sb(Color(0.1, 0.08, 0.12), Color(1, 1, 1, 0.12), 1)
 
 	var bg := ColorRect.new()
-	bg.color = Color(0.04, 0.03, 0.07, 1.0)
+	bg.color = Color(0.02, 0.015, 0.03, 0.98)
 	bg.anchor_right = 1.0
 	bg.anchor_bottom = 1.0
 	bg.mouse_filter = MOUSE_FILTER_IGNORE
@@ -81,38 +92,47 @@ func _ready():
 	add_child(_world)
 
 	var top := ColorRect.new()
-	top.color = Color(0, 0, 0, 0.6)
+	top.color = Color(0, 0, 0, 0.94)
 	top.anchor_right = 1.0
-	top.rect_min_size = Vector2(0, 70)
+	top.rect_min_size = Vector2(0, 68)
 	top.mouse_filter = MOUSE_FILTER_STOP
 	add_child(top)
+	var line := ColorRect.new()
+	line.color = Color(1, 1, 1, 0.18)
+	line.anchor_right = 1.0
+	line.margin_left = 24
+	line.margin_right = -24
+	line.margin_top = 68
+	line.margin_bottom = 69
+	line.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(line)
 
 	var title := Label.new()
 	title.text = "Furry Upgrade Tree"
-	title.add_font_override("font", _font_big)
-	title.add_color_override("font_color", Color(1, 0.7, 0.93))
-	title.rect_position = Vector2(20, 14)
+	title.add_font_override("font", _font(28))
+	title.add_color_override("font_color", PINK)
+	title.rect_position = Vector2(24, 16)
 	add_child(title)
 
 	_coin_label = Label.new()
-	_coin_label.add_font_override("font", _font(26))
-	_coin_label.add_color_override("font_color", Color(1, 0.85, 0.35))
+	_coin_label.add_font_override("font", _font(24))
+	_coin_label.add_color_override("font_color", Color(1, 1, 1))
 	_coin_label.anchor_left = 0.5
 	_coin_label.anchor_right = 0.5
 	_coin_label.margin_left = -250
 	_coin_label.margin_right = 250
-	_coin_label.margin_top = 6
+	_coin_label.margin_top = 8
 	_coin_label.align = Label.ALIGN_CENTER
 	add_child(_coin_label)
 
 	_rate_label = Label.new()
-	_rate_label.add_font_override("font", _font(16))
-	_rate_label.add_color_override("font_color", Color(0.85, 0.85, 0.9))
+	_rate_label.add_font_override("font", _font(14))
+	_rate_label.add_color_override("font_color", LILAC)
 	_rate_label.anchor_left = 0.5
 	_rate_label.anchor_right = 0.5
 	_rate_label.margin_left = -250
 	_rate_label.margin_right = 250
-	_rate_label.margin_top = 40
+	_rate_label.margin_top = 38
 	_rate_label.align = Label.ALIGN_CENTER
 	add_child(_rate_label)
 
@@ -141,13 +161,24 @@ func _ready():
 	add_child(center)
 
 	var bottom := ColorRect.new()
-	bottom.color = Color(0, 0, 0, 0.6)
+	bottom.color = Color(0, 0, 0, 0.94)
 	bottom.anchor_top = 1.0
 	bottom.anchor_bottom = 1.0
 	bottom.anchor_right = 1.0
-	bottom.margin_top = -165
+	bottom.margin_top = -100
 	bottom.mouse_filter = MOUSE_FILTER_STOP
 	add_child(bottom)
+	var bline := ColorRect.new()
+	bline.color = Color(1, 1, 1, 0.18)
+	bline.anchor_top = 1.0
+	bline.anchor_bottom = 1.0
+	bline.anchor_right = 1.0
+	bline.margin_left = 24
+	bline.margin_right = -24
+	bline.margin_top = -100
+	bline.margin_bottom = -99
+	bline.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(bline)
 
 	_pet_btn = TextureButton.new()
 	_pet_btn.texture_normal = preload("res://assets/images/branding/icon.png")
@@ -156,36 +187,25 @@ func _ready():
 	_pet_btn.anchor_top = 1.0
 	_pet_btn.anchor_bottom = 1.0
 	_pet_btn.margin_left = 24
-	_pet_btn.margin_right = 144
-	_pet_btn.margin_top = -150
-	_pet_btn.margin_bottom = -30
-	_pet_btn.rect_pivot_offset = Vector2(60, 60)
+	_pet_btn.margin_right = 92
+	_pet_btn.margin_top = -84
+	_pet_btn.margin_bottom = -16
+	_pet_btn.rect_pivot_offset = Vector2(34, 34)
 	_pet_btn.hint_tooltip = "Pet the furry"
 	_pet_btn.connect("pressed", self, "_pet_pressed")
 	add_child(_pet_btn)
 
-	var pet_hint := Label.new()
-	pet_hint.text = "pet me"
-	pet_hint.add_font_override("font", _font_small)
-	pet_hint.add_color_override("font_color", Color(1, 0.7, 0.93))
-	pet_hint.anchor_top = 1.0
-	pet_hint.anchor_bottom = 1.0
-	pet_hint.margin_left = 24
-	pet_hint.margin_right = 144
-	pet_hint.margin_top = -28
-	pet_hint.align = Label.ALIGN_CENTER
-	add_child(pet_hint)
-
 	_info_label = Label.new()
-	_info_label.add_font_override("font", _font(18))
-	_info_label.add_color_override("font_color", Color(0.95, 0.95, 1))
+	_info_label.add_font_override("font", _font(15))
+	_info_label.add_color_override("font_color", LILAC)
 	_info_label.anchor_top = 1.0
 	_info_label.anchor_bottom = 1.0
 	_info_label.anchor_right = 1.0
-	_info_label.margin_left = 170
-	_info_label.margin_right = -20
+	_info_label.margin_left = 112
+	_info_label.margin_right = -24
 	_info_label.margin_top = -90
-	_info_label.margin_bottom = -20
+	_info_label.margin_bottom = -16
+	_info_label.text = "Click the Furria to pet it. Click an upgrade to buy it. Drag to move, scroll to zoom."
 	_info_label.valign = Label.VALIGN_BOTTOM
 	_info_label.autowrap = true
 	_info_label.mouse_filter = MOUSE_FILTER_IGNORE
@@ -378,15 +398,15 @@ func _rebuild_buttons():
 		nm.anchor_right = 1.0
 		nm.margin_left = 6
 		nm.margin_right = -6
-		nm.margin_top = 8
+		nm.margin_top = 7
 		nm.mouse_filter = MOUSE_FILTER_IGNORE
 		b.add_child(nm)
 		var cost := Label.new()
 		cost.name = "Cost"
-		cost.add_font_override("font", _font_small)
 		cost.align = Label.ALIGN_CENTER
 		cost.anchor_right = 1.0
-		cost.margin_top = 32
+		cost.margin_top = 27
+		cost.add_font_override("font", _font_tiny)
 		cost.mouse_filter = MOUSE_FILTER_IGNORE
 		b.add_child(cost)
 		b.connect("pressed", self, "_node_pressed", [n.id])
@@ -405,33 +425,39 @@ func _style_buttons():
 		var nm: Label = b.get_node("Name")
 		var cost: Label = b.get_node("Cost")
 		nm.text = n.name
+		var hover: StyleBoxFlat
 		if n.bought:
 			sb = _sb_bought
+			hover = _sb_bought_hover
 			cost.text = _describe(n)
-			cost.add_color_override("font_color", Color(1, 0.8, 0.95))
+			nm.add_color_override("font_color", DARK_TEXT)
+			cost.add_color_override("font_color", Color(0.25, 0.18, 0.28))
 		else:
 			var ok: bool = coins >= _cost(n)
 			sb = _sb_ready if ok else _sb_locked
+			hover = _sb_ready_hover if ok else _sb_locked
 			cost.text = "%s furcoins" % fmt(_cost(n))
-			cost.add_color_override("font_color", Color(1, 0.85, 0.35) if ok else Color(0.55, 0.55, 0.6))
-		nm.add_color_override("font_color", Color(1, 1, 1) if n.bought or coins >= _cost(n) else Color(0.65, 0.65, 0.7))
+			nm.add_color_override("font_color", Color(1, 1, 1) if ok else Color(1, 1, 1, 0.45))
+			cost.add_color_override("font_color", PINK if ok else Color(1, 1, 1, 0.3))
 		if b.get_stylebox("normal") != sb:
-			for st in ["normal", "hover", "pressed", "focus"]:
-				b.add_stylebox_override(st, sb)
+			b.add_stylebox_override("normal", sb)
+			b.add_stylebox_override("focus", StyleBoxEmpty.new())
+			b.add_stylebox_override("hover", hover)
+			b.add_stylebox_override("pressed", hover)
 
 func _draw_links():
 	for n in nodes:
 		if n.parent < 0: continue
 		if not _buttons.has(n.id): continue
-		var col = Color(1, 0.6, 0.9, 0.9) if n.bought else Color(0.6, 0.6, 0.7, 0.5)
-		_world.draw_line(_pos(nodes[n.parent]), _pos(n), col, 4.0, true)
+		var col = Color(LILAC.r, LILAC.g, LILAC.b, 0.8) if n.bought else Color(1, 1, 1, 0.14)
+		_world.draw_line(_pos(nodes[n.parent]), _pos(n), col, 2.0, true)
 
 func _refresh_ui():
 	_coin_label.text = "%s furcoins" % fmt(coins)
 	var bought := 0
 	for n in nodes:
 		if n.bought: bought += 1
-	_rate_label.text = "+%s/sec   •   %s per pet   •   %d upgrades" % [fmt(_rate), fmt(_pet), bought]
+	_rate_label.text = "+%s / sec    %s per pet    %d upgrades" % [fmt(_rate), fmt(_pet), bought]
 	_style_buttons()
 	if _hover_id >= 0:
 		_show_info(_hover_id)
@@ -440,12 +466,11 @@ func _show_info(id: int):
 	_hover_id = id
 	var n = nodes[id]
 	var state = "Owned" if n.bought else "Cost: %s furcoins" % fmt(_cost(n))
-	_info_label.text = "%s  (tier %d)\n%s\n%s" % [n.name, n.depth, _describe(n), state]
+	_info_label.text = "%s  ·  tier %d\n%s\n%s" % [n.name, n.depth, _describe(n), state]
 
 func _hide_info(id: int):
 	if _hover_id == id:
 		_hover_id = -1
-		_info_label.text = ""
 
 func _node_pressed(id: int):
 	if _drag_moved > 8.0:
