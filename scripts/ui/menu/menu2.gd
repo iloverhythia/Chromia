@@ -1840,28 +1840,35 @@ func _show_online_tab(admin: bool):
 	elif not admin:
 		admin_panel.visible = false
 
-# The Rank Map button sits with the selected map's other buttons, and its
-# panel opens right under it.
+# The Rank Map button sits in the top-right corner, shown only while a map's
+# screen is open. Its panel opens right under it.
 func _place_rank_button():
 	if ranker_toggle_button == null:
 		return
-	var row = get_node_or_null("Main/Maps/Results/Results/RS/H1/Info/Control")
-	if row == null or ranker_toggle_button.get_parent() == row:
-		return
-	ranker_toggle_button.get_parent().remove_child(ranker_toggle_button)
-	row.add_child(ranker_toggle_button)
-	var after = row.get_node_or_null("AddToFolder")
-	if after != null:
-		row.move_child(ranker_toggle_button, after.get_index() + 1)
-	ranker_toggle_button.rect_min_size = Vector2(0, 32)
-	ranker_toggle_button.text = "Rank"
+	if ranker_toggle_button.get_parent() != ranker_canvas:
+		ranker_toggle_button.get_parent().remove_child(ranker_toggle_button)
+		ranker_canvas.add_child(ranker_toggle_button)
+	ranker_canvas.visible = true
+	ranker_toggle_button.text = "Rank Map"
 	ranker_toggle_button.hint_tooltip = "Rank this map (set its XP)"
-	ranker_toggle_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var fav = row.get_node_or_null("Favorite")
-	if fav != null:
-		ranker_toggle_button.theme = fav.theme
-	ranker_toggle_button.add_color_override("font_color", Color(0, 0, 0))
-	ranker_toggle_button.add_color_override("font_color_hover", Color(0, 0, 0))
+	ranker_toggle_button.rect_min_size = Vector2(110, 32)
+	ranker_toggle_button.rect_size = ranker_toggle_button.rect_min_size
+	_update_rank_button()
+
+func _map_screen_open() -> bool:
+	var maps = get_node_or_null("Main/Maps")
+	var results = get_node_or_null("Main/Maps/Results")
+	return maps != null and results != null and maps.is_visible_in_tree() and results.visible and Rhythia.selected_song != null
+
+func _update_rank_button():
+	if ranker_toggle_button == null or not _panels_embedded:
+		return
+	var show := _map_screen_open()
+	ranker_toggle_button.visible = show
+	if not show and ranker_panel != null:
+		ranker_panel.visible = false
+	var vs: Vector2 = get_viewport().get_visible_rect().size
+	ranker_toggle_button.rect_position = Vector2(vs.x - ranker_toggle_button.rect_size.x - 16, 12)
 
 func _column_panel(parent: Control, ratio: float) -> VBoxContainer:
 	var panel := PanelContainer.new()
@@ -2348,6 +2355,7 @@ func _on_mods_changed_for_lobby():
 		_update_lobby_ui()
 
 func _process(delta):
+	_update_rank_button()
 	_layout_lobby_ui()
 	if lobby_toggle_button != null:
 		var sidebar = get_node_or_null("Sidebar")
