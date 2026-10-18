@@ -11,7 +11,9 @@ onready var pages: Array = [
 	get_node("../Main/Content"),
 	get_node("../Main/Language"),
 	get_node("../Main/UpdateLog"),
-	get_node("../Main/Stats")
+	get_node("../Main/Stats"),
+	get_node("../Main/Profile"),
+	get_node("../Main/Online")
 ]
 onready var buttons: Array = [
 	$L/Results,
@@ -21,12 +23,16 @@ onready var buttons: Array = [
 	$L/ContentMgr,
 	$L/Language,
 	$L/UpdateLog,
-	$L/Stats
+	$L/Stats,
+	$L/ProfileTab,
+	$L/OnlineTab
 ]
 var use_ver_b: Array = [
 	false,
 
 	true,
+	false,
+	false,
 	false,
 	false,
 	false,
@@ -41,7 +47,9 @@ var hide_ver: Array = [
 	false,
 	false,
 	false,
-	false
+	false,
+	true,
+	true
 ]
 onready var smm_visibility: Dictionary = {
 	$L/Results: true,
@@ -52,6 +60,8 @@ onready var smm_visibility: Dictionary = {
 	$L/Language: false,
 	$L/UpdateLog: true,
 	$L/Stats: true,
+	$L/ProfileTab: true,
+	$L/OnlineTab: true,
 	$L/StartVR: false,
 	$L/OldMenu: false,
 	$L/Quit: true,

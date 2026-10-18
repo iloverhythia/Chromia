@@ -1,0 +1,300 @@
+extends ReferenceRect
+
+# Full-page Profile tab (left sidebar). Left: your profile from the Savia site
+# (avatar, rank, stats, top play and top 10 plays). Right: the existing
+# profile/leaderboard panel, moved here by menu2.gd (see get_slot()).
+
+const SITE = "https://savia.nysr.host"
+const API = SITE + "/savia-public/api"
+
+var _theme: Theme = preload("res://uitheme.tres")
+
+var avatar_rect: TextureRect
+var name_label: Label
+var tag_label: Label
+var rank_label: Label
+var stats_label: Label
+var status_label: Label
+var top_play_box: VBoxContainer
+var plays_box: VBoxContainer
+var slot: Control
+var _loading: bool = false
+var _loaded_once: bool = false
+
+func get_slot() -> Control:
+	return slot
+
+func _big_font(size: int) -> DynamicFont:
+	var f := DynamicFont.new()
+	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	f.size = size
+	return f
+
+func _label(text: String, size: int = 0, color: Color = Color(0.9, 0.95, 1)) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.theme = _theme
+	l.autowrap = true
+	if size > 0:
+		l.add_font_override("font", _big_font(size))
+	l.add_color_override("font_color", color)
+	return l
+
+func _panel_style(alpha: float = 0.55) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.04, 0.07, alpha)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 14
+	sb.content_margin_bottom = 14
+	return sb
+
+func _ready():
+	var root := HBoxContainer.new()
+	root.anchor_right = 1.0
+	root.anchor_bottom = 1.0
+	root.margin_left = 70
+	root.margin_right = -24
+	root.margin_top = 24
+	root.margin_bottom = -60
+	root.add_constant_override("separation", 20)
+	add_child(root)
+
+	# --- Left: profile card ---
+	var card := PanelContainer.new()
+	card.add_stylebox_override("panel", _panel_style())
+	card.size_flags_horizontal = SIZE_EXPAND_FILL
+	card.size_flags_stretch_ratio = 1.3
+	root.add_child(card)
+
+	var scroll := ScrollContainer.new()
+	scroll.scroll_horizontal_enabled = false
+	card.add_child(scroll)
+
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = SIZE_EXPAND_FILL
+	v.add_constant_override("separation", 10)
+	scroll.add_child(v)
+
+	var head := HBoxContainer.new()
+	head.add_constant_override("separation", 18)
+	v.add_child(head)
+
+	avatar_rect = TextureRect.new()
+	avatar_rect.rect_min_size = Vector2(128, 128)
+	avatar_rect.expand = true
+	avatar_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var circle := Shader.new()
+	circle.code = "shader_type canvas_item;\nvoid fragment(){ vec4 c = texture(TEXTURE, UV); float d = distance(UV, vec2(0.5)); c.a *= 1.0 - smoothstep(0.48, 0.5, d); COLOR = c; }"
+	var mat := ShaderMaterial.new()
+	mat.shader = circle
+	avatar_rect.material = mat
+	head.add_child(avatar_rect)
+
+	var names := VBoxContainer.new()
+	names.size_flags_horizontal = SIZE_EXPAND_FILL
+	names.alignment = BoxContainer.ALIGN_CENTER
+	head.add_child(names)
+	name_label = _label("Your Profile", 34)
+	names.add_child(name_label)
+	tag_label = _label("", 16)
+	tag_label.visible = false
+	names.add_child(tag_label)
+	rank_label = _label("", 20, Color(1, 0.75, 0.85))
+	names.add_child(rank_label)
+
+	var refresh := Button.new()
+	refresh.text = "Refresh"
+	refresh.theme = _theme
+	refresh.rect_min_size = Vector2(90, 32)
+	refresh.size_flags_vertical = SIZE_SHRINK_CENTER
+	refresh.connect("pressed", self, "load_profile")
+	head.add_child(refresh)
+
+	status_label = _label("", 0, Color(0.8, 0.8, 0.85))
+	v.add_child(status_label)
+	stats_label = _label("", 18)
+	v.add_child(stats_label)
+
+	v.add_child(HSeparator.new())
+	v.add_child(_label("Top Play", 22, Color(1, 0.6, 0.75)))
+	top_play_box = VBoxContainer.new()
+	v.add_child(top_play_box)
+
+	v.add_child(HSeparator.new())
+	v.add_child(_label("Top 10 Plays", 22))
+	plays_box = VBoxContainer.new()
+	plays_box.add_constant_override("separation", 4)
+	v.add_child(plays_box)
+
+	# --- Right: slot for the existing profile/leaderboard panel ---
+	slot = Control.new()
+	slot.size_flags_horizontal = SIZE_EXPAND_FILL
+	slot.size_flags_vertical = SIZE_EXPAND_FILL
+	root.add_child(slot)
+
+	connect("visibility_changed", self, "_on_visibility_changed")
+
+func _on_visibility_changed():
+	if is_visible_in_tree() and not _loaded_once:
+		_loaded_once = true
+		load_profile()
+
+# --- Networking -------------------------------------------------------------
+
+func _http_get(url: String):
+	yield(get_tree(), "idle_frame")
+	var r := HTTPRequest.new()
+	r.timeout = 20
+	add_child(r)
+	if r.request(url) != OK:
+		r.queue_free()
+		return null
+	var res = yield(r, "request_completed")
+	r.queue_free()
+	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200:
+		return null
+	return res[3]
+
+func _get_json(url: String):
+	var body = yield(_http_get(url), "completed")
+	if body == null:
+		return null
+	var p := JSON.parse(body.get_string_from_utf8())
+	return p.result if p.error == OK else null
+
+func _matches_me(e: Dictionary, discord_id: String, names: Array) -> bool:
+	if discord_id != "" and String(e.get("avatar_url", "")).find(discord_id) != -1:
+		return true
+	var n := String(e.get("name", "")).strip_edges().to_lower()
+	return n != "" and names.has(n)
+
+func load_profile():
+	if _loading:
+		return
+	_loading = true
+	status_label.text = "Loading your profile…"
+	var discord_id := String(Rhythia.discord_user.get("id", ""))
+	var names := []
+	for n in [Rhythia.discord_user.get("username", ""), Rhythia.discord_user.get("display_name", "")]:
+		if String(n) != "": names.append(String(n).strip_edges().to_lower())
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null and String(lm.player_name) != "" and String(lm.player_name) != "Player":
+		names.append(String(lm.player_name).strip_edges().to_lower())
+
+	var number = null
+	for kind in ["sp", "xp"]:
+		var lb = yield(_get_json(API + "/leaderboard/%s?limit=5000" % kind), "completed")
+		if lb is Dictionary:
+			for e in lb.get("entries", []):
+				if e is Dictionary and _matches_me(e, discord_id, names):
+					number = e.get("number")
+					break
+		if number != null:
+			break
+
+	if number == null:
+		_loading = false
+		name_label.text = String(Rhythia.discord_user.get("display_name", Rhythia.discord_user.get("username", "Your Profile")))
+		if discord_id == "":
+			status_label.text = "Connect Discord on the right (Profile tab) so we can find you on the Savia leaderboard."
+		else:
+			status_label.text = "You're not on the Savia leaderboard yet. Pass a ranked map while online to show up."
+		var du_avatar := String(Rhythia.discord_user.get("avatar_url", ""))
+		if du_avatar != "":
+			_load_avatar(du_avatar)
+		return
+
+	var profile = yield(_get_json(API + "/player/%s" % String(number).http_escape()), "completed")
+	if profile is Dictionary:
+		_show_profile(profile)
+		var av := String(profile.get("avatar_url", ""))
+		if av != "":
+			_load_avatar(SITE + av if av.begins_with("/") else av)
+	var scores = yield(_get_json(API + "/player/%s/scores" % String(number).http_escape()), "completed")
+	if scores is Dictionary:
+		_show_scores(scores.get("scores", []))
+	status_label.text = ""
+	_loading = false
+
+func _load_avatar(url: String):
+	var body = yield(_http_get(url), "completed")
+	if body == null:
+		return
+	var img = Globals.imageLoader.load_buffer_image(body)
+	if img == null or img.is_empty():
+		return
+	var tex := ImageTexture.new()
+	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+	avatar_rect.texture = tex
+
+# --- Display ----------------------------------------------------------------
+
+func _fmt(n) -> String:
+	return Globals.comma_sep(int(n))
+
+func _show_profile(p: Dictionary):
+	name_label.text = String(p.get("name", "Player"))
+	var tag = p.get("tag")
+	if tag is Dictionary and String(tag.get("text", "")) != "":
+		tag_label.text = String(tag.text)
+		tag_label.visible = true
+		var c := String(tag.get("color", ""))
+		if c.is_valid_html_color():
+			tag_label.add_color_override("font_color", Color(c))
+	else:
+		tag_label.visible = false
+	rank_label.text = "#%s SP   •   #%s XP%s" % [String(p.get("sp_rank", "-")), String(p.get("xp_rank", "-")), "   •   ranker" if p.get("is_ranker", false) else ""]
+	stats_label.text = "%s SP     %s XP\n%s passes on %s maps%s" % [
+		_fmt(p.get("sp", 0)), _fmt(p.get("xp", 0)),
+		_fmt(p.get("pass_count", 0)), _fmt(p.get("map_count", 0)),
+		"\nOnline now" if p.get("online", false) else ""
+	]
+
+func _play_line(s: Dictionary) -> String:
+	var acc := float(s.get("accuracy", 0)) * 100.0
+	return "%s SP  •  %.2f%%  •  %sx  •  %s miss%s" % [
+		_fmt(s.get("sp_final", 0)), acc, String(stepify(float(s.get("speed", 1)), 0.01)),
+		String(s.get("misses", 0)), "" if int(s.get("misses", 0)) == 1 else "es"
+	]
+
+func _show_scores(scores: Array):
+	for c in top_play_box.get_children(): c.queue_free()
+	for c in plays_box.get_children(): c.queue_free()
+	var sorted := []
+	for s in scores:
+		if s is Dictionary: sorted.append(s)
+	sorted.sort_custom(self, "_by_sp")
+	if sorted.empty():
+		top_play_box.add_child(_label("No plays yet."))
+		return
+	var best: Dictionary = sorted[0]
+	var card := PanelContainer.new()
+	card.add_stylebox_override("panel", _panel_style(0.75))
+	var cv := VBoxContainer.new()
+	card.add_child(cv)
+	cv.add_child(_label(String(best.get("song_name", best.get("song_id", "?"))), 22))
+	cv.add_child(_label(_play_line(best), 18, Color(1, 0.8, 0.9)))
+	cv.add_child(_label("%s XP  •  %s notes" % [_fmt(best.get("xp_awarded", 0)), _fmt(best.get("note_count", 0))], 0, Color(0.75, 0.75, 0.8)))
+	top_play_box.add_child(card)
+	for i in range(min(10, sorted.size())):
+		var s: Dictionary = sorted[i]
+		var row := HBoxContainer.new()
+		row.add_constant_override("separation", 10)
+		var rank := _label("#%d" % (i + 1), 0, Color(0.7, 0.7, 0.75))
+		rank.rect_min_size = Vector2(36, 0)
+		rank.autowrap = false
+		row.add_child(rank)
+		var nm := _label(String(s.get("song_name", s.get("song_id", "?"))))
+		nm.size_flags_horizontal = SIZE_EXPAND_FILL
+		nm.autowrap = false
+		nm.clip_text = true
+		row.add_child(nm)
+		var val := _label(_play_line(s), 0, Color(1, 0.8, 0.9))
+		val.autowrap = false
+		row.add_child(val)
+		plays_box.add_child(row)
+
+func _by_sp(a, b):
+	return float(a.get("sp_final", 0)) > float(b.get("sp_final", 0))

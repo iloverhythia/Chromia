@@ -1,4 +1,4 @@
-[gd_scene load_steps=218 format=2]
+[gd_scene load_steps=221 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -115,6 +115,9 @@
 [ext_resource path="res://assets/images/ui/stats.png" type="Texture" id=212]
 [ext_resource path="res://scripts/ui/menu/buttons/StarSort.gd" type="Script" id=213]
 [ext_resource path="res://scripts/ui/menu/WaveMenuBG.gd" type="Script" id=216]
+[ext_resource path="res://assets/images/ui/profile.png" type="Texture" id=217]
+[ext_resource path="res://assets/images/ui/online.png" type="Texture" id=218]
+[ext_resource path="res://scripts/ui/menu/ProfilePage.gd" type="Script" id=219]
 
 [sub_resource type="Gradient" id=163]
 offsets = PoolRealArray( 0, 0.5, 1 )
@@ -4635,6 +4638,23 @@ border_color = Color( 1, 0, 0, 0 )
 
 [node name="Page" parent="Main/Stats" instance=ExtResource( 211 )]
 
+[node name="Profile" type="ReferenceRect" parent="Main"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 4.0
+margin_top = 4.0
+border_color = Color( 1, 0, 0, 0 )
+script = ExtResource( 219 )
+
+[node name="Online" type="ReferenceRect" parent="Main"]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 4.0
+margin_top = 4.0
+border_color = Color( 1, 0, 0, 0 )
+
 [node name="Quit" type="Button" parent="."]
 visible = false
 modulate = Color( 1, 0.6, 0.6, 1 )
@@ -4942,6 +4962,66 @@ anchor_bottom = 1.0
 margin_left = 64.0
 custom_fonts/font = SubResource( 6 )
 text = "Stats"
+valign = 1
+
+[node name="ProfileTab" type="Button" parent="Sidebar/L"]
+margin_right = 58.0
+margin_bottom = 58.0
+rect_min_size = Vector2( 0, 58 )
+custom_styles/hover = SubResource( 4 )
+custom_styles/pressed = SubResource( 2 )
+custom_styles/focus = SubResource( 3 )
+custom_styles/disabled = SubResource( 4 )
+custom_styles/normal = SubResource( 4 )
+toggle_mode = true
+action_mode = 0
+group = SubResource( 5 )
+
+[node name="Tex" type="TextureRect" parent="Sidebar/L/ProfileTab"]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 48.0
+margin_bottom = 48.0
+texture = ExtResource( 217 )
+expand = true
+stretch_mode = 6
+
+[node name="Label" type="Label" parent="Sidebar/L/ProfileTab"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 64.0
+custom_fonts/font = SubResource( 6 )
+text = "Profile"
+valign = 1
+
+[node name="OnlineTab" type="Button" parent="Sidebar/L"]
+margin_right = 58.0
+margin_bottom = 58.0
+rect_min_size = Vector2( 0, 58 )
+custom_styles/hover = SubResource( 4 )
+custom_styles/pressed = SubResource( 2 )
+custom_styles/focus = SubResource( 3 )
+custom_styles/disabled = SubResource( 4 )
+custom_styles/normal = SubResource( 4 )
+toggle_mode = true
+action_mode = 0
+group = SubResource( 5 )
+
+[node name="Tex" type="TextureRect" parent="Sidebar/L/OnlineTab"]
+margin_left = 10.0
+margin_top = 10.0
+margin_right = 48.0
+margin_bottom = 48.0
+texture = ExtResource( 218 )
+expand = true
+stretch_mode = 6
+
+[node name="Label" type="Label" parent="Sidebar/L/OnlineTab"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = 64.0
+custom_fonts/font = SubResource( 6 )
+text = "Online"
 valign = 1
 
 [node name="StartVR" type="Button" parent="Sidebar/L"]

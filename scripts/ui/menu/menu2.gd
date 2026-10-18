@@ -1738,8 +1738,54 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 		yield(get_tree(), "idle_frame")
 		global_chat_scroll.scroll_vertical = int(global_chat_scroll.get_v_scrollbar().max_value)
 
+# Profile and Online live on their own pages in the left sidebar. The panels
+# built above are moved into those pages and stretched to fill them.
+const ONLINE_PAGE_INDEX = 8
+var _panels_embedded: bool = false
+
+func _fill_page(c: Control, l: float, t: float, r: float, b: float):
+	c.anchor_left = 0; c.anchor_top = 0; c.anchor_right = 1; c.anchor_bottom = 1
+	c.margin_left = l; c.margin_top = t; c.margin_right = -r; c.margin_bottom = -b
+	c.rect_min_size = Vector2()
+
+func _embed_panels_in_pages():
+	var online_page = get_node_or_null("Main/Online")
+	var profile_page = get_node_or_null("Main/Profile")
+	if online_page == null or profile_page == null or lobby_panel == null or profile_panel == null:
+		return
+	_panels_embedded = true
+
+	lobby_canvas.remove_child(lobby_panel)
+	online_page.add_child(lobby_panel)
+	_fill_page(lobby_panel, 70, 24, 24, 60)
+	if lobby_panel.get_child_count() > 0:
+		lobby_panel.get_child(0).rect_min_size = Vector2()
+	lobby_panel.visible = true
+	lobby_toggle_button.visible = false
+	# More room for lists and chat now that it's a full page.
+	for sc in [lobby_chat_scroll, global_chat_scroll, _lobby_public_scroll]:
+		if sc != null: sc.rect_min_size.y = 200
+	if lobby_player_list_box != null and lobby_player_list_box.get_parent() is ScrollContainer:
+		lobby_player_list_box.get_parent().rect_min_size.y = 200
+	if lobby_close_button != null:
+		lobby_close_button.text = "Back to Maps"
+
+	var slot = profile_page.get_slot() if profile_page.has_method("get_slot") else profile_page
+	profile_canvas.remove_child(profile_panel)
+	slot.add_child(profile_panel)
+	_fill_page(profile_panel, 0, 0, 0, 0)
+	profile_panel.visible = true
+	profile_toggle_button.visible = false
+
+func _show_online_page():
+	var sidebar = get_node_or_null("Sidebar")
+	if sidebar != null:
+		sidebar.press(ONLINE_PAGE_INDEX, true)
+
 func _layout_lobby_ui():
 	if lobby_canvas == null:
+		return
+	if _panels_embedded:
 		return
 	var viewport_size = get_viewport().size
 	var margin = 16
@@ -1764,6 +1810,9 @@ func _layout_lobby_ui():
 		lobby_panel.rect_position = Vector2(x, y)
 
 func _toggle_lobby_panel():
+	if _panels_embedded:
+		_show_online_page()
+		return
 	if lobby_panel != null:
 		lobby_panel.visible = not lobby_panel.visible
 		lobby_toggle_button.text = "Hide Online" if lobby_panel.visible else "Online"
@@ -1777,6 +1826,10 @@ func _apply_chat_mute_visibility():
 	_update_lobby_ui()
 
 func _on_close_lobby_ui_pressed():
+	if _panels_embedded:
+		var sidebar = get_node_or_null("Sidebar")
+		if sidebar != null: sidebar.press(0)
+		return
 	if lobby_panel != null:
 		lobby_panel.visible = false
 		lobby_toggle_button.text = "Online"
@@ -1786,7 +1839,8 @@ func _on_leave_lobby_pressed():
 	if lobby_manager != null:
 		lobby_manager.close_lobby()
 		_update_lobby_ui()
-		lobby_panel.visible = false
+		if not _panels_embedded:
+			lobby_panel.visible = false
 		lobby_toggle_button.text = "Online"
 
 func _on_lobby_name_changed(new_text):
@@ -2028,6 +2082,7 @@ func _ready():
 	Rhythia.disarm_post_death_quick_restart()
 	_build_lobby_ui()
 	_build_profile_ui()
+	_embed_panels_in_pages()
 	_layout_lobby_ui()
 	_build_keybinds_settings_tab()
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
@@ -2126,7 +2181,7 @@ func _process(delta):
 	if lobby_toggle_button != null:
 		var sidebar = get_node_or_null("Sidebar")
 		var on_main_menu = sidebar != null and sidebar.get("pages") != null and sidebar.pages.size() > 0 and bool(sidebar.pages[0].visible)
-		lobby_toggle_button.visible = on_main_menu
+		lobby_toggle_button.visible = on_main_menu and not _panels_embedded
 	if Input.is_action_just_pressed("ui_end") and Input.is_key_pressed(KEY_SHIFT):
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
