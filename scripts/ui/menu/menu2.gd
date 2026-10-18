@@ -14,6 +14,8 @@ var discord_button: Button
 var discord_status_label: Label
 var xp_total_label: Label
 var sp_total_label: Label
+var rp_total_label: Label
+var rp_top_box: VBoxContainer
 var profile_canvas: CanvasLayer
 var profile_toggle_button: Button
 var profile_panel: PanelContainer
@@ -479,6 +481,13 @@ func _build_profile_ui():
 	sp_total_label.text = "SP: %d" % Rhythia.sp
 	pvbox.add_child(sp_total_label)
 
+	# Offline RP: earned on this computer, works with the servers down.
+	rp_total_label = Label.new()
+	rp_total_label.theme = ui_theme
+	rp_total_label.hint_tooltip = "Rhythia Points, earned offline from passes. Your best play on each map counts; play n is worth 97%^(n-1)."
+	rp_total_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	pvbox.add_child(rp_total_label)
+
 	lobby_name_input = LineEdit.new()
 	lobby_name_input.placeholder_text = "Your display name"
 	lobby_name_input.text = "Player"
@@ -486,6 +495,18 @@ func _build_profile_ui():
 	lobby_name_input.theme = ui_theme
 	lobby_name_input.connect("text_changed", self, "_on_lobby_name_changed")
 	pvbox.add_child(lobby_name_input)
+
+	var rp_title = Label.new()
+	rp_title.theme = ui_theme
+	rp_title.text = "Top 10 RP plays"
+	rp_title.add_color_override("font_color", Color(1, 0.756863, 0.960784))
+	pvbox.add_child(rp_title)
+	rp_top_box = VBoxContainer.new()
+	rp_top_box.add_constant_override("separation", 2)
+	pvbox.add_child(rp_top_box)
+	var rp_store = preload("res://scripts/RhythiaPoints.gd").get_store()
+	rp_store.connect("changed", self, "_refresh_rp")
+	_refresh_rp()
 
 	var lvbox = VBoxContainer.new()
 	lvbox.name = "Leaderboard"
@@ -2063,6 +2084,58 @@ func _on_discord_login_changed():
 func _on_jp_changed(awarded):
 	if xp_total_label != null:
 		xp_total_label.text = "XP: %d" % Rhythia.jp
+
+func _refresh_rp():
+	if rp_total_label == null or not is_instance_valid(rp_total_label):
+		return
+	var store = preload("res://scripts/RhythiaPoints.gd").get_store()
+	rp_total_label.text = "RP: %s" % Globals.comma_sep(int(round(store.total())))
+	for c in rp_top_box.get_children():
+		c.queue_free()
+	var top: Array = store.top(10)
+	if top.empty():
+		var none = Label.new()
+		none.theme = rp_total_label.theme
+		none.text = "Pass a map to earn RP."
+		none.add_color_override("font_color", Color(1, 1, 1, 0.5))
+		rp_top_box.add_child(none)
+		return
+	for i in range(top.size()):
+		var p: Dictionary = top[i]
+		var row = HBoxContainer.new()
+		row.add_constant_override("separation", 8)
+		var rank = Label.new()
+		rank.theme = rp_total_label.theme
+		rank.text = "#%d" % (i + 1)
+		rank.rect_min_size = Vector2(34, 0)
+		rank.add_color_override("font_color", Color(1, 1, 1, 0.55))
+		row.add_child(rank)
+		var nm = Label.new()
+		nm.theme = rp_total_label.theme
+		nm.text = String(p.get("name", p.id))
+		nm.clip_text = true
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nm.hint_tooltip = nm.text
+		nm.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.add_child(nm)
+		var info = Label.new()
+		info.theme = rp_total_label.theme
+		info.text = "%.2f*  %sx  %.2f%%" % [float(p.stars), String(stepify(float(p.speed), 0.01)), float(p.acc) * 100.0]
+		info.add_color_override("font_color", Color(1, 1, 1, 0.6))
+		row.add_child(info)
+		var val = Label.new()
+		val.theme = rp_total_label.theme
+		val.text = "%d RP" % int(round(float(p.rp)))
+		val.rect_min_size = Vector2(70, 0)
+		val.align = Label.ALIGN_RIGHT
+		val.add_color_override("font_color", Color(1, 0.756863, 0.960784))
+		row.add_child(val)
+		rp_top_box.add_child(row)
+
+func _exit_tree():
+	var rp_store = preload("res://scripts/RhythiaPoints.gd").get_store()
+	if rp_store.is_connected("changed", self, "_refresh_rp"):
+		rp_store.disconnect("changed", self, "_refresh_rp")
 
 func _on_sp_changed(awarded):
 	if sp_total_label != null:

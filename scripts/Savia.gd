@@ -311,6 +311,28 @@ func get_hardware_id() -> String:
 	_cached_hwid = raw.sha256_text() if raw != "" else ""
 	return _cached_hwid
 
+# Offline RP (see RhythiaPoints.gd). Counts passes played the ranked way:
+# same rules as XP, minus the server-only checks.
+func award_offline_rp():
+	if replaying or selected_song == null or song_end_type != Globals.END_PASS:
+		return
+	if mod_nofail or mod_extra_energy or start_offset != 0 or song_end_pause_count > 0:
+		return
+	if replay != null and replay.autoplayer:
+		return
+	if not (is_equal_approx(hitwindow_ms, 55.0) or is_equal_approx(hitwindow_ms, 58.0)):
+		return
+	if not is_equal_approx(note_hitbox_size, 1.14) or health_model != Globals.HP_SOUNDSPACE:
+		return
+	var stars: float = selected_song.get_star_rating()
+	if stars <= 0.0:
+		return
+	var acc: float = float(song_end_hits) / max(float(song_end_total_notes), 1.0)
+	var store = preload("res://scripts/RhythiaPoints.gd").get_store()
+	var res: Dictionary = store.record(String(selected_song.id), String(selected_song.name), stars, current_speed_multiplier(), acc, song_end_misses)
+	if res.best and show_xp_notifications:
+		Globals.notify(Globals.NOTIFY_INFO, "%d RP (+%d total)" % [int(round(res.rp)), int(round(res.gained))], "New best RP")
+
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
 		return
@@ -677,7 +699,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t"
 ]
 
 
@@ -732,6 +754,7 @@ const VERSION_NOTES = {
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
 	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
+	"oct18-2026-t": "- New offline RP (Rhythia Points): earned from passes, works while servers are down\n- RP total and your top 10 RP plays in the Profile tab",
 	"oct18-2026-s": "- Map folders show up as filters under stars\n- The Grid background has its own preview picture",
 	"oct18-2026-r": "- Map list scrolling is back to how it was\n- Modifier checkboxes sit between the slowest and fastest speed buttons",
 	"oct18-2026-q": "- Smooth map list scrolling at the top and bottom of the list\n- Modifier checkboxes line up with the speed buttons",

@@ -106,6 +106,7 @@ func end(end_type: int):
 
 	if end_type == Globals.END_PASS and not Rhythia.replaying and Rhythia.selected_song != null:
 		Rhythia.report_map_completion(String(Rhythia.selected_song.id))
+		Rhythia.award_offline_rp()
 
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null and lobby_manager.lobby_active:
