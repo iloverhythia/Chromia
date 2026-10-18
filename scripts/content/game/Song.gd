@@ -220,6 +220,8 @@ func get_star_rating() -> float:
 	if n.size() == 0:
 		return -1.0
 	_star_rating = StarRatingCalc.calculate(n)
+	if is_nan(_star_rating) or is_inf(_star_rating):
+		_star_rating = 0.0
 	if not had_notes and songType != Globals.MAP_RAW and songType != Globals.MAP_TXT:
 		discard_notes()
 	return _star_rating
@@ -793,7 +795,6 @@ func read_notes() -> Array:
 			markers.ssp_note = notes
 			return notes
 		elif songType == Globals.MAP_SSPM:
-			print("Reading: SSPM")
 			var file: File = File.new()
 			var err = file.open(filePath, File.READ)
 			if err != OK:
@@ -848,7 +849,6 @@ func read_notes() -> Array:
 
 			file.close()
 		elif songType == Globals.MAP_SSPM2:
-			print("Reading: SSPM2")
 			var markers = read_markers()
 			notes = markers.get("ssp_note", [])
 			return notes
@@ -1216,6 +1216,32 @@ func _safe_string_from_utf8(buf: PoolByteArray) -> String:
 	if _is_valid_utf8(buf):
 		return buf.get_string_from_utf8()
 	return buf.get_string_from_ascii()
+
+# Keeps only small, readable custom data entries (drops junk from old caches).
+static func _sanitize_custom_data(d) -> Dictionary:
+	var out := {}
+	if not (d is Dictionary):
+		return out
+	for k in d.keys():
+		if out.size() >= 64: break
+		if k is String and _is_plain_key(k) and _is_small_value(d[k]):
+			out[k] = d[k]
+	return out
+
+static func _is_plain_key(k: String) -> bool:
+	if k == "" or k.length() > 64:
+		return false
+	for i in k.length():
+		var c = k.ord_at(i)
+		if c < 32 or c == 127:
+			return false
+	return true
+
+static func _is_small_value(v) -> bool:
+	match typeof(v):
+		TYPE_STRING: return v.length() <= 256
+		TYPE_INT, TYPE_REAL, TYPE_BOOL, TYPE_VECTOR2: return true
+	return false
 
 func read_data_type(
 	file: File,
@@ -1791,12 +1817,28 @@ func load_from_sspm(path: String):
 			creator += authors[i]
 
 
-		file.seek(cdb_offset)
-		var field_count = file.get_16()
-
-		for i in range(field_count):
-			var n = _safe_string_from_utf8(file.get_buffer(file.get_16()))
-			custom_data[n] = read_data_type(file, false, false)
+		# Custom data (only "difficulty_name" is used). Some maps from newer
+		# Rhythia versions store it in a format this reader doesn't know, which
+		# used to produce ~100 KB of junk per map (slow loading, huge cache).
+		# Stay inside the block and stop at the first thing that looks wrong.
+		custom_data = {}
+		var cdb_end: int = cdb_offset + cdb_length
+		if cdb_offset > 0 and cdb_length > 2 and cdb_end <= file.get_len():
+			file.seek(cdb_offset)
+			var field_count = file.get_16()
+			if field_count <= 64:
+				for i in range(field_count):
+					var klen = file.get_16()
+					if klen <= 0 or klen > 64 or file.get_position() + klen > cdb_end:
+						break
+					var n = _safe_string_from_utf8(file.get_buffer(klen))
+					if not _is_plain_key(n):
+						break
+					var v = read_data_type(file, false, false)
+					if file.get_position() > cdb_end:
+						break
+					if _is_small_value(v):
+						custom_data[n] = v
 
 
 
@@ -1955,7 +1997,10 @@ func load_from_cache(cache: Dictionary):
 	song = cache.get("song")
 	creator = cache.get("creator")
 	difficulty = cache.get("difficulty")
-	custom_data = _cache_restore_value(cache.get("custom_data", {}))
+	var raw_cd = _cache_restore_value(cache.get("custom_data", {}))
+	custom_data = _sanitize_custom_data(raw_cd)
+	if raw_cd is Dictionary and raw_cd.size() != custom_data.size():
+		Rhythia.map_cache_dirty = true # junk was removed; save a slimmer cache
 	last_ms = cache.get("last_ms")
 	note_count = cache.get("note_count")
 	has_cover = cache.get("cover")
@@ -1974,7 +2019,7 @@ func make_cache():
 		song = song,
 		creator = creator,
 		difficulty = difficulty,
-		custom_data = _cache_safe_value(custom_data),
+		custom_data = _cache_safe_value(_sanitize_custom_data(custom_data)),
 		last_ms = last_ms,
 		note_count = note_count,
 		cover = has_cover

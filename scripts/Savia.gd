@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j"
 ]
 
 
@@ -730,6 +730,7 @@ const VERSION_NOTES = {
 	"oct18-2026-g": "- New menu music: Change It Up (a bit quieter than the old song)\n- Wave Menu option: use your colorset's colors (Settings > Replays & Misc > Experimental)",
 	"oct18-2026-h": "- Online page: three columns (lobby controls | players | chats) that fill the window\n- Admin tools are now an Admin tab on the Online page\n- Rank button moved next to Favorite / Add to folder on the selected map\n- Wave Menu colorset mode now fades through every color in your colorset\n- Much faster startup with big map libraries (finding map files was ~40x slower than needed)",
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
+	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -966,9 +967,12 @@ func _load_star_cache() -> Dictionary:
 	var f := File.new()
 	if f.open(Globals.p(STAR_CACHE_FILE), File.READ) != OK:
 		return {}
-	var parsed = parse_json(f.get_as_text())
+	var text := f.get_as_text()
 	f.close()
-	return parsed if parsed is Dictionary else {}
+	# Older versions could save "nan" for a broken rating, which made the whole
+	# file unreadable (so every map was re-rated each launch).
+	var res := JSON.parse(text.replace("nan", "-1").replace("inf", "-1"))
+	return res.result if res.error == OK and res.result is Dictionary else {}
 
 func _save_star_cache(cache: Dictionary):
 	Directory.new().make_dir_recursive(Globals.p(STAR_CACHE_FILE).get_base_dir())
@@ -1082,6 +1086,21 @@ func _decode_covers_worker(songs: Array):
 
 var _sspm_import_progress: int = 0
 var _sspm_import_done: bool = false
+# Maps loaded from their files this launch (path -> Song, or null if the file
+# couldn't be read). Duplicates and broken files aren't in the map list, so
+# they're added to the cache from here; otherwise they'd be re-read (and the
+# whole cache rewritten) on every launch.
+var _loaded_from_file: Dictionary = {}
+var map_cache_dirty: bool = false
+
+func _make_full_sspm_cache(v: int) -> Dictionary:
+	var cache_dict = registry_song.make_sspm_cache(v)
+	for path in _loaded_from_file.keys():
+		if not cache_dict.has(path):
+			var ls = _loaded_from_file[path]
+			cache_dict[path] = ls.make_cache() if ls != null else {"invalid": true, "mtime": File.new().get_modified_time(path)}
+	_loaded_from_file.clear()
+	return cache_dict
 func _import_sspm_worker(args: Array) -> Array:
 	var smaps: Array = args[0]
 	var caches: Dictionary = args[1]
@@ -1090,8 +1109,11 @@ func _import_sspm_worker(args: Array) -> Array:
 	for i in range(smaps.size()):
 		_sspm_import_progress = i + 1
 		var single_map_start = OS.get_ticks_usec()
-		if caches.has(smaps[i]):
-			if registry_song.add_sspm_cached_map(smaps[i], caches.get(smaps[i])):
+		var cached = caches.get(smaps[i])
+		if cached is Dictionary and cached.get("invalid", false) and int(cached.get("mtime", 0)) == File.new().get_modified_time(smaps[i]):
+			from_cache += 1 # known unreadable file, skip it
+		elif cached != null and not (cached is Dictionary and cached.get("invalid", false)):
+			if registry_song.add_sspm_cached_map(smaps[i], cached):
 				from_cache += 1
 			else:
 				print("Failed loading a map from cache")
@@ -1099,7 +1121,7 @@ func _import_sspm_worker(args: Array) -> Array:
 				registry_song.add_sspm_map(smaps[i])
 		else:
 			from_file += 1
-			registry_song.add_sspm_map(smaps[i])
+			_loaded_from_file[smaps[i]] = registry_song.add_sspm_map(smaps[i])
 		var single_map_usec = OS.get_ticks_usec() - single_map_start
 		if single_map_usec > 1000000:
 			print("SLOW MAP LOAD (%s usec): %s" % [Globals.comma_sep(single_map_usec), smaps[i]])
@@ -1351,7 +1373,7 @@ func get_next():
 # startups can be tracked down.
 var _stage_name: String = ""
 var _stage_start: int = 0
-func _log_stage(name):
+func _log_stage(name, _extra = null):
 	var now := OS.get_ticks_msec()
 	var first_line := String(name).split("\n")[0]
 	if first_line == _stage_name:
@@ -3767,8 +3789,11 @@ func populate_map_registry_deferred(args: Array):
 	for i in range(smaps.size()):
 		var map_load_start_usec = OS.get_ticks_usec() if debug_map_load_times else 0
 
-		if caches.has(smaps[i]):
-			if registry_song.add_sspm_cached_map(smaps[i], caches.get(smaps[i])):
+		var cached = caches.get(smaps[i])
+		if cached is Dictionary and cached.get("invalid", false) and int(cached.get("mtime", 0)) == File.new().get_modified_time(smaps[i]):
+			from_cache += 1 # known unreadable file, skip it
+		elif cached != null and not (cached is Dictionary and cached.get("invalid", false)):
+			if registry_song.add_sspm_cached_map(smaps[i], cached):
 				from_cache += 1
 			else:
 				print("Failed loading a map from cache: ", smaps[i])
@@ -3776,7 +3801,7 @@ func populate_map_registry_deferred(args: Array):
 				registry_song.add_sspm_map(smaps[i])
 		else:
 			from_file += 1
-			registry_song.add_sspm_map(smaps[i])
+			_loaded_from_file[smaps[i]] = registry_song.add_sspm_map(smaps[i])
 
 		if debug_map_load_times:
 			var map_load_ms = (OS.get_ticks_usec() - map_load_start_usec) / 1000.0
@@ -3796,7 +3821,7 @@ func populate_map_registry_deferred(args: Array):
 	call_deferred("emit_signal", "init_stage_reached", "Register content 2/5\nCache Rhythia maps")
 	err = file.open(Globals.p(CACHE_FILE_PATH), File.WRITE)
 	if err == OK:
-		file.store_string(JSON.print(registry_song.make_sspm_cache(cache_version)))
+		file.store_string(JSON.print(_make_full_sspm_cache(cache_version)))
 		file.flush()
 
 	call_deferred("emit_signal", "local_maps_loaded")
@@ -4142,11 +4167,12 @@ func do_init(_ud = null):
 
 
 		# Only rewrite the map cache when maps were added, changed or removed.
-		if from_file > 0 or caches.size() != from_cache + 1:
+		if from_file > 0 or caches.size() != from_cache + 1 or map_cache_dirty:
+			map_cache_dirty = false
 			emit_signal("init_stage_reached", "Register content 2/5\nCache Rhythia maps")
 			yield(get_tree(), "idle_frame")
 			var cache_write_start = OS.get_ticks_usec()
-			var cache_dict = registry_song.make_sspm_cache(cache_version)
+			var cache_dict = _make_full_sspm_cache(cache_version)
 			print("Cache dict has %s entries" % cache_dict.size())
 			var cache_json = JSON.print(cache_dict)
 			print("Cache JSON string length: %s chars" % cache_json.length())
