@@ -2,8 +2,9 @@ extends Reference
 # Offline RP (Rhythia Points), earned on this computer so there's something
 # to grind while the servers are down. Saved to user://rp_plays.json.
 #
-# A play's RP: 5 x (stars x speed)^2 (the SSQE+ "Calculate SR/RP" numbers),
-# scaled by accuracy. Only your best play on each map counts. Total RP is
+# A play's RP: 5 x (stars x speed)^2, scaled by accuracy. SSQE+'s
+# "Calculate SR/RP" gets RP from Rhythia's server; this formula matches the
+# numbers it shows for every speed. Stars are SSQE+'s star rating (StarRating.gd). Only your best play on each map counts. Total RP is
 # Rhythia's weighting: plays sorted best first, play n counts 0.97^(n - 1).
 #
 #   const RhythiaPoints = preload("res://scripts/RhythiaPoints.gd")

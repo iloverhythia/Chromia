@@ -699,7 +699,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u"
 ]
 
 
@@ -754,6 +754,7 @@ const VERSION_NOTES = {
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
 	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
+	"oct18-2026-u": "- Star ratings now use the exact SSQE+ / Rhythia formula (all maps get re-rated once)",
 	"oct18-2026-t": "- New offline RP (Rhythia Points): earned from passes, works while servers are down\n- RP total and your top 10 RP plays in the Profile tab",
 	"oct18-2026-s": "- Map folders show up as filters under stars\n- The Grid background has its own preview picture",
 	"oct18-2026-r": "- Map list scrolling is back to how it was\n- Modifier checkboxes sit between the slowest and fastest speed buttons",
@@ -931,7 +932,7 @@ var replaying: bool = false
 var load_target_frame_time: float = 1.0 / 40.0
 
 const STAR_CACHE_FILE = "user://caches/star_ratings.json"
-const STAR_CACHE_VERSION = 2
+const STAR_CACHE_VERSION = 3
 const STAR_CURRENT_FILE = "user://caches/star_rating_current.txt"
 var _star_progress: int = 0
 var _star_total: int = 0
