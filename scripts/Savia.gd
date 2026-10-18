@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a"
 ]
 
 
@@ -721,6 +721,7 @@ const VERSION_NOTES = {
 	"oct17-2026-e": "- Fixed the game crashing on startup (Discord Rich Presence turned off for now)",
 	"oct17-2026-f": "- Discord Rich Presence is back (rewritten so it can't crash the game)\n- New \"stars\" filter: sort maps by star rating\n- The profile you had selected is now remembered after restarting",
 	"oct17-2026-g": "- Map Folders: create, name and color folders and add maps to them (button next to random map)\n- 12 new backgrounds from Rhythia\n- Colorsets have their own settings tab, with a colorset maker\n- Trail Opacity setting\n- New Hit FOV mode: Instant\n- Max FPS mode (Video settings) and faster gameplay code for higher FPS\n- Choosing a cursor/file now opens the real Windows file browser\n- Star ratings are calculated in the background so huge map libraries load fast and can't crash on startup",
+	"oct18-2026-a": "- Map covers are cached: each cover is processed once, then loads instantly on every launch (and big libraries use far less memory)\n- The map cache is only rewritten when your maps change\n- Higher FPS: the in-game HUD redraws at most 240 times a second and no longer uses anti-aliasing, Max FPS mode also turns off HDR\n- Importing broken or unusual map files no longer crashes the game",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -940,6 +941,9 @@ func _star_rating_finished():
 
 func _exit_tree():
 	_star_quit = true
+	_thumb_quit = true
+	if _thumb_thread and _thumb_thread.is_active():
+		_thumb_thread.wait_to_finish()
 	if _star_thread and _star_thread.is_active():
 		_star_thread.wait_to_finish()
 
@@ -969,6 +973,54 @@ var sort_by_stars: bool = false
 
 var _cover_preload_progress: int = 0
 var _cover_preload_done: bool = false
+
+# Only the most recently shown thumbnails stay in memory.
+const THUMB_MEMORY_LIMIT = 300
+var _thumb_lru: Array = []
+func touch_thumb(song):
+	var i = _thumb_lru.find(song)
+	if i != -1:
+		if i == _thumb_lru.size() - 1:
+			return
+		_thumb_lru.remove(i)
+	_thumb_lru.append(song)
+	while _thumb_lru.size() > THUMB_MEMORY_LIMIT:
+		var old = _thumb_lru.pop_front()
+		old._thumb = null
+
+# Builds missing cover thumbnails after the menu is up, one map at a time,
+# paused while playing. Already-built ones are skipped instantly.
+var _thumb_thread: Thread
+var _thumb_quit: bool = false
+func _start_thumb_builder():
+	if _thumb_thread != null and _thumb_thread.is_active():
+		return
+	var list: Array = []
+	for song in registry_song.get_items():
+		if song.has_cover and not song.is_online:
+			list.append(song)
+	if list.empty():
+		return
+	_thumb_thread = Thread.new()
+	if _thumb_thread.start(self, "_thumb_builder_worker", list, Thread.PRIORITY_LOW) != OK:
+		_thumb_thread = null
+
+func _thumb_builder_worker(list: Array):
+	var built := 0
+	for song in list:
+		while in_map and not _thumb_quit:
+			OS.delay_msec(200)
+		if _thumb_quit:
+			break
+		if song.build_thumb_file(false) != null:
+			built += 1
+	call_deferred("_thumb_builder_finished", built)
+
+func _thumb_builder_finished(built: int):
+	if _thumb_thread:
+		_thumb_thread.wait_to_finish()
+		_thumb_thread = null
+	print("[covers] built %d new cover thumbnails" % built)
 func _decode_covers_worker(songs: Array):
 	for i in range(songs.size()):
 		var song = songs[i]
@@ -1717,9 +1769,12 @@ func apply_max_fps_mode():
 	if max_fps_mode:
 		Engine.target_fps = 0
 		OS.vsync_enabled = false
-		if vp: vp.msaa = Viewport.MSAA_DISABLED
+		if vp:
+			vp.msaa = Viewport.MSAA_DISABLED
+			vp.hdr = false # HDR framebuffers cost GPU time
 	elif vp:
 		vp.msaa = int(ProjectSettings.get_setting("rendering/quality/filters/msaa"))
+		vp.hdr = bool(ProjectSettings.get_setting("rendering/quality/depth/hdr"))
 var cursor_scale: float = 1
 var enable_drift_cursor: bool = true
 var follow_drift_cursor: bool = false
@@ -4004,20 +4059,22 @@ func do_init(_ud = null):
 		print("Took %s usec" % Globals.comma_sep(load_time))
 
 
-		emit_signal("init_stage_reached", "Register content 2/5\nCache Rhythia maps")
-		yield(get_tree(), "idle_frame")
-		var cache_write_start = OS.get_ticks_usec()
-		var cache_dict = registry_song.make_sspm_cache(cache_version)
-		print("Cache dict has %s entries" % cache_dict.size())
-		var cache_json = JSON.print(cache_dict)
-		print("Cache JSON string length: %s chars" % cache_json.length())
-		err = file.open(Globals.p("user://map_cache.json"), File.WRITE)
-		if err == OK:
-			file.store_string(cache_json)
-			print("File length after store_string: %s" % file.get_len())
-			file.flush()
-			file.close()
-		print("Cache write took %s usec" % Globals.comma_sep(OS.get_ticks_usec() - cache_write_start))
+		# Only rewrite the map cache when maps were added, changed or removed.
+		if from_file > 0 or caches.size() != from_cache + 1:
+			emit_signal("init_stage_reached", "Register content 2/5\nCache Rhythia maps")
+			yield(get_tree(), "idle_frame")
+			var cache_write_start = OS.get_ticks_usec()
+			var cache_dict = registry_song.make_sspm_cache(cache_version)
+			print("Cache dict has %s entries" % cache_dict.size())
+			var cache_json = JSON.print(cache_dict)
+			print("Cache JSON string length: %s chars" % cache_json.length())
+			err = file.open(Globals.p("user://map_cache.json"), File.WRITE)
+			if err == OK:
+				file.store_string(cache_json)
+				print("File length after store_string: %s" % file.get_len())
+				file.flush()
+				file.close()
+			print("Cache write took %s usec" % Globals.comma_sep(OS.get_ticks_usec() - cache_write_start))
 
 		for i in range(mapreg.size()):
 			var amr: Array = mapreg[i]
@@ -4066,29 +4123,9 @@ func do_init(_ud = null):
 			if not had_cache:
 				yield(Online, "db_maps_done")
 
-		# Load every map cover now, while the loading screen is up, so the
-		# map list is complete (no covers popping in) when the menu opens.
-		var cover_songs: Array = []
-		for song in registry_song.get_items():
-			if song.has_cover and not song.cover_ready():
-				cover_songs.append(song)
-		if cover_songs.size() > 0:
-			_cover_preload_progress = 0
-			_cover_preload_done = false
-			var cover_thread := Thread.new()
-			var made_textures := 0
-			if cover_thread.start(self, "_decode_covers_worker", cover_songs) == OK:
-				while not _cover_preload_done:
-					emit_signal("init_stage_reached", "Loading map covers\n%d / %d" % [_cover_preload_progress, cover_songs.size()])
-					# Turn decoded covers into textures while the worker keeps going.
-					var frame_start := OS.get_ticks_msec()
-					while made_textures < _cover_preload_progress and OS.get_ticks_msec() - frame_start < 12:
-						cover_songs[made_textures]._get_cover()
-						made_textures += 1
-					yield(get_tree(), "idle_frame")
-				cover_thread.wait_to_finish()
-			for i in range(made_textures, cover_songs.size()):
-				cover_songs[i]._get_cover()
+		# Cover thumbnails are cached on disk and load on demand (see
+		# Song.get_cover_thumb); missing ones are built in the background.
+		_start_thumb_builder()
 
 		# Star ratings: cached ones are applied now; new/changed maps are
 		# rated in the background once the menu is open.

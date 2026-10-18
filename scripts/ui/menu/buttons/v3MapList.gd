@@ -379,7 +379,7 @@ func make_song_button(id: int = -1):
 	btn.get_node("Label").visible = false
 	if map.has_cover:
 		btn.get_node("Cover").visible = true
-		btn.get_node("Cover").texture = map.cover
+		btn.get_node("Cover").texture = map.get_cover_thumb()
 	btn.get_node("Name").visible = true
 	if map.name.length() > 55:
 		btn.get_node("Name").text = strip_diacritics(map.name)
@@ -504,9 +504,7 @@ func update_clouds():
 				btn.get_node("Cloud").visible = btn.song.is_online
 			if map.has_cover and btn.has_node("Cover"):
 				var cover_node = btn.get_node("Cover")
-				if not map.cover:
-					map._get_cover()
-				cover_node.texture = map.cover
+				cover_node.texture = map.get_cover_thumb()
 				cover_node.visible = true
 
 
@@ -549,8 +547,6 @@ func scroll_to_song(id) -> bool:
 	return true
 
 func _ready():
-	thread = Thread.new()
-	thread.start(self, "_load_covers")
 
 	randomize()
 	if not visible: return
@@ -584,7 +580,6 @@ var _stop_loading_covers: bool = false
 
 func _exit_tree():
 	_stop_loading_covers = true
-	thread.wait_to_finish()
 
 func size_list():
 	size_x = get_viewport_rect().size.x / 2.8

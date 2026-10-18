@@ -68,6 +68,16 @@ enum {
 	DT_ARRAY = 12
 }
 
+# Reads `length` bytes, or nothing if the file claims more data than it has.
+# Damaged/odd map files can contain garbage sizes; trying to read gigabytes
+# crashes the game.
+static func _safe_buf(f: File, length: int) -> PoolByteArray:
+	if length <= 0 or length > f.get_len() - f.get_position():
+		if length != 0:
+			print("[map] skipped a bad data block (size %d) in %s" % [length, f.get_path()])
+		return PoolByteArray()
+	return f.get_buffer(length)
+
 func _decode_cover_pixels() -> Image:
 	if not has_cover:
 		return null
@@ -86,18 +96,97 @@ func _decode_cover_pixels() -> Image:
 			var mip: bool = bool(file.get_8())
 			var format: int = file.get_8()
 			var clen: int = file.get_64()
-			var cbuf: PoolByteArray = file.get_buffer(clen)
+			var cbuf: PoolByteArray = _safe_buf(file, clen)
 			img = Image.new()
 			img.create_from_data(w, h, mip, format, cbuf)
 		elif ct == 2:
 			var clen: int = file.get_64()
-			var cbuf: PoolByteArray = file.get_buffer(clen)
+			var cbuf: PoolByteArray = _safe_buf(file, clen)
 			img = Globals.imageLoader.load_buffer_image(cbuf)
 	elif songType == Globals.MAP_SSPM2:
-		var cbuf: PoolByteArray = file.get_buffer(cover_length)
+		var cbuf: PoolByteArray = _safe_buf(file, cover_length)
 		img = Globals.imageLoader.load_buffer_image(cbuf)
 	file.close()
 	return img
+
+# --- Cover thumbnails -------------------------------------------------------
+# The map list shows a wide strip of each cover. Decoding full covers for every
+# map on every launch is slow (and keeping them all in memory can run out of
+# memory with thousands of maps), so each cover is turned into a small strip
+# once and saved in user://caches/covers. After that it loads in well under a
+# millisecond, and only the maps on screen keep theirs in memory.
+const THUMB_DIR = "user://caches/covers"
+const THUMB_W = 512
+const THUMB_H = 96
+const THUMB_VERSION = 1
+var _thumb: Texture = null
+
+func _thumb_path() -> String:
+	var mtime := 0
+	if filePath != null and filePath != "":
+		mtime = File.new().get_modified_time(filePath)
+	var key := "%d|%s|%d|%d|%d" % [THUMB_VERSION, filePath, cover_offset, cover_length, mtime]
+	return Globals.p(THUMB_DIR).plus_file(key.md5_text() + ".png")
+
+static func _make_thumb_image(img: Image) -> Image:
+	if img == null or img.is_empty():
+		return null
+	if img.is_compressed():
+		if img.decompress() != OK:
+			return null
+	img.convert(Image.FORMAT_RGB8)
+	# Center crop to the strip's aspect ratio, then shrink.
+	var w := img.get_width()
+	var h := img.get_height()
+	var want_h := int(round(float(w) * THUMB_H / THUMB_W))
+	if want_h <= h:
+		img = img.get_rect(Rect2(0, (h - want_h) / 2, w, max(want_h, 1)))
+	else:
+		var want_w := int(round(float(h) * THUMB_W / THUMB_H))
+		img = img.get_rect(Rect2((w - want_w) / 2, 0, max(want_w, 1), h))
+	if img.get_width() > THUMB_W:
+		img.resize(THUMB_W, THUMB_H, Image.INTERPOLATE_BILINEAR)
+	return img
+
+# Makes sure the thumbnail file exists (safe to call from a thread).
+# Returns the thumbnail image, or null if the map has no usable cover.
+func build_thumb_file(load_existing: bool = false) -> Image:
+	if not has_cover or is_online:
+		return null
+	var path := _thumb_path()
+	var f := File.new()
+	if f.file_exists(path):
+		if not load_existing:
+			return null
+		var ex := Image.new()
+		if ex.load(path) == OK:
+			return ex
+	var full: Image = _decode_cover_pixels()
+	var thumb := _make_thumb_image(full)
+	if thumb == null:
+		return null
+	Directory.new().make_dir_recursive(Globals.p(THUMB_DIR))
+	thumb.save_png(path)
+	return thumb
+
+# Small strip texture for the map list. Loads from the thumbnail cache.
+func get_cover_thumb() -> Texture:
+	if not has_cover:
+		return null
+	if _thumb != null:
+		Rhythia.touch_thumb(self)
+		return _thumb
+	if is_online:
+		# Online maps keep using the normal cover path.
+		return cover
+	var img := build_thumb_file(true)
+	if img == null:
+		return null
+	var tex := ImageTexture.new()
+	tex.create_from_image(img, Texture.FLAG_FILTER)
+	_thumb = tex
+	Rhythia.touch_thumb(self)
+	return _thumb
 
 const StarRatingCalc = preload("res://scripts/content/game/StarRating.gd")
 var _star_rating: float = -1.0
@@ -378,7 +467,7 @@ func get_music_buffer():
 				return null
 			else:
 				var blen: int = file2.get_64()
-				var buf: PoolByteArray = file2.get_buffer(blen)
+				var buf: PoolByteArray = _safe_buf(file2, blen)
 				file2.close()
 				print("[sspm] %s: music ok" % id)
 				return buf
@@ -400,7 +489,7 @@ func get_music_buffer():
 				var bpos: int = file2.get_64()
 				var blen: int = file2.get_64()
 				file2.seek(bpos)
-				var buf: PoolByteArray = file2.get_buffer(blen)
+				var buf: PoolByteArray = _safe_buf(file2, blen)
 				file2.close()
 				print("[sspm2] %s: music ok" % id)
 				return buf
@@ -1164,26 +1253,26 @@ func read_data_type(
 			var size = file.get_16()
 			if size < 0 or file.get_position() + size > file.get_len():
 				return PoolByteArray()
-			return file.get_buffer(size)
+			return _safe_buf(file, size)
 
 		DT_STRING:
 			var size = file.get_16()
 			if size < 0 or file.get_position() + size > file.get_len():
 				return ""
-			var buf = file.get_buffer(size)
+			var buf = _safe_buf(file, size)
 			return _safe_string_from_utf8(buf)
 
 		DT_BUFFER_LONG:
 			var size = file.get_32()
 			if size < 0 or file.get_position() + size > file.get_len():
 				return PoolByteArray()
-			return file.get_buffer(size)
+			return _safe_buf(file, size)
 
 		DT_STRING_LONG:
 			var size = file.get_32()
 			if size < 0 or file.get_position() + size > file.get_len():
 				return ""
-			var buf = file.get_buffer(size)
+			var buf = _safe_buf(file, size)
 			return _safe_string_from_utf8(buf)
 
 		DT_ARRAY:
@@ -1549,11 +1638,11 @@ func load_from_sspm(path: String):
 				var mip: bool = bool(file.get_8())
 				var format: int = file.get_8()
 				var clen: int = file.get_64()
-				var cbuf: PoolByteArray = file.get_buffer(clen)
+				var cbuf: PoolByteArray = _safe_buf(file, clen)
 
 			elif ct == 2:
 				var clen: int = file.get_64()
-				var cbuf: PoolByteArray = file.get_buffer(clen)
+				var cbuf: PoolByteArray = _safe_buf(file, clen)
 
 
 

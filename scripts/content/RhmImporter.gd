@@ -127,6 +127,10 @@ func import_rhm(path: String) -> Dictionary:
 			continue
 		notes.append([float(n.get("X", 0)), float(n.get("Y", 0)), float(n.get("Time", 0))])
 	notes.sort_custom(self, "_sort_by_ms")
+	if notes.empty():
+		result.error = "That map has no valid notes."
+		_cleanup()
+		return result
 
 	var audio_file := File.new()
 	if audio_file.open(root.plus_file("audio"), File.READ) != OK:

@@ -280,8 +280,32 @@ func _build_replay_controls():
 	add_child(replay_controls)
 	replay_controls.setup(Spawn)
 
+# The HUD panels are drawn into off-screen viewports. Redrawing all of them
+# every frame is a big cost at high FPS, so they refresh at most
+# HUD_REFRESH_HZ times a second (looks identical; monitors don't go higher).
+const HUD_REFRESH_HZ = 240.0
+var _hud_vps: Array = []
+var _hud_refresh_t: float = 0.0
+var _stats_t: float = 0.0
+
+func _setup_hud_viewports():
+	for c in get_children():
+		if c is Viewport:
+			c.msaa = Viewport.MSAA_DISABLED # 2D-only, anti-aliasing does nothing here
+			c.render_target_update_mode = Viewport.UPDATE_ONCE
+			_hud_vps.append(c)
+
+func _refresh_hud_viewports(delta: float):
+	_hud_refresh_t += delta
+	if _hud_refresh_t < 1.0 / HUD_REFRESH_HZ:
+		return
+	_hud_refresh_t = 0.0
+	for vp in _hud_vps:
+		vp.render_target_update_mode = Viewport.UPDATE_ONCE
+
 func _process(delta: float):
 	gtimer += delta
+	_refresh_hud_viewports(delta)
 	_update_spectate_render(delta)
 	if spectating and _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.check_debug_mouse_toggle()
@@ -356,6 +380,11 @@ func _process(delta: float):
 	if gtimer >= 2:
 		calculating = true
 
+	# Debug stats panel: only rebuild its text when shown, 10x a second.
+	_stats_t += delta
+	if _stats_t < 0.1 or not $Stats/Label.visible:
+		return
+	_stats_t = 0.0
 	var fstr = "cursor speed\n{current} m/sec/{frames}fr\n\ntop speed\n{top} m/sec/{frames}fr\n\nrec interval\n{rec}"
 	$Stats/Label.text = fstr.format(
 		{
@@ -716,6 +745,7 @@ func _on_lobby_state_changed_for_spectators_list():
 	_spectators_banner.text = "👁 %d watching\n%s" % [spectator_count, ", ".join(spectator_names)]
 
 func _ready():
+	_setup_hud_viewports()
 	Game.connect("miss", self, "on_miss")
 	_create_spectators_banner()
 	var lobby_manager_for_spectators = _get_lobby_manager()
