@@ -1,47 +1,37 @@
 extends "res://assets/worlds/rhythia_spaces/rhythia_space.gd"
-# Rhythia "Tunnel": square neon rings (alternating full frames and corner
-# brackets) rushing toward the player at approach-rate speed over a tiled road.
+# Rhythia "Tunnel" (Tunnel.cs + tunnel.tscn): 14 alternating ring quads
+# (8x8, scaled 3.5, every 7.5 units) flying toward you at approach rate / 2,
+# over a long neon road, all tinted by the hit colour, in black depth fog.
 
 const RING_LOOP_END := 52.5
-const RING_SPACING := 7.5
-const RING_COUNT := 14
-const TILE := 2.0
+const FOG := [Color(0, 0, 0), 5.0, 150.0, 0.8485127]
 var rings: Spatial
-var road: MeshInstance
-var tile_mat: SpatialMaterial
-var ring_mat_a: SpatialMaterial
-var ring_mat_b: SpatialMaterial
+var mat_road: ShaderMaterial
+var mat_a: ShaderMaterial
+var mat_b: ShaderMaterial
 
 func _build():
-	env.background_color = Color(0.01, 0.01, 0.015)
-	var tex_a = shape_texture(256, 0, 0.02, 0.025)
-	var tex_b = shape_texture(256, 3, 0.035, 0.03)
-	ring_mat_a = make_unshaded(note_hit_color, tex_a, true, 80.0)
-	ring_mat_b = make_unshaded(note_hit_color, tex_b, true, 80.0)
+	env.background_color = Color(0, 0, 0)
+	var dir := "res://assets/worlds/rhythia_spaces/tunnel/"
+	mat_a = surface_material(load(dir + "tunnel_ring_b.png"), {"color": note_hit_color, "use_alpha": true, "fade": [10.0, 40.0], "fog": FOG})
+	mat_b = surface_material(load(dir + "tunnel_space_a.png"), {"color": note_hit_color, "use_alpha": true, "fade": [10.0, 40.0], "fog": FOG})
+	mat_road = surface_material(load(dir + "tunnel_neonroad.png"), {"color": note_hit_color, "use_alpha": true, "fade": [150.0, 10.0], "fog": FOG})
 	rings = Spatial.new()
-	rings.name = "Rings"
+	rings.scale = Vector3(3.5, 3.5, 3.5)
 	add_child(rings)
-	for i in range(RING_COUNT):
-		var m = ring_mat_a if i % 2 == 0 else ring_mat_b
-		add_quad(rings, Vector2(11, 11), m, Vector3(0, 0.5, 5.0 - RING_SPACING * (i + 1)))
-
-	tile_mat = make_unshaded(note_hit_color, tile_texture(128, 0.05, 0.04, 0.2), true, 80.0)
-	tile_mat.uv1_scale = Vector3(4.0, 60.0, 1.0)
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(TILE * 4.0, TILE * 60.0)
-	road = MeshInstance.new()
-	road.name = "Road"
-	road.mesh = pm
-	road.material_override = tile_mat
-	road.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	road.translation = Vector3(0, -5.0, -55.0)
-	add_child(road)
+	var q := QuadMesh.new()
+	q.size = Vector2(8, 8)
+	for k in range(-6, 8):
+		# z = 7.5 * -k: even steps use ring A, odd steps ring B (as in the scene)
+		var m = mat_a if k % 2 == 0 else mat_b
+		mesh_node(q, m, Transform(Basis(), Vector3(0, 0, -7.5 * k)), rings)
+	var road := PlaneMesh.new()
+	road.size = Vector2(120, 120)
+	mesh_node(road, mat_road, Transform(Basis().scaled(Vector3(0.2, 1.204, 2.806)), Vector3(0, -20, 0)))
 
 func _tick(_delta):
 	if space_effects:
-		var p = fmod(time * approach_rate / 2.0, RING_LOOP_END)
-		rings.translation.z = p
-		road.translation.z = -55.0 + fmod(p, TILE)
-	tile_mat.albedo_color = Color(note_hit_color.r, note_hit_color.g, note_hit_color.b, 0.6)
-	ring_mat_a.albedo_color = note_hit_color
-	ring_mat_b.albedo_color = note_hit_color
+		rings.translation.z = fmod(OS.get_ticks_msec() / 1000.0 * approach_rate / 2.0, RING_LOOP_END)
+	mat_a.set_shader_param("albedo", note_hit_color)
+	mat_b.set_shader_param("albedo", note_hit_color)
+	mat_road.set_shader_param("albedo", note_hit_color)

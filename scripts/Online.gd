@@ -368,10 +368,10 @@ onready var update_hr: HTTPRequest = HTTPRequest.new()
 # a project setting could be changed by an override.cfg left behind by
 # another game that shares the same user folder.
 const UPDATE_REPO := "iloverhythia/Furria"
-# Release asset names, newest first ("Savia.pck" is what older releases used).
-const UPDATE_PCK_NAMES := ["Furria.pck", "Savia.pck"]
+# Release asset names, newest first (older releases used "Furria.pck" and "Savia.pck").
+const UPDATE_PCK_NAMES := ["Chromia.pck", "Furria.pck", "Savia.pck"]
 
-# The .pck that belongs to the running exe (Furria.exe -> Furria.pck).
+# The .pck that belongs to the running exe (Chromia.exe -> Chromia.pck; old installs keep Furria.exe -> Furria.pck).
 static func local_pck_path() -> String:
 	var exe := OS.get_executable_path()
 	return exe.get_base_dir().plus_file(exe.get_file().get_basename() + ".pck")

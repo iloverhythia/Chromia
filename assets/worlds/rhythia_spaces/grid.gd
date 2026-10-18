@@ -1,37 +1,25 @@
 extends "res://assets/worlds/rhythia_spaces/rhythia_space.gd"
-# Rhythia "Grid": a glowing grid ceiling (and a fainter floor) scrolling
-# toward the player, tinted by the last hit note colour.
+# Rhythia "Grid" (Grid.cs + grid.tscn): two 120x120 tiled planes, a floor at
+# y = -10 and a ceiling at y = 10, tinted by the hit colour, with the tiles
+# scrolling toward you (UV offset +3/s) through dark purple depth fog.
 
-const TILE := 2.0
-const SPEED := 6.0 # Uv1Offset += 3/s on a 2-unit tile
-var top: MeshInstance
-var bottom: MeshInstance
-var mat_top: SpatialMaterial
-var mat_bottom: SpatialMaterial
+const FOG := Color(0.0470588, 0.0313726, 0.109804)
+var mat: ShaderMaterial
+var uv_off := 0.0
 
 func _build():
-	env.background_color = Color(0.006, 0.006, 0.012)
-	var tex = tile_texture(128, 0.035, 0.0, 0.12)
-	mat_top = make_unshaded(note_hit_color, tex, true, 70.0)
-	mat_top.uv1_scale = Vector3(60.0, 60.0, 1.0)
-	mat_bottom = mat_top.duplicate()
-	top = _plane(mat_top, 5.0)
-	bottom = _plane(mat_bottom, -5.0)
-
-func _plane(mat: SpatialMaterial, y: float) -> MeshInstance:
+	# Godot 4 fogs the background too, so the sky ends up the fog colour.
+	env.background_color = FOG
+	mat = surface_material(load("res://assets/worlds/rhythia_spaces/grid/grid_tile.png"), {
+		"color": note_hit_color, "uv_scale": Vector2(34, 34),
+		"fog": [FOG, 10.0, 60.0, 0.15],
+	})
 	var pm := PlaneMesh.new()
-	pm.size = Vector2(TILE * 60.0, TILE * 60.0)
-	var mi := MeshInstance.new()
-	mi.mesh = pm
-	mi.material_override = mat
-	mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-	mi.translation = Vector3(0, y, -50)
-	add_child(mi)
-	return mi
+	pm.size = Vector2(120, 120)
+	mesh_node(pm, mat, Transform(Vector3(-1, 0, 8.74228e-08), Vector3(0, 1, 0), Vector3(-8.74228e-08, 0, -1), Vector3(0, -10, 0)))
+	mesh_node(pm, mat, Transform(Vector3(1, 0, 0), Vector3(0, -1, -8.74228e-08), Vector3(0, 8.74228e-08, -1), Vector3(0, 10, 0)))
 
-func _tick(_delta):
-	var off = fmod(time * SPEED, TILE) if space_effects else 0.0
-	top.translation.z = -50.0 + off
-	bottom.translation.z = -50.0 + off
-	mat_top.albedo_color = note_hit_color
-	mat_bottom.albedo_color = Color(note_hit_color.r, note_hit_color.g, note_hit_color.b, 0.35)
+func _tick(delta):
+	mat.set_shader_param("albedo", note_hit_color)
+	uv_off = fmod(uv_off + delta * 3.0, 1.0)
+	mat.set_shader_param("uv_offset", Vector2(0, uv_off))

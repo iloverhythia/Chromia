@@ -230,3 +230,54 @@ func dynamic_font(size: int) -> DynamicFont:
 		f.font_data = data
 	f.size = size
 	return f
+
+# Material using rhythia_surface.shader, set up like a Rhythia
+# StandardMaterial3D. opts: color, uv_scale (Vector2), use_alpha, opacity,
+# fade ([min, max]), fog ([color, begin, end, curve]), cull_back (bool).
+var _surface_shaders := {}
+func surface_material(tex: Texture, opts: Dictionary = {}) -> ShaderMaterial:
+	var cull_back: bool = opts.get("cull_back", false)
+	if not _surface_shaders.has(cull_back):
+		var sh := Shader.new()
+		var code: String = load("res://assets/worlds/rhythia_spaces/rhythia_surface.shader").code
+		if cull_back:
+			code = code.replace("cull_disabled", "cull_back")
+		sh.code = code
+		_surface_shaders[cull_back] = sh
+	var m := ShaderMaterial.new()
+	m.shader = _surface_shaders[cull_back]
+	m.set_shader_param("tex", tex if tex != null else _white_texture())
+	m.set_shader_param("albedo", opts.get("color", Color(1, 1, 1)))
+	m.set_shader_param("uv_scale", opts.get("uv_scale", Vector2.ONE))
+	m.set_shader_param("use_alpha", opts.get("use_alpha", false))
+	m.set_shader_param("opacity", opts.get("opacity", 1.0))
+	if opts.has("fade"):
+		m.set_shader_param("fade_on", true)
+		m.set_shader_param("fade_min", opts.fade[0])
+		m.set_shader_param("fade_max", opts.fade[1])
+	if opts.has("fog"):
+		m.set_shader_param("fog_on", true)
+		m.set_shader_param("fog_color", opts.fog[0])
+		m.set_shader_param("fog_begin", opts.fog[1])
+		m.set_shader_param("fog_end", opts.fog[2])
+		m.set_shader_param("fog_curve", opts.fog[3])
+	return m
+
+var _white_tex: ImageTexture = null
+func _white_texture() -> ImageTexture:
+	if _white_tex == null:
+		var img := Image.new()
+		img.create(1, 1, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 1))
+		_white_tex = ImageTexture.new()
+		_white_tex.create_from_image(img, 0)
+	return _white_tex
+
+func mesh_node(mesh: Mesh, mat: Material, xform: Transform, parent: Node = null) -> MeshInstance:
+	var mi := MeshInstance.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	mi.transform = xform
+	(parent if parent != null else self).add_child(mi)
+	return mi

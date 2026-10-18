@@ -74,7 +74,7 @@ func apply_rotated_client_id(new_id: String):
 	db["client_id"] = new_id
 	_write_client_db(db)
 	cid = new_id
-	Globals.notify(Globals.NOTIFY_WARN, "Your account ID was rotated by an admin. Please restart Furria.", "Account Updated")
+	Globals.notify(Globals.NOTIFY_WARN, "Your account ID was rotated by an admin. Please restart Chromia.", "Account Updated")
 
 func load_keybinds():
 	var config = ConfigFile.new()
@@ -235,6 +235,8 @@ func _get_active_mods_dict() -> Dictionary:
 		"360_speed": mod_360_speed,
 		"strobe": mod_strobe,
 		"hardrock": mod_hardrock,
+		"hard_mode": mod_hard_mode,
+		"flashlight": mod_flashlight,
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
 		"retain_pitch": retain_song_pitch,
@@ -699,7 +701,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x"
 ]
 
 
@@ -754,6 +756,7 @@ const VERSION_NOTES = {
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
 	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
+	"oct18-2026-x": "- Furria is now Chromia! New name and logo\n- All 12 Rhythia backgrounds rebuilt from Rhythia's original files\n- New Hard Mode mod: smaller notes with a smaller hitbox\n- New Flashlight mod: only a circle around your cursor is visible\n- Strobe and Chaos no longer speed up with the speed mod",
 	"oct18-2026-w": "- Better FPS in-game: hidden HUD panels aren't redrawn, the timer only redraws when it changes, faster note updates",
 	"oct18-2026-v": "- Each map shows its RP (for the speed you picked) and your best RP on it",
 	"oct18-2026-u": "- Star ratings now use the exact SSQE+ / Rhythia formula (all maps get re-rated once)",
@@ -1609,6 +1612,8 @@ func update_rpc_song():
 	if mod_ghost: mods.append("Ghost")
 	if mod_nearsighted: mods.append("Nearsight")
 	if mod_hardrock: mods.append("Hard Rock")
+	if mod_hard_mode: mods.append("Hard Mode")
+	if mod_flashlight: mods.append("Flashlight")
 	if mod_360: mods.append(("360x%s" % Rhythia.mod_360_speed))
 	if mod_strobe: mods.append(("Strobe!!!"))
 	if replay.autoplayer: mods.append("Auto")
@@ -1664,6 +1669,11 @@ var mod_360: bool = false setget set_mod_360
 var mod_360_speed: float = 1 setget _set_mod_360_speed
 var mod_strobe: bool = false setget _set_mod_strobe
 var mod_hardrock: bool = false setget set_mod_hardrock
+# Hard Mode: notes are drawn smaller and their hitbox shrinks by the same amount.
+const HARD_MODE_SCALE = 0.75
+var mod_hard_mode: bool = false setget set_mod_hard_mode
+# Flashlight: everything is dark except a circle around the cursor.
+var mod_flashlight: bool = false setget set_mod_flashlight
 
 var start_offset: float = 0 setget _set_start_offset
 var note_hitbox_size: float = 1.14 setget _set_hitbox_size
@@ -1736,6 +1746,10 @@ func _set_mod_strobe(v: bool):
 	mod_strobe = v; emit_signal("mods_changed")
 func set_mod_hardrock(v: bool):
 	mod_hardrock = v; emit_signal("mods_changed")
+func set_mod_hard_mode(v: bool):
+	mod_hard_mode = v; emit_signal("mods_changed")
+func set_mod_flashlight(v: bool):
+	mod_flashlight = v; emit_signal("mods_changed")
 
 func _set_start_offset(v: float):
 	start_offset = v; emit_signal("mods_changed")
@@ -2228,6 +2242,8 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_360: pts.append("m_360")
 	if mod_strobe: pts.append("m_strobe")
 	if mod_hardrock: pts.append("m_hardrock")
+	if mod_hard_mode: pts.append("m_hardmode")
+	if mod_flashlight: pts.append("m_flashlight")
 	if mod_nofail: pts.append("m_nofail")
 
 	pts.sort()
@@ -2257,6 +2273,8 @@ func parse_pb_str(txt: String):
 	data.invert_mouse = false
 	data.mod_earthquake = false
 	data.mod_hardrock = false
+	data.mod_hard_mode = false
+	data.mod_flashlight = false
 	data.mod_nofail = false
 
 	for s in pts:
@@ -2293,6 +2311,8 @@ func parse_pb_str(txt: String):
 				"m_earthquake": data.mod_earthquake = true
 				"m_strobe": data.mod_strobe = true
 				"m_hardrock": data.mod_hardrock = true
+				"m_hardmode": data.mod_hard_mode = true
+				"m_flashlight": data.mod_flashlight = true
 				"m_nofail": data.mod_nofail = true
 	return data
 var prev_state: Dictionary = {}

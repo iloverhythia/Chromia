@@ -5170,7 +5170,7 @@ grow_vertical = 2
 theme = ExtResource( 1 )
 custom_colors/font_color = Color( 1, 0.705882, 0.945098, 1 )
 custom_fonts/font = SubResource( 7 )
-text = "Furria vX.Y.Z-branch"
+text = "Chromia vX.Y.Z-branch"
 valign = 1
 script = ExtResource( 3 )
 
@@ -5199,7 +5199,7 @@ rect_min_size = Vector2( 0, 30 )
 theme = ExtResource( 1 )
 custom_colors/font_color = Color( 1, 0.705882, 0.945098, 1 )
 custom_fonts/font = SubResource( 7 )
-text = "Furria vX.Y.Z-branch"
+text = "Chromia vX.Y.Z-branch"
 align = 2
 valign = 1
 script = ExtResource( 3 )

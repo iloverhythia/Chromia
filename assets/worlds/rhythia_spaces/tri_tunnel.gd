@@ -1,42 +1,23 @@
 extends "res://assets/worlds/rhythia_spaces/rhythia_space.gd"
-# Rhythia "Tri Tunnel": a long triangular wireframe tunnel sliding toward the
-# player (approach rate / 6), tinted by the last hit note colour.
+# Rhythia "Tri Tunnel" (TriTunnel.cs + tritunnel.tscn): the triangular tunnel
+# mesh at 25% opacity, tinted by the hit colour, sliding toward you at
+# approach rate / 6 and jumping back once it has moved 148 units.
 
-const RADIUS := 7.0
-const LENGTH := 160.0
-const SEG := 4.0
-var tunnel: Spatial
-var tunnel_mat: SpatialMaterial
-var base_z := -70.0
+const LOOP_END := 148.0
+var tunnel: MeshInstance
+var mat: ShaderMaterial
 
 func _build():
-	env.background_color = Color(0.008, 0.006, 0.014)
-	tunnel_mat = make_unshaded(note_hit_color, tile_texture(128, 0.03, 0.0, 0.08), true, 90.0)
-	tunnel_mat.uv1_scale = Vector3(2.0, LENGTH / SEG, 1.0)
-	tunnel = Spatial.new()
-	tunnel.name = "Tunnel"
-	tunnel.translation = Vector3(0, 0.6, base_z)
-	add_child(tunnel)
-	var pts := []
-	for i in range(3):
-		var a = deg2rad(90.0 + 120.0 * i)
-		pts.append(Vector3(cos(a), sin(a), 0) * RADIUS)
-	for i in range(3):
-		var a: Vector3 = pts[i]
-		var b: Vector3 = pts[(i + 1) % 3]
-		var x = (b - a).normalized()
-		var z = Vector3(0, 0, 1)
-		var y = z.cross(x)
-		var pm := PlaneMesh.new()
-		pm.size = Vector2((b - a).length(), LENGTH)
-		var mi := MeshInstance.new()
-		mi.mesh = pm
-		mi.material_override = tunnel_mat
-		mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-		mi.transform = Transform(Basis(x, y, z), (a + b) * 0.5)
-		tunnel.add_child(mi)
+	env.background_color = Color(0, 0, 0)
+	mat = surface_material(null, {
+		"color": note_hit_color, "opacity": 0.25, "fade": [65.0, 10.0], "cull_back": true,
+	})
+	var mesh = load("res://assets/worlds/rhythia_spaces/tri_tunnel/tunnel.obj")
+	tunnel = mesh_node(mesh, mat, Transform(Vector3(-8.742278e-09, 0, 0.2), Vector3(0, 0.2, 0), Vector3(-0.2, 0, -8.742278e-09), Vector3.ZERO))
 
-func _tick(_delta):
-	if space_effects:
-		tunnel.translation.z = base_z + fmod(time * approach_rate / 6.0, SEG)
-	tunnel_mat.albedo_color = note_hit_color
+func _tick(delta):
+	if tunnel.translation.z < LOOP_END and space_effects:
+		tunnel.translation.z += approach_rate * delta / 6.0
+	else:
+		tunnel.translation.z = 0.0
+	mat.set_shader_param("albedo", note_hit_color if space_effects else Color(1, 1, 1))

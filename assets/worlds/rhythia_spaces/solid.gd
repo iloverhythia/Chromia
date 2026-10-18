@@ -1,12 +1,12 @@
 extends "res://assets/worlds/rhythia_spaces/rhythia_space.gd"
-# Rhythia "Solid": a flat background colour that follows the last hit note
-# colour (darkened 90%). Starts from the average colour of the map cover.
+# Rhythia "Solid" (Solid.cs + solid.tscn): just a background colour, the hit
+# colour darkened by 90% (background energy 1.2).
 
 func _build():
-	var start = cover_average(note_hit_color)
-	note_hit_color = start
-	last_hit_color = start
-	env.background_color = start.darkened(0.9)
+	env.background_energy = 1.2
+	_tick(0)
 
 func _tick(_delta):
-	env.background_color = note_hit_color.darkened(0.9)
+	var c := note_hit_color.darkened(0.9)
+	if env.background_color != c:
+		env.background_color = c

@@ -499,7 +499,7 @@ const official_map_difficulties: Dictionary = {
 var errornum: int = 0
 # Discord application used for Rich Presence. The name Discord shows
 # ("Playing ...") and the "icon-bg" image come from this application in the
-# Discord developer portal, so to show "Furria" put a Furria application's ID here.
+# Discord developer portal, so to show "Chromia" put a Chromia application's ID here.
 const DISCORD_APP_ID := 1561141690084106250
 
 func p(path: String) -> String:

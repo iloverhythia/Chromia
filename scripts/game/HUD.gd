@@ -949,6 +949,8 @@ func _ready():
 			mods.append("%sx%s" % [prefix, abs_speed])
 	if Rhythia.mod_strobe: mods.append(tr("Strobe"))
 	if Rhythia.mod_hardrock: mods.append(tr("Hard Rock"))
+	if Rhythia.mod_hard_mode: mods.append(tr("Hard Mode"))
+	if Rhythia.mod_flashlight: mods.append(tr("Flashlight"))
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
 		ms += tr(" Vulnus Judgement ")

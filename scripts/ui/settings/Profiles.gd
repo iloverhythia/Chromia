@@ -92,7 +92,7 @@ func _import_profile_file(path: String):
 		Globals.notify(Globals.NOTIFY_ERROR, "That file is Not a valid settings profile dummy.", "Import Failed")
 		return
 	if not parsed.result.has("approach_rate") or not parsed.result.has("sensitivity"):
-		Globals.notify(Globals.NOTIFY_ERROR, "That JSON file does not contain Furria settings you messed up lil bro.", "Import Failed")
+		Globals.notify(Globals.NOTIFY_ERROR, "That JSON file does not contain Chromia settings you messed up lil bro.", "Import Failed")
 		return
 
 	var profile_name := path.get_file().get_basename()
@@ -164,7 +164,7 @@ func export_profile():
 		return
 	var profile_bytes := profile_file.get_buffer(profile_file.get_len())
 	profile_file.close()
-	Globals.file_sel.save_file(self, "_save_exported_profile", PoolStringArray(["*.json ; Furria settings profile"]), "user://")
+	Globals.file_sel.save_file(self, "_save_exported_profile", PoolStringArray(["*.json ; Chromia settings profile"]), "user://")
 	_export_profile_bytes = profile_bytes
 
 var _export_profile_bytes := PoolByteArray()

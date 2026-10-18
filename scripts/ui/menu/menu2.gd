@@ -1623,6 +1623,8 @@ func _format_mods(mods: Dictionary) -> String:
 	if mods.get("ghost", false): parts.append("Ghost")
 	if mods.get("nearsighted", false): parts.append("Nearsight")
 	if mods.get("hardrock", false): parts.append("Hard Rock")
+	if mods.get("hard_mode", false): parts.append("Hard Mode")
+	if mods.get("flashlight", false): parts.append("Flashlight")
 	if mods.get("mod_360", false): parts.append("360x%s" % mods.get("mod_360_speed", 1))
 	if mods.get("strobe", false): parts.append("Strobe!!!")
 	var start_offset = float(mods.get("start_offset", 0.0))
@@ -2348,6 +2350,7 @@ func _ready():
 	_build_keybinds_settings_tab()
 	_setup_furry_secret()
 	_setup_folder_filters()
+	_add_new_mod_checkboxes()
 	_center_mods()
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
@@ -2459,7 +2462,7 @@ func _process(delta):
 	$BlackFade.visible = (black_fade != 0)
 
 
-# Secret: clicking the little Furria icon by the version text opens the
+# Secret: clicking the little Chromia icon by the version text opens the
 # Furry Upgrade Tree. It's only created while open and deleted when closed,
 # so it costs nothing the rest of the time.
 var furry_tree = null
@@ -2599,3 +2602,38 @@ func _setup_folder_filters():
 	filters.add_child(box)
 	filters.move_child(box, stars.get_index() + 1)
 	box.setup(stars)
+
+
+# Hard Mode and Flashlight get their own row under 360 / Strobe, styled like
+# the existing checkboxes; the rows below move down to make room.
+func _add_new_mod_checkboxes():
+	var mods = get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")
+	if mods == null or mods.has_node("HardModeMod"):
+		return
+	var left = mods.get_node_or_null("360")
+	var right = mods.get_node_or_null("Strobe")
+	if left == null or right == null:
+		return
+	var row_h: float = 30.0
+	var y: float = left.rect_position.y + row_h
+	for n in ["HpModel", "360Speed", "GradeSystem"]:
+		var c = mods.get_node_or_null(n)
+		if c != null:
+			c.rect_position.y += row_h
+	mods.rect_min_size.y += row_h
+	_mod_checkbox(mods, left, "HardModeMod", "Hard Mode", "mod_hard_mode", y,
+		"Notes are smaller and so is their hitbox")
+	_mod_checkbox(mods, right, "FlashlightMod", "Flashlight", "mod_flashlight", y,
+		"Everything is dark except a circle around your cursor")
+
+func _mod_checkbox(parent: Control, like: CheckBox, node_name: String, text: String, prop: String, y: float, tip: String):
+	var cb: CheckBox = like.duplicate(0)
+	cb.name = node_name
+	cb.set_script(preload("res://scripts/ui/menu/buttons/ModToggle.gd"))
+	cb.prop = prop
+	cb.rect_position.y = y
+	cb.hint_tooltip = tip
+	var lbl = cb.get_node_or_null("Label")
+	if lbl != null:
+		lbl.text = text
+	parent.add_child(cb)

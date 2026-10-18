@@ -1,14 +1,137 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://assets/worlds/rhythia_spaces/conspiracy.gd" type="Script" id=1]
 
 [sub_resource type="Environment" id=1]
 background_mode = 1
-background_color = Color( 0, 0, 0, 1 )
+background_color = Color( 0.0177324, 0.0177324, 0.0177324, 1 )
 ambient_light_color = Color( 0, 0, 0, 1 )
 
-[node name="Space" type="Spatial"]
+[sub_resource type="SpatialMaterial" id=2]
+render_priority = 1
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.5 )
+
+[sub_resource type="PlaneMesh" id=3]
+material = SubResource( 2 )
+
+[sub_resource type="SpatialMaterial" id=4]
+render_priority = 1
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.5 )
+
+[sub_resource type="PlaneMesh" id=5]
+material = SubResource( 4 )
+
+[sub_resource type="SpatialMaterial" id=6]
+render_priority = 1
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.5 )
+
+[sub_resource type="PlaneMesh" id=7]
+material = SubResource( 6 )
+
+[sub_resource type="SpatialMaterial" id=8]
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.05 )
+uv1_scale = Vector3( 1, 10, 0 )
+
+[sub_resource type="PlaneMesh" id=9]
+material = SubResource( 8 )
+
+[sub_resource type="SpatialMaterial" id=10]
+flags_transparent = true
+flags_unshaded = true
+albedo_color = Color( 1, 1, 1, 0.1 )
+uv1_scale = Vector3( 1, 20, 1 )
+distance_fade_mode = 1
+distance_fade_min_distance = 30.0
+distance_fade_max_distance = 10.0
+
+[sub_resource type="PlaneMesh" id=11]
+material = SubResource( 10 )
+
+[sub_resource type="SpatialMaterial" id=12]
+flags_transparent = true
+flags_unshaded = true
+albedo_color = Color( 1, 1, 1, 0.05 )
+uv1_scale = Vector3( 1, 20, 1 )
+distance_fade_mode = 1
+distance_fade_min_distance = 30.0
+distance_fade_max_distance = 10.0
+
+[sub_resource type="PlaneMesh" id=13]
+material = SubResource( 12 )
+
+[node name="Conspiracy" type="Spatial"]
 script = ExtResource( 1 )
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 1 )
+
+[node name="Icons" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3.954605 )
+
+[node name="RIllu" type="MeshInstance" parent="Icons"]
+transform = Transform( 5.8470845, -4.6656594, -0.541502, 0.3267105, 1.2665545, -7.3850555, 4.6856003, 5.733887, 1.1906635, 32.59851, -11.157616, -31.747986 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+
+[node name="RMoney" type="MeshInstance" parent="Icons"]
+transform = Transform( 2.9223795, -2.7311902, -0.017496193, -0.50015396, -0.5099538, -3.935709, 2.6850605, 2.8775966, -0.7140733, 26.030668, 4.7692785, -20.048704 )
+cast_shadow = 0
+mesh = SubResource( 5 )
+
+[node name="RGlobe" type="MeshInstance" parent="Icons"]
+transform = Transform( 3.4610326, -1.969467, 0.37743923, -0.488691, -1.5585567, -3.6513133, 1.9448497, 3.1132152, -1.5891691, 20, 16, -24 )
+cast_shadow = 0
+mesh = SubResource( 7 )
+
+[node name="LIllu" type="MeshInstance" parent="Icons"]
+transform = Transform( 5.621934, 4.7847614, -1.3228353, 0.40752319, -2.4366205, -7.081439, -4.947502, 5.236306, -2.0864563, -32, 15, -30 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+
+[node name="LMoney" type="MeshInstance" parent="Icons"]
+transform = Transform( 2.8191392, 2.7699506, 0.6163019, 0.4957598, 0.37461472, -3.9514437, -2.7940428, 2.8613024, -0.07928384, -26.6644, -3.938541, -20.045391 )
+cast_shadow = 0
+mesh = SubResource( 5 )
+
+[node name="LGlobe" type="MeshInstance" parent="Icons"]
+transform = Transform( 3.384025, 1.9644992, 0.8301336, -0.0761631, 1.6672957, -3.6351528, -2.1313324, 3.0595553, 1.4479486, -19.999998, -16, -23.999996 )
+cast_shadow = 0
+mesh = SubResource( 7 )
+
+[node name="ScrollingQuestionMarks" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3.954605 )
+
+[node name="Left" type="MeshInstance" parent="ScrollingQuestionMarks"]
+transform = Transform( 7.3954983, 6.7292447, 1.5452654, 0.013135073, 0.21514565, -99.97681, -6.7310066, 7.393984, 1.5027192, -36, 13, -36 )
+cast_shadow = 0
+mesh = SubResource( 9 )
+
+[node name="Right" type="MeshInstance" parent="ScrollingQuestionMarks"]
+transform = Transform( 7.3962126, -6.7285557, -1.5013845, -0.012785042, 0.20903364, -99.97806, 6.7302165, 7.3947835, 1.4600326, 36, 13, -36 )
+cast_shadow = 0
+mesh = SubResource( 9 )
+
+[node name="ScrollingText" type="Spatial" parent="."]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.5, -50 )
+
+[node name="Top" type="MeshInstance" parent="ScrollingText"]
+transform = Transform( 5, 0, 0, 0, 5, 0, 0, 0, 80, 0, -3.262, 0 )
+cast_shadow = 0
+mesh = SubResource( 11 )
+
+[node name="Bottom" type="MeshInstance" parent="ScrollingText"]
+transform = Transform( 5, 0, 0, 0, 5, 0, 0, 0, 80, -0.6745815, -4.4326196, 0 )
+cast_shadow = 0
+mesh = SubResource( 13 )

@@ -2,7 +2,7 @@ extends Control
 
 signal closed
 
-# Secret: click the Furria icon next to the version text to open this.
+# Secret: click the Chromia icon next to the version text to open this.
 # A never-ending upgrade tree. Furcoins only exist in here, and only grow
 # while this screen is open. Progress is saved to user://furry_tree.json.
 
@@ -207,7 +207,7 @@ func _ready():
 	_info_label.margin_right = -24
 	_info_label.margin_top = -90
 	_info_label.margin_bottom = -16
-	_info_label.text = "Click the Furria to pet it. Click an upgrade to buy it. Drag to move, scroll to zoom."
+	_info_label.text = "Click the Chromia logo to pet it. Click an upgrade to buy it. Drag to move, scroll to zoom."
 	_info_label.valign = Label.VALIGN_BOTTOM
 	_info_label.autowrap = true
 	_info_label.mouse_filter = MOUSE_FILTER_IGNORE

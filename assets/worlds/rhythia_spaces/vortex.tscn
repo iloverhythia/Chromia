@@ -3,6 +3,7 @@
 [ext_resource path="res://assets/worlds/rhythia_spaces/vortex.gd" type="Script" id=1]
 
 [sub_resource type="Environment" id=1]
+resource_local_to_scene = true
 background_mode = 1
 background_color = Color( 0, 0, 0, 1 )
 ambient_light_color = Color( 0, 0, 0, 1 )

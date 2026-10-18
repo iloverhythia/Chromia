@@ -58,7 +58,7 @@ func reposition(ms:float,approachSpeed:float):
 		visible = true
 		
 		if Rhythia.mod_chaos:
-			var v = ease(max((current_offset_ms-250)/400,0),1.5)
+			var v = ease(max((current_offset_ms / speed_multi - 250) / 400, 0), 1.5)
 			transform.origin.x = real_position.x + (chaos_offset.x * v)	
 			transform.origin.y = real_position.y + (chaos_offset.y * v)
 		
@@ -118,6 +118,7 @@ func check(cpos:Vector3,prevpos:Vector3=Vector3.ZERO):
 		return Rhythia.replay.should_hit(id)
 	else:
 		var hbs:float = Rhythia.note_hitbox_size/2
+		if Rhythia.mod_hard_mode: hbs *= Rhythia.HARD_MODE_SCALE
 		if hbs == 0.57: hbs = 0.56875 # 1.1375
 		var ori:Vector3 = transform.origin
 		return (cpos.x <= ori.x + hbs and cpos.x >= ori.x - hbs) and (cpos.y <= ori.y + hbs and cpos.y >= ori.y - hbs)

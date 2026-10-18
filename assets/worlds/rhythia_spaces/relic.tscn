@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=12 format=2]
 
 [ext_resource path="res://assets/worlds/rhythia_spaces/relic.gd" type="Script" id=1]
 
@@ -7,8 +7,217 @@ background_mode = 1
 background_color = Color( 0, 0, 0, 1 )
 ambient_light_color = Color( 0, 0, 0, 1 )
 
-[node name="Space" type="Spatial"]
+[sub_resource type="SpatialMaterial" id=2]
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 0, 0, 0, 0.5 )
+
+[sub_resource type="QuadMesh" id=3]
+size = Vector2( 2, 2 )
+
+[sub_resource type="SpatialMaterial" id=4]
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.5 )
+
+[sub_resource type="SpatialMaterial" id=6]
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.03 )
+
+[sub_resource type="SpatialMaterial" id=7]
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.00925 )
+
+[sub_resource type="SpatialMaterial" id=8]
+flags_transparent = true
+flags_unshaded = true
+params_cull_mode = 2
+albedo_color = Color( 1, 1, 1, 0.0049 )
+
+[sub_resource type="QuadMesh" id=10]
+material = SubResource( 6 )
+
+[sub_resource type="QuadMesh" id=11]
+material = SubResource( 7 )
+
+[sub_resource type="QuadMesh" id=12]
+material = SubResource( 8 )
+
+[node name="Relic" type="Spatial"]
 script = ExtResource( 1 )
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 1 )
+
+[node name="Structures" type="Spatial" parent="."]
+
+[node name="Back" type="Spatial" parent="Structures"]
+
+[node name="Group" type="Spatial" parent="Structures/Back"]
+
+[node name="Pillar" type="MeshInstance" parent="Structures/Back/Group"]
+transform = Transform( 1.85435, -2.71789, -0.515668, 0.515668, 9.6225, -0.174311, 0.543578, 0.143301, 1.9245, 4, -8, 9 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 2 )
+
+[node name="Pillar2" type="MeshInstance" parent="Structures/Back/Group"]
+transform = Transform( 1.41765, -0.369132, -1.40883, -0.0695334, 9.95588, -0.174311, 1.40905, 0.862685, 1.40883, -9, -8, 9 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar3" type="MeshInstance" parent="Structures/Back/Group"]
+transform = Transform( 1.41421, -0.616284, -1.40883, 0, 9.96195, -0.174311, 1.41421, 0.616284, 1.40883, -9, -8, 25 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar4" type="MeshInstance" parent="Structures/Back/Group"]
+transform = Transform( 1.81262, 0.368336, 0.84202, 0, 9.96195, -0.174311, -0.845236, 0.789899, 1.80572, 10, -8, 20 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Group2" type="Spatial" parent="Structures/Back"]
+transform = Transform( 0.766044, -0.111619, -0.633022, 0, 0.984808, -0.173648, 0.642788, 0.133022, 0.754407, -20, 0, -10 )
+
+[node name="Pillar" type="MeshInstance" parent="Structures/Back/Group2"]
+transform = Transform( 1.85435, -2.71789, -0.515668, 0.515668, 9.6225, -0.174311, 0.543578, 0.143301, 1.9245, 4, -8, 9 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar2" type="MeshInstance" parent="Structures/Back/Group2"]
+transform = Transform( 1.41765, -0.369132, -1.40883, -0.0695334, 9.95588, -0.174311, 1.40905, 0.862685, 1.40883, -9, -8, 9 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar3" type="MeshInstance" parent="Structures/Back/Group2"]
+transform = Transform( 1.41421, -0.616284, -1.40883, 0, 9.96195, -0.174311, 1.41421, 0.616284, 1.40883, -9, -8, 25 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar4" type="MeshInstance" parent="Structures/Back/Group2"]
+transform = Transform( 1.81262, 0.368336, 0.84202, 0, 9.96195, -0.174311, -0.845236, 0.789899, 1.80572, 10, -8, 20 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Group3" type="Spatial" parent="Structures/Back"]
+transform = Transform( 0.766044, 0.111619, 0.633022, 0, 0.984808, -0.173648, -0.642788, 0.133022, 0.754407, 20, 0, -10 )
+
+[node name="Pillar" type="MeshInstance" parent="Structures/Back/Group3"]
+transform = Transform( 1.2836866, 0.7645496, 1.52603, 0.11309409, 9.875887, -0.29304925, -1.5294968, 1.3719265, 1.2591077, 15.179239, -11.371254, 11.9793825 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar2" type="MeshInstance" parent="Structures/Back/Group3"]
+transform = Transform( 1.9648966, 1.7388415, 0.13501877, -0.34360433, 9.844897, -0.071100354, -0.14528519, 0.23328117, 1.9941672, -11.484657, -6.7624593, 16.018433 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar3" type="MeshInstance" parent="Structures/Back/Group3"]
+transform = Transform( 0.76237166, 2.397639, 1.7857301, -0.560073, 9.5035715, -0.27129394, -1.7621262, -1.9832885, 0.8588114, 18.775324, -10.908663, 5.8364887 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar4" type="MeshInstance" parent="Structures/Back/Group3"]
+transform = Transform( 1.81262, 0.368336, 0.84202, 0, 9.96195, -0.174311, -0.845236, 0.789899, 1.80572, 10, -8, 20 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Front" type="Spatial" parent="Structures"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -30 )
+
+[node name="Group" type="Spatial" parent="Structures/Front"]
+transform = Transform( -0.99904597, 0, -0.043671787, 0, 1, 0, 0.043671787, 0, -0.99904597, 0.60811365, 0, -1.2012272 )
+
+[node name="Pillar2" type="MeshInstance" parent="Structures/Front/Group"]
+transform = Transform( 1.6193204, 2.50394, 1.0616102, -0.097046524, 9.298854, -0.7292714, -1.1697819, 2.6947486, 1.5300822, 31.741512, -9.4412985, -5.0284805 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar5" type="MeshInstance" parent="Structures/Front/Group"]
+transform = Transform( 0.8534939, 1.8941282, 1.7686291, 0.14677352, 9.673444, -0.4852225, -1.8027828, 1.6843021, 0.7978207, 44.123753, -11.351423, -2.1986446 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar" type="MeshInstance" parent="Structures/Front/Group"]
+transform = Transform( 1.3442956, 3.0392122, 1.3503343, -0.005468063, 9.128854, -0.8164139, -1.4808276, 2.725298, 1.2288494, 26.074928, -8, 9.965002 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar4" type="MeshInstance" parent="Structures/Front/Group"]
+transform = Transform( 1.2649415, 3.4268773, 1.3893167, 0.5513876, 7.3849163, -1.2306489, -1.4477285, 5.806864, 0.74519324, 24.957554, -8, 20.653864 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar7" type="MeshInstance" parent="Structures/Front/Group"]
+transform = Transform( -0.77386534, 2.724438, -1.7618858, 0.26303747, 9.618949, 0.4794266, 1.8253669, -0.23107548, -0.81603783, 31.741823, -9.441, 5.4452724 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Group2" type="Spatial" parent="Structures/Front"]
+transform = Transform( -0.79338485, 0.10570319, 0.5994717, 1.4243318e-08, 0.98480785, -0.17364794, -0.6087202, -0.13776964, -0.78133243, 21.02575, 0, 7.9157963 )
+
+[node name="Pillar6" type="MeshInstance" parent="Structures/Front/Group2"]
+transform = Transform( 1.9979637, -0.3863827, -0.04663205, 0.06809475, 9.84413, -0.3451231, 0.05923742, 1.7159122, 1.9694487, -2.1627588, -6.505755, 20.621395 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar3" type="MeshInstance" parent="Structures/Front/Group2"]
+transform = Transform( 1.9794654, -1.3410392, 0.0989005, 0.2756579, 9.870778, -0.16350023, -0.07569909, 0.87726575, 1.990853, -8.933515, -9.169703, 17.628754 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar4" type="MeshInstance" parent="Structures/Front/Group2"]
+transform = Transform( 1.8326851, -1.9048725, -0.70435417, 0.30300462, 9.79143, -0.27079743, 0.7412411, 0.70715725, 1.8521781, 7.1496058, -7.234835, 20.401005 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Pillar2" type="MeshInstance" parent="Structures/Front/Group2"]
+transform = Transform( 1.7005997, 0.25437927, -1.0513606, -0.13400584, 9.9593725, -0.12036975, 1.0440276, 0.86397177, 1.6971006, 15.124354, -4.801526, 27.139626 )
+cast_shadow = 0
+mesh = SubResource( 3 )
+material_override = SubResource( 4 )
+
+[node name="Squircles" type="Spatial" parent="."]
+
+[node name="1" type="MeshInstance" parent="Squircles"]
+transform = Transform( 375.87698, -136.8081, 3.821371e-15, 5.980071e-06, 1.6430104e-05, 1, -136.8081, -375.87695, 4.371139e-08, 0.60717773, -919.8192, 7.3627853 )
+cast_shadow = 0
+mesh = SubResource( 10 )
+
+[node name="2" type="MeshInstance" parent="Squircles"]
+transform = Transform( 266.10324, 138.52463, -2.8660283e-15, -6.0551024e-06, 1.1631742e-05, 0.75, 138.52463, -266.10324, 3.278354e-08, 0, -1485.6447, -12.96637 )
+cast_shadow = 0
+mesh = SubResource( 11 )
+
+[node name="3" type="MeshInstance" parent="Squircles"]
+transform = Transform( 164.44621, -59.85351, -2.8909033e-15, 2.616281e-06, 7.188172e-06, 0.438, -59.85351, -164.44621, 1.9145588e-08, 0, -1921.2391, -14.858063 )
+cast_shadow = 0
+mesh = SubResource( 12 )
+
+
+[node name="Particles" type="Spatial" parent="."]

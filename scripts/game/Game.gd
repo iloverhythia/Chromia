@@ -668,6 +668,12 @@ func _ready():
 
 	energy = max_energy
 
+	if Rhythia.mod_flashlight:
+		var fl = preload("res://scripts/game/Flashlight.gd").new()
+		fl.name = "Flashlight"
+		fl.setup($Spawn/Cursor, $Spawn)
+		add_child(fl)
+
 	var spinst = Rhythia.loaded_world.instance()
 	get_parent().call_deferred("add_child", spinst)
 	spinst.name = "Space"

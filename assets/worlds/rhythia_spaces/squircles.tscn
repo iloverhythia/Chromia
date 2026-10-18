@@ -1,14 +1,83 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=7 format=2]
 
 [ext_resource path="res://assets/worlds/rhythia_spaces/squircles.gd" type="Script" id=1]
+[ext_resource path="res://assets/worlds/rhythia_spaces/squircles/squircle_bloom.png" type="Texture" id=2]
 
 [sub_resource type="Environment" id=1]
+resource_local_to_scene = true
 background_mode = 1
-background_color = Color( 0, 0, 0, 1 )
+background_color = Color( 0.0127757, 0, 0.0979513, 1 )
 ambient_light_color = Color( 0, 0, 0, 1 )
+
+[sub_resource type="SpatialMaterial" id=2]
+flags_transparent = true
+flags_unshaded = true
+vertex_color_use_as_albedo = true
+albedo_texture = ExtResource( 2 )
+
+[sub_resource type="PlaneMesh" id=3]
+material = SubResource( 2 )
+size = Vector2( 0.5, 0.5 )
+
+[sub_resource type="Gradient" id=4]
+offsets = PoolRealArray( 0, 0.2, 0.8, 1 )
+colors = PoolColorArray( 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0 )
 
 [node name="Space" type="Spatial"]
 script = ExtResource( 1 )
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource( 1 )
+
+[node name="ParticlesNear" type="CPUParticles" parent="."]
+transform = Transform( 20, 0, 0, 0, -4.37114e-09, -20, 0, 0.1, -8.74228e-07, 0, 0, -15 )
+amount = 12
+lifetime = 20.0
+preprocess = 5.0
+mesh = SubResource( 3 )
+emission_shape = 2
+emission_box_extents = Vector3( 1, 1, 1 )
+flag_rotate_y = true
+direction = Vector3( 0, 0, 1 )
+spread = 180.0
+flatness = 1.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 0.06
+initial_velocity_random = 0.333333
+angular_velocity = 20.0
+angular_velocity_random = 1.0
+radial_accel = 0.01
+angle = 180.0
+angle_random = 1.0
+scale_amount_random = 0.4
+color = Color( 0.270588, 0.470588, 1, 0.45098 )
+color_ramp = SubResource( 4 )
+hue_variation = 0.04
+hue_variation_random = 1.0
+
+[node name="ParticlesFar" type="CPUParticles" parent="."]
+transform = Transform( 20, 0, 0, 0, -4.37114e-09, -20, 0, 0.1, -8.74228e-07, 0, 0, -30 )
+amount = 10
+lifetime = 20.0
+preprocess = 5.0
+mesh = SubResource( 3 )
+emission_shape = 2
+emission_box_extents = Vector3( 1, 1, 1 )
+flag_rotate_y = true
+direction = Vector3( 0, 0, 1 )
+spread = 180.0
+flatness = 1.0
+gravity = Vector3( 0, 0, 0 )
+initial_velocity = 0.06
+initial_velocity_random = 0.333333
+angular_velocity = 20.0
+angular_velocity_random = 1.0
+radial_accel = 0.01
+angle = 180.0
+angle_random = 1.0
+scale_amount = 1.4
+scale_amount_random = 0.285714
+color = Color( 0.270588, 0.470588, 1, 0.45098 )
+color_ramp = SubResource( 4 )
+hue_variation = 0.04
+hue_variation_random = 1.0
