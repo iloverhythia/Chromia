@@ -127,7 +127,7 @@ func to_vr():
 	activity.set_details("Loaded VR (test)")
 	activity.set_state("savvying it in vr!")
 	var assets = activity.get_assets()
-	assets.set_large_image("icon-bg")
+	assets.set_large_image(Globals.DISCORD_ICON)
 	Discord.activity_manager.update_activity(activity)
 	get_viewport().get_node("Menu").black_fade_target = false
 	print("done somehow????")

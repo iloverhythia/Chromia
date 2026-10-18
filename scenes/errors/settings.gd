@@ -19,7 +19,7 @@ func _ready():
 		activity.set_state("(settings error %s)" % Rhythia.errornum)
 
 		var assets = activity.get_assets()
-		assets.set_large_image("icon-bg")
+		assets.set_large_image(Globals.DISCORD_ICON)
 		assets.set_small_image("error")
 
 		var result = yield(Discord.activity_manager.update_activity(activity), "result").result

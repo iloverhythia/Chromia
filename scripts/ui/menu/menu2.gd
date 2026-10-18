@@ -2336,7 +2336,7 @@ func idle_status():
 			activity.set_state("Idle while listening to furry ASMR")
 
 	var assets = activity.get_assets()
-	assets.set_large_image("icon-bg")
+	assets.set_large_image(Globals.DISCORD_ICON)
 
 	Discord.activity_manager.update_activity(activity)
 
@@ -2428,7 +2428,7 @@ func _ready():
 				activity.set_state("Selecting a song")
 
 		var assets = activity.get_assets()
-		assets.set_large_image("icon-bg")
+		assets.set_large_image(Globals.DISCORD_ICON)
 
 		Discord.activity_manager.update_activity(activity)
 
