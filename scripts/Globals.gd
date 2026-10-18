@@ -547,6 +547,9 @@ func get_files_recursive(
 
 	var i = 0
 	var layer = 0
+	# With pause_amt set, give the loading screen a frame every ~15 ms of work
+	# (instead of every pause_amt entries, which waited ~100 frames for 9000 maps).
+	var slice_start := OS.get_ticks_msec()
 	while subfolders2.size() != 0:
 		layer += 1
 
@@ -555,8 +558,9 @@ func get_files_recursive(
 			break
 
 		i += 1
-		if pause_amt != -1 and (pause_amt == 0 or ((i % pause_amt) == 0)):
+		if pause_amt != -1 and OS.get_ticks_msec() - slice_start > 15:
 			yield(get_tree(), "idle_frame")
+			slice_start = OS.get_ticks_msec()
 
 
 		subfolders = subfolders2
@@ -564,8 +568,9 @@ func get_files_recursive(
 
 		while subfolders.size() != 0:
 			i += 1
-			if pause_amt != -1 and (pause_amt == 0 or ((i % pause_amt) == 0)):
+			if pause_amt != -1 and OS.get_ticks_msec() - slice_start > 15:
 				yield(get_tree(), "idle_frame")
+				slice_start = OS.get_ticks_msec()
 
 			var cpath: String = ProjectSettings.globalize_path(subfolders.pop_back().strip_edges())
 			cpath = cpath.simplify_path()
@@ -577,13 +582,14 @@ func get_files_recursive(
 					var p: String = cpath.plus_file(n)
 					while n:
 						i += 1
-						if pause_amt != -1 and (pause_amt == 0 or ((i % pause_amt) == 0)):
+						if pause_amt != -1 and (i % 64) == 0 and OS.get_ticks_msec() - slice_start > 15:
 							yield(get_tree(), "idle_frame")
+							slice_start = OS.get_ticks_msec()
 
 						if folders_with != "" and n == folders_with:
 							folders.append(cpath)
 
-						if dir.dir_exists(p):
+						if dir.current_is_dir():
 							if folders_with == "": folders.append(p)
 							subfolders2.append(p)
 						elif filter_ext == "" or p.get_extension() == filter_ext:

@@ -628,6 +628,7 @@ func _build_admin_ui():
 	admin_panel.visible = false
 	admin_canvas.add_child(admin_panel)
 	admin_canvas.visible = not _load_admin_ui_hidden()
+	call_deferred("_embed_admin_in_online")
 
 	var margin = MarginContainer.new()
 	margin.add_constant_override("margin_left", 20)
@@ -948,11 +949,31 @@ func _build_ranker_ui():
 	vbox.add_child(ranker_republish_status_label)
 
 	ranker_canvas.visible = admin_canvas.visible if admin_canvas != null else not _load_admin_ui_hidden()
+	call_deferred("_place_rank_button")
 
 func _toggle_ranker_panel():
 	ranker_panel.visible = not ranker_panel.visible
 	if ranker_panel.visible:
+		ranker_canvas.visible = true
+		if _panels_embedded:
+			call_deferred("_position_ranker_panel")
 		_refresh_ranker_panel_for_selected_song()
+
+# Opens the Rank panel just under the Rank button, sized to its contents.
+func _position_ranker_panel():
+	if ranker_panel == null or ranker_toggle_button == null or not ranker_toggle_button.is_inside_tree():
+		return
+	# Wrapping labels need a width before the panel can measure its height.
+	for l in [ranker_song_label, ranker_status_label, ranker_republish_status_label]:
+		if l != null: l.rect_min_size.x = 280
+	ranker_panel.rect_min_size = Vector2(320, 0)
+	ranker_panel.rect_size = Vector2(320, 0)
+	var r: Rect2 = ranker_toggle_button.get_global_rect()
+	var vs: Vector2 = get_viewport().get_visible_rect().size
+	var size: Vector2 = ranker_panel.rect_size
+	ranker_panel.rect_position = Vector2(
+		clamp(r.position.x, 8, vs.x - size.x - 8),
+		clamp(r.position.y + r.size.y + 6, 8, vs.y - size.y - 8))
 
 func _refresh_ranker_panel_for_selected_song():
 	if ranker_song_label == null:
@@ -1762,13 +1783,11 @@ func _embed_panels_in_pages():
 		lobby_panel.get_child(0).rect_min_size = Vector2()
 	lobby_panel.visible = true
 	lobby_toggle_button.visible = false
-	# More room for lists and chat now that it's a full page.
-	for sc in [lobby_chat_scroll, global_chat_scroll, _lobby_public_scroll]:
-		if sc != null: sc.rect_min_size.y = 200
-	if lobby_player_list_box != null and lobby_player_list_box.get_parent() is ScrollContainer:
-		lobby_player_list_box.get_parent().rect_min_size.y = 200
 	if lobby_close_button != null:
 		lobby_close_button.text = "Back to Maps"
+	_layout_online_columns()
+	_embed_admin_in_online()
+	_place_rank_button()
 
 	var slot = profile_page.get_slot() if profile_page.has_method("get_slot") else profile_page
 	profile_canvas.remove_child(profile_panel)
@@ -1776,6 +1795,158 @@ func _embed_panels_in_pages():
 	_fill_page(profile_panel, 0, 0, 0, 0)
 	profile_panel.visible = true
 	profile_toggle_button.visible = false
+
+var _online_root: VBoxContainer
+var _online_header: Control
+var _online_cols: Control
+var _online_lobby_tab: Button
+var _online_admin_tab: Button
+
+# Admin tools live in the Online page as a second tab (admins only).
+func _embed_admin_in_online():
+	if not _panels_embedded or admin_panel == null or _online_root == null:
+		return
+	if admin_panel.get_parent() == _online_root:
+		return
+	admin_panel.get_parent().remove_child(admin_panel)
+	_online_root.add_child(admin_panel)
+	admin_panel.rect_min_size = Vector2()
+	admin_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	admin_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if admin_panel.get_child_count() > 0:
+		admin_panel.get_child(0).rect_min_size = Vector2()
+	admin_panel.visible = false
+	if admin_toggle_button != null:
+		admin_toggle_button.visible = false
+	var ui_theme = load("res://uitheme.tres")
+	_online_lobby_tab = _make_button("Lobby", ui_theme)
+	_online_lobby_tab.toggle_mode = true
+	_online_lobby_tab.pressed = true
+	_online_lobby_tab.connect("pressed", self, "_show_online_tab", [false])
+	_online_admin_tab = _make_button("Admin", ui_theme)
+	_online_admin_tab.toggle_mode = true
+	_online_admin_tab.connect("pressed", self, "_show_online_tab", [true])
+	_online_header.add_child(_online_lobby_tab)
+	_online_header.move_child(_online_lobby_tab, 1)
+	_online_header.add_child(_online_admin_tab)
+	_online_header.move_child(_online_admin_tab, 2)
+
+func _show_online_tab(admin: bool):
+	_online_cols.visible = not admin
+	_online_lobby_tab.pressed = not admin
+	_online_admin_tab.pressed = admin
+	if admin and not admin_panel.visible:
+		_toggle_admin_panel() # shows it and refreshes the admin lists
+	elif not admin:
+		admin_panel.visible = false
+
+# The Rank Map button sits with the selected map's other buttons, and its
+# panel opens right under it.
+func _place_rank_button():
+	if ranker_toggle_button == null:
+		return
+	var row = get_node_or_null("Main/Maps/Results/Results/RS/H1/Info/Control")
+	if row == null or ranker_toggle_button.get_parent() == row:
+		return
+	ranker_toggle_button.get_parent().remove_child(ranker_toggle_button)
+	row.add_child(ranker_toggle_button)
+	var after = row.get_node_or_null("AddToFolder")
+	if after != null:
+		row.move_child(ranker_toggle_button, after.get_index() + 1)
+	ranker_toggle_button.rect_min_size = Vector2(0, 32)
+	ranker_toggle_button.text = "Rank"
+	ranker_toggle_button.hint_tooltip = "Rank this map (set its XP)"
+	ranker_toggle_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var fav = row.get_node_or_null("Favorite")
+	if fav != null:
+		ranker_toggle_button.theme = fav.theme
+	ranker_toggle_button.add_color_override("font_color", Color(0, 0, 0))
+	ranker_toggle_button.add_color_override("font_color_hover", Color(0, 0, 0))
+
+func _column_panel(parent: Control, ratio: float) -> VBoxContainer:
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.28)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	panel.add_stylebox_override("panel", sb)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	panel.size_flags_stretch_ratio = ratio
+	parent.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_constant_override("separation", 8)
+	panel.add_child(v)
+	return v
+
+func _move_to(n: Node, new_parent: Node):
+	if n == null: return
+	if n.get_parent() != null: n.get_parent().remove_child(n)
+	new_parent.add_child(n)
+
+func _grow(c: Control, min_h: float = 80):
+	c.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	c.rect_min_size = Vector2(0, min_h)
+
+# The lobby panel was one long scrolling column. On its own page it's split
+# into three columns that fill the window: lobby controls | players | chats.
+func _layout_online_columns():
+	var vbox = lobby_setup_box.get_parent()
+	var body_scroll = vbox.get_parent()
+	var margin = body_scroll.get_parent()
+	var header = vbox.get_child(0)
+	var player_scroll = lobby_player_list_box.get_parent()
+	var players_caption = vbox.get_child(player_scroll.get_index() - 1)
+	var footer = lobby_leave_button.get_parent()
+
+	var root := VBoxContainer.new()
+	root.add_constant_override("separation", 10)
+	margin.add_child(root)
+	_online_root = root
+	_online_header = header
+	_move_to(header, root)
+	_move_to(lobby_error_label, root)
+
+	var cols := HBoxContainer.new()
+	cols.add_constant_override("separation", 16)
+	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(cols)
+	_online_cols = cols
+
+	# Left: lobby controls, with the action buttons pinned to the bottom.
+	var left := _column_panel(cols, 1.0)
+	_move_to(lobby_setup_box, left)
+	_move_to(lobby_active_box, left)
+	if _lobby_public_scroll != null:
+		_grow(_lobby_public_scroll, 120)
+		lobby_setup_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	left.add_child(spacer)
+	_move_to(lobby_start_button, left)
+	_move_to(footer, left)
+
+	# Middle: players, full height.
+	var mid := _column_panel(cols, 0.8)
+	_move_to(players_caption, mid)
+	_move_to(player_scroll, mid)
+	_grow(player_scroll, 120)
+
+	# Right: lobby chat above global chat, sharing the height.
+	var right := _column_panel(cols, 1.3)
+	_move_to(lobby_chat_box, right)
+	lobby_chat_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_grow(lobby_chat_scroll, 80)
+	_move_to(global_chat_box, right)
+	global_chat_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_grow(global_chat_scroll, 80)
+
+	# Whatever is left in the old column (separators) goes away.
+	margin.remove_child(body_scroll)
+	body_scroll.queue_free()
 
 func _show_online_page():
 	var sidebar = get_node_or_null("Sidebar")

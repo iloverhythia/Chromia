@@ -118,14 +118,12 @@ func _decode_cover_pixels() -> Image:
 const THUMB_DIR = "user://caches/covers"
 const THUMB_W = 512
 const THUMB_H = 96
-const THUMB_VERSION = 1
+const THUMB_VERSION = 2
 var _thumb: Texture = null
 
+# Keyed on where the cover sits in the map file (no disk access needed).
 func _thumb_path() -> String:
-	var mtime := 0
-	if filePath != null and filePath != "":
-		mtime = File.new().get_modified_time(filePath)
-	var key := "%d|%s|%d|%d|%d" % [THUMB_VERSION, filePath, cover_offset, cover_length, mtime]
+	var key := "%d|%s|%d|%d" % [THUMB_VERSION, filePath, cover_offset, cover_length]
 	return Globals.p(THUMB_DIR).plus_file(key.md5_text() + ".png")
 
 static func _make_thumb_image(img: Image) -> Image:

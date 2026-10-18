@@ -21,28 +21,53 @@ const DEFAULT_COLORS = {
 }
 
 # Wave colours: the default pink/orange, or (option) the selected colorset.
+# In colorset mode the lines fade through every colour in the set over time.
+const COLOR_STEP_SECONDS = 3.0
+var _cs_colors: Array = []
+var _cs_phase: float = 0.0
+
 func _apply_colors(_v = null):
 	var mat: ShaderMaterial = material
 	if mat == null: return
 	for k in DEFAULT_COLORS.keys():
 		mat.set_shader_param(k, DEFAULT_COLORS[k])
+	_cs_colors = []
 	if not Rhythia.wave_menu_colorset or Rhythia.selected_colorset == null:
 		return
-	var cols: Array = Rhythia.selected_colorset.real_colors
-	if cols.empty():
+	for c in Rhythia.selected_colorset.real_colors:
+		_cs_colors.append(Color(c.r, c.g, c.b, 1.0))
+	if _cs_colors.empty():
 		return
-	var n: int = min(cols.size(), 4)
+	mat.set_shader_param("color_count", float(min(_cs_colors.size(), 4)))
+	_update_cycle()
+
+func _cs_color_at(pos: float) -> Color:
+	var n := _cs_colors.size()
+	var k := int(floor(pos))
+	var f := pos - floor(pos)
+	f = f * f * (3.0 - 2.0 * f) # ease between colours
+	return _cs_colors[posmod(k, n)].linear_interpolate(_cs_colors[posmod(k + 1, n)], f)
+
+func _update_cycle():
+	var mat: ShaderMaterial = material
+	if mat == null or _cs_colors.empty():
+		return
+	var n := _cs_colors.size()
+	# Spread the 4 line slots across the colorset, then slide them all along.
+	var spread: float = max(1.0, float(n) / 4.0)
 	var names = ["major_a", "major_b", "major_c", "major_d"]
 	for i in range(4):
-		var c: Color = cols[i % n]
-		c.a = 1.0
-		mat.set_shader_param(names[i], c)
-	mat.set_shader_param("color_count", float(n))
-	var base: Color = cols[0]
-	mat.set_shader_param("bg_color", Color(base.r, base.g, base.b).darkened(0.88))
-	var minor: Color = Color(base.r, base.g, base.b).darkened(0.45)
+		mat.set_shader_param(names[i], _cs_color_at(_cs_phase + i * spread))
+	var base: Color = _cs_color_at(_cs_phase)
+	mat.set_shader_param("bg_color", base.darkened(0.88))
+	var minor: Color = base.darkened(0.45)
 	minor.a = 0.75
 	mat.set_shader_param("minor_color", minor)
+
+func _process(delta):
+	if visible and _cs_colors.size() > 1:
+		_cs_phase = fmod(_cs_phase + delta / COLOR_STEP_SECONDS, float(_cs_colors.size()))
+		_update_cycle()
 
 func _apply(_v = null):
 	_apply_colors()

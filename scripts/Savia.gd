@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h"
 ]
 
 
@@ -728,6 +728,7 @@ const VERSION_NOTES = {
 	"oct18-2026-e": "- Discord status in the menu now says \"Idle while listening to furry ASMR\"\n- Updates now come from the renamed iloverhythia/Furria repository",
 	"oct18-2026-f": "- Profile and Online are now full pages in the left sidebar\n- Profile page shows your Savia profile picture, rank, stats, top play and top 10 plays from savia.nysr.host (connect Discord to link it)",
 	"oct18-2026-g": "- New menu music: Change It Up (a bit quieter than the old song)\n- Wave Menu option: use your colorset's colors (Settings > Replays & Misc > Experimental)",
+	"oct18-2026-h": "- Online page: three columns (lobby controls | players | chats) that fill the window\n- Admin tools are now an Admin tab on the Online page\n- Rank button moved next to Favorite / Add to folder on the selected map\n- Wave Menu colorset mode now fades through every color in your colorset\n- Much faster startup with big map libraries (finding map files was ~40x slower than needed)",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -896,7 +897,7 @@ var replaying: bool = false
 var load_target_frame_time: float = 1.0 / 40.0
 
 const STAR_CACHE_FILE = "user://caches/star_ratings.json"
-const STAR_CACHE_VERSION = 1
+const STAR_CACHE_VERSION = 2
 const STAR_CURRENT_FILE = "user://caches/star_rating_current.txt"
 var _star_progress: int = 0
 var _star_total: int = 0
@@ -953,12 +954,12 @@ func _exit_tree():
 	if _star_thread and _star_thread.is_active():
 		_star_thread.wait_to_finish()
 
+# Built from data already in memory (no disk access), so checking thousands
+# of maps at startup is instant. A changed map almost always changes its note
+# count or length.
 func _star_cache_key(song) -> String:
 	var path: String = String(song.filePath) if song.filePath != null else ""
-	var mtime := 0
-	if path != "" and File.new().file_exists(path):
-		mtime = File.new().get_modified_time(path)
-	return "%d:%s:%d" % [STAR_CACHE_VERSION, path.get_file(), mtime]
+	return "%d:%s:%d:%d" % [STAR_CACHE_VERSION, path.get_file(), int(song.note_count), int(song.last_ms)]
 
 func _load_star_cache() -> Dictionary:
 	var f := File.new()
@@ -1031,6 +1032,16 @@ func _start_thumb_builder(full: bool = true):
 		_thumb_thread = null
 
 func _thumb_builder_worker(list: Array):
+	# One folder listing instead of checking each thumbnail file separately.
+	var have := {}
+	var d := Directory.new()
+	if d.open(Globals.p(Song.THUMB_DIR)) == OK:
+		d.list_dir_begin(true, true)
+		var fn := d.get_next()
+		while fn != "":
+			have[fn] = true
+			fn = d.get_next()
+		d.list_dir_end()
 	var built := 0
 	var i := 0
 	while i < list.size() or not _thumb_priority.empty():
@@ -1044,8 +1055,9 @@ func _thumb_builder_worker(list: Array):
 				built += 1
 			call_deferred("emit_signal", "thumbs_ready")
 			continue
-		if list[i].build_thumb_file(false) != null:
-			built += 1
+		if not have.has(list[i]._thumb_path().get_file()):
+			if list[i].build_thumb_file(false) != null:
+				built += 1
 		i += 1
 	call_deferred("_thumb_builder_finished", built)
 
@@ -1334,7 +1346,22 @@ func get_next():
 	return song_queue[queue_pos]
 
 
+# Writes how long each loading step took to the log (logs/godot.log), so slow
+# startups can be tracked down.
+var _stage_name: String = ""
+var _stage_start: int = 0
+func _log_stage(name):
+	var now := OS.get_ticks_msec()
+	var first_line := String(name).split("\n")[0]
+	if first_line == _stage_name:
+		return
+	if _stage_name != "":
+		print("[startup] %s: %d ms" % [_stage_name, now - _stage_start])
+	_stage_name = first_line
+	_stage_start = now
+
 func _ready():
+	connect("init_stage_reached", self, "_log_stage")
 	fail_asp.bus = "OtherSound"
 	call_deferred("add_child", fail_asp)
 	pause_mode = PAUSE_MODE_PROCESS
@@ -4197,11 +4224,11 @@ func do_init(_ud = null):
 				_star_cache[bad_id] = [-1.0, _star_cache_key(bad_song)]
 			Directory.new().remove(Globals.p(STAR_CURRENT_FILE))
 		var star_songs: Array = []
-		var star_i := 0
+		var star_slice := OS.get_ticks_msec()
 		for song in registry_song.get_items():
-			star_i += 1
-			if star_i % 500 == 0:
+			if OS.get_ticks_msec() - star_slice > 15:
 				yield(get_tree(), "idle_frame")
+				star_slice = OS.get_ticks_msec()
 			if song.is_online:
 				continue
 			var key := _star_cache_key(song)
