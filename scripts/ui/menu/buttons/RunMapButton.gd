@@ -31,6 +31,46 @@ func _force_focus_window():
 		var ps := "$sig = '[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd);'; Add-Type -MemberDefinition $sig -Name Win32 -Namespace Native; $p = Get-Process -Id %d | Where-Object { $_.MainWindowHandle -ne 0 }; if ($p) { [Native.Win32]::SetForegroundWindow($p.MainWindowHandle) | Out-Null }" % OS.get_process_id()
 		OS.execute("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", ps], false)
 
+# .sspm maps are copied into the maps folder as they are (the game reads both
+# .sspm versions), instead of being re-encoded. The copy goes to a temporary
+# file first, so a failed import can never leave a half-written map behind.
+func _import_sspm(file: String):
+	var probe = Song.new()
+	var res = probe.load_from_sspm(file)
+	if res is String or probe.id == "":
+		Globals.notify(Globals.NOTIFY_WARN, "%s isn't a valid map file%s" % [file.get_file(), (": " + res) if res is String else ""], "Map Import Failed")
+		return null
+	if probe.read_notes().size() == 0:
+		Globals.notify(Globals.NOTIFY_WARN, "%s has no notes (the file may be damaged)." % file.get_file(), "Map Import Failed")
+		return null
+	probe.discard_notes()
+
+	var safe_id: String = probe.id
+	for ch in ["/", "\\", ":", "*", "?", "\"", "<", ">", "|"]:
+		safe_id = safe_id.replace(ch, "_")
+	var dir = Directory.new()
+	var maps_dir: String = Globals.p("user://maps")
+	if not dir.dir_exists(maps_dir):
+		dir.make_dir_recursive(maps_dir)
+	var dest: String = maps_dir.plus_file(safe_id + ".sspm")
+
+	if ProjectSettings.globalize_path(dest).replace("\\", "/") != ProjectSettings.globalize_path(file).replace("\\", "/"):
+		var part: String = dest + ".part"
+		if dir.copy(file, part) != OK:
+			Globals.notify(Globals.NOTIFY_WARN, "Couldn't copy %s into your maps folder." % file.get_file(), "Map Import Failed")
+			return null
+		Rhythia.registry_song.check_and_remove_id(probe.id)
+		if dir.file_exists(dest) and dir.remove(dest) != OK:
+			dir.remove(part)
+			Globals.notify(Globals.NOTIFY_WARN, "Couldn't replace the old copy of this map (is it in use?).", "Map Import Failed")
+			return null
+		if dir.rename(part, dest) != OK:
+			Globals.notify(Globals.NOTIFY_WARN, "Couldn't save %s." % file.get_file(), "Map Import Failed")
+			return null
+	else:
+		Rhythia.registry_song.check_and_remove_id(probe.id)
+	return Rhythia.registry_song.add_sspm_map(dest)
+
 func files_dropped(files: PoolStringArray, _screen: int):
 	if has_been_pressed: return
 	if files.size() == 1 and files[0].get_extension() == "sspre":
@@ -48,12 +88,9 @@ func files_dropped(files: PoolStringArray, _screen: int):
 		for file in files:
 			var ext = file.get_extension()
 			if ext == "sspm":
-				song = Song.new()
-				song.load_from_sspm(file)
-				var result = song.convert_to_sspm()
-				if result == "Converted!" or result == "File already exists!":
-					Rhythia.registry_song.check_and_remove_id(song.id)
-					song = Rhythia.registry_song.add_sspm_map("user://maps/%s.sspm" % song.id)
+				var imported = _import_sspm(file)
+				if imported != null:
+					song = imported
 			elif ext == "rhm":
 				var importer = RhmImporter.new()
 				add_child(importer)

@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b"
 ]
 
 
@@ -722,6 +722,7 @@ const VERSION_NOTES = {
 	"oct17-2026-f": "- Discord Rich Presence is back (rewritten so it can't crash the game)\n- New \"stars\" filter: sort maps by star rating\n- The profile you had selected is now remembered after restarting",
 	"oct17-2026-g": "- Map Folders: create, name and color folders and add maps to them (button next to random map)\n- 12 new backgrounds from Rhythia\n- Colorsets have their own settings tab, with a colorset maker\n- Trail Opacity setting\n- New Hit FOV mode: Instant\n- Max FPS mode (Video settings) and faster gameplay code for higher FPS\n- Choosing a cursor/file now opens the real Windows file browser\n- Star ratings are calculated in the background so huge map libraries load fast and can't crash on startup",
 	"oct18-2026-a": "- Map covers are cached: each cover is processed once, then loads instantly on every launch (and big libraries use far less memory)\n- The map cache is only rewritten when your maps change\n- Higher FPS: the in-game HUD redraws at most 240 times a second and no longer uses anti-aliasing, Max FPS mode also turns off HDR\n- Importing broken or unusual map files no longer crashes the game",
+	"oct18-2026-b": "- Fixed crashes when importing .sspm maps: they're now copied as-is instead of being re-encoded\n- Map files are saved to a temporary file first, so an import can never leave a map with missing notes\n- Maps whose notes went missing from an earlier failed import are marked with a warning; drag the map in again to fix it\n- Map warnings now actually show on the map screen",
 }
 
 func _notify_latest_update(current_ver: String):

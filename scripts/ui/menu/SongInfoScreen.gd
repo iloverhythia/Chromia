@@ -132,9 +132,9 @@ func update(_s = null):
 
 	if map.warning != "":
 		$RS/H1/Info/Warning.visible = true
-		$RS/H1/Info/Warning.text = map.warning
+		$RS/H1/Info/Warning/Warning.text = map.warning
 		if map.is_broken:
-			$RS/H1/Info/Warning.set("custom_colors/font_color", Color(1, 0, 0))
+			$RS/H1/Info/Warning/Warning.set("custom_colors/font_color", Color(1, 0, 0))
 		else:
 			$RS/H1/Info/Warning/Warning.set("custom_colors/font_color", Color(1, 1, 0))
 	else: $RS/H1/Info/Warning.visible = false

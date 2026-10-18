@@ -1331,8 +1331,10 @@ func convert_to_sspm(upgrade: bool = false):
 
 	read_markers()
 
-
-	err = file.open(path, File.WRITE_READ)
+	# Write to a temporary file and only swap it in once it's complete, so a
+	# crash or error part-way can never leave a map without its notes.
+	var part_path: String = path + ".part"
+	err = file.open(part_path, File.WRITE_READ)
 	if err != OK: return "file.open errored - code " + String(err)
 
 
@@ -1582,13 +1584,24 @@ func convert_to_sspm(upgrade: bool = false):
 	var ctx = HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA1)
 
-	while not file.eof_reached():
-		ctx.update(file.get_buffer(hash_chunk_size))
+	var hash_end: int = file.get_len()
+	while file.get_position() < hash_end:
+		var chunk: PoolByteArray = file.get_buffer(min(hash_chunk_size, hash_end - file.get_position()))
+		if chunk.size() == 0:
+			break
+		ctx.update(chunk)
 
 	marker_hash = ctx.finish()
 
 	file.seek(10)
 	file.store_buffer(marker_hash)
+	file.close()
+
+	if dir.file_exists(path) and dir.remove(path) != OK:
+		dir.remove(part_path)
+		return "Couldn't replace the old map file (is it in use?)"
+	if dir.rename(part_path, path) != OK:
+		return "Couldn't save the converted map"
 
 	songType = Globals.MAP_SSPM2
 	filePath = path
@@ -1738,6 +1751,10 @@ func load_from_sspm(path: String):
 
 		var mb_length = file.get_64()
 
+		# A map file cut off part-way (e.g. the game closed while saving it)
+		# has its notes missing; flag it instead of showing an empty map.
+		var incomplete: bool = (note_count > 0 and (mb_length <= 0 or mb_offset <= 0 or mb_offset + mb_length > file.get_len()))
+
 
 
 		id = _safe_string_from_utf8(file.get_buffer(file.get_16()))
@@ -1805,6 +1822,9 @@ func load_from_sspm(path: String):
 
 			file.get_8()
 
+		if incomplete:
+			is_broken = true
+			warning = "This map file is incomplete (its notes are missing). Import the map again to fix it."
 		return self
 
 	else:
