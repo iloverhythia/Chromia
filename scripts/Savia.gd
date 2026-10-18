@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e"
 ]
 
 
@@ -725,6 +725,7 @@ const VERSION_NOTES = {
 	"oct18-2026-b": "- Fixed crashes when importing .sspm maps: they're now copied as-is instead of being re-encoded\n- Map files are saved to a temporary file first, so an import can never leave a map with missing notes\n- Maps whose notes went missing from an earlier failed import are marked with a warning; drag the map in again to fix it\n- Map warnings now actually show on the map screen",
 	"oct18-2026-c": "- New experimental setting: Wave Menu (Settings > Replays & Misc > Experimental) replaces the dark menu background with animated topographic waves",
 	"oct18-2026-d": "- Wave Menu: slower waves, and light text gets black outlines so it stays readable\n- Much faster map list with big libraries (sorting, searching and filtering)\n- Search waits until you stop typing for a moment instead of rebuilding the list on every key\n- The map list no longer stalls on covers that haven't been cached yet; they appear a moment later\n- Fixed re-imported or deleted maps sometimes leaving a duplicate in the list",
+	"oct18-2026-e": "- Discord status in the menu now says \"Idle while listening to furry ASMR\"\n- Updates now come from the renamed iloverhythia/Furria repository",
 }
 
 func _notify_latest_update(current_ver: String):
