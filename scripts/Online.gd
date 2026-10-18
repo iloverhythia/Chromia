@@ -382,7 +382,9 @@ func check_latest_version():
 		return
 
 	var github_url = "https://api.github.com/repos/%s/releases/latest" % UPDATE_REPO
-	version_hr.request(github_url)
+	if version_hr.request(github_url) != OK:
+		# Couldn't even start the request: answer "no update" instead of never answering.
+		call_deferred("emit_signal", "latest_version", ProjectSettings.get_setting("application/config/version"))
 
 func _on_version_request_completed(result, response_code, headers, body):
 	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:

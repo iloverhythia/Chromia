@@ -970,6 +970,7 @@ func _position_ranker_panel():
 	ranker_panel.rect_size = Vector2(320, 0)
 	var r: Rect2 = ranker_toggle_button.get_global_rect()
 	var vs: Vector2 = get_viewport().get_visible_rect().size
+	move_child(ranker_panel, get_child_count() - 1)
 	var size: Vector2 = ranker_panel.rect_size
 	ranker_panel.rect_position = Vector2(
 		clamp(r.position.x, 8, vs.x - size.x - 8),
@@ -1840,19 +1841,28 @@ func _show_online_tab(admin: bool):
 	elif not admin:
 		admin_panel.visible = false
 
-# The Rank Map button sits in the top-right corner, shown only while a map's
-# screen is open. Its panel opens right under it.
+# The Rank Map button sits in the top bar, just left of the Search box, and
+# only shows while a map's screen is open. Its panel opens right under it.
 func _place_rank_button():
 	if ranker_toggle_button == null:
 		return
-	if ranker_toggle_button.get_parent() != ranker_canvas:
+	if ranker_panel != null and ranker_panel.get_parent() != self:
+		ranker_panel.get_parent().remove_child(ranker_panel)
+		add_child(ranker_panel)
+	var row = get_node_or_null("Main/Maps/MapRegistry/T")
+	if row != null and ranker_toggle_button.get_parent() != row:
 		ranker_toggle_button.get_parent().remove_child(ranker_toggle_button)
-		ranker_canvas.add_child(ranker_toggle_button)
-	ranker_canvas.visible = true
+		row.add_child(ranker_toggle_button)
+		var search = row.get_node_or_null("Search")
+		row.move_child(ranker_toggle_button, search.get_index() if search != null else 0)
+		var like = row.get_node_or_null("Random")
+		if like != null:
+			ranker_toggle_button.theme = like.theme
 	ranker_toggle_button.text = "Rank Map"
 	ranker_toggle_button.hint_tooltip = "Rank this map (set its XP)"
-	ranker_toggle_button.rect_min_size = Vector2(110, 32)
-	ranker_toggle_button.rect_size = ranker_toggle_button.rect_min_size
+	ranker_toggle_button.rect_min_size = Vector2(0, 28)
+	ranker_toggle_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ranker_toggle_button.size_flags_horizontal = 0
 	_update_rank_button()
 
 func _map_screen_open() -> bool:
@@ -1863,12 +1873,11 @@ func _map_screen_open() -> bool:
 func _update_rank_button():
 	if ranker_toggle_button == null or not _panels_embedded:
 		return
-	var show := _map_screen_open()
-	ranker_toggle_button.visible = show
+	var show: bool = _map_screen_open()
+	if ranker_toggle_button.visible != show:
+		ranker_toggle_button.visible = show
 	if not show and ranker_panel != null:
 		ranker_panel.visible = false
-	var vs: Vector2 = get_viewport().get_visible_rect().size
-	ranker_toggle_button.rect_position = Vector2(vs.x - ranker_toggle_button.rect_size.x - 16, 12)
 
 func _column_panel(parent: Control, ratio: float) -> VBoxContainer:
 	var panel := PanelContainer.new()
