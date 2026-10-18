@@ -1,4 +1,4 @@
-[gd_scene load_steps=217 format=2]
+[gd_scene load_steps=218 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -114,6 +114,7 @@
 [ext_resource path="res://prefabs/menu/stats_page.tscn" type="PackedScene" id=211]
 [ext_resource path="res://assets/images/ui/stats.png" type="Texture" id=212]
 [ext_resource path="res://scripts/ui/menu/buttons/StarSort.gd" type="Script" id=213]
+[ext_resource path="res://scripts/ui/menu/WaveMenuBG.gd" type="Script" id=216]
 
 [sub_resource type="Gradient" id=163]
 offsets = PoolRealArray( 0, 0.5, 1 )
@@ -675,6 +676,14 @@ rect_pivot_offset = Vector2( 401.518, 42 )
 theme = ExtResource( 1 )
 color = Color( 0.0156863, 0.0156863, 0.0156863, 0.392157 )
 script = ExtResource( 13 )
+
+[node name="WaveBG" type="ColorRect" parent="."]
+visible = false
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color( 0.13, 0.025, 0.03, 1 )
+script = ExtResource( 216 )
 
 [node name="Particles" type="Particles2D" parent="."]
 visible = false
