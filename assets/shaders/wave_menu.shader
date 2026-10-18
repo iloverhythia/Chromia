@@ -11,6 +11,9 @@ uniform vec4 bg_color : hint_color = vec4(0.13, 0.025, 0.03, 1.0);
 uniform vec4 minor_color : hint_color = vec4(0.62, 0.16, 0.16, 0.75);
 uniform vec4 major_a : hint_color = vec4(1.0, 0.36, 0.45, 1.0);  // pink
 uniform vec4 major_b : hint_color = vec4(1.0, 0.42, 0.27, 1.0);  // orange
+uniform vec4 major_c : hint_color = vec4(1.0, 0.36, 0.45, 1.0);
+uniform vec4 major_d : hint_color = vec4(1.0, 0.42, 0.27, 1.0);
+uniform float color_count = 2.0;    // how many of major_a..major_d to cycle through
 
 float height(vec2 p, float t) {
 	float h = 0.0;
@@ -37,7 +40,9 @@ void fragment() {
 
 	vec4 col = bg_color;
 	if (major) {
-		vec4 mc = mod(idx, 8.0) == 0.0 ? major_a : major_b;
+		// Bright lines cycle through the colours (colorset mode uses up to 4).
+		float k = mod(floor(idx / 4.0), max(color_count, 1.0));
+		vec4 mc = k < 0.5 ? major_a : (k < 1.5 ? major_b : (k < 2.5 ? major_c : major_d));
 		col = mix(col, mc, line);
 	} else {
 		col = mix(col, minor_color, line * minor_color.a);

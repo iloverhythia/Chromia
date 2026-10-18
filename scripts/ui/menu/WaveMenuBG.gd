@@ -10,7 +10,42 @@ extends ColorRect
 var _outline_copies: Dictionary = {} # original DynamicFont -> outlined copy
 var _changed: Dictionary = {}        # Control -> [property, original value]
 
+const DEFAULT_COLORS = {
+	"bg_color": Color(0.13, 0.025, 0.03, 1.0),
+	"minor_color": Color(0.62, 0.16, 0.16, 0.75),
+	"major_a": Color(1.0, 0.36, 0.45, 1.0),
+	"major_b": Color(1.0, 0.42, 0.27, 1.0),
+	"major_c": Color(1.0, 0.36, 0.45, 1.0),
+	"major_d": Color(1.0, 0.42, 0.27, 1.0),
+	"color_count": 2.0,
+}
+
+# Wave colours: the default pink/orange, or (option) the selected colorset.
+func _apply_colors(_v = null):
+	var mat: ShaderMaterial = material
+	if mat == null: return
+	for k in DEFAULT_COLORS.keys():
+		mat.set_shader_param(k, DEFAULT_COLORS[k])
+	if not Rhythia.wave_menu_colorset or Rhythia.selected_colorset == null:
+		return
+	var cols: Array = Rhythia.selected_colorset.real_colors
+	if cols.empty():
+		return
+	var n: int = min(cols.size(), 4)
+	var names = ["major_a", "major_b", "major_c", "major_d"]
+	for i in range(4):
+		var c: Color = cols[i % n]
+		c.a = 1.0
+		mat.set_shader_param(names[i], c)
+	mat.set_shader_param("color_count", float(n))
+	var base: Color = cols[0]
+	mat.set_shader_param("bg_color", Color(base.r, base.g, base.b).darkened(0.88))
+	var minor: Color = Color(base.r, base.g, base.b).darkened(0.45)
+	minor.a = 0.75
+	mat.set_shader_param("minor_color", minor)
+
 func _apply(_v = null):
+	_apply_colors()
 	visible = Rhythia.wave_menu
 	if Rhythia.wave_menu:
 		_add_outlines(get_parent())
@@ -54,6 +89,8 @@ func _ready():
 	mat.shader = load("res://assets/shaders/wave_menu.shader")
 	material = mat
 	Rhythia.connect("wave_menu_changed", self, "_apply")
+	Rhythia.connect("wave_menu_colorset_changed", self, "_apply_colors")
+	Rhythia.connect("selected_colorset_changed", self, "_apply_colors")
 	# Wait a frame so the map list and other menu parts exist before outlining.
 	yield(get_tree(), "idle_frame")
 	_apply()

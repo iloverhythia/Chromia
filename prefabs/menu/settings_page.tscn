@@ -5469,7 +5469,7 @@ margin_top = 376.0
 margin_right = 440.0
 margin_bottom = 404.0
 rect_min_size = Vector2( 0, 28 )
-hint_tooltip = "customize this with a \"menu.mp3\" file in your save directory (default song by brrecken)"
+hint_tooltip = "customize this with a \"menu.mp3\" file in your save directory (default song: Change It Up)"
 theme = ExtResource( 1 )
 custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
 custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
@@ -6174,6 +6174,27 @@ text = "Wave Menu"
 flat = true
 script = ExtResource( 54 )
 target = "wave_menu"
+
+[node name="WaveMenuColorset" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_top = 309.0
+margin_right = 955.0
+margin_bottom = 337.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "colours the Wave Menu with your selected colorset instead of pink/orange"
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Wave Menu: use colorset colors"
+flat = true
+script = ExtResource( 54 )
+target = "wave_menu_colorset"
 
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Replays & Misc"]
 margin_top = 501.0

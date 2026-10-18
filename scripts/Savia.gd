@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g"
 ]
 
 
@@ -727,6 +727,7 @@ const VERSION_NOTES = {
 	"oct18-2026-d": "- Wave Menu: slower waves, and light text gets black outlines so it stays readable\n- Much faster map list with big libraries (sorting, searching and filtering)\n- Search waits until you stop typing for a moment instead of rebuilding the list on every key\n- The map list no longer stalls on covers that haven't been cached yet; they appear a moment later\n- Fixed re-imported or deleted maps sometimes leaving a duplicate in the list",
 	"oct18-2026-e": "- Discord status in the menu now says \"Idle while listening to furry ASMR\"\n- Updates now come from the renamed iloverhythia/Furria repository",
 	"oct18-2026-f": "- Profile and Online are now full pages in the left sidebar\n- Profile page shows your Savia profile picture, rank, stats, top play and top 10 plays from savia.nysr.host (connect Discord to link it)",
+	"oct18-2026-g": "- New menu music: Change It Up (a bit quieter than the old song)\n- Wave Menu option: use your colorset's colors (Settings > Replays & Misc > Experimental)",
 }
 
 func _notify_latest_update(current_ver: String):
@@ -1780,6 +1781,12 @@ var wave_menu: bool = false setget _set_wave_menu
 func _set_wave_menu(v: bool):
 	wave_menu = v
 	emit_signal("wave_menu_changed", v)
+# Wave Menu option: colour the waves with the selected colorset.
+signal wave_menu_colorset_changed
+var wave_menu_colorset: bool = false setget _set_wave_menu_colorset
+func _set_wave_menu_colorset(v: bool):
+	wave_menu_colorset = v
+	emit_signal("wave_menu_colorset_changed", v)
 
 
 var record_replays: bool = false
@@ -2545,6 +2552,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			disable_intro = data.disable_intro
 		if data.has("wave_menu"):
 			self.wave_menu = bool(data.wave_menu)
+		if data.has("wave_menu_colorset"):
+			self.wave_menu_colorset = bool(data.wave_menu_colorset)
 		if data.has("ignore_controller_detection"):
 			ignore_controller_detection = data.ignore_controller_detection
 		if data.has("expand_hud_onhr"):
@@ -3019,6 +3028,7 @@ func _write_settings_file(saveFile: String):
 			target_fps = Engine.target_fps,
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
+			wave_menu_colorset = wave_menu_colorset,
 			ignore_controller_detection = ignore_controller_detection,
 			expand_hud_onhr = expand_hud_onhr,
 			last_search_incl_online = last_search_incl_online,
