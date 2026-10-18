@@ -1,4 +1,4 @@
 # Chromia
 Official Chromia Discord server
-https://discord.gg/fortnite
+https://discord.gg/
 > "Rhyt-Rhythmia"
