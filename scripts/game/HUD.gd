@@ -893,6 +893,7 @@ func _ready():
 	modicons.get_node("Window").visible = Rhythia.mod_speed_level != Globals.SPEED_NORMAL and not Rhythia.speed_hitwindow
 	if Rhythia.mod_speed_level != Globals.SPEED_NORMAL:
 		match Rhythia.mod_speed_level:
+			Globals.SPEED_MMMM: modicons.get_node("SpeedMMMM").visible = true
 			Globals.SPEED_MMM: modicons.get_node("SpeedMMM").visible = true
 			Globals.SPEED_MM: modicons.get_node("SpeedMM").visible = true
 			Globals.SPEED_M: modicons.get_node("SpeedM").visible = true

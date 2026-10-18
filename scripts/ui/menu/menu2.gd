@@ -1582,6 +1582,7 @@ func _format_mods(mods: Dictionary) -> String:
 	var speed_level = mods.get("speed_level", Globals.SPEED_NORMAL)
 	if speed_level != Globals.SPEED_NORMAL:
 		match speed_level:
+			Globals.SPEED_MMMM: parts.append("Speed----")
 			Globals.SPEED_MMM: parts.append("Speed---")
 			Globals.SPEED_MM: parts.append("Speed--")
 			Globals.SPEED_M: parts.append("Speed-")
@@ -2272,6 +2273,7 @@ func _ready():
 	_embed_panels_in_pages()
 	_layout_lobby_ui()
 	_build_keybinds_settings_tab()
+	_setup_furry_secret()
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
 		settings_tab_container.move_child(settings_tab_container.get_node("Online"), settings_tab_container.get_node("Keybinds").get_index() + 1)
@@ -2380,3 +2382,25 @@ func _process(delta):
 		black_fade = max(black_fade - (delta / 0.5), 0)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	$BlackFade.visible = (black_fade != 0)
+
+
+# Secret: clicking the little Furria icon by the version text opens the
+# Furry Upgrade Tree.
+var furry_tree = null
+func _setup_furry_secret():
+	var icon = get_node_or_null("VersionNumber/TextureRect")
+	if icon == null:
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 90
+	layer.name = "FurrySecret"
+	add_child(layer)
+	furry_tree = preload("res://scripts/ui/menu/FurryUpgradeTree.gd").new()
+	layer.add_child(furry_tree)
+	icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	icon.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	icon.connect("gui_input", self, "_on_furry_icon_input")
+
+func _on_furry_icon_input(ev):
+	if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT:
+		furry_tree.open()

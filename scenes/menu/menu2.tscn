@@ -1,4 +1,4 @@
-[gd_scene load_steps=221 format=2]
+[gd_scene load_steps=227 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -118,6 +118,9 @@
 [ext_resource path="res://assets/images/ui/profile.png" type="Texture" id=217]
 [ext_resource path="res://assets/images/ui/online.png" type="Texture" id=218]
 [ext_resource path="res://scripts/ui/menu/ProfilePage.gd" type="Script" id=219]
+[ext_resource path="res://assets/images/modifiers/128/speed_mmmm_dark.png" type="Texture" id=220]
+[ext_resource path="res://assets/images/modifiers/128/speed_mmmm_colored.png" type="Texture" id=221]
+[ext_resource path="res://assets/images/modifiers/128/speed_mmmm.png" type="Texture" id=222]
 
 [sub_resource type="Gradient" id=163]
 offsets = PoolRealArray( 0, 0.5, 1 )
@@ -397,6 +400,18 @@ fallback/0 = ExtResource( 15 )
 [sub_resource type="DynamicFont" id=92]
 size = 14
 font_data = ExtResource( 2 )
+
+[sub_resource type="StyleBoxTexture" id=178]
+texture = ExtResource( 222 )
+region_rect = Rect2( 0, 0, 128, 128 )
+
+[sub_resource type="StyleBoxTexture" id=179]
+texture = ExtResource( 221 )
+region_rect = Rect2( 0, 0, 128, 128 )
+
+[sub_resource type="StyleBoxTexture" id=180]
+texture = ExtResource( 220 )
+region_rect = Rect2( 0, 0, 128, 128 )
 
 [sub_resource type="StyleBoxTexture" id=148]
 texture = ExtResource( 84 )
@@ -2148,6 +2163,27 @@ margin_top = -11.0
 margin_right = 84.0
 margin_bottom = -11.0
 alignment = 1
+
+[node name="MMMM" type="Button" parent="Main/Maps/Results/Results/RS/H2/Mods/SpeedMod/C"]
+margin_right = 32.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 32, 32 )
+hint_tooltip = "Speed 0.69x"
+focus_mode = 1
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_hover = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_colors/font_color_pressed = Color( 0.670588, 0.556863, 0.556863, 1 )
+custom_fonts/font = SubResource( 92 )
+custom_styles/hover = SubResource( 178 )
+custom_styles/pressed = SubResource( 179 )
+custom_styles/focus = SubResource( 155 )
+custom_styles/normal = SubResource( 180 )
+toggle_mode = true
+shortcut_in_tooltip = false
+action_mode = 0
+group = SubResource( 93 )
+expand_icon = true
 
 [node name="MMM" type="Button" parent="Main/Maps/Results/Results/RS/H2/Mods/SpeedMod/C"]
 margin_left = 3.0

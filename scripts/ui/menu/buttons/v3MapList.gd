@@ -512,12 +512,17 @@ func tween_out(p: Panel):
 
 func tween_in(p: Panel):
 	var tween = get_tree().create_tween()
-	tween.tween_property(p, "rect_min_size", Vector2(size_x - (next_index() - prev_index()) / 2 * 10, 90), 0.2)
+	tween.tween_property(p, "rect_min_size", Vector2(size_x - (next_index() - prev_index()) / 2 * 10, _slot_height(p)), 0.2)
+
+# Empty slots (above the first map or below the last) take no space, so the
+# list starts right at the top instead of leaving a big gap.
+func _slot_height(p: Panel) -> float:
+	return 90.0 if p.get("song") != null else 0.0
 
 func tween_length():
 	for i in btns.size():
 		var tween = get_tree().create_tween()
-		tween.tween_property(btns[i], "rect_min_size", Vector2(size_x - (15 * (abs((next_index() - prev_index()) / 2 - i))), 90), 0.15)
+		tween.tween_property(btns[i], "rect_min_size", Vector2(size_x - (15 * (abs((next_index() - prev_index()) / 2 - i))), _slot_height(btns[i])), 0.15)
 
 
 func _input(ev: InputEvent):

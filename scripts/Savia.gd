@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m"
 ]
 
 
@@ -732,6 +732,7 @@ const VERSION_NOTES = {
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
 	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
+	"oct18-2026-m": "- New <<<< speed modifier (0.69x)\n- Map list no longer leaves a big empty gap above the first map",
 	"oct18-2026-l": "- Rank Map button moved to the top bar, left of Search (only shows while a map is open)\n- New Check for Updates button at the top of Settings",
 }
 
@@ -1556,6 +1557,7 @@ func update_rpc_song():
 	if mod_nofail: mods.append("Nofail")
 	if mod_speed_level != Globals.SPEED_NORMAL:
 		match mod_speed_level:
+			Globals.SPEED_MMMM: mods.append("Speed----")
 			Globals.SPEED_MMM: mods.append("Speed---")
 			Globals.SPEED_MM: mods.append("Speed--")
 			Globals.SPEED_M: mods.append("Speed-")
@@ -2160,6 +2162,7 @@ func get_best():
 func generate_pb_str(for_pb: bool = false):
 	var pts: Array = []
 	match mod_speed_level:
+		Globals.SPEED_MMMM: pts.append("s:----")
 		Globals.SPEED_MMM: pts.append("s:---")
 		Globals.SPEED_MM: pts.append("s:--")
 		Globals.SPEED_M: pts.append("s:-")
@@ -2236,6 +2239,7 @@ func parse_pb_str(txt: String):
 			data.note_hitbox_size = float(s.substr(5))
 		else:
 			match s:
+				"s:----": data.mod_speed_level = Globals.SPEED_MMMM
 				"s:---": data.mod_speed_level = Globals.SPEED_MMM
 				"s:--": data.mod_speed_level = Globals.SPEED_MM
 				"s:-": data.mod_speed_level = Globals.SPEED_M

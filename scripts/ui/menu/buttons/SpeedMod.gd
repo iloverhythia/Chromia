@@ -1,5 +1,6 @@
 extends ReferenceRect
 
+onready var mmmm: Button = $C/MMMM
 onready var mmm: Button = $C/MMM
 onready var mm: Button = $C/MM
 onready var m: Button = $C/M
@@ -19,6 +20,7 @@ func on_button_changed(state: bool, selectedSpeed: int):
 
 func upd():
 	_applying_external_change = true
+	mmmm.pressed = Rhythia.mod_speed_level == Globals.SPEED_MMMM
 	mmm.pressed = Rhythia.mod_speed_level == Globals.SPEED_MMM
 	mm.pressed = Rhythia.mod_speed_level == Globals.SPEED_MM
 	m.pressed = Rhythia.mod_speed_level == Globals.SPEED_M
@@ -33,6 +35,7 @@ func upd():
 func _ready():
 	upd()
 
+	mmmm.connect("toggled", self, "on_button_changed", [Globals.SPEED_MMMM])
 	mmm.connect("toggled", self, "on_button_changed", [Globals.SPEED_MMM])
 	mm.connect("toggled", self, "on_button_changed", [Globals.SPEED_MM])
 	m.connect("toggled", self, "on_button_changed", [Globals.SPEED_M])
