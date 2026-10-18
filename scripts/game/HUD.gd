@@ -189,6 +189,11 @@ func update_static_values():
 
 var miss_flash: float = 0
 
+var _timer_state: int = -1
+var _timer_shown_s: int = -1
+var _timer_shown_ls: int = -1
+var _timer_was_skip: bool = false
+var _timer_end_s: int = -1
 func update_timer(ms: float, canSkip: bool = false):
 	var qms = ms + Spawn.ms_offset
 	var lms = Game.last_ms
@@ -204,7 +209,11 @@ func update_timer(ms: float, canSkip: bool = false):
 	var lm = floor(ls / 60)
 	var lrs = fmod(ls, 60)
 
-	if not Rhythia.rainbow_hud:
+	# Runs every frame: colors are only repainted when the timer's state
+	# changes, and text/bar only when they'd look different.
+	var tstate: int = 1 if canSkip else (2 if (not Rhythia.queue_active and Spawn.ms > Game.last_ms) else 0)
+	if not Rhythia.rainbow_hud and tstate != _timer_state:
+		_timer_state = tstate
 		if canSkip:
 			timebar.get("custom_styles/fg").bg_color = timer_fg_canskip
 			timebar.get("custom_styles/bg").bg_color = timer_bg_canskip
@@ -223,7 +232,9 @@ func update_timer(ms: float, canSkip: bool = false):
 			for n in get_tree().get_nodes_in_group("timer_text"):
 				paint(n, timer_text)
 
-	timebar.value = (clamp(qms / lms, 0, 1))
+	var tval: float = clamp(qms / lms, 0, 1)
+	if abs(timebar.value - tval) > 0.0005 or (tval == 1.0 and timebar.value != 1.0):
+		timebar.value = tval
 
 	if canSkip:
 		var expire_threshold_ms = ms + (3000 * Spawn.speed_multi)
@@ -231,15 +242,21 @@ func update_timer(ms: float, canSkip: bool = false):
 
 		var action_text = "TAP" if Rhythia.device("mobile") else "PRESS SPACE"
 
-		timelabel.text = "%s TO SKIP, Expires in  %.1fs" % [action_text, skip_expires_sec]
-		if skip_expires_sec < 1:
-			timelabel.set_modulate(Color(1, 0.1, 0.1, 1))
-		else:
-			timelabel.set_modulate(Color(1, 1, 1, 1))
+		var skip_txt = "%s TO SKIP, Expires in  %.1fs" % [action_text, skip_expires_sec]
+		if timelabel.text != skip_txt:
+			timelabel.text = skip_txt
+		var mcol = Color(1, 0.1, 0.1, 1) if skip_expires_sec < 1 else Color(1, 1, 1, 1)
+		if timelabel.modulate != mcol:
+			timelabel.set_modulate(mcol)
 	else:
-		timelabel.text = "%d:%02d / %d:%02d" % [m, rs, lm, lrs]
-
-	Rhythia.song_end_time_str = "%d:%02d" % [m, rs]
+		if int(s) != _timer_shown_s or int(ls) != _timer_shown_ls or _timer_was_skip:
+			_timer_shown_s = int(s)
+			_timer_shown_ls = int(ls)
+			timelabel.text = "%d:%02d / %d:%02d" % [m, rs, lm, lrs]
+	_timer_was_skip = canSkip
+	if int(s) != _timer_end_s:
+		_timer_end_s = int(s)
+		Rhythia.song_end_time_str = "%d:%02d" % [m, rs]
 
 	if Rhythia.queue_active:
 		if ms >= Game.last_ms + Rhythia.hitwindow_ms:
@@ -285,6 +302,7 @@ func _build_replay_controls():
 # HUD_REFRESH_HZ times a second (looks identical; monitors don't go higher).
 const HUD_REFRESH_HZ = 240.0
 var _hud_vps: Array = []
+var _hud_shown_by: Array = []
 var _hud_refresh_t: float = 0.0
 var _stats_t: float = 0.0
 
@@ -294,14 +312,20 @@ func _setup_hud_viewports():
 			c.msaa = Viewport.MSAA_DISABLED # 2D-only, anti-aliasing does nothing here
 			c.render_target_update_mode = Viewport.UPDATE_ONCE
 			_hud_vps.append(c)
+			# The 3D sprite showing this viewport (TimerVP -> TimerHud).
+			_hud_shown_by.append(get_node_or_null(c.name.trim_suffix("VP") + "Hud"))
 
 func _refresh_hud_viewports(delta: float):
 	_hud_refresh_t += delta
 	if _hud_refresh_t < 1.0 / HUD_REFRESH_HZ:
 		return
 	_hud_refresh_t = 0.0
-	for vp in _hud_vps:
-		vp.render_target_update_mode = Viewport.UPDATE_ONCE
+	# Panels that aren't on screen (pause, give up, config...) aren't redrawn.
+	for i in range(_hud_vps.size()):
+		var shown = _hud_shown_by[i]
+		if shown != null and not shown.is_visible_in_tree():
+			continue
+		_hud_vps[i].render_target_update_mode = Viewport.UPDATE_ONCE
 
 func _process(delta: float):
 	gtimer += delta

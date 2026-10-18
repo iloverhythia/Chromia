@@ -67,22 +67,22 @@ func linstep(a: float, b: float, x: float):
 	return clamp(((x - a) / (b - a)), 0, 1)
 
 func note_reposition(i: int):
-	var real_position: Vector2 = notes[i][0]
-	var notems: float = notes[i][1]
-	var state: int = notes[i][2]
-	var col: Color = notes[i][3]
-	var chaos_offset: Vector2 = notes[i][4]
-	var nt: Transform = notes[i][5]
-
-	var approachSpeed: float = approach_rate / speed_multi
+	var nd: Array = notes[i]
+	var real_position: Vector2 = nd[0]
+	var notems: float = nd[1]
+	var state: int = nd[2]
+	var col: Color = nd[3]
+	var chaos_offset: Vector2 = nd[4]
+	var nt: Transform = nd[5]
+	var slot: int = i - current_note
 
 	var current_offset_ms: float = notems - ms
-	var current_dist: float = approachSpeed * current_offset_ms / 1000
+	var current_dist: float = _f_approach_speed * current_offset_ms / 1000
 
 	if (
-		(current_dist <= _f_spawn_dist and current_dist >= (grid_pushback * -1) and sign(approachSpeed) == 1) or
-		(current_dist >= -50 and current_dist <= 0.1 and sign(approachSpeed) == -1) or
-		sign(approachSpeed) == 0
+		(_f_approach_sign == 1 and current_dist <= _f_spawn_dist and current_dist >= -grid_pushback) or
+		(_f_approach_sign == -1 and current_dist >= -50 and current_dist <= 0.1) or
+		_f_approach_sign == 0
 	) and state == Globals.NSTATE_ACTIVE:
 
 
@@ -96,36 +96,31 @@ func note_reposition(i: int):
 
 		if _f_spawn_effect:
 			var spawn_effect_t = 1 - clamp(4 * (_f_spawn_dist - current_dist) / _f_spawn_dist, 0, 1)
-			_n_spawn.multimesh.set_instance_color(i - current_note, Color(col.r, col.g, col.b, col.a))
+			_n_spawn.multimesh.set_instance_color(slot, col)
 			if spawn_effect_t != 0:
 				var effect_transform = Transform.IDENTITY
 				effect_transform.origin = nt.origin
-				effect_transform.basis = effect_transform.basis.scaled(Vector3.ONE * 1 * Rhythia.note_size)
+				effect_transform.basis = effect_transform.basis.scaled(Vector3.ONE * _f_note_size)
 				effect_transform.basis = effect_transform.basis.scaled(Vector3(1 * spawn_effect_t, 0.9 + (0.1 * spawn_effect_t), 1))
 				effect_transform.basis = effect_transform.basis.rotated(Vector3(1, 0, 0), deg2rad(90))
-				_n_spawn.multimesh.set_instance_transform(i - current_note, effect_transform)
-			else: _n_spawn.multimesh.set_instance_transform(i - current_note, Transform.IDENTITY.scaled(Vector3.ZERO))
+				_n_spawn.multimesh.set_instance_transform(slot, effect_transform)
+			else: _n_spawn.multimesh.set_instance_transform(slot, Transform.IDENTITY.scaled(Vector3.ZERO))
 
 		if _f_any_offset_mod:
 			var base_pos = real_position
 			var base_z = nt.origin.z
-			if Rhythia.mod_360:
+			if _f_mod_360:
 				base_pos = Vector2(real_position.x - 1, real_position.y + 1)
 				base_z = -current_dist
 			var offset = Vector2.ZERO
-			if Rhythia.mod_chaos:
+			if _f_mod_chaos:
 				var v = ease(max((current_offset_ms - 250) / 400, 0), 1.5)
 				offset += chaos_offset * v
-			if Rhythia.mod_earthquake:
+			if _f_mod_earthquake:
 				var rcoord = Vector2(earthquake_rng.randf_range(-0.25, 0.25), earthquake_rng.randf_range(-0.25, 0.25))
 				offset += rcoord * (current_dist * 0.1)
 			nt.origin = Vector3(base_pos.x + offset.x, base_pos.y + offset.y, base_z)
 
-		if Rhythia.mod_strobe:
-			if int(ms) % 500 > 250:
-				_n_notes.visible = false
-			else:
-				_n_notes.visible = true
 
 
 
@@ -152,35 +147,35 @@ func note_reposition(i: int):
 			alpha = min(fade_in, fade_out)
 
 
-		_n_notes.multimesh.set_instance_transform(i - current_note, nt)
-		_n_notes.multimesh.set_instance_color(i - current_note, Color(col.r, col.g, col.b, col.a * alpha))
+		_n_notes.multimesh.set_instance_transform(slot, nt)
+		_n_notes.multimesh.set_instance_color(slot, Color(col.r, col.g, col.b, col.a * alpha))
 		if asq:
 			var sc = (linstep(0, _f_spawn_dist, current_dist) + 0.6) * 0.4
 
 			var at = Transform()
 			at = at.scaled(Vector3(sc, sc, sc))
 			at.origin = nt.origin
-			if not Rhythia.visual_approach_follow:
+			if not _f_va_follow:
 				at.origin.z = 0
 
-			_n_asq.multimesh.set_instance_transform(i - current_note, at)
+			_n_asq.multimesh.set_instance_transform(slot, at)
 			if _f_ghost:
-				_n_asq.multimesh.set_instance_color(i - current_note, Color(1, 1, 1, 1 * alpha))
+				_n_asq.multimesh.set_instance_color(slot, Color(1, 1, 1, 1 * alpha))
 			else:
-				_n_asq.multimesh.set_instance_color(i - current_note, Color(1, 1, 1, pow(linstep(_f_spawn_dist, 0, current_dist), 1.7)))
+				_n_asq.multimesh.set_instance_color(slot, Color(1, 1, 1, pow(linstep(_f_spawn_dist, 0, current_dist), 1.7)))
 
 
 
 		return true
 	else:
-		_n_notes.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
-		_n_notes.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
+		_n_notes.multimesh.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
+		_n_notes.multimesh.set_instance_color(slot, Color(0, 0, 0, 0))
 		if asq:
-			_n_asq.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
-			_n_asq.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
+			_n_asq.multimesh.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
+			_n_asq.multimesh.set_instance_color(slot, Color(0, 0, 0, 0))
 		if _f_spawn_effect:
-			_n_spawn.multimesh.set_instance_transform(i - current_note, Transform(Basis(), Vector3(0, 0, 10)))
-			_n_spawn.multimesh.set_instance_color(i - current_note, Color(0, 0, 0, 0))
+			_n_spawn.multimesh.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
+			_n_spawn.multimesh.set_instance_color(slot, Color(0, 0, 0, 0))
 
 
 
@@ -226,6 +221,13 @@ var _f_any_offset_mod: bool = false
 var _f_spin: bool = false
 var _f_spin_basis: Basis = Basis()
 var _f_ghost: bool = false
+var _f_approach_speed: float = 1.0
+var _f_approach_sign: int = 1
+var _f_note_size: float = 1.0
+var _f_mod_360: bool = false
+var _f_mod_chaos: bool = false
+var _f_mod_earthquake: bool = false
+var _f_va_follow: bool = false
 
 func _cache_frame_settings():
 	_f_spawn_dist = Rhythia.get("spawn_distance")
@@ -233,6 +235,18 @@ func _cache_frame_settings():
 	_f_opacity = Rhythia.note_opacity
 	_f_any_offset_mod = Rhythia.mod_360 or Rhythia.mod_chaos or Rhythia.mod_earthquake
 	_f_ghost = Rhythia.mod_ghost
+	_f_approach_speed = approach_rate / speed_multi
+	_f_approach_sign = int(sign(_f_approach_speed))
+	_f_note_size = Rhythia.note_size
+	_f_mod_360 = Rhythia.mod_360
+	_f_mod_chaos = Rhythia.mod_chaos
+	_f_mod_earthquake = Rhythia.mod_earthquake
+	_f_va_follow = Rhythia.visual_approach_follow
+	# Strobe hides/shows all notes at once, so it's checked once per frame.
+	if Rhythia.mod_strobe:
+		var show_notes: bool = not (int(ms) % 500 > 250)
+		if _n_notes.visible != show_notes:
+			_n_notes.visible = show_notes
 	_f_spin = Rhythia.note_spin_x != 0 or Rhythia.note_spin_y != 0 or Rhythia.note_spin_z != 0
 	if _f_spin:
 		_f_spin_basis = Basis().rotated(Vector3(1, 0, 0), Rhythia.note_spin_x / 2000).rotated(Vector3(0, 1, 0), Rhythia.note_spin_y / 2000).rotated(Vector3(0, 0, 1), Rhythia.note_spin_z / 2000)

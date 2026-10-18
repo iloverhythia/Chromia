@@ -2460,25 +2460,39 @@ func _process(delta):
 
 
 # Secret: clicking the little Furria icon by the version text opens the
-# Furry Upgrade Tree.
+# Furry Upgrade Tree. It's only created while open and deleted when closed,
+# so it costs nothing the rest of the time.
 var furry_tree = null
+var _furry_layer: CanvasLayer = null
 func _setup_furry_secret():
 	var icon = get_node_or_null("VersionNumber/TextureRect")
 	if icon == null:
 		return
-	var layer := CanvasLayer.new()
-	layer.layer = 90
-	layer.name = "FurrySecret"
-	add_child(layer)
-	furry_tree = preload("res://scripts/ui/menu/FurryUpgradeTree.gd").new()
-	layer.add_child(furry_tree)
 	icon.mouse_filter = Control.MOUSE_FILTER_STOP
 	icon.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	icon.connect("gui_input", self, "_on_furry_icon_input")
 
 func _on_furry_icon_input(ev):
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT:
-		furry_tree.open()
+		open_furry_tree()
+
+func open_furry_tree():
+	if furry_tree != null and is_instance_valid(furry_tree):
+		return
+	_furry_layer = CanvasLayer.new()
+	_furry_layer.layer = 90
+	_furry_layer.name = "FurrySecret"
+	add_child(_furry_layer)
+	furry_tree = preload("res://scripts/ui/menu/FurryUpgradeTree.gd").new()
+	furry_tree.connect("closed", self, "_on_furry_tree_closed")
+	_furry_layer.add_child(furry_tree)
+	furry_tree.open()
+
+func _on_furry_tree_closed():
+	if _furry_layer != null and is_instance_valid(_furry_layer):
+		_furry_layer.queue_free()
+	_furry_layer = null
+	furry_tree = null
 
 
 # Line the modifier controls up under the "Modifiers" title: the speed row is

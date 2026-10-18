@@ -1,5 +1,7 @@
 extends Control
 
+signal closed
+
 # Secret: click the Furria icon next to the version text to open this.
 # A never-ending upgrade tree. Furcoins only exist in here, and only grow
 # while this screen is open. Progress is saved to user://furry_tree.json.
@@ -227,6 +229,7 @@ func close():
 	_save()
 	visible = false
 	set_process(false)
+	emit_signal("closed") # the menu then deletes this screen entirely
 
 # --- Tree generation ---------------------------------------------------------
 
@@ -621,3 +624,8 @@ func _load():
 	coins = 0.0
 	nodes = []
 	_new_node(-1, Vector2.ZERO)
+
+# Save if the menu goes away while the tree is still open.
+func _exit_tree():
+	if visible:
+		_save()
