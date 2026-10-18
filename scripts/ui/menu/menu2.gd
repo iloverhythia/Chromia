@@ -2274,6 +2274,7 @@ func _ready():
 	_layout_lobby_ui()
 	_build_keybinds_settings_tab()
 	_setup_furry_secret()
+	_setup_folder_filters()
 	_center_mods()
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
@@ -2498,3 +2499,16 @@ func _union_visible(n, box):
 	for c in n.get_children():
 		box = _union_visible(c, box)
 	return box
+
+
+# Map folders also show up as filters under "stars" in the Filters column.
+func _setup_folder_filters():
+	var stars = get_node_or_null("Main/Maps/Filters/StarSort")
+	if stars == null:
+		return
+	var box = preload("res://scripts/ui/menu/FolderFilters.gd").new()
+	box.name = "FolderFilters"
+	var filters = stars.get_parent()
+	filters.add_child(box)
+	filters.move_child(box, stars.get_index() + 1)
+	box.setup(stars)

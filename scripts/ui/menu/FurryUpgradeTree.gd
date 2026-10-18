@@ -36,6 +36,7 @@ var _zoom := 1.0
 var _save_t := 0.0
 var _ui_t := 0.0
 var _hover_id := -1
+var _bought_count := 0
 
 var _sb_bought: StyleBoxFlat
 var _sb_ready: StyleBoxFlat
@@ -88,7 +89,6 @@ func _ready():
 
 	_world = Control.new()
 	_world.mouse_filter = MOUSE_FILTER_IGNORE
-	_world.connect("draw", self, "_draw_links")
 	add_child(_world)
 
 	var top := ColorRect.new()
@@ -310,8 +310,10 @@ func _recalc():
 	var mult := 1.0
 	var pet := 1.0
 	var cheap := 1.0
+	_bought_count = 0
 	for n in nodes:
 		if not n.bought: continue
+		_bought_count += 1
 		match n.kind:
 			"rate": rate += n.value
 			"mult": mult *= n.value
@@ -335,7 +337,18 @@ func _buy(id: int):
 	n.bought = true
 	_grow(id)
 	_recalc()
-	_rebuild_buttons()
+	# Only the bought upgrade and its new branches change; a "cheaper" upgrade
+	# changes every price, so then every button gets marked for a restyle.
+	if n.kind == "cheap":
+		for b in _buttons.values():
+			b.set_meta("st", -1)
+	if _buttons.has(id):
+		_buttons[id].set_meta("st", -1)
+	for c in n.children:
+		if not _buttons.has(c):
+			_make_button(nodes[c])
+	_style_buttons()
+	_update_links()
 	_refresh_ui()
 	_show_info(id)
 
@@ -384,43 +397,81 @@ func _rebuild_buttons():
 	for b in _buttons.values():
 		b.queue_free()
 	_buttons.clear()
+	_cells.clear()
 	for n in nodes:
-		if not n.bought and not _can_buy(n):
-			continue
-		var b := Button.new()
-		b.rect_size = NODE_SIZE
-		b.rect_position = _pos(n) - NODE_SIZE / 2
-		var nm := Label.new()
-		nm.name = "Name"
-		nm.add_font_override("font", _font_small)
-		nm.align = Label.ALIGN_CENTER
-		nm.clip_text = true
-		nm.anchor_right = 1.0
-		nm.margin_left = 6
-		nm.margin_right = -6
-		nm.margin_top = 7
-		nm.mouse_filter = MOUSE_FILTER_IGNORE
-		b.add_child(nm)
-		var cost := Label.new()
-		cost.name = "Cost"
-		cost.align = Label.ALIGN_CENTER
-		cost.anchor_right = 1.0
-		cost.margin_top = 27
-		cost.add_font_override("font", _font_tiny)
-		cost.mouse_filter = MOUSE_FILTER_IGNORE
-		b.add_child(cost)
-		b.connect("pressed", self, "_node_pressed", [n.id])
-		b.connect("mouse_entered", self, "_show_info", [n.id])
-		b.connect("mouse_exited", self, "_hide_info", [n.id])
-		_world.add_child(b)
-		_buttons[n.id] = b
-	_style_buttons()
-	_world.update()
+		if n.bought or _can_buy(n):
+			_make_button(n)
+	_style_buttons(true)
+	_update_links()
 
-func _style_buttons():
-	for id in _buttons:
+func _make_button(n):
+	var b := Button.new()
+	b.rect_size = NODE_SIZE
+	b.rect_position = _pos(n) - NODE_SIZE / 2
+	var nm := Label.new()
+	nm.name = "Name"
+	nm.add_font_override("font", _font_small)
+	nm.align = Label.ALIGN_CENTER
+	nm.clip_text = true
+	nm.anchor_right = 1.0
+	nm.margin_left = 6
+	nm.margin_right = -6
+	nm.margin_top = 7
+	nm.mouse_filter = MOUSE_FILTER_IGNORE
+	b.add_child(nm)
+	var cost := Label.new()
+	cost.name = "Cost"
+	cost.align = Label.ALIGN_CENTER
+	cost.anchor_right = 1.0
+	cost.margin_top = 27
+	cost.add_font_override("font", _font_tiny)
+	cost.mouse_filter = MOUSE_FILTER_IGNORE
+	b.add_child(cost)
+	b.connect("pressed", self, "_node_pressed", [n.id])
+	b.connect("mouse_entered", self, "_show_info", [n.id])
+	b.connect("mouse_exited", self, "_hide_info", [n.id])
+	b.set_meta("st", -1)
+	_world.add_child(b)
+	_buttons[n.id] = b
+	var cell := _cell_of(_pos(n))
+	if not _cells.has(cell):
+		_cells[cell] = []
+	_cells[cell].append(n.id)
+
+# Buttons are filed by area of the tree, so the on-screen check only looks
+# at the areas that are actually on screen.
+const CELL = 600.0
+var _cells: Dictionary = {}
+func _cell_of(p: Vector2) -> Vector2:
+	return Vector2(floor(p.x / CELL), floor(p.y / CELL))
+
+func _ids_on_screen() -> Array:
+	var view: Rect2 = get_viewport_rect()
+	var z: float = max(_zoom, 0.01)
+	var a: Vector2 = (view.position - _world.rect_position) / z - NODE_SIZE
+	var b: Vector2 = (view.end - _world.rect_position) / z + NODE_SIZE
+	var ca := _cell_of(a)
+	var cb := _cell_of(b)
+	var out := []
+	for cx in range(int(ca.x), int(cb.x) + 1):
+		for cy in range(int(ca.y), int(cb.y) + 1):
+			var k := Vector2(cx, cy)
+			if _cells.has(k):
+				out.append_array(_cells[k])
+	return out
+
+# Only upgrades on screen are checked, and a button is only restyled when it
+# changes (bought, or becomes affordable / unaffordable). force=true restyles
+# everything, for when the buttons were just made or prices changed.
+func _style_buttons(force: bool = false):
+	var ids = _buttons.keys() if force else _ids_on_screen()
+	for id in ids:
 		var n = nodes[id]
 		var b: Button = _buttons[id]
+		var state: int = 2 if n.bought else (1 if coins >= _cost(n) else 0)
+		if not force and int(b.get_meta("st")) == state:
+			continue
+		b.set_meta("st", state)
 		var sb: StyleBoxFlat
 		var nm: Label = b.get_node("Name")
 		var cost: Label = b.get_node("Cost")
@@ -445,18 +496,39 @@ func _style_buttons():
 			b.add_stylebox_override("hover", hover)
 			b.add_stylebox_override("pressed", hover)
 
-func _draw_links():
+# Links are drawn as batched thin lines (draw_multiline) on the world
+# itself, doubled with a 1px offset so they read as ~2px. Thick or smoothed
+# draw_line calls stop drawing once the tree gets big; batched thin lines don't.
+var _owned_pts := PoolVector2Array()
+var _other_pts := PoolVector2Array()
+var _links_hooked := false
+
+func _update_links():
+	if not _links_hooked:
+		_links_hooked = true
+		_world.connect("draw", self, "_draw_links")
+	_owned_pts = PoolVector2Array()
+	_other_pts = PoolVector2Array()
 	for n in nodes:
-		if n.parent < 0: continue
-		if not _buttons.has(n.id): continue
-		var col = Color(LILAC.r, LILAC.g, LILAC.b, 0.8) if n.bought else Color(1, 1, 1, 0.14)
-		_world.draw_line(_pos(nodes[n.parent]), _pos(n), col, 2.0, true)
+		if n.parent < 0 or not _buttons.has(n.id): continue
+		var a := _pos(nodes[n.parent])
+		var b := _pos(n)
+		var pts: PoolVector2Array = _owned_pts if n.bought else _other_pts
+		pts.append(a); pts.append(b)
+		pts.append(a + Vector2.ONE); pts.append(b + Vector2.ONE)
+		if n.bought: _owned_pts = pts
+		else: _other_pts = pts
+	_world.update()
+
+func _draw_links():
+	if _other_pts.size() > 0:
+		_world.draw_multiline(_other_pts, Color(1, 1, 1, 0.14))
+	if _owned_pts.size() > 0:
+		_world.draw_multiline(_owned_pts, Color(LILAC.r, LILAC.g, LILAC.b, 0.8))
 
 func _refresh_ui():
 	_coin_label.text = "%s furcoins" % fmt(coins)
-	var bought := 0
-	for n in nodes:
-		if n.bought: bought += 1
+	var bought: int = _bought_count
 	_rate_label.text = "+%s / sec    %s per pet    %d upgrades" % [fmt(_rate), fmt(_pet), bought]
 	_style_buttons()
 	if _hover_id >= 0:

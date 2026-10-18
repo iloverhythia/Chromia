@@ -677,7 +677,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s"
 ]
 
 
@@ -732,6 +732,7 @@ const VERSION_NOTES = {
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
 	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
+	"oct18-2026-s": "- Map folders show up as filters under stars\n- The Grid background has its own preview picture",
 	"oct18-2026-r": "- Map list scrolling is back to how it was\n- Modifier checkboxes sit between the slowest and fastest speed buttons",
 	"oct18-2026-q": "- Smooth map list scrolling at the top and bottom of the list\n- Modifier checkboxes line up with the speed buttons",
 	"oct18-2026-p": "- Fixed scrolling getting stuck near the top or bottom of the map list\n- Every modifier row is centered under the title",
@@ -3285,7 +3286,7 @@ func register_worlds():
 	registry_world.add_item(BackgroundWorld.new(
 		"ssp_grid", "The Grid",
 		"res://assets/worlds/grid/grid.tscn", "hi",
-		"res://assets/worlds/custom/custom.png"
+		"res://assets/worlds/grid/grid.png"
 	))
 	# Backgrounds recreated from Rhythia's (Godot 4 C#) spaces
 	registry_world.add_item(BackgroundWorld.new(
