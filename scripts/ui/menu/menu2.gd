@@ -2408,6 +2408,8 @@ func _on_furry_icon_input(ev):
 
 
 # Line the modifier controls up under the centered "Modifiers" title.
+# Centering uses what's actually drawn (text and boxes), not the controls'
+# full rects, which have uneven empty space around them.
 func _center_mods():
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
@@ -2416,38 +2418,71 @@ func _center_mods():
 	if mods == null or title == null:
 		return
 	var tr: Rect2 = title.get_global_rect()
+	var tf = title.get_font("font")
 	var mid: float = tr.position.x + tr.size.x / 2.0
 	var scale: float = max(mods.get_global_transform().get_scale().x, 0.01)
-	# The speed row is wider than the rest, so it's centered on its own.
 	var speed = mods.get_node_or_null("SpeedMod")
+	var row = speed.get_node_or_null("C") if speed != null else null
+	if row != null:
+		row.add_constant_override("separation", 1)
+	yield(get_tree(), "idle_frame")
 	var rest := []
 	for c in mods.get_children():
 		if c is Control and c != speed:
 			rest.append(c)
-	_shift_to_center(rest, mid, scale)
-	if speed != null:
-		_shift_to_center([speed], mid, scale, speed.get_node_or_null("C"))
+	# The checkbox grid sets the center; the slider rows move along with it.
+	var grid_box = null
+	for c in rest:
+		if c is CheckBox:
+			grid_box = _union_visible(c, grid_box)
+	var rest_box = _shift_to_center(rest, mid, scale, null, grid_box)
+	if speed != null and row != null:
+		var sbox = _shift_to_center([speed], mid, scale, row)
+		# Don't let the wide speed row stick out further left than the rest.
+		if rest_box != null and sbox != null and sbox.position.x < rest_box.position.x - 20.0:
+			speed.rect_position.x += (rest_box.position.x - 20.0 - sbox.position.x) / scale
 
-func _shift_to_center(nodes: Array, mid: float, scale: float, measure = null):
-	var box = null
-	if measure != null:
+# Returns the drawn area after the shift.
+func _shift_to_center(nodes: Array, mid: float, scale: float, measure, given = null):
+	var box = given
+	if box != null:
+		pass
+	elif measure != null:
 		box = _union_visible(measure, null)
 	else:
 		for c in nodes:
 			box = _union_visible(c, box)
 	if box == null:
-		return
-	var dx: float = (mid - (box.position.x + box.size.x / 2.0)) / scale
-	if abs(dx) < 1.0:
-		return
+		return null
+	var dx: float = mid - (box.position.x + box.size.x / 2.0)
 	for c in nodes:
-		c.rect_position.x += dx
+		c.rect_position.x += dx / scale
+	box.position.x += dx
+	return box
+
+func _drawn_rect(n: Control):
+	var r: Rect2 = n.get_global_rect()
+	if n is Label:
+		if n.text.strip_edges() == "":
+			return null
+		var w: float = min(n.get_font("font").get_string_size(n.text).x * n.get_global_transform().get_scale().x, r.size.x)
+		match n.align:
+			Label.ALIGN_RIGHT: return Rect2(r.end.x - w, r.position.y, w, r.size.y)
+			Label.ALIGN_CENTER: return Rect2(r.position.x + (r.size.x - w) / 2.0, r.position.y, w, r.size.y)
+			_: return Rect2(r.position.x, r.position.y, w, r.size.y)
+	if n is CheckBox:
+		var icon = n.get_icon("unchecked")
+		var iw: float = (icon.get_width() if icon != null else 24) * n.get_global_transform().get_scale().x
+		return Rect2(r.position, Vector2(min(iw, r.size.x), r.size.y))
+	if n is BaseButton or n is Range or n is LineEdit or n is TextureRect:
+		return r
+	return null
 
 func _union_visible(n, box):
 	if not (n is Control) or not n.visible:
 		return box
-	var r: Rect2 = n.get_global_rect()
-	if r.size.x > 0 and r.size.y > 0:
+	var r = _drawn_rect(n)
+	if r != null and r.size.x > 0 and r.size.y > 0:
 		box = r if box == null else box.merge(r)
 	for c in n.get_children():
 		box = _union_visible(c, box)
