@@ -36,21 +36,29 @@ var _my_stats_has_passed: bool = false
 var _my_stats_best_xp: int = 0
 var _my_stats_best_sp: int = 0
 
+const RhythiaPoints = preload("res://scripts/RhythiaPoints.gd")
+
 func _rebuild_data_label(map: Song):
 	var data_text = "%s - %s notes" % [get_time_ms(map.last_ms), comma_sep(map.note_count)]
 	var stars: float = map.get_star_rating()
 	if stars >= 0.0:
 		data_text += " - %.2f stars" % stars
 	$RS/H1/Info/Data/Data.text = data_text
+	var lines := PoolStringArray()
 	if _rank_is_ranked and _rank_song_id == map.id:
 		var effective = int(round(_rank_base_xp * Rhythia.current_xp_speed_multiplier()))
-		var txt = "XP: %d" % effective
+		lines.append("XP: %d" % effective)
 		if _my_stats_song_id == map.id and _my_stats_has_passed:
-			txt += "\nPB: %d XP / %d SP" % [_my_stats_best_xp, _my_stats_best_sp]
-		$RS/H1/Info/XP.text = txt
-		$RS/H1/Info/XP.visible = true
-	else:
-		$RS/H1/Info/XP.visible = false
+			lines.append("PB: %d XP / %d SP" % [_my_stats_best_xp, _my_stats_best_sp])
+	# Offline RP: what a 100% pass at the current speed gives, and your best.
+	if stars > 0.0:
+		var rp_line = "RP: %d" % int(round(RhythiaPoints.max_rp(stars, Rhythia.current_speed_multiplier())))
+		var best = RhythiaPoints.get_store().plays.get(String(map.id))
+		if best != null:
+			rp_line += "  (best %d)" % int(round(float(best.rp)))
+		lines.append(rp_line)
+	$RS/H1/Info/XP.text = lines.join("\n")
+	$RS/H1/Info/XP.visible = lines.size() > 0
 
 func _on_map_rank_info_received(song_id: String, ranked: bool, xp: int, _content_hash: String):
 	_rank_song_id = song_id
@@ -181,6 +189,7 @@ func return_to_song_select():
 func _ready():
 	Rhythia.connect("selected_song_changed", self, "update")
 	Rhythia.connect("mods_changed", self, "update")
+	RhythiaPoints.get_store().connect("changed", self, "update")
 	Rhythia.connect("favorite_songs_changed", self, "update")
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null:
@@ -194,3 +203,10 @@ func _ready():
 		$RS/H1/Info/Run.disabled = true
 		$RS/H1/Info/Control/Actions.disabled = true
 		$RS/H1/Info/Control/PreviewMusic.disabled = true
+
+
+# The RP store outlives this screen, so stop listening when it goes.
+func _exit_tree():
+	var st = RhythiaPoints.get_store()
+	if st.is_connected("changed", self, "update"):
+		st.disconnect("changed", self, "update")
