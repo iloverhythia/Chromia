@@ -56,10 +56,10 @@ var momentum: float = 0
 var size_x: int = 0
 
 func next_index():
-	return cur_map + int(floor(((page_size + 1) / 2) * 1.2))
+	return _view_of(cur_map) + int(floor(((page_size + 1) / 2) * 1.2))
 
 func prev_index():
-	return cur_map - int(floor(((page_size + 1) / 2) * 1.2))
+	return _view_of(cur_map) - int(floor(((page_size + 1) / 2) * 1.2))
 
 var _fav_set: Dictionary = {}
 func is_fav(s: Song): return _fav_set.has(s)
@@ -160,10 +160,9 @@ func _physics_process(delta):
 				call_deferred("pg_down")
 
 	if scrolling_to:
-		# Inside a pinned range the list doesn't move, so go there directly.
-		if scroll_target != cur_map and _pin_zone(scroll_target) != 0 and _pin_zone(scroll_target) == _pin_zone(cur_map):
+		# Where the list doesn't move (near its ends), go there directly.
+		if scroll_target != cur_map and _view_of(scroll_target) == _view_of(cur_map):
 			cur_map = scroll_target
-			load_pg()
 		if scroll_target < cur_map:
 			call_deferred("pg_up")
 		elif scroll_target > cur_map:
@@ -207,9 +206,13 @@ func load_pg(select_cur: bool = false):
 		page_size += 1
 
 	cur_map = clamp(cur_map, 0, disp.size() - 1)
+	if _base_margins == null:
+		_base_margins = [margin_top, margin_bottom]
+	_built_view = _view_of(cur_map)
+	var mid_slot: int = (next_index() - prev_index()) / 2
 	for i in range(prev_index(), next_index() + 1):
 		var btn: Panel = make_song_button(i)
-		btn.rect_min_size = Vector2(350, 90)
+		btn.rect_min_size = Vector2(size_x - 15 * abs(mid_slot - btns.size()), 90)
 		btns.append(btn)
 		add_child(btn)
 		btn.visible = true
@@ -481,12 +484,14 @@ func make_song_button(id: int = -1):
 		btn.get_node("Select").pressed = true
 	return btn
 
-# Near the start or end of the list, the list is pinned to the edge (see
-# _edge_target), so moving cur_map there wouldn't move anything on screen.
-# Scrolling skips over that range so every scroll step visibly moves the list.
+# The list keeps a "view" position: the map shown in the middle. Near the
+# start or end of the list the view stops moving, so the list sits flush with
+# the top or bottom edge instead of leaving empty space, and every scroll step
+# visibly moves it. cur_map can still point anywhere (it's what gets selected).
+var _built_view: int = 0
 func _pin_bounds() -> Array:
 	if _base_margins == null or disp.size() == 0:
-		return [0, disp.size() - 1]
+		return [0, max(disp.size() - 1, 0)]
 	var h: float = get_parent().rect_size.y
 	var step: float = 90.0 + get_constant("separation")
 	var center: float = (_base_margins[0] + anchor_bottom * h + _base_margins[1]) / 2.0
@@ -494,30 +499,18 @@ func _pin_bounds() -> Array:
 	var hi := int(floor(disp.size() - 1 - (h - center - 45.0) / step))
 	return [max(lo, 0), min(hi, disp.size() - 1)]
 
-func _pin_zone(i: int) -> int:
+func _view_of(i: int) -> int:
 	var b := _pin_bounds()
-	if b[0] > b[1]: return -1
-	if i < b[0]: return -1
-	if i > b[1]: return 1
-	return 0
-
-func _jump_to(i: int):
-	cur_map = i
-	$Press.play()
-	load_pg()
+	if b[0] > b[1]: return b[0]
+	return int(clamp(i, b[0], b[1]))
 
 func pg_up():
+	var v0 := _view_of(cur_map)
+	cur_map = min(cur_map, v0)
 	if cur_map <= 0: return
-	var b := _pin_bounds()
-	if b[0] > b[1]: return # the whole list fits, nothing to scroll
-	if cur_map < b[0]: return
-	if cur_map == b[0]:
-		_jump_to(max(b[0] - 1, 0))
-		return
-	if cur_map > b[1]:
-		_jump_to(b[1])
-		return
 	cur_map -= 1
+	if _view_of(cur_map) == v0: return
+	_built_view = _view_of(cur_map)
 
 	$Press.play()
 	var out: Panel = btns.pop_back()
@@ -531,17 +524,12 @@ func pg_up():
 	tween_in(btn)
 
 func pg_down():
+	var v0 := _view_of(cur_map)
+	cur_map = max(cur_map, v0)
 	if cur_map >= disp.size() - 1: return
-	var b := _pin_bounds()
-	if b[0] > b[1]: return
-	if cur_map > b[1]: return
-	if cur_map == b[1]:
-		_jump_to(min(b[1] + 1, disp.size() - 1))
-		return
-	if cur_map < b[0]:
-		_jump_to(b[0])
-		return
 	cur_map += 1
+	if _view_of(cur_map) == v0: return
+	_built_view = _view_of(cur_map)
 
 	$Press.play()
 	var out: Panel = btns.pop_front()
@@ -571,20 +559,24 @@ var _base_margins = null
 var _edge_shift: float = 0.0
 func _edge_target() -> float:
 	if disp.size() == 0: return 0.0
+	var b := _pin_bounds()
+	var v := _view_of(cur_map)
 	var h: float = get_parent().rect_size.y
 	var step: float = 90.0 + get_constant("separation")
 	var center: float = (_base_margins[0] + anchor_bottom * h + _base_margins[1]) / 2.0
-	var first_top: float = center - 45.0 - step * cur_map
-	if first_top > 0.0:
+	var first_top: float = center - 45.0 - step * v
+	if b[0] > b[1] or v <= b[0]:
 		return -first_top
-	var last_bottom: float = center + 45.0 + step * (disp.size() - 1 - cur_map)
-	if last_bottom < h:
-		return min(h - last_bottom, -first_top)
+	if v >= b[1]:
+		var last_bottom: float = center + 45.0 + step * (disp.size() - 1 - v)
+		return h - last_bottom
 	return 0.0
 
 func _apply_edge_shift():
 	if _base_margins == null:
 		_base_margins = [margin_top, margin_bottom]
+	if _view_of(cur_map) != _built_view and btns.size() > 0:
+		load_pg()
 	var target := _edge_target()
 	if abs(target - _edge_shift) < 0.5:
 		_edge_shift = target
@@ -620,7 +612,9 @@ func _input(ev: InputEvent):
 
 func handle_window_resize():
 
-	if ready: size_list()
+	if ready:
+		size_list()
+		load_pg()
 
 func firstload():
 

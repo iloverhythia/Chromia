@@ -2423,7 +2423,11 @@ func _center_mods():
 	var speed = mods.get_node_or_null("SpeedMod")
 	var row = speed.get_node_or_null("C") if speed != null else null
 	if row != null:
-		row.add_constant_override("separation", 1)
+		row.add_constant_override("separation", 3)
+		# Left-aligned, so the buttons don't drift when the % text changes.
+		row.alignment = BoxContainer.ALIGN_BEGIN
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
 	# Every row is centered on the title's middle line: the checkbox grid as
 	# one block, and each other row (sliders, speed, health model) on its own.
@@ -2433,8 +2437,31 @@ func _center_mods():
 			grid.append(c)
 	_shift_to_center(grid, mid, scale, null)
 	for c in mods.get_children():
-		if c is Control and not (c is CheckBox):
-			_shift_to_center([c], mid, scale, row if c == speed else null)
+		if c is Control and not (c is CheckBox) and c != speed:
+			_shift_to_center([c], mid, scale, null)
+	# The speed row is lined up by its <<<< to >>>> buttons, so the grid sits
+	# right between them (the % box hangs off the right end). Its buttons can
+	# get laid out again later, so it re-centers whenever that happens.
+	_mods_mid = mid
+	if row != null and not row.is_connected("sort_children", self, "_center_speed_row"):
+		row.connect("sort_children", self, "_center_speed_row", [], CONNECT_DEFERRED)
+	_center_speed_row()
+
+var _mods_mid = null
+func _center_speed_row():
+	if _mods_mid == null:
+		return
+	var speed = get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods/SpeedMod")
+	var row = speed.get_node_or_null("C") if speed != null else null
+	if row == null:
+		return
+	var span = null
+	for n in ["MMMM", "PPPP"]:
+		var b = row.get_node_or_null(n)
+		if b != null and b.visible:
+			span = b.get_global_rect() if span == null else span.merge(b.get_global_rect())
+	var scale: float = max(speed.get_global_transform().get_scale().x, 0.01)
+	_shift_to_center([speed], _mods_mid, scale, row if span == null else null, span)
 
 # Returns the drawn area after the shift.
 func _shift_to_center(nodes: Array, mid: float, scale: float, measure, given = null):
