@@ -650,6 +650,7 @@ func _exit_tree():
 	Rhythia.in_map = false
 
 func _ready():
+	print("[start] game")
 	Rhythia.in_map = true
 	_results_continue_button.connect("pressed", self, "_finish_round_results")
 	Rhythia.song_end_pause_count = 0
@@ -677,6 +678,7 @@ func _ready():
 		fl.setup($Spawn/Cursor, $Spawn)
 		add_child(fl)
 
+	print("[start] world: %s" % (Rhythia.selected_space.id if Rhythia.selected_space else "?"))
 	var spinst = Rhythia.loaded_world.instance()
 	get_parent().call_deferred("add_child", spinst)
 	spinst.name = "Space"
@@ -690,7 +692,9 @@ func _ready():
 	$Spawn.connect("timer_update", self, "update_timer")
 
 	$Spawn.connect("miss", self, "miss")
+	print("[start] loading map")
 	loadMapFile()
+	print("[start] map loaded")
 
 
 	Rhythia.update_rpc_song()

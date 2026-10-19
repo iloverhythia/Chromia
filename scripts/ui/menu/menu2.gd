@@ -2353,6 +2353,7 @@ func _ready():
 	_build_profile_ui()
 	_embed_panels_in_pages()
 	_layout_lobby_ui()
+	Rhythia._star_paused = false # paused while a song loads/plays (songload.gd)
 	_build_keybinds_settings_tab()
 	preload("res://scripts/ui/settings/BgEditor.gd").install(self)
 	load("res://scripts/ui/settings/NoteBuilder.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer"))

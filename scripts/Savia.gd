@@ -701,7 +701,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f"
 ]
 
 
@@ -758,6 +758,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-f": "- Fixed a crash when starting a map: a hidden leftover debug screen in the HUD loaded the song a second time and read its notes while the star rater could be reading them too (it is gone now, and also stops wasting FPS)\n- Star ratings pause as soon as a map starts loading\n- The log now shows every step of starting a map, so any remaining crash can be pinned down",
 	"oct19-2026-e": "- Clicking a map no longer freezes/crashes the game while its star rating is worked out: it now happens in the background (the stars show as ... for a moment)\n- Maps whose star rating crashed the game are never rated again\n- The game log (godot.log) is now written right away, so crash logs show what happened",
 	"oct19-2026-d": "- Fixed the game crashing while loading in (online maps were added to the map list from a background thread)\n- Online maps load much faster at startup\n- Hit/miss effects use CPU particles (GPU particles crash some graphics drivers)\n- Experimental: Realistic Autoplay (autoplay moves like a person)\n- Bigger Start button and score History\n- Stats tab matches the rest of the Profile panel\n- Fixed the Chromia logo being cut off",
 	"oct19-2026-a": "- Fixed crashes/hangs when quitting the game (also when quitting during loading)\n- Fixed crashes from clicking Random Map or the sidebar very fast\n- Fixed a crash when star ratings were being calculated for a map you selected\n- Song previews wait until you stop on a map, so fast clicking stays smooth",
@@ -1020,7 +1021,7 @@ var _star_req_thread: Thread = null
 var _star_req_pending = null
 
 func request_star_rating(song):
-	if song == null or _quitting or song.star_rating_known():
+	if song == null or _quitting or _star_paused or in_map or song.star_rating_known():
 		return
 	if song.is_online and (song.filePath == null or song.filePath == "" or not File.new().file_exists(song.filePath)):
 		return

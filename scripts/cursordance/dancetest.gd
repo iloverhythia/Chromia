@@ -107,10 +107,12 @@ func _ready():
 	if $Main/Music.stream != null:
 		$Main/Music.stream.loop = false
 	$Time.max_value = song.last_ms
+	Rhythia.star_mutex.lock()
 	$Main.setup(song)
+	dance = DirectionalDanceMover.new(song)
+	Rhythia.star_mutex.unlock()
 	
 	$Main.active = true
-	dance = DirectionalDanceMover.new(song)
 	update_cursor()
 	
 	yield($Buttons/StartStop/H/Start,"pressed")

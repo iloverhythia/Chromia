@@ -11,6 +11,7 @@ var black_fade: float = 0
 
 func _ready():
 	print("song loading")
+	Rhythia._star_paused = true # background star rating waits until back in the menu
 	if not Rhythia.replaying:
 		Rhythia.send_analytics_event("map_play", {"map_name": Rhythia.selected_song.name, "client_id": Rhythia.cid}, Rhythia.cid)
 	get_tree().paused = false
@@ -105,6 +106,7 @@ func finish():
 		warning_menu_exit()
 		return
 
+	print("[start] notes read, checking audio")
 	if Rhythia.selected_song.stream() == Globals.error_sound:
 		Globals.confirm_prompt.open(
 			"This map's audio appears to be broken. You can still play the map, but there won't be any music.",

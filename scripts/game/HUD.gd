@@ -769,6 +769,7 @@ func _on_lobby_state_changed_for_spectators_list():
 	_spectators_banner.text = "👁 %d watching\n%s" % [spectator_count, ", ".join(spectator_names)]
 
 func _ready():
+	print("[start] hud")
 	_setup_hud_viewports()
 	Game.connect("miss", self, "on_miss")
 	_create_spectators_banner()

@@ -469,6 +469,7 @@ func _on_networked_skip(target_ms: float):
 		music_started = true
 
 func _ready():
+	print("[start] note spawner")
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null:
 		lobby_manager.connect("skip_triggered", self, "_on_networked_skip")
@@ -549,6 +550,7 @@ func _ready():
 		_n_asq.visible = false
 
 
+	print("[start] note mesh: %s" % Rhythia.selected_mesh.path)
 	var mesh: Mesh
 	if "user://" in Rhythia.selected_mesh.path or not Rhythia.selected_mesh.path.begins_with("res://"):
 		var m = ObjParse.load_obj(Rhythia.selected_mesh.path)
@@ -577,7 +579,9 @@ func _ready():
 
 	_n_notes.multimesh.mesh = mesh
 
+	print("[start] note effects (hit %s, miss %s)" % [Rhythia.show_hit_effect, Rhythia.show_miss_effect])
 	_setup_note_effects()
+	print("[start] notes ready")
 
 
 	yield(get_tree(), "idle_frame")
