@@ -2356,7 +2356,7 @@ func _ready():
 	Rhythia._star_paused = false # paused while a song loads/plays (songload.gd)
 	_build_keybinds_settings_tab()
 	preload("res://scripts/ui/settings/BgEditor.gd").install(self)
-	load("res://scripts/ui/settings/NoteBuilder.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer"))
+	load("res://scripts/ui/settings/MeshesTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # note meshes grid + Note Builder
 	load("res://scripts/ui/settings/HitEffectSettings.gd").build(get_node_or_null("Main/Settings/S/F/TabContainer")) # hit/miss effect options (Notes tab)
 	var lang_tabs = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if lang_tabs != null and not lang_tabs.has_node("Language"):

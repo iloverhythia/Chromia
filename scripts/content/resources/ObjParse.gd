@@ -21,7 +21,8 @@ static func load_obj(obj_path:String, mtl_path:String="")->Mesh:
 	var mats := {}
 	if mtl_path!="":
 		mats=_create_mtl(get_data(mtl_path),get_mtl_tex(mtl_path))
-	return _create_obj(obj,mats) if obj and mats else null
+	# a mesh without a .mtl file still loads (with default materials)
+	return _create_obj(obj,mats) if obj else null
 
 #Create mesh from obj, materials. Materials should be {"matname":data}
 static func load_obj_from_buffer(obj_data:String,materials:Dictionary)->Mesh:
@@ -203,7 +204,7 @@ static func _create_obj(obj:String,mats:Dictionary)->Mesh:
 						var vertices_index = map.split("/")
 						if (str(vertices_index[0]) != "f"):
 							face["v"].append(int(vertices_index[0])-1)
-							face["vt"].append(int(vertices_index[1])-1)
+							face["vt"].append((int(vertices_index[1])-1) if vertices_index.size()>1 and vertices_index[1]!="" else -1)
 							if (vertices_index.size()>2):
 								face["vn"].append(int(vertices_index[2])-1)
 					if(faces.has(mat_name)):
@@ -216,7 +217,7 @@ static func _create_obj(obj:String,mats:Dictionary)->Mesh:
 						if (str(vertices_index[0]) != "f"):
 							var point = []
 							point.append(int(vertices_index[0])-1)
-							point.append(int(vertices_index[1])-1)
+							point.append((int(vertices_index[1])-1) if vertices_index.size()>1 and vertices_index[1]!="" else -1)
 							if (vertices_index.size()>2):
 								point.append(int(vertices_index[2])-1)
 							points.append(point)
@@ -252,7 +253,7 @@ static func _create_obj(obj:String,mats:Dictionary)->Mesh:
 			mats[matgroup]=SpatialMaterial.new()
 		st.set_material(mats[matgroup])
 		for face in faces[matgroup]:
-			if (face["v"].size() == 3):
+			if (face["v"].size() == 3 and face["v"][0]>=0 and face["v"][1]>=0 and face["v"][2]>=0 and face["v"][0]<vertices.size() and face["v"][1]<vertices.size() and face["v"][2]<vertices.size()):
 				# Vertices
 				var fan_v = PoolVector3Array()
 				fan_v.append(vertices[face["v"][0]])
@@ -261,21 +262,27 @@ static func _create_obj(obj:String,mats:Dictionary)->Mesh:
 
 				# Normals
 				var fan_vn = PoolVector3Array()
-				if face["vn"].size()>0:
-					fan_vn.append(normals[face["vn"][0]])
-					fan_vn.append(normals[face["vn"][2]])
-					fan_vn.append(normals[face["vn"][1]])
+				if face["vn"].size()==3:
+					for k in [0,2,1]:
+						var ni = face["vn"][k]
+						if ni>=0 and ni<normals.size():
+							fan_vn.append(normals[ni])
+					if fan_vn.size()!=3:
+						fan_vn = PoolVector3Array()
 
 				# Textures
 				var fan_vt = PoolVector2Array()
-				if face["vt"].size()>0:
+				if face["vt"].size()==3:
 					for k in [0,2,1]:
 						var f = face["vt"][k]
-						if f>-1:
-							var uv = uvs[f]
-							fan_vt.append(uv)
+						if f>-1 and f<uvs.size():
+							fan_vt.append(uvs[f])
+					if fan_vt.size()!=3:
+						fan_vt = PoolVector2Array()
 
 				st.add_triangle_fan(fan_v, fan_vt, PoolColorArray(), PoolVector2Array(), fan_vn, [])
+		if normals.size()==0:
+			st.generate_normals() # OBJ without normals: still lit properly
 		mesh = st.commit(mesh)
 	for k in mesh.get_surface_count():
 		var mat=mesh.surface_get_material(k)

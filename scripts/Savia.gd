@@ -759,6 +759,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-j": "- New Meshes tab (replaces the Note Builder tab): every note mesh as a 3D picture, search, favorites, click to use one\n- Build opens the Note Builder right inside the Meshes tab\n- Import .obj meshes from the Meshes tab\n- Custom .obj meshes without a .mtl file now actually load in game (they used to fall back to Rounded), and meshes exported facing the wrong way are no longer invisible",
 	"oct19-2026-i": "- Faster map loading: custom images (background, note, cursor...) are only decoded once instead of every song, and colorsets are no longer re-read every time a map starts\n- Hit/miss effects are stored as CPU particles (no more GPU particle shader being built and thrown away at every song start, which could crash)\n- The log shows how long each step of starting a map takes",
 	"oct19-2026-h": "- Fixed lag while playing with Rainbow HUD + Attach Timer to Grid (an error every frame)\n- Loading a map no longer writes hundreds of colorset lines to the log",
 	"oct19-2026-g": "- Fixed maps taking forever to load: starting a map waited for a background star rating to finish (minutes on huge maps). Star ratings no longer hold anything up",
@@ -855,6 +856,7 @@ var registry_border: Registry
 var selected_space: BackgroundWorld
 var selected_colorset: ColorSet
 var favorite_colorsets: Array = [] # colorset ids, shown first in the colorset picker
+var favorite_meshes: Array = [] # note mesh ids starred in the Meshes tab
 var selected_song: Song
 var selected_mesh: NoteMesh
 var selected_hit_sound: NamedSound
@@ -895,6 +897,8 @@ func select_world(world: BackgroundWorld):
 		selected_space = world
 		emit_signal("selected_space_changed", world)
 func select_mesh(mesh: NoteMesh):
+	if mesh == null:
+		return # never leave the game without a note mesh
 	selected_mesh = mesh
 	emit_signal("selected_mesh_changed", mesh)
 func select_border(b: Border):
@@ -2690,6 +2694,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			trail_gradient_enabled = bool(data.trail_gradient_enabled)
 		if data.has("trail_gradient") and typeof(data.trail_gradient) == TYPE_ARRAY:
 			trail_gradient = data.trail_gradient
+		if data.has("favorite_meshes") and typeof(data.favorite_meshes) == TYPE_ARRAY:
+			favorite_meshes = []
+			for fav_mesh in data.favorite_meshes:
+				favorite_meshes.append(str(fav_mesh))
 		if data.has("favorite_colorsets") and typeof(data.favorite_colorsets) == TYPE_ARRAY:
 			favorite_colorsets = []
 			for fav_id in data.favorite_colorsets:
@@ -3239,6 +3247,7 @@ func _write_settings_file(saveFile: String):
 			trail_gradient_enabled = trail_gradient_enabled,
 			trail_gradient = trail_gradient,
 			favorite_colorsets = favorite_colorsets,
+			favorite_meshes = favorite_meshes,
 			max_fps_mode = max_fps_mode,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,

@@ -555,7 +555,7 @@ func _ready():
 	if "user://" in Rhythia.selected_mesh.path or not Rhythia.selected_mesh.path.begins_with("res://"):
 		var m = ObjParse.load_obj(Rhythia.selected_mesh.path)
 		if m != null:
-			mesh = m
+			mesh = _double_sided(m) # imported meshes may face away from the camera
 		else:
 			mesh = load("res://assets/blocks/rounded.obj")
 	else:
@@ -1038,6 +1038,39 @@ func _process(delta: float):
 	elif Grid != null and Grid.spectating and notes_loaded:
 		reposition_notes()
 
+
+# Adds a back-facing copy of every triangle, so an imported .obj shows up even
+# when its faces were exported pointing the other way.
+func _double_sided(src: Mesh) -> Mesh:
+	if not (src is ArrayMesh):
+		return src
+	var out := ArrayMesh.new()
+	for i in range(src.get_surface_count()):
+		var arr: Array = src.surface_get_arrays(i)
+		var verts = arr[Mesh.ARRAY_VERTEX]
+		if verts == null or verts.size() == 0 or arr[Mesh.ARRAY_INDEX] != null:
+			out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+			out.surface_set_material(out.get_surface_count() - 1, src.surface_get_material(i))
+			continue
+		var n: int = verts.size() - verts.size() % 3
+		var nv := PoolVector3Array(verts)
+		var has_n: bool = arr[Mesh.ARRAY_NORMAL] != null and arr[Mesh.ARRAY_NORMAL].size() == verts.size()
+		var has_uv: bool = arr[Mesh.ARRAY_TEX_UV] != null and arr[Mesh.ARRAY_TEX_UV].size() == verts.size()
+		var nn := PoolVector3Array(arr[Mesh.ARRAY_NORMAL]) if has_n else PoolVector3Array()
+		var nuv := PoolVector2Array(arr[Mesh.ARRAY_TEX_UV]) if has_uv else PoolVector2Array()
+		for t in range(0, n, 3):
+			for k in [0, 2, 1]:
+				nv.append(verts[t + k])
+				if has_n: nn.append(-arr[Mesh.ARRAY_NORMAL][t + k])
+				if has_uv: nuv.append(arr[Mesh.ARRAY_TEX_UV][t + k])
+		var out_arr := []
+		out_arr.resize(Mesh.ARRAY_MAX)
+		out_arr[Mesh.ARRAY_VERTEX] = nv
+		if has_n: out_arr[Mesh.ARRAY_NORMAL] = nn
+		if has_uv: out_arr[Mesh.ARRAY_TEX_UV] = nuv
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out_arr)
+		out.surface_set_material(out.get_surface_count() - 1, src.surface_get_material(i))
+	return out
 
 func _load_note_effect(effect, miss: bool) -> Spatial:
 	if effect == null or not (effect is NoteEffect) or effect.path == "": return null

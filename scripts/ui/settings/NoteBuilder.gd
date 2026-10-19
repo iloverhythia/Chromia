@@ -445,10 +445,10 @@ func _use_note() -> void:
 	if not _save_now():
 		return
 	var item = Rhythia.registry_mesh.get_item(NBMesh.MESH_ID)
-	if item == null:
+	if not (item is NoteMesh):
 		NBMesh.register(Rhythia.registry_mesh)
 		item = Rhythia.registry_mesh.get_item(NBMesh.MESH_ID)
-	if item == null:
+	if not (item is NoteMesh):
 		status.text = "Couldn't register the note"
 		return
 	Rhythia.select_mesh(item)
