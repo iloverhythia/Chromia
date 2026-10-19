@@ -30,17 +30,15 @@ var font_bold: DynamicFont
 var font_title: DynamicFont
 
 var title: Label
-var build_btn: Button
 var import_btn: Button
 var browser: VBoxContainer
 var builder_box: MarginContainer
 var builder = null
 var search: LineEdit
 var all_btn: Button
-var fav_btn: Button
+var builder_btn: Button
 var status: Label
 var grid: GridContainer
-var show_favorites := false
 
 var cards := {}          # mesh id -> {panel, tex, name, star, mesh}
 var _hover_id := ""
@@ -129,18 +127,9 @@ func _ready():
 	title.add_color_override("font_color", TEXT)
 	title.size_flags_horizontal = SIZE_EXPAND_FILL
 	top.add_child(title)
-	build_btn = _button("Build", "_on_build")
-	build_btn.hint_tooltip = "Shape your own note"
-	top.add_child(build_btn)
 	import_btn = _button("Import", "_on_import")
 	import_btn.hint_tooltip = "Add .obj meshes"
 	top.add_child(import_btn)
-
-	# ---- browser
-	browser = VBoxContainer.new()
-	browser.size_flags_vertical = SIZE_EXPAND_FILL
-	browser.add_constant_override("separation", 10)
-	root.add_child(browser)
 
 	search = LineEdit.new()
 	search.placeholder_text = "Search meshes"
@@ -150,15 +139,24 @@ func _ready():
 	search.add_stylebox_override("focus", _content(_flat(Color(0.13, 0.125, 0.165, 1), 8, LILAC, 1)))
 	search.add_color_override("font_color", TEXT)
 	search.connect("text_changed", self, "_on_search")
-	browser.add_child(search)
+	root.add_child(search)
 
-	var filters = HBoxContainer.new()
-	filters.add_constant_override("separation", 8)
-	browser.add_child(filters)
-	all_btn = _filter_button("_on_filter", false)
-	filters.add_child(all_btn)
-	fav_btn = _filter_button("_on_filter", true)
-	filters.add_child(fav_btn)
+	# tabs: all meshes (favorites first) / the Mesh Builder
+	var tabs = HBoxContainer.new()
+	tabs.add_constant_override("separation", 8)
+	root.add_child(tabs)
+	all_btn = _filter_button("_show_builder", false)
+	tabs.add_child(all_btn)
+	builder_btn = _filter_button("_show_builder", true)
+	builder_btn.text = "Mesh Builder"
+	builder_btn.hint_tooltip = "Shape your own note"
+	tabs.add_child(builder_btn)
+
+	# ---- browser
+	browser = VBoxContainer.new()
+	browser.size_flags_vertical = SIZE_EXPAND_FILL
+	browser.add_constant_override("separation", 10)
+	root.add_child(browser)
 
 	status = Label.new()
 	status.add_font_override("font", font_regular)
@@ -263,8 +261,20 @@ func _sorted_meshes() -> Array:
 	arr.sort_custom(self, "_by_name")
 	return arr
 
+# starred meshes first, then everything else; both by name
 func _by_name(a, b) -> bool:
+	var fa = Rhythia.favorite_meshes.has(String(a.id))
+	var fb = Rhythia.favorite_meshes.has(String(b.id))
+	if fa != fb:
+		return fa
 	return String(a.name).to_lower() < String(b.name).to_lower()
+
+func _reorder():
+	var i = 0
+	for m in _sorted_meshes():
+		if cards.has(m.id) and is_instance_valid(cards[m.id].panel):
+			grid.move_child(cards[m.id].panel, i)
+			i += 1
 
 func _rebuild_cards():
 	for c in grid.get_children():
@@ -328,7 +338,30 @@ func _make_card(m):
 	wrap.add_child(star)
 
 	cards[m.id] = {"panel": panel, "tex": tex, "name": name_l, "star": star, "mesh": m}
+	panel.connect("resized", self, "_fit_name", [m.id])
 	_request_thumb(m)
+
+# Long names end in "..." instead of being cut off on both sides.
+func _fit_name(id):
+	if not cards.has(id):
+		return
+	var c = cards[id]
+	if not is_instance_valid(c.name):
+		return
+	var full = String(c.mesh.name)
+	var avail = c.panel.rect_size.x - 16
+	if avail <= 0 or font_bold.get_string_size(full).x <= avail:
+		c.name.text = full
+		return
+	var lo = 0
+	var hi = full.length()
+	while lo < hi:
+		var mid = (lo + hi + 1) / 2
+		if font_bold.get_string_size(full.substr(0, mid).strip_edges() + "…").x <= avail:
+			lo = mid
+		else:
+			hi = mid - 1
+	c.name.text = full.substr(0, lo).strip_edges() + "…"
 
 func _update_styles():
 	var sel_id = Rhythia.selected_mesh.id if Rhythia.selected_mesh != null else ""
@@ -349,21 +382,13 @@ func _update_styles():
 func _apply_filter():
 	var q = search.text.strip_edges().to_lower() if search != null else ""
 	var total = 0
-	var favs = 0
 	for id in cards:
 		var c = cards[id]
-		var is_fav = Rhythia.favorite_meshes.has(String(id))
 		total += 1
-		if is_fav:
-			favs += 1
-		var show = (q == "" or String(c.mesh.name).to_lower().find(q) != -1)
-		if show_favorites and not is_fav:
-			show = false
-		c.panel.visible = show
+		c.panel.visible = (q == "" or String(c.mesh.name).to_lower().find(q) != -1)
 	all_btn.text = "All (%d)" % total
-	fav_btn.text = "Favorite (%d)" % favs
-	all_btn.pressed = not show_favorites
-	fav_btn.pressed = show_favorites
+	all_btn.pressed = not builder_box.visible
+	builder_btn.pressed = builder_box.visible
 
 func _relayout():
 	if grid == null or browser == null:
@@ -495,14 +520,11 @@ func _on_star(id):
 	if cards.has(id):
 		cards[id].star.fav = Rhythia.favorite_meshes.has(sid)
 	Rhythia.save_settings()
-	_apply_filter()
+	_reorder()
 
 func _on_search(_t):
 	_apply_filter()
 
-func _on_filter(favs: bool):
-	show_favorites = favs
-	_apply_filter()
 
 func _on_mesh_changed(_m):
 	_update_styles()
@@ -511,28 +533,33 @@ func _on_visibility():
 	if is_visible_in_tree():
 		_relayout()
 
-func _on_build():
-	if builder_box.visible:
-		_close_builder()
+func _show_builder(on: bool):
+	if on == builder_box.visible:
+		all_btn.pressed = not on
+		builder_btn.pressed = on
 		return
+	if on:
+		_open_builder()
+	else:
+		_close_builder()
+	all_btn.pressed = not on
+	builder_btn.pressed = on
+
+func _open_builder():
 	if builder == null:
 		builder = load("res://scripts/ui/settings/NoteBuilder.gd").new()
 		builder.name = "NoteBuilder"
 		builder_box.add_child(builder)
 	browser.visible = false
+	search.visible = false
 	builder_box.visible = true
 	import_btn.visible = false
-	title.text = ""
-	build_btn.text = "Back"
-	build_btn.hint_tooltip = "Back to all meshes"
 
 func _close_builder():
 	builder_box.visible = false
 	browser.visible = true
+	search.visible = true
 	import_btn.visible = true
-	title.text = "Meshes"
-	build_btn.text = "Build"
-	build_btn.hint_tooltip = "Shape your own note"
 	# the built note may have changed: refresh its picture
 	var nb = Rhythia.registry_mesh.get_item("note_builder")
 	if nb is NoteMesh and cards.has(nb.id):

@@ -163,7 +163,7 @@ func _ready():
 	left.add_constant_override("separation", 8)
 	hb.add_child(left)
 
-	left.add_child(_label("Note Builder", font_title, TEXT))
+	left.add_child(_label("Mesh Builder", font_title, TEXT))
 	var hint = _label("Shape your own note. It is saved automatically; press \"Use this note\" to play with it.", font_regular, DIM)
 	hint.autowrap = true
 	left.add_child(hint)
