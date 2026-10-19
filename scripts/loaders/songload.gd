@@ -91,7 +91,10 @@ func finish():
 
 
 
-	if Rhythia.selected_song.read_notes().size() == 0:
+	Rhythia.star_mutex.lock() # the background star rater may be reading this map
+	var _n_notes: int = Rhythia.selected_song.read_notes().size()
+	Rhythia.star_mutex.unlock()
+	if _n_notes == 0:
 		Globals.confirm_prompt.open(
 			"This map doesn't have any notes.",
 			"Warning",

@@ -65,5 +65,4 @@ script = ExtResource( 5 )
 [node name="MeshInstance2" type="MeshInstance" parent="WorldEnvironment"]
 transform = Transform( 80, 0.00254105, -1.11073e-10, 0, -3.49691e-06, -80, -0.00254105, 80, -3.49691e-06, 0, 100, -200 )
 mesh = SubResource( 11 )
-skeleton = NodePath("../../../../..")
 script = ExtResource( 5 )

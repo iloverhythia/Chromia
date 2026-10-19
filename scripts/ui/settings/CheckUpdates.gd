@@ -48,7 +48,7 @@ func _pressed():
 	if bool(sel):
 		Rhythia.save_settings()
 		OS.execute(OS.get_executable_path(), [], false)
-		get_tree().quit()
+		Rhythia.quit_game()
 	else:
 		text = "Restart to update"
 

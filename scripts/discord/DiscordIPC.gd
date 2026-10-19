@@ -22,7 +22,7 @@ func request_activity(details: String, state: String, assets: Dictionary, button
 		return
 	_busy = true
 	_mutex.unlock()
-	if _thread != null:
+	if _thread != null and _thread.is_active():
 		_thread.wait_to_finish()
 	_thread = Thread.new()
 	_thread.start(self, "_worker", args)
@@ -38,7 +38,7 @@ func _worker(args) -> void:
 		_mutex.unlock()
 
 func shutdown() -> void:
-	if _thread != null:
+	if _thread != null and _thread.is_active():
 		_thread.wait_to_finish()
 		_thread = null
 	_disconnect()

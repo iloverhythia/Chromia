@@ -88,6 +88,8 @@ func refresh_language_labels():
 		lbl.text = DYV_LABELS[i] if dyv and i < DYV_LABELS.size() else _default_labels[i]
 
 func press(bi: int, q: bool = false):
+	if bi < 0 or bi >= pages.size():
+		return
 	if not q: get_node("../Press").play()
 	for i in range(pages.size()):
 		pages[i].visible = i == bi
@@ -136,7 +138,7 @@ func quit():
 	get_node("../Press").play()
 	get_viewport().get_node("Menu").black_fade_target = true
 	yield(get_tree().create_timer(0.35), "timeout")
-	get_tree().quit()
+	Rhythia.quit_game()
 
 func _on_vr_status_checked():
 	$L/StartVR.visible = Rhythia.vr_available and not Rhythia.vr

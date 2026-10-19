@@ -36,7 +36,9 @@ func loadMapFile():
 
 	if map.should_reload_on_play:
 		map.setup_from_file(map.initFile, map.musicFile)
+	Rhythia.star_mutex.lock() # the background star rater may be reading this map
 	notes = map.read_notes()
+	Rhythia.star_mutex.unlock()
 	var file: File = File.new()
 	var song: AudioStream = map.stream()
 

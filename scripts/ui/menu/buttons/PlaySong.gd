@@ -37,9 +37,32 @@ func upd_mm():
 		$MenuSong.play()
 	else: $MenuSong.stop()
 
+# Selecting maps quickly (random map spam, scrolling) used to load and swap a
+# new song stream on every click. Now the preview waits until the selection
+# has stayed put for a moment, and only the last map's audio gets loaded.
+const PREVIEW_DELAY := 0.25
+var _preview_timer: SceneTreeTimer = null
+
 func upd(s=null):
+	if s == song:
+		return
+	if $Song.playing:
+		$Song.stop()
+		_preview_was_playing = true
+	_preview_timer = get_tree().create_timer(PREVIEW_DELAY)
+	_preview_timer.connect("timeout", self, "_do_upd", [_preview_timer, s])
+
+var _preview_was_playing := false
+func _do_upd(t, s):
+	if t != _preview_timer or not is_inside_tree():
+		return
+	_preview_timer = null
+	var was_playing := _preview_was_playing
+	_preview_was_playing = false
+	if Rhythia.selected_song == null:
+		return
 	if s != song:
-		if $Song.playing or (Rhythia.auto_preview_song and !has_auto_previewed):
+		if was_playing or $Song.playing or (Rhythia.auto_preview_song and !has_auto_previewed):
 			if Rhythia.auto_preview_song: has_auto_previewed = true
 			$Song.stop()
 			$MenuSong.stop()

@@ -701,7 +701,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a"
 ]
 
 
@@ -756,6 +756,7 @@ const VERSION_NOTES = {
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
 	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
+	"oct19-2026-a": "- Fixed crashes/hangs when quitting the game (also when quitting during loading)\n- Fixed crashes from clicking Random Map or the sidebar very fast\n- Fixed a crash when star ratings were being calculated for a map you selected\n- Song previews wait until you stop on a map, so fast clicking stays smooth",
 	"oct18-2026-z": "- Added Waves Classic: the earlier Waves background with the map cover in the sky",
 	"oct18-2026-y": "- Official Chromia logo for the game icon\n- Discord status shows the Chromia logo",
 	"oct18-2026-x": "- Furria is now Chromia! New name and logo\n- All 12 Rhythia backgrounds rebuilt from Rhythia's original files\n- New Hard Mode mod: smaller notes with a smaller hitbox\n- New Flashlight mod: only a circle around your cursor is visible\n- Strobe and Chaos no longer speed up with the speed mod",
@@ -982,11 +983,44 @@ func _rate_one(song):
 	song.get_star_rating()
 
 func _star_rating_finished():
-	if _star_thread:
+	if _star_thread and _star_thread.is_active():
 		_star_thread.wait_to_finish()
 		_star_thread = null
 	print("[stars] rated %d maps" % _star_progress)
 	emit_signal("star_ratings_updated")
+
+var _thumb_running: bool = false
+var _quitting: bool = false
+var star_mutex := Mutex.new()
+
+func _notification(what):
+	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
+		quit_game()
+
+# The one way the game closes (quit buttons, the quit key, the window's X).
+# Background work (map import, star ratings, thumbnails) is told to stop and
+# given a moment to finish (settings already save as they change), then the process exits
+# directly. Letting the engine tear everything down while those threads (or
+# a Discord status update) are still running is what crashed or hung on quit.
+func quit_game():
+	if _quitting:
+		return
+	_quitting = true
+	print("[quit] closing")
+	_star_quit = true
+	_thumb_quit = true
+	var deadline := OS.get_ticks_msec() + 1500
+	while OS.get_ticks_msec() < deadline and (not _star_done or _thumb_running or (not _sspm_import_done and _sspm_import_progress > 0)):
+		OS.delay_msec(10)
+	if _star_done and _star_thread and _star_thread.is_active():
+		_star_thread.wait_to_finish()
+		_star_thread = null
+	if not _thumb_running and _thumb_thread and _thumb_thread.is_active():
+		_thumb_thread.wait_to_finish()
+		_thumb_thread = null
+	if OS.has_feature("Windows"):
+		OS.kill(OS.get_process_id())
+	get_tree().quit()
 
 func _exit_tree():
 	_star_quit = true
@@ -1077,6 +1111,7 @@ func _start_thumb_builder(full: bool = true):
 		_thumb_thread = null
 
 func _thumb_builder_worker(list: Array):
+	_thumb_running = true
 	# One folder listing instead of checking each thumbnail file separately.
 	var have := {}
 	var d := Directory.new()
@@ -1104,10 +1139,11 @@ func _thumb_builder_worker(list: Array):
 			if list[i].build_thumb_file(false) != null:
 				built += 1
 		i += 1
+	_thumb_running = false
 	call_deferred("_thumb_builder_finished", built)
 
 func _thumb_builder_finished(built: int):
-	if _thumb_thread:
+	if _thumb_thread and _thumb_thread.is_active():
 		_thumb_thread.wait_to_finish()
 		_thumb_thread = null
 	print("[covers] built %d new cover thumbnails" % built)
@@ -1147,6 +1183,8 @@ func _import_sspm_worker(args: Array) -> Array:
 	var from_cache = 0
 	var from_file = 0
 	for i in range(smaps.size()):
+		if _quitting:
+			break
 		_sspm_import_progress = i + 1
 		var single_map_start = OS.get_ticks_usec()
 		var cached = caches.get(smaps[i])
@@ -1424,6 +1462,8 @@ func _log_stage(name, _extra = null):
 	_stage_start = now
 
 func _ready():
+	# Closing the window goes through quit_game() too (see there).
+	get_tree().set_auto_accept_quit(false)
 	connect("init_stage_reached", self, "_log_stage")
 	fail_asp.bus = "OtherSound"
 	call_deferred("add_child", fail_asp)
@@ -1461,7 +1501,7 @@ func _process(delta):
 	if Input.is_action_just_pressed("fullscreen"):
 		OS.window_fullscreen = not OS.window_fullscreen
 	if Input.is_action_just_pressed("quit_game"):
-		get_tree().quit()
+		quit_game()
 	if _post_death_retry_armed and Input.is_action_just_pressed("retry"):
 		_post_death_retry_armed = false
 		get_tree().change_scene("res://scenes/loaders/songload.tscn")

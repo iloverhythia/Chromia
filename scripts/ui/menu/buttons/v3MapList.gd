@@ -514,10 +514,19 @@ func tween_in(p: Panel):
 	var tween = get_tree().create_tween()
 	tween.tween_property(p, "rect_min_size", Vector2(size_x - (next_index() - prev_index()) / 2 * 10, 90), 0.2)
 
+# Runs every physics frame: eases each button toward its width. (It used to
+# start a new tween per button per frame, thousands a second, many aimed at
+# buttons that were already being freed when the list rebuilt.)
 func tween_length():
+	var mid: int = (next_index() - prev_index()) / 2
 	for i in btns.size():
-		var tween = get_tree().create_tween()
-		tween.tween_property(btns[i], "rect_min_size", Vector2(size_x - (15 * (abs((next_index() - prev_index()) / 2 - i))), 90), 0.15)
+		var b = btns[i]
+		if not is_instance_valid(b) or b.is_queued_for_deletion():
+			continue
+		var target := Vector2(size_x - 15 * abs(mid - i), 90)
+		var cur: Vector2 = b.rect_min_size
+		if cur.distance_squared_to(target) > 0.25:
+			b.rect_min_size = cur.linear_interpolate(target, 0.25)
 
 
 func _input(ev: InputEvent):

@@ -213,6 +213,16 @@ func star_rating_cached() -> float:
 func get_star_rating() -> float:
 	if _star_rating >= 0.0:
 		return _star_rating
+	# The background rater and the menu can ask for the same map at once;
+	# reading its notes from two threads at the same time could crash.
+	Rhythia.star_mutex.lock()
+	var r := _get_star_rating_locked()
+	Rhythia.star_mutex.unlock()
+	return r
+
+func _get_star_rating_locked() -> float:
+	if _star_rating >= 0.0:
+		return _star_rating
 	if is_online and (filePath == null or filePath == "" or not File.new().file_exists(filePath)):
 		return -1.0
 	var had_notes := notes.size() > 0

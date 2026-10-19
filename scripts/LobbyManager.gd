@@ -201,6 +201,10 @@ func _ensure_connected_then_send(payload: Dictionary):
 		_send(payload)
 		return
 	_pending_send_after_connect.append(payload)
+	# While the server can't be reached, keep only the newest requests
+	# instead of piling up one per click.
+	if _pending_send_after_connect.size() > 32:
+		_pending_send_after_connect = _pending_send_after_connect.slice(_pending_send_after_connect.size() - 32, _pending_send_after_connect.size() - 1)
 	if _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 		_connecting_intent = "generic"
 		_connect_socket()
@@ -413,7 +417,14 @@ func transfer_host(target_peer_id: int):
 	_send({"type": "transfer_host", "peer_id": target_peer_id})
 
 
+var _last_connect_try: int = -100000
 func _connect_socket() -> bool:
+	# Background requests (map info etc.) retry at most every 2 s while the
+	# server is unreachable; joining/creating a lobby always tries right away.
+	var now := OS.get_ticks_msec()
+	if _connecting_intent == "generic" and now - _last_connect_try < 2000:
+		return false
+	_last_connect_try = now
 	var err = _client.connect_to_url(SERVER_URL)
 	if err != OK:
 		if _connecting_intent == "create" or _connecting_intent == "join":
@@ -730,6 +741,7 @@ func _start_map_publish(song_id: String):
 	_map_publish_last_progress_msec = OS.get_ticks_msec()
 	if _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 		_connecting_intent = "generic"
+		_last_connect_try = -100000 # publishing isn't rate-limited
 		_connect_socket()
 
 var _map_publish_next_attempt_msec: int = 0

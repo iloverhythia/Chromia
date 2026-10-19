@@ -11,8 +11,15 @@ var _grid: GridContainer
 var _most_played: VBoxContainer
 var _since: Label
 
+# Fonts are made once and reused (each new DynamicFont builds its own glyph
+# textures, and refresh() used to make ~40 of them every time the page opened).
+var _fonts := {}
 func _font(size: int, bold: bool) -> DynamicFont:
+	var key := "%d_%s" % [size, bold]
+	if _fonts.has(key):
+		return _fonts[key]
 	var f := DynamicFont.new()
+	_fonts[key] = f
 	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf" if bold else "res://assets/font/Lato/Lato-Regular.ttf")
 	f.size = size
 	return f
@@ -60,9 +67,25 @@ func _ready():
 	connect("visibility_changed", self, "_on_visibility_changed")
 	refresh()
 
+# Opening the page refreshes it once it has stayed open for a moment, and at
+# most every few seconds, so clicking quickly through the sidebar is cheap
+# (the refresh reads every personal-best file from disk).
+const REFRESH_EVERY_MS := 5000
+var _last_refresh := -100000
+var _refresh_timer: SceneTreeTimer = null
 func _on_visibility_changed():
-	if is_visible_in_tree():
-		refresh()
+	if not is_visible_in_tree():
+		return
+	if OS.get_ticks_msec() - _last_refresh < REFRESH_EVERY_MS:
+		return
+	_refresh_timer = get_tree().create_timer(0.15)
+	_refresh_timer.connect("timeout", self, "_delayed_refresh", [_refresh_timer])
+
+func _delayed_refresh(t):
+	if t != _refresh_timer or not is_inside_tree() or not is_visible_in_tree():
+		return
+	_refresh_timer = null
+	refresh()
 
 func _tile(value: String, label: String):
 	var panel := PanelContainer.new()
@@ -106,6 +129,7 @@ func _pct(a: float, b: float) -> String:
 func refresh():
 	if _grid == null:
 		return
+	_last_refresh = OS.get_ticks_msec()
 	for c in _grid.get_children():
 		c.queue_free()
 	for c in _most_played.get_children():
