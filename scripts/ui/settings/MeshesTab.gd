@@ -29,6 +29,11 @@ const MEM_KEY = "chromia_mesh_thumbs"
 var font_regular: DynamicFont
 var font_bold: DynamicFont
 var font_title: DynamicFont
+var font_small: DynamicFont
+var _rename_popup: PopupPanel
+var _rename_edit: LineEdit
+var _rename_id := ""
+var _meshes_dirty := false
 
 var title: Label
 var import_btn: Button
@@ -109,6 +114,7 @@ func _ready():
 	font_regular = _font("res://assets/font/Lato/Lato-Regular.ttf", 16)
 	font_bold = _font("res://assets/font/Lato/Lato-Bold.ttf", 16)
 	font_title = _font("res://assets/font/Lato/Lato-Black.ttf", 22)
+	font_small = _font("res://assets/font/Lato/Lato-Bold.ttf", 13)
 
 	add_constant_override("margin_left", 40)
 	add_constant_override("margin_right", 40)
@@ -343,6 +349,20 @@ func _make_card(m):
 	star.connect("pressed", self, "_on_star", [m.id])
 	wrap.add_child(star)
 
+	# Edit: builder meshes open in the Mesh Builder, others get renamed
+	var edit = Button.new()
+	edit.text = "Edit" if NBMesh.slot_of(String(m.id)) != null else "Rename"
+	edit.focus_mode = Control.FOCUS_NONE
+	edit.flat = true
+	edit.add_font_override("font", font_small)
+	edit.add_color_override("font_color", DIM)
+	edit.add_color_override("font_color_hover", ACCENT)
+	edit.margin_left = 6
+	edit.margin_top = 4
+	edit.hint_tooltip = "Edit this mesh in the Mesh Builder" if edit.text == "Edit" else "Change this mesh's name"
+	edit.connect("pressed", self, "_on_edit", [m.id])
+	wrap.add_child(edit)
+
 	cards[m.id] = {"panel": panel, "tex": tex, "name": name_l, "star": star, "mesh": m}
 	panel.connect("resized", self, "_fit_name", [m.id])
 	# "resized" doesn't fire for a card the grid gives exactly its minimum width
@@ -558,6 +578,7 @@ func _open_builder():
 		builder = load("res://scripts/ui/settings/NoteBuilder.gd").new()
 		builder.name = "NoteBuilder"
 		builder_box.add_child(builder)
+		builder.connect("meshes_changed", self, "_on_builder_meshes_changed")
 	browser.visible = false
 	search.visible = false
 	builder_box.visible = true
@@ -572,10 +593,88 @@ func _close_builder():
 	# or the picture below is made from the old file
 	if builder != null and is_instance_valid(builder) and builder._save_timer > 0.0:
 		builder._save_now()
-	# the built note may have changed: refresh its picture
-	var nb = Rhythia.registry_mesh.get_item("note_builder")
-	if nb is NoteMesh and cards.has(nb.id):
-		_request_thumb(nb)
+	# meshes may have been added, renamed or deleted: rebuild the grid
+	# (pictures of changed meshes are redrawn: they're keyed on the file's time)
+	if _meshes_dirty:
+		_meshes_dirty = false
+		_rebuild_cards()
+	else:
+		for id in cards:
+			if NBMesh.slot_of(String(id)) != null:
+				_request_thumb(cards[id].mesh)
+
+func _on_builder_meshes_changed():
+	_meshes_dirty = true
+
+func _on_edit(id):
+	var sid = String(id)
+	var slot = NBMesh.slot_of(sid)
+	if slot != null:
+		_show_builder(true)
+		if builder != null:
+			builder.edit_slot(slot)
+		return
+	var m = Rhythia.registry_mesh.get_item(sid)
+	if not (m is NoteMesh):
+		return
+	if _rename_popup == null:
+		_rename_popup = PopupPanel.new()
+		_rename_popup.add_stylebox_override("panel", _flat(Color(0.1, 0.095, 0.13, 1), 10, LILAC, 1))
+		var h = HBoxContainer.new()
+		h.add_constant_override("separation", 8)
+		_rename_popup.add_child(h)
+		_rename_edit = LineEdit.new()
+		_rename_edit.rect_min_size = Vector2(260, 34)
+		_rename_edit.add_font_override("font", font_regular)
+		_rename_edit.connect("text_entered", self, "_on_rename_done")
+		h.add_child(_rename_edit)
+		var ok = _button("Save", "_on_rename_done")
+		h.add_child(ok)
+		add_child(_rename_popup)
+	_rename_id = sid
+	_rename_edit.text = m.name
+	_rename_popup.popup_centered(Vector2(420, 54))
+	_rename_edit.grab_focus()
+	_rename_edit.select_all()
+
+func _on_rename_done(_t = null):
+	var n = _rename_edit.text.strip_edges()
+	_rename_popup.hide()
+	var m = Rhythia.registry_mesh.get_item(_rename_id)
+	if n == "" or not (m is NoteMesh):
+		return
+	m.name = n
+	var names = load_name_overrides()
+	names[_rename_id] = n
+	var f = File.new()
+	if f.open(Globals.p(NAMES_FILE), File.WRITE) == OK:
+		f.store_string(to_json(names))
+		f.close()
+	if cards.has(_rename_id):
+		cards[_rename_id].panel.hint_tooltip = "%s\nby %s" % [m.name, m.creator]
+		_fit_name(_rename_id)
+	_reorder()
+
+# Names you gave meshes (other than builder meshes, which keep their own name).
+const NAMES_FILE = "user://mesh_names.json"
+static func load_name_overrides() -> Dictionary:
+	var f = File.new()
+	if f.open(Globals.p(NAMES_FILE), File.READ) == OK:
+		var res = JSON.parse(f.get_as_text())
+		f.close()
+		if res.error == OK and typeof(res.result) == TYPE_DICTIONARY:
+			return res.result
+	return {}
+
+# Called from Savia.register_meshes().
+static func apply_name_overrides(registry) -> void:
+	if registry == null:
+		return
+	var names = load_name_overrides()
+	for id in names:
+		var m = registry.get_item(String(id))
+		if m is NoteMesh and typeof(names[id]) == TYPE_STRING and names[id].strip_edges() != "":
+			m.name = names[id]
 
 func _on_import():
 	if Globals.file_sel == null:

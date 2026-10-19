@@ -704,7 +704,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o"
 ]
 
 
@@ -761,6 +761,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-o": "- Colorset Maker: add as many colors as you want (they wrap into rows)\n- Mesh Builder: give meshes a name, save as many as you want (New mesh), edit any saved one (Edit on its card in the Meshes tab) and delete them\n- Meshes tab: Rename any other mesh\n- Custom BG Color (World & Cursor): a solid color for the Custom Background world, or a tint over your image",
 	"oct19-2026-n": "- Fixed starting a map freezing (Not Responding) while star ratings were being worked out in the background: maps now only wait if that exact map is being read, and giant maps (100k+ notes) are no longer star-rated\n- Fixed the Modifiers block being off-center / overlapping Best Attempt when the game first opens",
 	"oct19-2026-m": "- The Update Log shows the notes for the last few updates again",
 	"oct19-2026-l": "- Big bug sweep:\n- Settings changed right before quitting are saved again (they were lost on Windows)\n- Fixed hangs: broken map files at song start, bad values in settings.json at startup, cut-off replay files, short replays, the map list staying empty after a song with the server down\n- Star ratings are 10-50x faster on big/spam maps, and colorsets load in a blink instead of seconds\n- Online maps no longer disappear after Reload Content\n- Music stays in sync after unpausing when you use a music offset\n- Hit/miss effects in 360 mode show at the right spot; Exponential hit FOV no longer goes crazy\n- Replays: pause works with one press; failed replay files no longer spam errors\n- Random map no longer scrolls back to the last clicked map; menu loads faster (stats aren't rebuilt every time)\n- Meshes tab: imports from the meshes folder aren't deleted, .OBJ files load, builder picture updates; Max FPS mode really removes the cap\n- Lobby: no more stuck Connecting/Uploading, notes read safely when a match starts\n- Lots of smaller fixes",
@@ -863,6 +864,8 @@ var selected_space: BackgroundWorld
 var selected_colorset: ColorSet
 var favorite_colorsets: Array = [] # colorset ids, shown first in the colorset picker
 var favorite_meshes: Array = [] # note mesh ids starred in the Meshes tab
+# Custom Background world: solid color without an image, tint with one (white = no change)
+var custombg_color: Color = Color(1, 1, 1)
 var selected_song: Song
 var selected_mesh: NoteMesh
 var selected_hit_sound: NamedSound
@@ -2763,6 +2766,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			trail_gradient_enabled = bool(data.trail_gradient_enabled)
 		if data.has("trail_gradient") and typeof(data.trail_gradient) == TYPE_ARRAY:
 			trail_gradient = data.trail_gradient
+		if data.has("custombg_color") and typeof(data.custombg_color) == TYPE_STRING and data.custombg_color.is_valid_html_color():
+			custombg_color = Color(data.custombg_color)
 		if data.has("favorite_meshes") and typeof(data.favorite_meshes) == TYPE_ARRAY:
 			favorite_meshes = []
 			for fav_mesh in data.favorite_meshes:
@@ -3317,6 +3322,7 @@ func _write_settings_file(saveFile: String):
 			trail_gradient = trail_gradient,
 			favorite_colorsets = favorite_colorsets,
 			favorite_meshes = favorite_meshes,
+			custombg_color = custombg_color.to_html(false),
 			max_fps_mode = max_fps_mode,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
@@ -3927,6 +3933,7 @@ func register_meshes():
 					user_mesh_dir.plus_file(mesh_name), "???"
 				))
 			mesh_name = dir.get_next()
+	load("res://scripts/ui/settings/MeshesTab.gd").apply_name_overrides(registry_mesh) # names given in the Meshes tab
 func register_effects():
 	registry_effect.add_item(NoteEffect.new(
 		"ssp_ripple", "Ripple* (no color)", "res://assets/notefx/ripple/ripple.tscn", "Chedski"

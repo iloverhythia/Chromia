@@ -50,6 +50,11 @@ var wire_check: CheckBox
 var status: Label
 var stats_label: Label
 var use_btn: Button
+var name_edit: LineEdit
+var delete_btn: Button
+var slot := ""          # which saved mesh is being edited ("" = the first one)
+var mesh_name := ""
+signal meshes_changed   # a mesh was added, renamed or deleted
 
 var _dirty := true
 var _save_timer := -1.0
@@ -145,7 +150,8 @@ func _ready():
 	font_regular = _font("res://assets/font/Lato/Lato-Regular.ttf", 18)
 	font_bold = _font("res://assets/font/Lato/Lato-Bold.ttf", 18)
 	font_title = _font("res://assets/font/Lato/Lato-Black.ttf", 22)
-	params = NBMesh.load_params()
+	params = NBMesh.load_params(slot)
+	mesh_name = NBMesh.load_name(slot)
 
 	add_constant_override("margin_left", 60)
 	add_constant_override("margin_right", 60)
@@ -167,6 +173,24 @@ func _ready():
 	var hint = _label("Shape your own note. It is saved automatically; press \"Use this note\" to play with it.", font_regular, DIM)
 	hint.autowrap = true
 	left.add_child(hint)
+
+	var nrow = HBoxContainer.new()
+	nrow.add_constant_override("separation", 8)
+	var nl = _label("Name")
+	nl.rect_min_size = Vector2(60, 32)
+	nrow.add_child(nl)
+	name_edit = LineEdit.new()
+	name_edit.size_flags_horizontal = SIZE_EXPAND_FILL
+	name_edit.rect_min_size = Vector2(0, 32)
+	name_edit.text = mesh_name
+	name_edit.add_font_override("font", font_regular)
+	name_edit.connect("text_changed", self, "_on_name_changed")
+	nrow.add_child(name_edit)
+	nrow.add_child(_button("New mesh", "_new_mesh"))
+	delete_btn = _button("Delete", "_delete_mesh")
+	nrow.add_child(delete_btn)
+	delete_btn.disabled = slot == ""
+	left.add_child(nrow)
 
 	for spec in SLIDERS:
 		if spec.size() == 1:
@@ -260,8 +284,8 @@ func _ready():
 	_rebuild()
 	# make sure the registered mesh file exists so selecting it always works
 	var f = File.new()
-	if not f.file_exists(NBMesh.obj_path()):
-		NBMesh.save(params)
+	if not f.file_exists(NBMesh.obj_path(slot)):
+		NBMesh.save(params, null, slot, mesh_name)
 	_update_status()
 
 func _build_preview(vpc: ViewportContainer) -> void:
@@ -419,7 +443,7 @@ func _rebuild() -> void:
 
 func _save_now() -> bool:
 	_save_timer = -1.0
-	var err = NBMesh.save(params)
+	var err = NBMesh.save(params, null, slot, mesh_name)
 	if err != OK:
 		if status: status.text = "Couldn't save the note (error %d)" % err
 		return false
@@ -427,7 +451,7 @@ func _save_now() -> bool:
 	return true
 
 func _is_selected() -> bool:
-	return Rhythia.selected_mesh != null and Rhythia.selected_mesh.id == NBMesh.MESH_ID
+	return Rhythia.selected_mesh != null and Rhythia.selected_mesh.id == NBMesh.mesh_id(slot)
 
 func _update_status() -> void:
 	if status == null:
@@ -444,10 +468,7 @@ func _update_status() -> void:
 func _use_note() -> void:
 	if not _save_now():
 		return
-	var item = Rhythia.registry_mesh.get_item(NBMesh.MESH_ID)
-	if not (item is NoteMesh):
-		NBMesh.register(Rhythia.registry_mesh)
-		item = Rhythia.registry_mesh.get_item(NBMesh.MESH_ID)
+	var item = _registry_item()
 	if not (item is NoteMesh):
 		status.text = "Couldn't register the note"
 		return
@@ -457,12 +478,78 @@ func _use_note() -> void:
 
 func _open_folder() -> void:
 	var d = Directory.new()
-	if not d.dir_exists(NBMesh.dir_path()):
-		d.make_dir_recursive(NBMesh.dir_path())
-	OS.shell_open(ProjectSettings.globalize_path(NBMesh.dir_path()))
+	if not d.dir_exists(NBMesh.dir_path(slot)):
+		d.make_dir_recursive(NBMesh.dir_path(slot))
+	OS.shell_open(ProjectSettings.globalize_path(NBMesh.dir_path(slot)))
 
 func _exit_tree():
 	# don't lose the last change if the menu closes before the debounce fires
 	if _save_timer > 0.0:
-		NBMesh.save(params)
+		NBMesh.save(params, null, slot, mesh_name)
 		_save_timer = -1.0
+
+# ------------------------------------------------------------- saved meshes
+
+# The registry entry for the mesh being edited (added if it isn't there yet).
+func _registry_item():
+	var id = NBMesh.mesh_id(slot)
+	var item = Rhythia.registry_mesh.get_item(id)
+	if not (item is NoteMesh):
+		item = NoteMesh.new(id, mesh_name, NBMesh.obj_path(slot), "You")
+		Rhythia.registry_mesh.add_item(item)
+		emit_signal("meshes_changed")
+	return item
+
+# Opens a saved mesh for editing (called from the Meshes tab).
+func edit_slot(new_slot: String) -> void:
+	if _save_timer > 0.0:
+		_save_now()
+	slot = new_slot
+	params = NBMesh.load_params(slot)
+	mesh_name = NBMesh.load_name(slot)
+	if name_edit:
+		name_edit.text = mesh_name
+	if delete_btn:
+		delete_btn.disabled = slot == ""
+		delete_btn.hint_tooltip = "The first builder mesh can't be deleted" if slot == "" else "Delete this mesh"
+	_apply_params_to_ui()
+	_dirty = true
+	_update_status()
+
+func _on_name_changed(t: String) -> void:
+	mesh_name = t
+	var item = Rhythia.registry_mesh.get_item(NBMesh.mesh_id(slot))
+	if item is NoteMesh and t.strip_edges() != "":
+		item.name = t.strip_edges()
+	_changed()
+	emit_signal("meshes_changed")
+
+func _new_mesh() -> void:
+	if _save_timer > 0.0:
+		_save_now()
+	var ns = NBMesh.new_slot()
+	var nm = "%s (copy)" % mesh_name if mesh_name != "" else "Custom Mesh"
+	if NBMesh.save(params, null, ns, nm) != OK:
+		status.text = "Couldn't create a new mesh"
+		return
+	edit_slot(ns)
+	_registry_item()
+	status.text = "New mesh made from the current shape. Change it and give it a name."
+	emit_signal("meshes_changed")
+
+func _delete_mesh() -> void:
+	if slot == "":
+		return
+	var id = NBMesh.mesh_id(slot)
+	var was_selected = Rhythia.selected_mesh != null and Rhythia.selected_mesh.id == id
+	_save_timer = -1.0
+	NBMesh.delete_slot(slot)
+	Rhythia.registry_mesh.check_and_remove_id(id)
+	if was_selected:
+		var def = Rhythia.registry_mesh.get_item("ssp_rounded")
+		if def is NoteMesh:
+			Rhythia.select_mesh(def)
+			Rhythia.save_settings()
+	edit_slot("")
+	status.text = "Mesh deleted."
+	emit_signal("meshes_changed")

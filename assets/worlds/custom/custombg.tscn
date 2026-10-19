@@ -18,6 +18,7 @@ environment = SubResource( 5 )
 code = "shader_type canvas_item;
 
 uniform sampler2D tex;
+uniform vec4 tint : hint_color = vec4(1.0);
 
 vec4 cc(vec4 v) {
 	return vec4(
@@ -58,6 +59,7 @@ void fragment() {
 		st = ((vec2(-1.0)*unit.xy)/abs(unit.z)+1.0)/2.0;
 		COLOR = cc(texture(tex, st));
 	}
+	COLOR.rgb *= cc(tint).rgb;
 }"
 
 [sub_resource type="ShaderMaterial" id=4]

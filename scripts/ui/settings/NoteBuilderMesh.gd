@@ -28,11 +28,73 @@ const DEFAULTS = {
 	"bulge": 0.0,
 }
 
-static func dir_path() -> String:
-	return Globals.p(DIR)
+# Several meshes can be saved. The first one (slot "") lives in
+# user://note_builder/ with the id "note_builder" (as before); every other one
+# in user://note_builder/meshes/<slot>/ with the id "nb_<slot>". Each folder
+# has note.obj, note.mtl and params.json (shape + "name").
+const SLOTS_DIR = "meshes"
 
-static func obj_path() -> String:
-	return Globals.p(DIR).plus_file(OBJ_FILE)
+static func dir_path(slot: String = "") -> String:
+	if slot == "":
+		return Globals.p(DIR)
+	return Globals.p(DIR).plus_file(SLOTS_DIR).plus_file(slot)
+
+static func obj_path(slot: String = "") -> String:
+	return dir_path(slot).plus_file(OBJ_FILE)
+
+static func mesh_id(slot: String = "") -> String:
+	return MESH_ID if slot == "" else "nb_" + slot
+
+# The slot a NoteMesh id belongs to, or null if it isn't a builder mesh.
+static func slot_of(id: String):
+	if id == MESH_ID:
+		return ""
+	if id.begins_with("nb_"):
+		return id.substr(3)
+	return null
+
+static func list_slots() -> Array:
+	var out := []
+	var d := Directory.new()
+	if d.open(Globals.p(DIR).plus_file(SLOTS_DIR)) == OK:
+		d.list_dir_begin(true, true)
+		var n := d.get_next()
+		while n != "":
+			if d.current_is_dir() and File.new().file_exists(obj_path(n)):
+				out.append(n)
+			n = d.get_next()
+		d.list_dir_end()
+	out.sort()
+	return out
+
+static func new_slot() -> String:
+	var i := 1
+	var d := Directory.new()
+	while d.dir_exists(dir_path("mesh_%d" % i)):
+		i += 1
+	return "mesh_%d" % i
+
+static func load_name(slot: String = "") -> String:
+	var f := File.new()
+	var path: String = dir_path(slot).plus_file(PARAMS_FILE)
+	if f.file_exists(path) and f.open(path, File.READ) == OK:
+		var res := JSON.parse(f.get_as_text())
+		f.close()
+		if res.error == OK and typeof(res.result) == TYPE_DICTIONARY and typeof(res.result.get("name")) == TYPE_STRING:
+			var n: String = res.result.name.strip_edges()
+			if n != "":
+				return n
+	return MESH_NAME if slot == "" else "Custom (%s)" % slot.replace("_", " ")
+
+static func delete_slot(slot: String) -> void:
+	if slot == "":
+		return
+	var d := Directory.new()
+	var base := dir_path(slot)
+	for f in [OBJ_FILE, MTL_FILE, PARAMS_FILE, OBJ_FILE + ".tmp"]:
+		if d.file_exists(base.plus_file(f)):
+			d.remove(base.plus_file(f))
+	d.remove(base)
 
 static func sanitize(p) -> Dictionary:
 	var out := DEFAULTS.duplicate()
@@ -48,9 +110,9 @@ static func sanitize(p) -> Dictionary:
 	out.bulge = clamp(out.bulge, 0.0, 1.0)
 	return out
 
-static func load_params() -> Dictionary:
+static func load_params(slot: String = "") -> Dictionary:
 	var f := File.new()
-	var path: String = Globals.p(DIR).plus_file(PARAMS_FILE)
+	var path: String = dir_path(slot).plus_file(PARAMS_FILE)
 	if f.file_exists(path) and f.open(path, File.READ) == OK:
 		var txt := f.get_as_text()
 		f.close()
@@ -63,7 +125,9 @@ static func load_params() -> Dictionary:
 static func register(registry) -> void:
 	if registry == null:
 		return
-	registry.add_item(NoteMesh.new(MESH_ID, MESH_NAME, obj_path(), "You"))
+	registry.add_item(NoteMesh.new(MESH_ID, load_name(""), obj_path(), "You"))
+	for slot in list_slots():
+		registry.add_item(NoteMesh.new(mesh_id(slot), load_name(slot), obj_path(slot), "You"))
 
 # ---------------------------------------------------------------- geometry
 
@@ -289,12 +353,12 @@ static func to_obj(data: Dictionary) -> String:
 	return out.join("\n") + "\n"
 
 # Saves params + OBJ/MTL. Returns OK or an error code.
-static func save(params: Dictionary, data = null) -> int:
+static func save(params: Dictionary, data = null, slot: String = "", mesh_name: String = "") -> int:
 	var p := sanitize(params)
 	if data == null:
 		data = build(p)
 	var d := Directory.new()
-	var base := dir_path()
+	var base := dir_path(slot)
 	if not d.dir_exists(base):
 		var e := d.make_dir_recursive(base)
 		if e != OK:
@@ -312,14 +376,16 @@ static func save(params: Dictionary, data = null) -> int:
 		return err
 	f.store_string(to_obj(data))
 	f.close()
-	if d.file_exists(obj_path()):
-		d.remove(obj_path())
-	err = d.rename(tmp, obj_path())
+	if d.file_exists(obj_path(slot)):
+		d.remove(obj_path(slot))
+	err = d.rename(tmp, obj_path(slot))
 	if err != OK:
 		return err
 	err = f.open(base.plus_file(PARAMS_FILE), File.WRITE)
 	if err != OK:
 		return err
-	f.store_string(to_json(p))
+	var saved := p.duplicate()
+	saved["name"] = mesh_name if mesh_name.strip_edges() != "" else load_name(slot)
+	f.store_string(to_json(saved))
 	f.close()
 	return OK

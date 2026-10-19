@@ -4,11 +4,11 @@ extends VBoxContainer
 # files in user://colorsets (one color per line, "m" = mirror), the same format
 # the game already loads custom colorsets from.
 
-const MAX_COLORS = 16
+const COLORS_PER_ROW = 16 # no limit on colors; they wrap into rows
 
 var font: Font
 var name_edit: LineEdit
-var colors_box: HBoxContainer
+var colors_box: GridContainer
 var mirror_box: CheckBox
 var status: Label
 var pickers: Array = []
@@ -46,7 +46,8 @@ func _ready():
 
 	var row2 = HBoxContainer.new()
 	row2.add_child(_label("Colors"))
-	colors_box = HBoxContainer.new()
+	colors_box = GridContainer.new()
+	colors_box.columns = COLORS_PER_ROW
 	row2.add_child(colors_box)
 	row2.add_child(_button("+", "_add_color", [Color(1, 1, 1)]))
 	row2.add_child(_button("-", "_remove_color"))
@@ -64,8 +65,6 @@ func _ready():
 	name_edit.text = ""
 
 func _add_color(c: Color = Color(1, 1, 1)):
-	if pickers.size() >= MAX_COLORS:
-		return
 	var p = ColorPickerButton.new()
 	p.color = c
 	p.edit_alpha = false

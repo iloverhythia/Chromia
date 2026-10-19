@@ -8,7 +8,17 @@ func _ready():
 		sky.panorama = pano
 	else:
 		var img = Globals.imageLoader.load_if_exists("user://custombg")
+		var col: Color = Rhythia.custombg_color
 		if img: $V/R.material.set_shader_param("tex",img)
+		elif col != Color(1, 1, 1):
+			# no image + a color picked: a solid color background
+			var white = Image.new()
+			white.create(1, 1, false, Image.FORMAT_RGB8)
+			white.fill(Color(1, 1, 1))
+			var wt = ImageTexture.new()
+			wt.create_from_image(white, 0)
+			$V/R.material.set_shader_param("tex", wt)
+		$V/R.material.set_shader_param("tint", col)
 	# Shaders
 	if Rhythia.glow > 0:
 		env.glow_enabled = true
