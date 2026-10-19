@@ -62,6 +62,16 @@ func _rebuild_data_label(map: Song):
 		if best != null:
 			rp_line += "  (best %d)" % int(round(float(best.rp)))
 		lines.append(rp_line)
+	# how much you've played this map
+	var st: Dictionary = Rhythia.get_lifetime_stats()
+	var plays := int(st.get("map_plays", {}).get(String(map.id), 0))
+	if plays > 0:
+		var mt = st.get("map_time", {})
+		var ms := int(mt.get(String(map.id), 0)) if mt is Dictionary else 0
+		var line := "Played %d time%s" % [plays, "" if plays == 1 else "s"]
+		if ms > 0:
+			line += " · " + load("res://scripts/ui/menu/menu2.gd")._fmt_duration(ms)
+		lines.append(line)
 	$RS/H1/Info/XP.text = lines.join("\n")
 	$RS/H1/Info/XP.visible = lines.size() > 0
 

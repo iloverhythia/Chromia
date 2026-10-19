@@ -488,6 +488,19 @@ func _build_profile_ui():
 	rp_total_label.mouse_filter = Control.MOUSE_FILTER_PASS
 	pvbox.add_child(rp_total_label)
 
+	var time_label = Label.new()
+	time_label.theme = ui_theme
+	var ms = int(Rhythia.get_lifetime_stats().get("play_time_ms", 0))
+	time_label.text = "Time played: %s" % _fmt_duration(ms)
+	time_label.hint_tooltip = "Time spent actually playing maps (since stats started being tracked)"
+	time_label.mouse_filter = Control.MOUSE_FILTER_PASS
+	pvbox.add_child(time_label)
+
+	# Level / Prestige (offline, like BeatLeader): scripts/PlayerLevel.gd
+	var level_bar = preload("res://scripts/ui/menu/LevelBar.gd").new()
+	level_bar.name = "LevelBar"
+	pvbox.add_child(level_bar)
+
 	lobby_name_input = LineEdit.new()
 	lobby_name_input.placeholder_text = "Your display name"
 	lobby_name_input.text = "Player"
@@ -2093,6 +2106,16 @@ func _on_jp_changed(awarded):
 	if xp_total_label != null:
 		xp_total_label.text = "XP: %d" % Rhythia.jp
 
+static func _fmt_duration(ms: int) -> String:
+	var sec := int(ms / 1000)
+	var h := sec / 3600
+	var m := (sec % 3600) / 60
+	if h > 0:
+		return "%dh %02dm" % [h, m]
+	if m > 0:
+		return "%dm %02ds" % [m, sec % 60]
+	return "%ds" % sec
+
 func _refresh_rp():
 	if rp_total_label == null or not is_instance_valid(rp_total_label):
 		return
@@ -2683,11 +2706,22 @@ func _setup_folder_filters():
 	var stars = get_node_or_null("Main/Maps/Filters/StarSort")
 	if stars == null:
 		return
+	var filters = stars.get_parent()
+	var after = stars
+	# "most played" sort, a copy of the "stars" checkbox (same look)
+	if not filters.has_node("PlaysSort"):
+		var plays = stars.duplicate(DUPLICATE_GROUPS)
+		plays.set_script(load("res://scripts/ui/menu/buttons/PlaysSort.gd"))
+		plays.name = "PlaysSort"
+		plays.text = "most played"
+		plays.stars = stars
+		filters.add_child(plays)
+		filters.move_child(plays, stars.get_index() + 1)
+		after = plays # folder filters go under it
 	var box = preload("res://scripts/ui/menu/FolderFilters.gd").new()
 	box.name = "FolderFilters"
-	var filters = stars.get_parent()
 	filters.add_child(box)
-	filters.move_child(box, stars.get_index() + 1)
+	filters.move_child(box, after.get_index() + 1)
 	box.setup(stars)
 
 

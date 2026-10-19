@@ -15,6 +15,7 @@ func _ready():
 	PhysicsServer.set_active(true)
 	Input.set_custom_mouse_cursor(null)
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+	Rhythia.restore_colorset_after_random()
 	Rhythia.load_color_txt()
 	Rhythia.conmgr_transit = null
 	Rhythia.loaded_world = null

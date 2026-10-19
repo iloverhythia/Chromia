@@ -268,6 +268,17 @@ func _sorted_by_stars(arr: Array, desc: bool) -> Array:
 	out.append_array(_sorted_by_name(unrated, false))
 	return out
 
+# Most played first (the difficulty arrow flips it); counts from user://stats.json.
+func _sorted_by_plays(arr: Array, desc: bool) -> Array:
+	var counts: Dictionary = Rhythia.get_lifetime_stats().get("map_plays", {})
+	var keys := []
+	keys.resize(arr.size())
+	for i in range(arr.size()):
+		keys[i] = "%08d\u0001%s" % [int(counts.get(String(arr[i].id), 0)), arr[i].lname()]
+	# most played first unless the arrow is flipped (names A-Z within a count)
+	var out := _sorted_by_keys(arr, keys, not desc)
+	return out
+
 func build_list():
 	disp = []
 	favorite = []
@@ -282,7 +293,12 @@ func build_list():
 	favorite.sort_custom(self, "sortsong")
 	for s in favorite: _fav_set[s] = true
 	disp.append_array(favorite)
-	if Rhythia.sort_by_stars:
+	if Rhythia.sort_by_plays:
+		var played := []
+		for bucket in [easy, medium, hard, logic, amogus, unknown]:
+			append_filtering_favorites(played, bucket)
+		disp.append_array(_sorted_by_plays(played, flip_display))
+	elif Rhythia.sort_by_stars:
 		var rest := []
 		for bucket in [easy, medium, hard, logic, amogus, unknown]:
 			append_filtering_favorites(rest, bucket)

@@ -704,7 +704,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p"
 ]
 
 
@@ -761,6 +761,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-p": "- Levels and Prestige (like BeatLeader): earn experience from every play, even fails; level 100 lets you Prestige. See the bar in the Profile tab\n- Time played shown in the Profile tab, and how often/how long you played each map on the map screen\n- New map list sort: most played (Filters, under stars)\n- Experimental: Random Colorset - a random colorset every time you start a map (your own one comes back in the menu)",
 	"oct19-2026-o": "- Colorset Maker: add as many colors as you want (they wrap into rows)\n- Mesh Builder: give meshes a name, save as many as you want (New mesh), edit any saved one (Edit on its card in the Meshes tab) and delete them\n- Meshes tab: Rename any other mesh\n- Custom BG Color (World & Cursor): a solid color for the Custom Background world, or a tint over your image",
 	"oct19-2026-n": "- Fixed starting a map freezing (Not Responding) while star ratings were being worked out in the background: maps now only wait if that exact map is being read, and giant maps (100k+ notes) are no longer star-rated\n- Fixed the Modifiers block being off-center / overlapping Best Attempt when the game first opens",
 	"oct19-2026-m": "- The Update Log shows the notes for the last few updates again",
@@ -1177,6 +1178,33 @@ func _save_star_cache(cache: Dictionary):
 		f.close()
 
 var sort_by_stars: bool = false
+var sort_by_plays: bool = false # map list: most played first
+var random_colorset: bool = false # experimental: a random colorset every time a map starts
+var _colorset_before_random = null
+
+# Experimental "Random Colorset": just for this play; your own pick comes back
+# in the menu (menuload.gd), so it's never saved over.
+func pick_random_colorset():
+	if not random_colorset or replaying or registry_colorset == null:
+		return
+	var sets: Array = registry_colorset.get_items()
+	var ok := []
+	for c in sets:
+		if c is ColorSet and c.colors.size() > 0:
+			ok.append(c)
+	if ok.empty():
+		return
+	if _colorset_before_random == null:
+		_colorset_before_random = selected_colorset
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	selected_colorset = ok[rng.randi_range(0, ok.size() - 1)]
+	print("[colorset] random: ", selected_colorset.name)
+
+func restore_colorset_after_random():
+	if _colorset_before_random != null:
+		selected_colorset = _colorset_before_random
+		_colorset_before_random = null
 
 var _cover_preload_progress: int = 0
 var _cover_preload_done: bool = false
@@ -2261,7 +2289,7 @@ func _default_lifetime_stats() -> Dictionary:
 		"plays": 0, "passes": 0, "fails": 0, "give_ups": 0,
 		"notes_hit": 0, "notes_missed": 0, "play_time_ms": 0,
 		"best_combo": 0, "first_play_ts": 0, "last_play_ts": 0,
-		"map_plays": {},
+		"map_plays": {}, "map_time": {},
 	}
 
 func get_lifetime_stats() -> Dictionary:
@@ -2296,7 +2324,8 @@ func record_play_stats():
 		_: st.fails = int(st.fails) + 1
 	st.notes_hit = int(st.notes_hit) + int(song_end_hits)
 	st.notes_missed = int(st.notes_missed) + int(song_end_misses)
-	st.play_time_ms = int(st.play_time_ms) + int(max(0, song_end_position - start_offset) / max(Globals.speed_multi[mod_speed_level], 0.01))
+	var play_ms := int(max(0, song_end_position - start_offset) / max(Globals.speed_multi[mod_speed_level], 0.01))
+	st.play_time_ms = int(st.play_time_ms) + play_ms
 	st.best_combo = max(int(st.best_combo), int(song_end_combo))
 	if int(st.first_play_ts) == 0:
 		st.first_play_ts = now
@@ -2304,7 +2333,32 @@ func record_play_stats():
 	var id := String(selected_song.id)
 	var counts: Dictionary = st.map_plays
 	counts[id] = int(counts.get(id, 0)) + 1
+	if not (st.get("map_time") is Dictionary):
+		st.map_time = {}
+	st.map_time[id] = int(st.map_time.get(id, 0)) + play_ms
 	_save_lifetime_stats()
+	_award_level_exp(play_ms)
+
+# Level system (scripts/PlayerLevel.gd): experience for every play, even fails.
+func _award_level_exp(play_ms: int):
+	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	var hits := float(song_end_hits)
+	var total := hits + float(song_end_misses)
+	var acc: float = hits / total if total > 0 else 0.0
+	var stars: float = max(selected_song.star_rating_cached(), 0.0) if selected_song != null else 0.0
+	var gained: int = store.exp_for_play(play_ms / 1000.0, stars, acc, song_end_type == Globals.END_PASS)
+	if gained <= 0:
+		return
+	var res: Dictionary = store.add_exp(gained)
+	if not show_xp_notifications:
+		return
+	if res.levels_up > 0:
+		var txt: String = "You're now level %d!" % res.level
+		if store.can_prestige():
+			txt += "\nYou can Prestige in the Profile tab."
+		Globals.notify(Globals.NOTIFY_INFO, txt, "Level up! (+%d EXP)" % gained)
+	else:
+		Globals.notify(Globals.NOTIFY_INFO, "%d / %d to level %d" % [store.cur_exp, store.required(), store.level + 1], "+%d EXP" % gained, 3)
 
 # Summary of personal bests across all maps (from user://bests).
 func get_pb_summary() -> Dictionary:
@@ -2811,6 +2865,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			hide_replay_ui = bool(data.hide_replay_ui)
 		if data.has("sort_by_stars"):
 			sort_by_stars = bool(data.sort_by_stars)
+		if data.has("sort_by_plays"):
+			sort_by_plays = bool(data.sort_by_plays)
+		if data.has("random_colorset"):
+			random_colorset = bool(data.random_colorset)
 		if data.has("show_xp_notifications"):
 			show_xp_notifications = bool(data.show_xp_notifications)
 		if data.has("half_ghost_strength"):
@@ -3261,7 +3319,7 @@ func _write_settings_file(saveFile: String):
 
 			window_fullscreen = OS.window_fullscreen,
 			window_borderless = OS.window_borderless,
-			selected_colorset = selected_colorset.id,
+			selected_colorset = (_colorset_before_random.id if _colorset_before_random != null else selected_colorset.id),
 			selected_hit_sound_id = (selected_hit_sound.id if selected_hit_sound else "default"),
 			selected_miss_sound_id = (selected_miss_sound.id if selected_miss_sound else "default"),
 			selected_border_id = (selected_border.id if selected_border else "default"),
@@ -3341,6 +3399,8 @@ func _write_settings_file(saveFile: String):
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
 			sort_by_stars = sort_by_stars,
+			sort_by_plays = sort_by_plays,
+			random_colorset = random_colorset,
 			show_xp_notifications = show_xp_notifications,
 			half_ghost_strength = half_ghost_strength,
 			record_mode = record_mode,

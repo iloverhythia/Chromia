@@ -12,6 +12,7 @@ var black_fade: float = 0
 func _ready():
 	print("song loading")
 	Rhythia.start_log("loading screen", true)
+	Rhythia.pick_random_colorset()
 	Rhythia._star_paused = true # background star rating waits until back in the menu
 	if not Rhythia.replaying:
 		Rhythia.send_analytics_event("map_play", {"map_name": Rhythia.selected_song.name, "client_id": Rhythia.cid}, Rhythia.cid)
