@@ -503,7 +503,7 @@ var errornum: int = 0
 const DISCORD_APP_ID := 1561141690084106250
 # Discord status icon. Discord shows images from links, so this is the Chromia
 # logo hosted in the game's GitHub repo (not the app's uploaded "icon-bg").
-const DISCORD_ICON := "https://raw.githubusercontent.com/iloverhythia/Furria/main/.github/branding/discord_icon.png"
+const DISCORD_ICON := "https://raw.githubusercontent.com/iloverhythia/Chromia/main/.github/branding/discord_icon.png"
 
 func p(path: String) -> String:
 	var base_path = "user://"

@@ -367,7 +367,7 @@ onready var update_hr: HTTPRequest = HTTPRequest.new()
 # Updates only ever come from this repository. It is fixed in code on purpose:
 # a project setting could be changed by an override.cfg left behind by
 # another game that shares the same user folder.
-const UPDATE_REPO := "iloverhythia/Furria"
+const UPDATE_REPO := "iloverhythia/Chromia"
 # Release asset names, newest first (older releases used "Furria.pck" and "Savia.pck").
 const UPDATE_PCK_NAMES := ["Chromia.pck", "Furria.pck", "Savia.pck"]
 
