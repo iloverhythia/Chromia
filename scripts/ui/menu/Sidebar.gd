@@ -143,7 +143,39 @@ func quit():
 func _on_vr_status_checked():
 	$L/StartVR.visible = Rhythia.vr_available and not Rhythia.vr
 
+# The Map Browser page (download maps from rhythia.com) is made here rather
+# than in menu2.tscn: a copy of the Online button plus a page under Main.
+func _add_map_browser():
+	var main = get_node_or_null("../Main")
+	var online_btn = get_node_or_null("L/OnlineTab")
+	if main == null or online_btn == null:
+		return
+	var page = ReferenceRect.new()
+	page.name = "MapBrowser"
+	page.visible = false
+	page.anchor_right = 1.0
+	page.anchor_bottom = 1.0
+	page.margin_left = 4.0
+	page.margin_top = 4.0
+	page.border_color = Color(1, 0, 0, 0)
+	page.set_script(load("res://scripts/ui/menu/MapBrowser.gd"))
+	main.add_child(page)
+
+	var btn: Button = online_btn.duplicate(DUPLICATE_GROUPS | DUPLICATE_SCRIPTS)
+	btn.name = "MapBrowserTab"
+	btn.pressed = false
+	$L.add_child_below_node(online_btn, btn)
+	btn.get_node("Tex").texture = load("res://assets/images/ui/mapbrowser.png")
+	btn.get_node("Label").text = "Map Browser"
+
+	pages.append(page)
+	buttons.append(btn)
+	use_ver_b.append(false)
+	hide_ver.append(true)
+	smm_visibility[btn] = false
+
 func _ready():
+	_add_map_browser()
 	for i in range(buttons.size()):
 		buttons[i].connect("pressed", self, "press", [i])
 
