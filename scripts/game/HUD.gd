@@ -327,6 +327,8 @@ func _refresh_hud_viewports(delta: float):
 			continue
 		_hud_vps[i].render_target_update_mode = Viewport.UPDATE_ONCE
 
+var _timer_hud = null
+
 func _process(delta: float):
 	gtimer += delta
 	_refresh_hud_viewports(delta)
@@ -375,7 +377,10 @@ func _process(delta: float):
 	if Rhythia.rainbow_hud:
 		energybar.get("custom_styles/fg").bg_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
 		energybar.get("custom_styles/bg").bg_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 0.2, 0.65)
-		$TimerHud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
+		# The timer may have been moved onto the grid (attach_timer_to_grid), so it
+		# is kept in a variable instead of being looked up under the HUD.
+		if is_instance_valid(_timer_hud):
+			_timer_hud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
 		$ComboHud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
 		$LeftHud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
 		$RightHud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
@@ -770,6 +775,7 @@ func _on_lobby_state_changed_for_spectators_list():
 
 func _ready():
 	print("[start] hud")
+	_timer_hud = get_node_or_null("TimerHud")
 	_setup_hud_viewports()
 	Game.connect("miss", self, "on_miss")
 	_create_spectators_banner()

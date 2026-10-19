@@ -701,7 +701,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h"
 ]
 
 
@@ -758,6 +758,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-h": "- Fixed lag while playing with Rainbow HUD + Attach Timer to Grid (an error every frame)\n- Loading a map no longer writes hundreds of colorset lines to the log",
 	"oct19-2026-g": "- Fixed maps taking forever to load: starting a map waited for a background star rating to finish (minutes on huge maps). Star ratings no longer hold anything up",
 	"oct19-2026-f": "- Fixed a crash when starting a map: a hidden leftover debug screen in the HUD loaded the song a second time and read its notes while the star rater could be reading them too (it is gone now, and also stops wasting FPS)\n- Star ratings pause as soon as a map starts loading\n- The log now shows every step of starting a map, so any remaining crash can be pinned down",
 	"oct19-2026-e": "- Clicking a map no longer freezes/crashes the game while its star rating is worked out: it now happens in the background (the stars show as ... for a moment)\n- Maps whose star rating crashed the game are never rated again\n- The game log (godot.log) is now written right away, so crash logs show what happened",
@@ -3934,7 +3935,6 @@ func load_color_folder():
 			i += 1
 			if fmod(i, 4) == 0: yield(get_tree(), "idle_frame")
 			n = dir.get_next()
-			print("set %s took %s usec" % [i, Globals.comma_sep(OS.get_ticks_usec() - b)])
 	print("colorsets took %s usec" % [Globals.comma_sep(OS.get_ticks_usec() - a)])
 	emit_signal("colors_done")
 
