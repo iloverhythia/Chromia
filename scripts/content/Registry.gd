@@ -239,12 +239,16 @@ func load_registry_file(path: String, regtype: int, regDisplayName: String = "")
 	emit_signal("done_loading_reg")
 
 func get_item(value, searchType: int = Globals.SEARCH_ID, checkSubRegistries: bool = true):
+	if typeof(value) == TYPE_NIL:
+		return false # String(null) below would fail and leave _mutex locked
 	_mutex.lock()
 	var found = false
 	match searchType:
 		Globals.SEARCH_ID:
 			if fast_idc.has(value):
 				found = items[fast_idc[value]]
+			elif typeof(value) == TYPE_STRING and not has_subregistries:
+				pass # every item's id is in fast_idc: not here (the scan below took ~7 ms per miss with 30k maps)
 			else:
 				for i in range(items.size()):
 					if String(idx_id[i]) == String(value):

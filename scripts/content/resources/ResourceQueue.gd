@@ -41,7 +41,9 @@ func queue_resource(path, p_in_front = false):
 		return OK
 	else:
 		var res = ResourceLoader.load_interactive(path)
-		if not res: return FAILED
+		if not res:
+			_unlock("queue_resource") # still locked here: the loader thread would wait on it forever
+			return FAILED
 		res.set_meta("path", path)
 		if p_in_front:
 			queue.insert(0, res)

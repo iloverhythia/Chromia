@@ -36,7 +36,7 @@ func _ready():
 		Rhythia.errorstr = "song.tscn queue_resource returned %s" % res
 		get_tree().change_scene("res://scenes/errors/songload.tscn")
 	elif res2 != OK:
-		Rhythia.errorstr = "bg world queue_resource returned %s" % res
+		Rhythia.errorstr = "bg world queue_resource returned %s" % res2
 		get_tree().change_scene("res://scenes/errors/songload.tscn")
 
 	Rhythia.refresh_active_sound_streams()
@@ -69,10 +69,12 @@ func finish():
 	if not (result is Object):
 		Rhythia.errorstr = "song.tscn get_resource returned non-object (probably null)"
 		get_tree().change_scene("res://scenes/errors/songload.tscn")
+		return
 	if not (result2 is Object):
 		Rhythia.errorstr = "bg world get_resource returned non-object (probably null)"
 
 		get_tree().change_scene("res://scenes/errors/songload.tscn")
+		return
 
 	# (custom colorsets are reloaded when going back to the menu, not here:
 	# reading hundreds of colorset files stuttered the start of the song)
@@ -87,7 +89,10 @@ func finish():
 		Rhythia.save_current_state()
 		Rhythia.replay.connect("progress", self, "progress")
 		Rhythia.replay.read_data(Rhythia.replay_path)
-		yield(Rhythia.replay, "done_loading")
+		# a short replay (< 70 signals) finishes reading without yielding, so
+		# done_loading was already emitted: waiting for it would hang here forever
+		if not Rhythia.replay.loaded:
+			yield(Rhythia.replay, "done_loading")
 
 	black_fade_target = true
 	black_fade = 1
@@ -96,8 +101,9 @@ func finish():
 
 
 	Rhythia.star_mutex.lock() # the background star rater may be reading this map
-	var _n_notes: int = Rhythia.selected_song.read_notes().size()
-	Rhythia.star_mutex.unlock()
+	var _read = Rhythia.selected_song.read_notes()
+	Rhythia.star_mutex.unlock() # (unlocked before anything that could fail on a broken map)
+	var _n_notes: int = _read.size() if _read is Array else 0
 	if _n_notes == 0:
 		Globals.confirm_prompt.open(
 			"This map doesn't have any notes.",

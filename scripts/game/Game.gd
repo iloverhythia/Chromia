@@ -37,8 +37,9 @@ func loadMapFile():
 	if map.should_reload_on_play:
 		map.setup_from_file(map.initFile, map.musicFile)
 	Rhythia.star_mutex.lock() # the background star rater may be reading this map
-	notes = map.read_notes()
-	Rhythia.star_mutex.unlock()
+	var got = map.read_notes()
+	Rhythia.star_mutex.unlock() # (unlocked before anything that could fail on a broken map)
+	notes = got if got is Array else []
 	var file: File = File.new()
 	var song: AudioStream = map.stream()
 
@@ -61,6 +62,7 @@ func update_hud():
 	$HUD.update_static_values()
 
 var ending: bool = false
+var _desync_to_restore = null
 func end(end_type: int):
 	if ending: return
 	print("My god, what are you doing!?")
@@ -74,6 +76,7 @@ func end(end_type: int):
 		var music = $Spawn/Music
 		var normal_speed = spawn.speed_multi
 		var prev_disable_desync = Rhythia.disable_desync
+		_desync_to_restore = prev_disable_desync # put back in _exit_tree if the song is left mid-slowdown (retry key)
 		Rhythia.disable_desync = true
 		var start_ticks = OS.get_ticks_msec()
 		while true:
@@ -88,6 +91,7 @@ func end(end_type: int):
 		spawn.speed_multi = 0.0
 		music.pitch_scale = normal_speed
 		Rhythia.disable_desync = prev_disable_desync
+		_desync_to_restore = null
 	get_tree().paused = true
 	if total_notes == 0: total_notes = 1
 	update_hud()
@@ -523,7 +527,9 @@ func _process(delta):
 		else:
 			giving_up = 0
 
-	if Rhythia.replaying and Input.is_action_just_pressed("pause"):
+	# Replays with the scrub bar pause through NoteManager.set_viewer_paused on the
+	# same key; toggling the tree too made space need 4 presses to pause and resume.
+	if Rhythia.replaying and Input.is_action_just_pressed("pause") and (Rhythia.replay.autoplayer or Rhythia.replay.sv == 1):
 		get_tree().paused = not get_tree().paused
 
 	if get_tree().paused:
@@ -614,14 +620,16 @@ func hit(col):
 	update_hud()
 
 	if Rhythia.hit_fov:
+		# Camera only accepts 1..179 (anything else is rejected with an error,
+		# e.g. on every hit in Exponential mode with the default amplifier)
 		if Rhythia.hit_fov_instant:
-			$"../Camera".fov = Rhythia.get("fov") - Rhythia.hit_fov_amplifier
+			$"../Camera".fov = clamp(Rhythia.get("fov") - Rhythia.hit_fov_amplifier, 1, 179)
 		elif Rhythia.hit_fov_additive:
-			$"../Camera".fov += Rhythia.hit_fov_amplifier
+			$"../Camera".fov = clamp($"../Camera".fov + Rhythia.hit_fov_amplifier, 1, 179)
 		elif Rhythia.hit_fov_exponential:
-			$"../Camera".fov *= Rhythia.hit_fov_amplifier
+			$"../Camera".fov = clamp($"../Camera".fov * Rhythia.hit_fov_amplifier, 1, 179)
 		else:
-			$"../Camera".fov = Rhythia.get("fov") - Rhythia.hit_fov_amplifier
+			$"../Camera".fov = clamp(Rhythia.get("fov") - Rhythia.hit_fov_amplifier, 1, 179)
 
 	score += points
 	return points
@@ -648,6 +656,10 @@ func miss(col):
 
 func _exit_tree():
 	Rhythia.in_map = false
+	if _desync_to_restore != null:
+		# the death slowdown was cut short: don't leave desync correction off for the session
+		Rhythia.disable_desync = _desync_to_restore
+		_desync_to_restore = null
 
 func _ready():
 	Rhythia.start_log("game")

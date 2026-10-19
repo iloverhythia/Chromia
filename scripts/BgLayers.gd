@@ -212,7 +212,8 @@ static func build_visual(l: Dictionary, parent: Node, placeholder: Texture = nul
 				vp.queue_free()
 	elif f.file_exists(path):
 		var tex = Globals.imageLoader.load_file(path)
-		if tex != null and tex != Globals.imageLoader.error_texture and tex != Globals.imageLoader.invalid_texture:
+		# (an image the decoder rejects comes back as an empty 0x0 texture)
+		if tex != null and tex != Globals.imageLoader.error_texture and tex != Globals.imageLoader.invalid_texture and tex.get_width() > 0:
 			rect.texture = tex
 			out.ok = true
 	if not out.ok and placeholder != null:

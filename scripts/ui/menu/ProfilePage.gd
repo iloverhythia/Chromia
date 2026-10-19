@@ -198,9 +198,9 @@ func load_profile():
 		_loading = false
 		name_label.text = String(Rhythia.discord_user.get("display_name", Rhythia.discord_user.get("username", "Your Profile")))
 		if discord_id == "":
-			status_label.text = "Connect Discord on the right (Profile tab) so we can find you on the Savia leaderboard."
+			status_label.text = "Connect Discord on the right (Profile tab) so we can find you on the Chromia leaderboard."
 		else:
-			status_label.text = "You're not on the Savia leaderboard yet. Pass a ranked map while online to show up."
+			status_label.text = "You're not on the Chromia leaderboard yet. Pass a ranked map while online to show up."
 		var du_avatar := String(Rhythia.discord_user.get("avatar_url", ""))
 		if du_avatar != "":
 			_load_avatar(du_avatar)

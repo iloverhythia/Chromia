@@ -120,7 +120,14 @@ func switch_to_play_screen():
 		var lobby_manager = get_node_or_null("/root/LobbyManager")
 		if lobby_manager != null:
 			lobby_manager.list_ranked_maps()
-			yield(lobby_manager, "ranked_maps_received")
+			# wait at most 3 s: with the server down the answer never comes, and
+			# waiting on the signal left the map list empty after every song
+			var waited := 0.0
+			while ranked_song_ids.empty() and waited < 3.0 and is_inside_tree():
+				yield(get_tree(), "idle_frame")
+				waited += get_process_delta_time()
+			if not is_inside_tree():
+				return
 	if disp.find(Rhythia.registry_song.get_item(Rhythia.selected_song.id)) == -1:
 		reset_filters()
 	get_viewport().get_node("Menu/Sidebar").press(0, true)
@@ -193,6 +200,9 @@ func select_random():
 	load_pg(true)
 
 func load_pg(select_cur: bool = false):
+	# The list jumps to cur_map now, so an unfinished click-scroll is stale (it
+	# would scroll all the way back to the clicked map and select it again).
+	scrolling_to = false
 	size_list()
 	for n in btns: n.queue_free()
 	btns.clear()
@@ -478,7 +488,7 @@ func make_song_button(id: int = -1):
 	return btn
 
 func pg_up():
-	if cur_map < 0: return
+	if cur_map < 0 or btns.empty(): return
 	cur_map -= 1
 
 	$Press.play()

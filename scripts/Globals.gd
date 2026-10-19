@@ -692,7 +692,7 @@ func _ready():
 			print("file.open failed"); return -2
 		var decode = JSON.parse(file.get_as_text())
 		file.close()
-		if not decode.error:
+		if not decode.error and decode.result is Dictionary:
 			disable_intro = disable_intro or (decode.result.has("disable_intro") and decode.result.disable_intro)
 	if not disable_intro:
 

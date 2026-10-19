@@ -85,7 +85,10 @@ func _ready():
 	v.add_child(_most_played)
 
 	connect("visibility_changed", self, "_on_visibility_changed")
-	refresh()
+	# The menu builds this hidden every time it loads (also after each song),
+	# so the stats (which read every personal-best file) wait until it's shown.
+	if is_visible_in_tree():
+		refresh()
 
 # Opening the page refreshes it once it has stayed open for a moment, and at
 # most every few seconds, so clicking quickly through the sidebar is cheap
@@ -95,6 +98,9 @@ var _last_refresh := -100000
 var _refresh_timer: SceneTreeTimer = null
 func _on_visibility_changed():
 	if not is_visible_in_tree():
+		return
+	if _last_refresh < 0:
+		refresh() # first time it's shown: fill it right away
 		return
 	if OS.get_ticks_msec() - _last_refresh < REFRESH_EVERY_MS:
 		return

@@ -61,7 +61,7 @@ static func get_mtl_tex_paths(mtl_path:String)->Array:
 		file.close()
 		for line in lines:
 			var parts = line.split(" ", false,1)
-			if parts[0] in ["map_Kd","map_Ks","map_Ka"]:
+			if parts.size() > 1 and parts[0] in ["map_Kd","map_Ks","map_Ka"]:
 				if !parts[1] in paths:
 					paths.push_back(parts[1])
 	return paths
@@ -86,6 +86,8 @@ static func _create_mtl(obj:String,textures:Dictionary)->Dictionary:
 	var lines = obj.split("\n", false)
 	for line in lines:
 		var parts = line.split(" ", false)
+		if parts.empty():
+			continue # a line of only spaces (parts[0] stopped the whole file)
 		match parts[0]:
 			"#":
 				# Comment
@@ -163,6 +165,8 @@ static func _create_obj(obj:String,mats:Dictionary)->Mesh:
 	var lines := obj.split("\n", false)
 	for line in lines:
 		var parts = line.split(" ", false)
+		if parts.empty():
+			continue # a line of only spaces (parts[0] stopped the whole file)
 		match parts[0]:
 			"#":
 				# Comment
