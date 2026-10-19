@@ -220,31 +220,29 @@ func get_star_rating() -> float:
 		return _star_rating
 	if _star_rating <= -1.5:
 		return -1.0
-	# The background rater and the menu can ask for the same map at once;
-	# reading its notes from two threads at the same time could crash.
+	# Reading the notes from two threads at the same time could crash, so the
+	# notes are copied under star_mutex. The rating itself (slow on big maps)
+	# runs on the copy WITHOUT the lock, so starting a song never waits for it.
 	Rhythia.star_mutex.lock()
-	var r := _get_star_rating_locked()
-	Rhythia.star_mutex.unlock()
-	return r
-
-func _get_star_rating_locked() -> float:
-	if _star_rating >= 0.0:
-		return _star_rating
-	if _star_rating <= -1.5:
-		return -1.0
+	if _star_rating >= 0.0 or _star_rating <= -1.5:
+		Rhythia.star_mutex.unlock()
+		return _star_rating if _star_rating >= 0.0 else -1.0
 	if is_online and (filePath == null or filePath == "" or not File.new().file_exists(filePath)):
+		Rhythia.star_mutex.unlock()
 		return -1.0
 	var had_notes := notes.size() > 0
-	var n: Array = read_notes()
+	var n: Array = read_notes().duplicate()
+	if not had_notes and songType != Globals.MAP_RAW and songType != Globals.MAP_TXT:
+		discard_notes()
+	Rhythia.star_mutex.unlock()
 	if n.size() == 0:
 		_star_rating = -2.0
 		return -1.0
-	_star_rating = StarRatingCalc.calculate(n)
-	if is_nan(_star_rating) or is_inf(_star_rating):
-		_star_rating = 0.0
-	if not had_notes and songType != Globals.MAP_RAW and songType != Globals.MAP_TXT:
-		discard_notes()
-	return _star_rating
+	var r: float = StarRatingCalc.calculate(n)
+	if is_nan(r) or is_inf(r):
+		r = 0.0
+	_star_rating = r
+	return r
 
 # True once the cover texture exists (does not trigger loading it).
 func cover_ready() -> bool:
