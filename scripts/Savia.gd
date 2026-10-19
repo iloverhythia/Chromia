@@ -546,14 +546,16 @@ func fetch_banned_list():
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
 
-	http_request.connect("request_completed", self, "_on_request_completed")
+	http_request.connect("request_completed", self, "_on_request_completed", [http_request])
 
 	var error = http_request.request(BANNED_LIST_URL)
 	if error != OK:
 		print("An error occurred while initiating the HTTP request.")
 
-func _on_request_completed(result, response_code, headers, body):
-	get_child(get_child_count() - 1).queue_free()
+func _on_request_completed(result, response_code, headers, body, http_request: HTTPRequest = null):
+	# (this used to free whatever node was added last, e.g. the live ban timer)
+	if is_instance_valid(http_request):
+		http_request.queue_free()
 
 	if response_code == 200:
 		var raw_text = body.get_string_from_utf8()
@@ -1010,7 +1012,8 @@ func _rate_one(song):
 	song.get_star_rating()
 
 func _star_rating_finished():
-	if _star_thread and _star_thread.is_active():
+	# _star_done: not a newer rater (started by Reload Content) that is still running
+	if _star_done and _star_thread and _star_thread.is_active():
 		_star_thread.wait_to_finish()
 		_star_thread = null
 	print("[stars] rated %d maps" % _star_progress)
@@ -1094,6 +1097,11 @@ func quit_game():
 	if not _thumb_running and _thumb_thread and _thumb_thread.is_active():
 		_thumb_thread.wait_to_finish()
 		_thumb_thread = null
+	# Quitting while a map is still being rated isn't a crash: remove the
+	# markers, or that map would be skipped as "crashed the rater" forever.
+	var markers := Directory.new()
+	markers.remove(Globals.p(STAR_CURRENT_FILE))
+	markers.remove(Globals.p(STAR_CLICK_FILE))
 	if OS.has_feature("Windows"):
 		OS.kill(OS.get_process_id())
 	get_tree().quit()
@@ -1172,6 +1180,12 @@ func _pop_priority_thumb():
 	var s = _thumb_priority.pop_front() if not _thumb_priority.empty() else null
 	_thumb_mutex.unlock()
 	return s
+# The builder thread checks the list through this (the menu adds to it at the same time).
+func _has_priority_thumbs() -> bool:
+	_thumb_mutex.lock()
+	var r := not _thumb_priority.empty()
+	_thumb_mutex.unlock()
+	return r
 func _start_thumb_builder(full: bool = true):
 	if _thumb_thread != null and _thumb_thread.is_active():
 		return
@@ -1200,7 +1214,7 @@ func _thumb_builder_worker(list: Array):
 		d.list_dir_end()
 	var built := 0
 	var i := 0
-	while i < list.size() or not _thumb_priority.empty():
+	while i < list.size() or _has_priority_thumbs():
 		while in_map and not _thumb_quit:
 			OS.delay_msec(200)
 		if _thumb_quit:
@@ -1607,7 +1621,6 @@ func _input(event):
 		_advertise_game()
 
 func _advertise_game():
-	var Discord
 	if not ProjectSettings.get_setting("application/config/discord_rpc"):
 		return
 	var activity = Discord.Activity.new()
@@ -2537,7 +2550,28 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			print("!!! Error on line " + str(decode.error_line) + ": " + decode.error_string)
 			return ((-100) - decode.error)
 
+		if typeof(decode.result) != TYPE_DICTIONARY:
+			print("!!! settings file is not a JSON object")
+			return -3
 		var data: Dictionary = decode.result
+		# A value of an unexpected type (hand-edited file, another version) stopped
+		# the loading at that line, which also left the loading screen stuck.
+		# Such values are left out so every other setting still loads.
+		for k in data.keys():
+			var vt := typeof(data[k])
+			if vt == TYPE_NIL:
+				data.erase(k)
+				continue
+			var is_num := vt == TYPE_BOOL or vt == TYPE_INT or vt == TYPE_REAL
+			var ct := typeof(get(k)) if not k in ["vsync_enabled", "window_fullscreen", "window_borderless", "target_fps"] else TYPE_BOOL
+			if (ct == TYPE_BOOL or ct == TYPE_INT or ct == TYPE_REAL) and not is_num and not (k == "edge_drift" and vt == TYPE_STRING):
+				print("[settings] ignoring %s (unexpected value %s)" % [k, data[k]])
+				data.erase(k)
+			elif ct == TYPE_COLOR and vt != TYPE_STRING:
+				print("[settings] ignoring %s (unexpected value %s)" % [k, data[k]])
+				data.erase(k)
+			elif k.ends_with("_volume") and not is_num and vt != TYPE_STRING:
+				data.erase(k)
 
 		if data.has("hlm_converted"):
 			hlm_converted = data.hlm_converted
@@ -3947,13 +3981,14 @@ func load_color_folder():
 	var dir: Directory = Directory.new()
 	if dir.dir_exists(user_colorset_dir):
 		var files = Globals.get_files_recursive([user_colorset_dir], 5)
-		var i = 0
+		# Give the screen a frame every ~10 ms of work (not every 4 files:
+		# hundreds of colorsets waited ~100 frames on every startup).
+		var slice := OS.get_ticks_msec()
 		for n in files.files:
-			var b = OS.get_ticks_usec()
 			load_color_txt(n, "custom_" + n.get_file().to_lower().md5_text())
-			i += 1
-			if fmod(i, 4) == 0: yield(get_tree(), "idle_frame")
-			n = dir.get_next()
+			if OS.get_ticks_msec() - slice > 10:
+				yield(get_tree(), "idle_frame")
+				slice = OS.get_ticks_msec()
 	print("colorsets took %s usec" % [Globals.comma_sep(OS.get_ticks_usec() - a)])
 	emit_signal("colors_done")
 
@@ -4096,6 +4131,12 @@ func populate_map_registry_deferred(args: Array):
 
 
 func do_init(_ud = null):
+	# Started on a thread (Globals, and init.gd for Reload Content), but it adds
+	# nodes, timers and keybinds to the running game, which is only safe on the
+	# main thread: continue there.
+	if OS.get_thread_caller_id() != OS.get_main_thread_id():
+		call_deferred("do_init")
+		return
 	set_client_id()
 	load_keybinds()
 	load_profile()
@@ -4470,6 +4511,13 @@ func do_init(_ud = null):
 		# rated in the background once the menu is open.
 		emit_signal("init_stage_reached", "Loading star ratings")
 		yield(get_tree(), "idle_frame")
+		if _star_thread != null and _star_thread.is_active():
+			# Reload Content while the background rater is still going: stop it
+			# (it stops after its current map) before its cache is replaced.
+			_star_quit = true
+			_star_thread.wait_to_finish()
+			_star_thread = null
+			_star_quit = _quitting
 		_star_cache = _load_star_cache()
 		var f_cur := File.new()
 		if f_cur.open(Globals.p(STAR_CURRENT_FILE), File.READ) == OK:
@@ -4567,6 +4615,10 @@ func do_init(_ud = null):
 	emit_signal("init_stage_reached", "Read user settings")
 	yield(get_tree(), "idle_frame")
 	var result = load_saved_settings(get_startup_settings_path())
+	if typeof(result) != TYPE_INT:
+		# load_saved_settings stopped on an error part-way (null): keep the
+		# settings read so far instead of getting stuck on this screen
+		result = 0
 	if result != 0:
 		errornum = result
 

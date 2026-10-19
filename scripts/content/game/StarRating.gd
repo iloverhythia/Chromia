@@ -34,17 +34,18 @@ static func _wide(a: float) -> float:
 # Notes the game counts: one closer than 1.25 cells to the one kept before it
 # is part of it. (As in SSQE+, the last note is never added.)
 static func _site_filter(ns: Array) -> Array:
-	ns = ns.duplicate()
+	# Same result as removing the close notes from the list one by one, but
+	# in one pass (removing from the middle of a big map's list took minutes).
 	var out := []
-	var i := 0
-	while i < ns.size() - 1:
-		var a = ns[i]
-		var b = ns[i + 1]
+	if ns.empty():
+		return out
+	var a = ns[0]
+	for j in range(1, ns.size()):
+		var b = ns[j]
 		if Vector2(b[0] - a[0], b[1] - a[1]).length() < MERGE:
-			ns.remove(i + 1)
 			continue
 		out.append(a)
-		i += 1
+		a = b
 	return out
 
 static func _aim_value(d: int, st: Array, jump: Array, ang: Array) -> float:

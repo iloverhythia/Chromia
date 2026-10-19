@@ -55,7 +55,7 @@ func get_format(bytes: PoolByteArray) -> String:
 
 
 	if bytes.subarray(0, 7) == PoolByteArray([137, 80, 78, 71, 13, 10, 26, 10]): return "png"
-	if bytes.subarray(0, 2) == PoolByteArray([66, 77]): return "bmp"
+	if bytes.subarray(0, 1) == PoolByteArray([66, 77]): return "bmp" # (subarray's end is inclusive)
 	if bytes.subarray(0, 2) == PoolByteArray([255, 216, 255]): return "jpg"
 	if bytes.subarray(0, 3) == PoolByteArray([82, 73, 70, 70]) and bytes.subarray(8, 11) == PoolByteArray([87, 69, 66, 80]): return "webp"
 	if bytes.subarray(0, 3) == PoolByteArray([71, 73, 70, 56]): return "gif"

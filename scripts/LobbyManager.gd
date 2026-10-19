@@ -450,7 +450,9 @@ func _on_connected(_proto = ""):
 		var msg = {"type": "join_lobby", "code": _pending_code, "name": _pending_name, "client_id": Rhythia.cid}
 		msg.merge(_discord_identity_fields())
 		_send(msg)
-	elif _connecting_intent == "generic" and not _pending_send_after_connect.empty():
+	# Requests queued while connecting (map rank, my stats...) go out for every
+	# intent; after a lobby connect they used to wait until the next reconnect.
+	if not _pending_send_after_connect.empty():
 		var queued = _pending_send_after_connect
 		_pending_send_after_connect = []
 		for msg in queued:
@@ -462,9 +464,12 @@ func _on_closed(was_clean: bool = false):
 	close_lobby()
 
 func _on_conn_error():
-	if _connecting_intent == "create" or _connecting_intent == "join":
+	var was_joining = _connecting_intent == "create" or _connecting_intent == "join"
+	if was_joining:
 		emit_signal("lobby_error", "Could not reach server")
 	close_lobby()
+	if was_joining:
+		emit_signal("lobby_state_changed") # the lobby panel kept saying "Connecting..."
 
 func _on_data():
 	var pkt = _client.get_peer(1).get_packet()
@@ -750,6 +755,11 @@ func _process_map_publish_step():
 	if not _map_publish_active:
 		return
 	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_CONNECTED:
+		# Server unreachable, or the connection dropped mid-upload: give up with
+		# an error instead of staying on "Uploading..." (and blocking every later
+		# upload) until the game is restarted.
+		if _map_publish_start_sent or OS.get_ticks_msec() - _map_publish_last_progress_msec >= 30000:
+			_abort_map_publish("Couldn't reach the server to upload the map.")
 		return
 	if OS.get_ticks_msec() < _map_publish_next_attempt_msec:
 		return
@@ -931,6 +941,7 @@ func _handle_message(msg: Dictionary):
 			emit_signal("lobby_error", String(msg.get("reason", "Unknown error")))
 			if not lobby_active:
 				close_lobby()
+				emit_signal("lobby_state_changed") # e.g. a failed join: the panel kept saying "Joining lobby..."
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
@@ -1051,7 +1062,13 @@ func _scene_transition_now():
 		return
 	if lobby_state.has("song_id") and lobby_state.song_id != "":
 		var song = Rhythia.registry_song.get_item(lobby_state.song_id, Globals.SEARCH_ID) if Rhythia.registry_song else null
-		if song and song.read_notes().size() == 0:
+		var _n_notes: int = -1
+		if song:
+			Rhythia.star_mutex.lock() # the background star rater may be reading this map's notes
+			var got = song.read_notes()
+			Rhythia.star_mutex.unlock()
+			_n_notes = got.size() if got is Array else 0
+		if song and _n_notes == 0:
 			print("[furria] cached song ", lobby_state.song_id, " has 0 notes — treating as missing, re-requesting")
 			if song.note_count <= 0:
 				_send({"type": "report_corrupt_map", "song_id": lobby_state.song_id})

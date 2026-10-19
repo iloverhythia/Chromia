@@ -174,6 +174,11 @@ func read_data(from_path: String = ""):
 			var i = 0
 			var cursor_unrev = []
 			while kind != Globals.RS_END:
+				# A cut-off file reads as endless zeros (= cursor signals): loading never finished
+				if file.eof_reached():
+					file.close()
+					replay_error("The replay is corrupted. You will now be returned to the main menu.\n(file ends early)")
+					return
 				i += 1
 				debug_txt.kind = kind
 				debug_txt.i = i
@@ -423,6 +428,11 @@ func start_recording(with_song: Song):
 	song = with_song
 	id = "%s.%s-%s-%s_%s-%s-%s" % [song.id, dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second]
 	var err: int = file.open(Globals.p("user://replays/%s.sspre" % id), File.WRITE)
+	if err != OK:
+		# (e.g. a map id that isn't a valid file name, or a path too long for
+		# Windows) writing to the unopened file errored on every frame of the song
+		print("[replay] couldn't create the replay file (error %s), this play isn't recorded" % err)
+		return
 	file.store_buffer(file_sig)
 	file.store_16(current_sv)
 	file.store_64(0)
@@ -452,6 +462,7 @@ func start_recording(with_song: Song):
 func end_recording():
 	var a = OS.get_ticks_usec()
 	recording = false
+	if not file.is_open(): return # the replay file couldn't be created
 	sig_count += 1
 	file.store_8(Globals.RS_END)
 	file.seek(endms_offset)

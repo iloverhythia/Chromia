@@ -191,6 +191,14 @@ func note_reposition(i: int):
 
 		return false
 
+# Where note i is drawn at hit time, in this node's space (the 360 mod rotates
+# the Notes node, so the stored grid position alone would be unrotated).
+func _note_fx_pos(i: int) -> Vector3:
+	var p: Vector2 = notes[i][0]
+	if Rhythia.mod_360:
+		return _n_notes.transform.xform(Vector3(p.x - 1, p.y + 1, 0))
+	return Vector3(p.x, p.y, 0)
+
 func note_check_collision(i: int):
 	if Rhythia.replaying and Rhythia.replay.sv != 1:
 		return Rhythia.replay.should_hit(i)
@@ -342,11 +350,8 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 						$Miss.transform = notes[i][5]
 						$Miss.play()
 				if missEffect != null and Rhythia.show_miss_effect and not spectating_now:
-					var pos: Vector3 = Vector3(
-						notes[i][5].origin.x,
-						notes[i][5].origin.y,
-						0.002
-					)
+					var np: Vector3 = _note_fx_pos(i)
+					var pos: Vector3 = Vector3(np.x, np.y, 0.002)
 					missEffect.duplicate().spawn(self, pos, notes[i][3], miss_id, true)
 
 				if not spectating_now:
@@ -370,7 +375,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				if hitEffect != null and Rhythia.show_hit_effect and not Rhythia.visual_mode and not spectating_now:
 					var fx_pos: Vector3 = pos
 					if not Rhythia.hit_effect_at_cursor:
-						var note_origin: Vector3 = (global_transform * notes[i][5]).origin
+						var note_origin: Vector3 = global_transform.xform(_note_fx_pos(i))
 						fx_pos.x = note_origin.x
 						fx_pos.y = note_origin.y
 					hitEffect.duplicate().spawn(get_parent(), fx_pos, notes[i][3], hit_id, false)
@@ -389,7 +394,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 	_n_notes.multimesh.visible_instance_count = notes.size() - current_note
 	if asq: _n_asq.multimesh.visible_instance_count = notes.size() - current_note
-	if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = notes.size() - current_note
+	if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = notes.size() - current_note
 
 	if rerun_required: reposition_notes()
 	return note_passed
@@ -453,6 +458,9 @@ func spawn_notes(note_array: Array):
 	_n_notes.multimesh.instance_count = inst_count
 	if asq:
 		_n_asq.multimesh.instance_count = inst_count
+	if Rhythia.note_spawn_effect:
+		# same slots as the notes (it was left at 0: ~180 errors at every song start)
+		_n_spawn.multimesh.instance_count = inst_count
 
 	notes_loaded = true
 	call_deferred("reposition_notes", true)
@@ -912,7 +920,9 @@ func _process(delta: float):
 						ms = pause_ms - (pause_state * (750 * speed_multi))
 						emit_signal("ms_change", ms)
 						_n_music.volume_db = -30
-						_n_music.play(ms / 1000)
+						# with the audio offset, like every other play() here (it was left out,
+						# so after unpausing the music was off by music_offset)
+						_n_music.play(max(ms + Rhythia.music_offset, 0) / 1000)
 			if Input.is_action_pressed("pause") and pause_state > 0:
 				var prev_state = pause_state
 				pause_state = max(pause_state - (delta / 0.75), 0)

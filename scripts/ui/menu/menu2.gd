@@ -1562,7 +1562,7 @@ func _on_admin_lobbies_received(lobbies: Array):
 func _on_admin_copy_lobby_code_pressed(code: String):
 	OS.clipboard = code
 
-func _update_lobby_ui():
+func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	var lobby_manager = _get_lobby_manager()
 	if lobby_canvas == null or lobby_manager == null:
 		return

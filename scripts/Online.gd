@@ -314,8 +314,13 @@ signal _netmaps_imported
 # Time per frame for adding maps: big on the loading screen, small once the menu is up.
 var import_budget_usec := 4000
 var _imported_hashes := {}
+var _imported_registry_id: int = 0
 
 func _import_netmaps_threaded(json_text: String):
+	# Reload Content makes a new map registry: everything has to be imported into it again.
+	if map_registry != null and map_registry.get_instance_id() != _imported_registry_id:
+		_imported_hashes = {}
+		_imported_registry_id = map_registry.get_instance_id()
 	# The same database text (cache, then an unchanged download) only needs importing once.
 	var h := json_text.hash()
 	if _imported_hashes.has(h):
@@ -324,7 +329,12 @@ func _import_netmaps_threaded(json_text: String):
 	var nmp = null
 	var thread := Thread.new()
 	if thread.start(self, "_netmaps_parse_worker", json_text) == OK:
-		yield(self, "_netmaps_imported")
+		# Wait for this import's own parser: with two imports at once (Reload
+		# Content during the background download) the shared signal woke both,
+		# and wait_to_finish() then froze the game until the other one was done.
+		yield(get_tree(), "idle_frame") # (always yields once: callers wait for "completed")
+		while thread.is_alive():
+			yield(get_tree(), "idle_frame")
 		nmp = thread.wait_to_finish()
 	else:
 		yield(get_tree(), "idle_frame")

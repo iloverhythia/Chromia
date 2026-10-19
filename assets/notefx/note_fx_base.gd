@@ -16,6 +16,7 @@ var active: bool = false
 var rainbow: bool = false
 var _life: float = 0.0
 var _max_life: float = 2.0
+var _free_in: int = 0 # frames left before a finished copy is freed
 
 func _ready():
 	if not active: set_process(rainbow)
@@ -24,7 +25,16 @@ func _process(delta):
 	if active:
 		_life += delta
 		if not $Particles.emitting or _life > _max_life:
+			# Hidden now, freed a few frames later. With threaded rendering
+			# (rendering/threads/thread_model=2) CPUParticles are updated from the
+			# render thread; hiding unhooks them on their next update, so they are
+			# never deleted while the render thread may still be using them.
 			active = false
+			visible = false
+			_free_in = 4
+	elif _free_in > 0:
+		_free_in -= 1
+		if _free_in == 0:
 			set_process(false)
 			queue_free()
 	elif rainbow and visible == false:

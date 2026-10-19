@@ -99,9 +99,12 @@ func update(_s = null):
 	$RS/H1/Info/SongName/SongName.text = map.song
 
 	$RS/H1/Info/Mapper/Mapper.text = map.creator
-	$RS/HMid/Difficulty.text = map.custom_data.get("difficulty_name",
-		Globals.difficulty_names.get(map.difficulty, "INVALID DIFFICULTY ID")
-	)
+	# A map's custom difficulty name can be a number, bool or null (map file /
+	# map database data); a non-text value used to stop this whole update.
+	var diff_name = map.custom_data.get("difficulty_name", null)
+	if typeof(diff_name) != TYPE_STRING:
+		diff_name = Globals.difficulty_names.get(map.difficulty, "INVALID DIFFICULTY ID")
+	$RS/HMid/Difficulty.text = diff_name
 	$RS/HMid/Difficulty.modulate = Globals.difficulty_colors.get(map.difficulty, Color("#ffffff"))
 	if map.id != _rank_song_id:
 		_rank_is_ranked = false

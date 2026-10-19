@@ -9,6 +9,7 @@ extends MarginContainer
 
 const ObjParse = preload("res://scripts/content/resources/ObjParse.gd")
 const FavoriteStar = preload("res://scripts/ui/settings/FavoriteStar.gd")
+const NBMesh = preload("res://scripts/ui/settings/NoteBuilderMesh.gd")
 
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const ACCENT = Color(1, 0.756863, 0.960784)
@@ -179,6 +180,11 @@ func _ready():
 	builder_box.visible = false
 	root.add_child(builder_box)
 
+	# the builder writes its note file when it first opens; until then the
+	# "Custom (Note Builder)" card had no picture and played as the default note
+	if not File.new().file_exists(NBMesh.obj_path()):
+		NBMesh.save(NBMesh.load_params())
+
 	_build_renderer()
 	_rebuild_cards()
 	Rhythia.connect("selected_mesh_changed", self, "_on_mesh_changed")
@@ -339,6 +345,8 @@ func _make_card(m):
 
 	cards[m.id] = {"panel": panel, "tex": tex, "name": name_l, "star": star, "mesh": m}
 	panel.connect("resized", self, "_fit_name", [m.id])
+	# "resized" doesn't fire for a card the grid gives exactly its minimum width
+	call_deferred("_fit_name", m.id)
 	_request_thumb(m)
 
 # Long names end in "..." instead of being cut off on both sides.
@@ -560,6 +568,10 @@ func _close_builder():
 	browser.visible = true
 	search.visible = true
 	import_btn.visible = true
+	# the builder saves 0.6 s after the last change: save a pending change now,
+	# or the picture below is made from the old file
+	if builder != null and is_instance_valid(builder) and builder._save_timer > 0.0:
+		builder._save_now()
 	# the built note may have changed: refresh its picture
 	var nb = Rhythia.registry_mesh.get_item("note_builder")
 	if nb is NoteMesh and cards.has(nb.id):
@@ -585,16 +597,20 @@ func _on_import_files(files):
 		f = String(f)
 		if f == "" or f.get_extension().to_lower() != "obj":
 			continue
-		var dest = Rhythia.user_mesh_dir.plus_file(f.get_file())
-		if f != dest and d.copy(f, dest) != OK:
+		# lowercase ".obj": the game only loads that extension from the meshes folder
+		var dest = Rhythia.user_mesh_dir.plus_file(f.get_file().get_basename() + ".obj")
+		# picked from the meshes folder itself: copying a file onto itself empties it
+		var same = _same_file(f, dest)
+		if not same and d.copy(f, dest) != OK:
 			msgs.append("couldn't copy %s" % f.get_file())
 			continue
 		var mtl = f.get_basename() + ".mtl"
-		if File.new().file_exists(mtl):
+		if not same and File.new().file_exists(mtl):
 			d.copy(mtl, dest.get_basename() + ".mtl")
 		var test = ObjParse.load_obj(dest)
 		if test == null or test.get_surface_count() == 0:
-			d.remove(dest)
+			if not same:
+				d.remove(dest)
 			msgs.append("%s isn't a mesh the game can read" % f.get_file())
 			continue
 		var id = "ugc_" + f.get_file().to_lower().replace(" ", "_")
@@ -610,6 +626,13 @@ func _on_import_files(files):
 		msgs.push_front("Imported %d mesh%s" % [added.size(), "" if added.size() == 1 else "es"])
 	if not msgs.empty():
 		_show_status(PoolStringArray(msgs).join(" · "))
+
+func _same_file(a: String, b: String) -> bool:
+	a = ProjectSettings.globalize_path(a).replace("\\", "/").simplify_path()
+	b = ProjectSettings.globalize_path(b).replace("\\", "/").simplify_path()
+	if OS.has_feature("Windows"):
+		return a.to_lower() == b.to_lower()
+	return a == b
 
 func _show_status(t: String):
 	status.text = t

@@ -295,6 +295,9 @@ func import_rhs(path: String) -> Dictionary:
 		Rhythia.cursor_color_type = Globals.CURSOR_CUSTOM_COLOR
 		result.imported.append("Cursor color")
 
+	# Nothing above saves: the imported skin/settings were lost on the next start.
+	if result.imported.size() > 0:
+		Rhythia.save_settings()
 	_cleanup()
 	emit_signal("import_finished", result)
 	return result

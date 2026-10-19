@@ -231,7 +231,10 @@ func get_star_rating() -> float:
 		Rhythia.star_mutex.unlock()
 		return -1.0
 	var had_notes := notes.size() > 0
-	var n: Array = read_notes().duplicate()
+	# A broken map file can make read_notes() fail (null): nothing here may stop
+	# before the unlock below, or starting any song waits for star_mutex forever.
+	var got = read_notes()
+	var n: Array = got.duplicate() if got is Array else []
 	if not had_notes and songType != Globals.MAP_RAW and songType != Globals.MAP_TXT:
 		discard_notes()
 	Rhythia.star_mutex.unlock()
@@ -382,6 +385,8 @@ func load_pbs():
 		var amt: int = file.get_64()
 
 		for i in range(amt):
+			if file.eof_reached():
+				break # damaged file with a garbage count: don't loop (practically) forever
 			var pb: Dictionary = {}
 			var s: String = file.get_line()
 
@@ -804,9 +809,10 @@ func read_notes() -> Array:
 
 			var json = file.get_as_text()
 			file.close()
-			var data: Dictionary = parse_json(json)
+			var parsed = parse_json(json)
+			var data: Dictionary = parsed if parsed is Dictionary else {} # broken JSON: no notes
 
-			var n: Array = data.get("_notes", [])
+			var n: Array = data.get("_notes", []) if data.get("_notes") is Array else []
 
 			loadVulnusNoteArray(n)
 			notes.sort_custom(self, "notesort")
@@ -1371,7 +1377,7 @@ func convert_to_sspm(upgrade: bool = false):
 	var map_has_cover = (has_cover and self.cover and (cover.get_height() + cover.get_width()) >= 9)
 
 	var map_has_music: bool = false
-	var music_buffer: PoolByteArray = get_music_buffer()
+	var music_buffer = get_music_buffer() # null for a map without music (typed, that stopped the conversion here)
 	var music_buffer_length: int = 0
 
 

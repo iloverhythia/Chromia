@@ -193,6 +193,9 @@ func select_random():
 	load_pg(true)
 
 func load_pg(select_cur: bool = false):
+	# The list jumps to cur_map now, so an unfinished click-scroll is stale (it
+	# would scroll all the way back to the clicked map and select it again).
+	scrolling_to = false
 	size_list()
 	for n in btns: n.queue_free()
 	btns.clear()
@@ -478,7 +481,7 @@ func make_song_button(id: int = -1):
 	return btn
 
 func pg_up():
-	if cur_map < 0: return
+	if cur_map < 0 or btns.empty(): return
 	cur_map -= 1
 
 	$Press.play()

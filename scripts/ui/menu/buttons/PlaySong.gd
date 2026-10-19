@@ -6,6 +6,10 @@ func _pressed():
 	if !Rhythia.selected_song: return
 	if !$Song.playing:
 		$Song.stream = Rhythia.selected_song.stream()
+		if $Song.stream == null:
+			# No audio for this map (the built-in maps ship without their music).
+			text = "Play Music"
+			return
 		$Song.volume_db = -55
 		$MenuSong.stop()
 		$Song.play($Song.stream.get_length()*0.4)
@@ -75,8 +79,11 @@ func _do_upd(t, s):
 				$Song.stream.loop = true
 			$Song.pitch_scale = Globals.speed_multi[Rhythia.mod_speed_level]
 #			print(Rhythia.mod_speed_level)
-			if $Song.stream: $Song.play($Song.stream.get_length()/3)
-			text = "Stop Playing"
+			if $Song.stream:
+				$Song.play($Song.stream.get_length()/3)
+				text = "Stop Playing"
+			else:
+				text = "Play Music"
 		else:
 			text = "Play Music"
 			if Rhythia.play_menu_music and !$MenuSong.playing:
