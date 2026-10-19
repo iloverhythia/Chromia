@@ -141,19 +141,46 @@ func load_buffer(bytes: PoolByteArray) -> Texture:
 	imgtex.create_from_image(img)
 	return imgtex
 
+# Custom images (background, note, cursor, hit...) are loaded every time a
+# song starts. Decoding a big PNG/JPG takes a while, so loaded textures are
+# kept until the file changes (same path, size and modified time).
+const TEX_CACHE_MAX = 24
+var _tex_cache := {}
+var _tex_cache_order := []
+var _tex_cache_mutex := Mutex.new()
+
 func load_file(filepath: String) -> Texture:
+	var full: String = Globals.p(filepath)
 	var file = File.new()
-	var err = file.open(Globals.p(filepath), File.READ)
+	var err = file.open(full, File.READ)
 	if err != OK:
-		report_errors(err, Globals.p(filepath))
+		report_errors(err, full)
 		file.close()
 		return error_texture
 
+	var key: String = "%s|%d|%d" % [full, file.get_len(), file.get_modified_time(full)]
+	_tex_cache_mutex.lock()
+	var hit = _tex_cache.get(key)
+	_tex_cache_mutex.unlock()
+	if hit != null and is_instance_valid(hit):
+		file.close()
+		return hit
+
 	var bytes: PoolByteArray = file.get_buffer(file.get_len())
 	file.close()
+	var tex: Texture
 	if get_format(bytes) == "gif":
-		return _load_gif_cached(Globals.p(filepath), bytes)
-	return load_buffer(bytes)
+		tex = _load_gif_cached(full, bytes)
+	else:
+		tex = load_buffer(bytes)
+	if tex != null and tex != error_texture and tex != invalid_texture:
+		_tex_cache_mutex.lock()
+		_tex_cache[key] = tex
+		_tex_cache_order.append(key)
+		while _tex_cache_order.size() > TEX_CACHE_MAX:
+			_tex_cache.erase(_tex_cache_order.pop_front())
+		_tex_cache_mutex.unlock()
+	return tex
 
 func load_if_exists(path: String):
 	var file: File = File.new()

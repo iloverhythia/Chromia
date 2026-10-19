@@ -11,6 +11,7 @@ var black_fade: float = 0
 
 func _ready():
 	print("song loading")
+	Rhythia.start_log("loading screen", true)
 	Rhythia._star_paused = true # background star rating waits until back in the menu
 	if not Rhythia.replaying:
 		Rhythia.send_analytics_event("map_play", {"map_name": Rhythia.selected_song.name, "client_id": Rhythia.cid}, Rhythia.cid)
@@ -61,6 +62,7 @@ func progress(v):
 func finish():
 	if finishing: return
 	finishing = true
+	Rhythia.start_log("scenes loaded")
 	result = RQueue.get_resource(target)
 	result2 = RQueue.get_resource(target2)
 	Rhythia.loaded_world = result2
@@ -72,7 +74,8 @@ func finish():
 
 		get_tree().change_scene("res://scenes/errors/songload.tscn")
 
-	Rhythia.load_color_txt()
+	# (custom colorsets are reloaded when going back to the menu, not here:
+	# reading hundreds of colorset files stuttered the start of the song)
 
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	var in_lobby_round = lobby_manager != null and lobby_manager.lobby_active
@@ -106,7 +109,7 @@ func finish():
 		warning_menu_exit()
 		return
 
-	print("[start] notes read, checking audio")
+	Rhythia.start_log("notes read, checking audio")
 	if Rhythia.selected_song.stream() == Globals.error_sound:
 		Globals.confirm_prompt.open(
 			"This map's audio appears to be broken. You can still play the map, but there won't be any music.",
@@ -195,5 +198,6 @@ func _process(delta):
 			finish()
 
 	if leaving and result and black_fade == 1:
+		Rhythia.start_log("switching to song")
 
 		get_tree().change_scene_to(result)

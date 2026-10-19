@@ -774,7 +774,7 @@ func _on_lobby_state_changed_for_spectators_list():
 	_spectators_banner.text = "👁 %d watching\n%s" % [spectator_count, ", ".join(spectator_names)]
 
 func _ready():
-	print("[start] hud")
+	Rhythia.start_log("hud")
 	_timer_hud = get_node_or_null("TimerHud")
 	_setup_hud_viewports()
 	Game.connect("miss", self, "on_miss")

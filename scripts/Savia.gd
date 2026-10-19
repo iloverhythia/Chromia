@@ -658,6 +658,7 @@ func send_analytics_event(event_name: String, other_payload: Dictionary, cid: St
 	}
 
 	var http = HTTPRequest.new()
+	http.use_threads = true # connecting/TLS off the main thread (this runs as a song starts)
 	add_child(http)
 	http.request(url, ["Content-Type: application/json"], false, HTTPClient.METHOD_POST, JSON.print(payload))
 	yield(http, "request_completed")
@@ -758,6 +759,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-i": "- Faster map loading: custom images (background, note, cursor...) are only decoded once instead of every song, and colorsets are no longer re-read every time a map starts\n- Hit/miss effects are stored as CPU particles (no more GPU particle shader being built and thrown away at every song start, which could crash)\n- The log shows how long each step of starting a map takes",
 	"oct19-2026-h": "- Fixed lag while playing with Rainbow HUD + Attach Timer to Grid (an error every frame)\n- Loading a map no longer writes hundreds of colorset lines to the log",
 	"oct19-2026-g": "- Fixed maps taking forever to load: starting a map waited for a background star rating to finish (minutes on huge maps). Star ratings no longer hold anything up",
 	"oct19-2026-f": "- Fixed a crash when starting a map: a hidden leftover debug screen in the HUD loaded the song a second time and read its notes while the star rater could be reading them too (it is gone now, and also stops wasting FPS)\n- Star ratings pause as soon as a map starts loading\n- The log now shows every step of starting a map, so any remaining crash can be pinned down",
@@ -1012,6 +1014,13 @@ func _star_rating_finished():
 var _thumb_running: bool = false
 var _quitting: bool = false
 var star_mutex := Mutex.new()
+
+# Song start timing for the log: "[start +123ms] step". Reset when a song starts loading.
+var _start_t0: int = 0
+func start_log(msg: String, reset: bool = false):
+	if reset or _start_t0 == 0:
+		_start_t0 = OS.get_ticks_msec()
+	print("[start +%dms] %s" % [OS.get_ticks_msec() - _start_t0, msg])
 
 # Star rating for a map you click that isn't rated yet: worked out on its own
 # thread so the menu never freezes (big maps take seconds in GDScript), then
