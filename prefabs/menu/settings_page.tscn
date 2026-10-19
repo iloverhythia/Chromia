@@ -6061,6 +6061,27 @@ flat = true
 script = ExtResource( 54 )
 target = "show_stats"
 
+[node name="RealisticAutoplay" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_top = 141.0
+margin_right = 955.0
+margin_bottom = 169.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "Autoplay moves the cursor like a person playing the map: reaction delay, curved and uneven moves, small overshoots, aiming a bit off-center. It still hits every note."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Realistic Autoplay"
+flat = true
+script = ExtResource( 54 )
+target = "realistic_autoplay"
+
 [node name="Avatar" type="Control" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
 margin_top = 173.0
 margin_right = 955.0

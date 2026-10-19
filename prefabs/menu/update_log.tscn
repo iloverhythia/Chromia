@@ -11,14 +11,14 @@ script = ExtResource( 1 )
 [node name="Logo" type="TextureRect" parent="."]
 anchor_left = 0.5
 anchor_right = 0.5
-margin_left = -140.0
+margin_left = -260.0
 margin_top = 40.0
-margin_right = 140.0
+margin_right = 260.0
 margin_bottom = 200.0
 mouse_filter = 2
 texture = ExtResource( 2 )
 expand = true
-stretch_mode = 6
+stretch_mode = 5
 
 [node name="Scroll" type="ScrollContainer" parent="."]
 anchor_right = 1.0

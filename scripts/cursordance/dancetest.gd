@@ -104,7 +104,8 @@ func direct_seek():
 func _ready():
 	$Main/Music.pitch_scale = Globals.speed_multi[Rhythia.mod_speed_level]
 	$Main/Music.stream = song.stream()
-	$Main/Music.stream.loop = false
+	if $Main/Music.stream != null:
+		$Main/Music.stream.loop = false
 	$Time.max_value = song.last_ms
 	$Main.setup(song)
 	

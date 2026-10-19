@@ -701,7 +701,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d"
 ]
 
 
@@ -758,6 +758,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-d": "- Fixed the game crashing while loading in (online maps were added to the map list from a background thread)\n- Online maps load much faster at startup\n- Hit/miss effects use CPU particles (GPU particles crash some graphics drivers)\n- Experimental: Realistic Autoplay (autoplay moves like a person)\n- Bigger Start button and score History\n- Stats tab matches the rest of the Profile panel\n- Fixed the Chromia logo being cut off",
 	"oct19-2026-a": "- Fixed crashes/hangs when quitting the game (also when quitting during loading)\n- Fixed crashes from clicking Random Map or the sidebar very fast\n- Fixed a crash when star ratings were being calculated for a map you selected\n- Song previews wait until you stop on a map, so fast clicking stays smooth",
 	"oct18-2026-z": "- Added Waves Classic: the earlier Waves background with the map cover in the sky",
 	"oct18-2026-y": "- Official Chromia logo for the game icon\n- Discord status shows the Chromia logo",
@@ -1970,6 +1971,8 @@ var trail_opacity: float = 1.0
 var trail_gradient_enabled: bool = false
 var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html = aarrggbb
 var max_fps_mode: bool = false
+# Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
+var realistic_autoplay: bool = false
 
 # Max FPS mode: uncapped frame rate, VSync off and no MSAA (anti-aliasing).
 func apply_max_fps_mode():
@@ -2636,6 +2639,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			favorite_colorsets = []
 			for fav_id in data.favorite_colorsets:
 				favorite_colorsets.append(str(fav_id))
+		if data.has("realistic_autoplay"):
+			realistic_autoplay = bool(data.realistic_autoplay)
 		if data.has("max_fps_mode"):
 			max_fps_mode = bool(data.max_fps_mode)
 			if max_fps_mode: call_deferred("apply_max_fps_mode")
@@ -3180,6 +3185,7 @@ func _write_settings_file(saveFile: String):
 			trail_gradient = trail_gradient,
 			favorite_colorsets = favorite_colorsets,
 			max_fps_mode = max_fps_mode,
+			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,
 			show_timer = show_timer,
@@ -4385,7 +4391,9 @@ func do_init(_ud = null):
 			# download then checks for new maps in the background (only the very
 			# first launch, with nothing saved yet, waits for it).
 			_online_maps_fetched = true
+			Online.import_budget_usec = 100000 # loading screen: import quickly
 			var had_cache = yield(Online.load_cached_db_maps(), "completed")
+			Online.import_budget_usec = 4000
 			Online.load_db_maps()
 			if not had_cache:
 				yield(Online, "db_maps_done")

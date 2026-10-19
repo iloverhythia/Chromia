@@ -81,13 +81,13 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-margin_left = -151.0
+margin_left = -260.0
 margin_top = -80.0
-margin_right = 151.0
+margin_right = 260.0
 margin_bottom = 80.0
 texture = ExtResource( 1 )
 expand = true
-stretch_mode = 6
+stretch_mode = 5
 
 [node name="InLovingMemory" type="VBoxContainer" parent="."]
 margin_top = 212.0

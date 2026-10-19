@@ -248,7 +248,10 @@ func read_data(from_path: String = ""):
 			debug_txt.autoplayer = true
 			update_debug_text()
 			song = Rhythia.selected_song
-			dance = BouncyDanceMover.new(song)
+			if Rhythia.get("realistic_autoplay") == true:
+				dance = load("res://scripts/cursordance/Human.gd").new(song)
+			else:
+				dance = BouncyDanceMover.new(song)
 
 
 

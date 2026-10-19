@@ -32,6 +32,24 @@ func _process(delta):
 		var mat = $Particles.material_override
 		if mat: mat.albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
 
+# GPU Particles crash some Windows graphics drivers (and do nothing on the
+# GLES2 fallback), so the template swaps them for CPUParticles with the same
+# settings. Copies made with duplicate() get the CPU version too.
+func _to_cpu_particles():
+	var gpu = get_node_or_null("Particles")
+	if gpu == null or not (gpu is Particles):
+		return
+	var cpu := CPUParticles.new()
+	cpu.convert_from_particles(gpu)
+	cpu.material_override = gpu.material_override
+	cpu.one_shot = gpu.one_shot
+	cpu.emitting = false
+	cpu.transform = gpu.transform
+	remove_child(gpu)
+	gpu.free()
+	cpu.name = "Particles"
+	add_child(cpu)
+
 func get_color_mat(parent: Node, col: Color, miss: bool):
 	var cache = null
 	if miss:
@@ -66,6 +84,7 @@ func spawn(parent: Node, pos: Vector3, col: Color, id: String, miss: bool):
 	set_process(true)
 
 func setup(id: String, miss: bool):
+	_to_cpu_particles()
 	# own copy of the material so tinting/images never leak into the packed scene
 	$Particles.material_override = $Particles.material_override.duplicate()
 	if use_user_image:

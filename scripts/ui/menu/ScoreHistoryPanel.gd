@@ -16,13 +16,13 @@ const FONT_JP = preload("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf")
 const PREFS_PATH = "user://score_history/ui.cfg"
 const MODE_BEST = 0
 const MODE_HISTORY = 1
-const SWITCH_H = 24
+const SWITCH_H = 28
 # The slot's rect is wider than what's visible: the sidebar covers its left
 # edge and the Mods box's labels hang over its right edge.
 const PAD_L = 19
 const PAD_R = 40
 # Header sits above the slot, in the gap between the separator and the PB box.
-const HEAD_Y = -30
+const HEAD_Y = -34
 # Keep the list clear of the version label in the bottom left corner.
 const BOTTOM_CLEAR = 76
 
@@ -77,12 +77,12 @@ func _font(data, size: int) -> DynamicFont:
 
 func _ready():
 	theme = UI_THEME
-	_f_name = _font(FONT_BOLD, 13)
-	_f_small = _font(FONT_REGULAR, 12)
-	_f_rank = _font(FONT_BLACK, 13)
-	_f_grade = _font(FONT_BLACK, 20)
-	_f_tab = _font(FONT_BOLD, 13)
-	_f_avatar = _font(FONT_BLACK, 12)
+	_f_name = _font(FONT_BOLD, 15)
+	_f_small = _font(FONT_REGULAR, 13)
+	_f_rank = _font(FONT_BLACK, 14)
+	_f_grade = _font(FONT_BLACK, 24)
+	_f_tab = _font(FONT_BOLD, 15)
+	_f_avatar = _font(FONT_BLACK, 13)
 
 	size_flags_horizontal = SIZE_EXPAND_FILL
 	size_flags_vertical = SIZE_EXPAND_FILL
@@ -184,7 +184,7 @@ func _make_switch() -> HBoxContainer:
 		b.toggle_mode = true
 		b.group = group
 		b.focus_mode = FOCUS_NONE
-		b.rect_min_size = Vector2(52 if i == MODE_BEST else 68, SWITCH_H)
+		b.rect_min_size = Vector2(58 if i == MODE_BEST else 76, SWITCH_H)
 		b.add_font_override("font", _f_tab)
 		b.connect("pressed", self, "_set_mode", [i, true])
 		h.add_child(b)
@@ -334,8 +334,8 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	sb.set_corner_radius_all(6)
 	sb.content_margin_left = 6
 	sb.content_margin_right = 6
-	sb.content_margin_top = 3
-	sb.content_margin_bottom = 3
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 5
 	panel.add_stylebox_override("panel", sb)
 
 	var h := HBoxContainer.new()
@@ -344,18 +344,18 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	panel.add_child(h)
 
 	var rl := _label("#%d" % rank, _f_rank, rank_col)
-	rl.rect_min_size = Vector2(21, 0)
+	rl.rect_min_size = Vector2(24, 0)
 	h.add_child(rl)
 
 	# Avatar: your initial in a round badge.
 	var nm := String(e.get("nm", "You"))
 	var av := Panel.new()
-	av.rect_min_size = Vector2(20, 20)
+	av.rect_min_size = Vector2(22, 22)
 	av.size_flags_vertical = SIZE_SHRINK_CENTER
 	av.mouse_filter = MOUSE_FILTER_IGNORE
 	var avs := StyleBoxFlat.new()
 	avs.bg_color = C_LILAC
-	avs.set_corner_radius_all(10)
+	avs.set_corner_radius_all(11)
 	av.add_stylebox_override("panel", avs)
 	var ini := _label(nm.substr(0, 1).to_upper() if nm != "" else "?", _f_avatar, Color(0.12, 0.08, 0.16))
 	ini.align = Label.ALIGN_CENTER
@@ -398,7 +398,6 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	st_l.clip_text = true
 	st_l.size_flags_horizontal = SIZE_EXPAND_FILL
 	l2.add_child(st_l)
-	l2.add_child(_label(_ago(int(e.get("t", 0))), _f_small, Color(C_DIM.r, C_DIM.g, C_DIM.b, 0.45)))
 	v.add_child(l2)
 
 	# Line 3: misses, speed, mods.
@@ -421,7 +420,7 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	var g = ScoreHistory.grade_for(acc, show_fc)
 	var gl := _label(g[0], _f_grade, g[1])
 	gl.align = Label.ALIGN_RIGHT
-	gl.rect_min_size = Vector2(26, 0)
+	gl.rect_min_size = Vector2(28, 0)
 	h.add_child(gl)
 
 	panel.hint_tooltip = "%s  %s\n%d / %d notes hit, max combo %d%s%s" % [

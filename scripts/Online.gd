@@ -306,56 +306,95 @@ func _slugify_id(id: String) -> String:
 
 signal _netmaps_imported
 
-# Parsing and importing thousands of maps on the main thread causes big
-# frame hitches, so it runs on a worker thread. Registry adds are
-# mutex-protected. Returns true if the JSON was a valid map database.
-func _import_netmaps_threaded(json_text: String):
-	var thread := Thread.new()
-	if thread.start(self, "_netmaps_worker", json_text) != OK:
-		yield(get_tree(), "idle_frame")
-		var nmp = parse_json(json_text)
-		if not (nmp is Dictionary):
-			return false
-		_import_netmaps(nmp)
-		return true
-	yield(self, "_netmaps_imported")
-	return thread.wait_to_finish()
+# Reading the map database JSON (megabytes) runs on a worker thread, but the
+# maps are added to the registry on the main thread, a few ms per frame. Adding
+# them from the worker crashed the game: the menu, star ratings and thumbnails
+# read the registry's arrays at the same time. Returns true if the JSON was a
+# valid map database.
+# Time per frame for adding maps: big on the loading screen, small once the menu is up.
+var import_budget_usec := 4000
+var _imported_hashes := {}
 
-func _netmaps_worker(json_text: String) -> bool:
+func _import_netmaps_threaded(json_text: String):
+	# The same database text (cache, then an unchanged download) only needs importing once.
+	var h := json_text.hash()
+	if _imported_hashes.has(h):
+		yield(get_tree(), "idle_frame")
+		return true
+	var nmp = null
+	var thread := Thread.new()
+	if thread.start(self, "_netmaps_parse_worker", json_text) == OK:
+		yield(self, "_netmaps_imported")
+		nmp = thread.wait_to_finish()
+	else:
+		yield(get_tree(), "idle_frame")
+		nmp = parse_json(json_text)
+	if not (nmp is Dictionary):
+		return false
+	yield(_import_netmaps_chunked(nmp), "completed")
+	_imported_hashes[h] = true
+	return true
+
+func _netmaps_parse_worker(json_text: String):
 	var nmp = parse_json(json_text)
-	var ok = nmp is Dictionary
-	if ok:
-		_import_netmaps(nmp)
 	call_deferred("emit_signal", "_netmaps_imported")
-	return ok
+	return nmp
+
+func _import_netmaps_chunked(netmaps: Dictionary):
+	yield(get_tree(), "idle_frame")
+	var dir := Directory.new()
+	var known_slugs := {}
+	var known_ids := {}
+	for existing in map_registry.get_items():
+		known_ids[String(existing.id)] = true
+		known_slugs[_slugify_id(String(existing.id))] = true
+	var failed := 0
+	var t_start := OS.get_ticks_msec()
+	var t0 := OS.get_ticks_usec()
+	for id in netmaps.keys():
+		if Rhythia.get("_quitting"):
+			return
+		if OS.get_ticks_usec() - t0 > import_budget_usec:
+			yield(get_tree(), "idle_frame")
+			t0 = OS.get_ticks_usec()
+		if not (netmaps[id] is Dictionary):
+			failed += 1
+			continue
+		if known_ids.has(String(id)):
+			continue
+		var slug := _slugify_id(String(id))
+		if known_slugs.has(slug):
+			continue
+		if dir.file_exists(Globals.p("user://maps/%s.sspm" % id)):
+			continue
+		var song: Song = Song.new()
+		var result: Dictionary = song.load_from_db_data(netmaps[id])
+		if result.success:
+			map_registry.add_item(song)
+			known_slugs[slug] = true
+		else:
+			failed += 1
+	print("[MapDB Import] %d entries in %d ms" % [netmaps.size(), OS.get_ticks_msec() - t_start])
+	if failed > 0:
+		print("[MapDB Import] %d maps skipped (bad data)" % failed)
 
 func _import_netmaps(netmaps: Dictionary):
+	# kept for callers that import synchronously
 	var dir := Directory.new()
-
-
-
-
-
 	var known_slugs := {}
 	for existing in map_registry.get_items():
 		known_slugs[_slugify_id(String(existing.id))] = true
 	for id in netmaps.keys():
-		var local_path = Globals.p("user://maps/%s.sspm" % id)
-		if dir.file_exists(local_path):
+		if not (netmaps[id] is Dictionary):
 			continue
-		if map_registry.idx_id.has(id):
+		if known_slugs.has(_slugify_id(String(id))):
 			continue
-		if known_slugs.has(_slugify_id(id)):
+		if dir.file_exists(Globals.p("user://maps/%s.sspm" % id)):
 			continue
-
 		var song: Song = Song.new()
-		var result: Dictionary = song.load_from_db_data(netmaps[id])
-
-		if result.success:
+		if song.load_from_db_data(netmaps[id]).success:
 			map_registry.add_item(song)
-			known_slugs[_slugify_id(id)] = true
-		else:
-			print("[MapDB Import] Map %s errored with code %s" % [id, result.error])
+			known_slugs[_slugify_id(String(id))] = true
 
 var latest_version_data
 signal latest_version

@@ -6,6 +6,8 @@ extends Control
 const COLOR_VALUE = Color(1, 1, 1)
 const COLOR_LABEL = Color(0.75, 0.78, 0.85)
 const COLOR_TILE = Color(0.12, 0.12, 0.18, 0.85)
+const COLOR_ACCENT = Color(1, 0.756863, 0.960784)
+const COLOR_DIM = Color(1, 1, 1, 0.55)
 
 var _grid: GridContainer
 # Compact: shown as a tab in the profile panel (smaller margins, 2 columns).
@@ -37,10 +39,17 @@ func _ready():
 	scroll.scroll_horizontal_enabled = false
 	add_child(scroll)
 
+	if compact:
+		# Same look as the Profile / Leaderboard tabs next to it: theme font, plain rows.
+		theme = load("res://uitheme.tres")
+		scroll.margin_left = 0
+		scroll.margin_right = 0
+		scroll.margin_top = 0
+		scroll.margin_bottom = 0
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
 	v.rect_clip_content = true
-	v.add_constant_override("separation", 18)
+	v.add_constant_override("separation", 8 if compact else 18)
 	scroll.add_child(v)
 
 	var title := Label.new()
@@ -50,23 +59,29 @@ func _ready():
 	v.add_child(title)
 
 	_since = Label.new()
-	_since.add_font_override("font", _font(18, false))
+	if not compact:
+		_since.add_font_override("font", _font(18, false))
 	_since.add_color_override("font_color", COLOR_LABEL)
 	v.add_child(_since)
 
 	_grid = GridContainer.new()
-	_grid.columns = 2 if compact else 4
+	_grid.columns = 1 if compact else 4
 	_grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	_grid.add_constant_override("hseparation", 14)
-	_grid.add_constant_override("vseparation", 14)
+	_grid.add_constant_override("vseparation", 2 if compact else 14)
 	v.add_child(_grid)
 
 	var mp_title := Label.new()
 	mp_title.text = "Most played"
-	mp_title.add_font_override("font", _font(26, true))
+	if compact:
+		mp_title.add_color_override("font_color", COLOR_ACCENT)
+	else:
+		mp_title.add_font_override("font", _font(26, true))
 	v.add_child(mp_title)
 
 	_most_played = VBoxContainer.new()
+	_most_played.size_flags_horizontal = SIZE_EXPAND_FILL
+	_most_played.add_constant_override("separation", 2)
 	v.add_child(_most_played)
 
 	connect("visibility_changed", self, "_on_visibility_changed")
@@ -93,6 +108,20 @@ func _delayed_refresh(t):
 	refresh()
 
 func _tile(value: String, label: String):
+	if compact:
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = SIZE_EXPAND_FILL
+		var lab := Label.new()
+		lab.text = label
+		lab.size_flags_horizontal = SIZE_EXPAND_FILL
+		lab.clip_text = true
+		row.add_child(lab)
+		var val := Label.new()
+		val.text = value
+		val.add_color_override("font_color", COLOR_ACCENT)
+		row.add_child(val)
+		_grid.add_child(row)
+		return
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = COLOR_TILE
@@ -180,8 +209,30 @@ func refresh():
 		_most_played.add_child(none)
 	for i in range(min(10, ids.size())):
 		var song = Rhythia.registry_song.get_item(ids[i]) if Rhythia.registry_song else null
-		var row := Label.new()
 		var n := int(counts[ids[i]])
+		if compact:
+			var h := HBoxContainer.new()
+			h.size_flags_horizontal = SIZE_EXPAND_FILL
+			h.add_constant_override("separation", 8)
+			var rk := Label.new()
+			rk.text = "#%d" % (i + 1)
+			rk.rect_min_size = Vector2(34, 0)
+			rk.add_color_override("font_color", COLOR_DIM)
+			h.add_child(rk)
+			var nm := Label.new()
+			nm.text = song.name if song else String(ids[i])
+			nm.clip_text = true
+			nm.size_flags_horizontal = SIZE_EXPAND_FILL
+			nm.hint_tooltip = nm.text
+			nm.mouse_filter = MOUSE_FILTER_PASS
+			h.add_child(nm)
+			var pc := Label.new()
+			pc.text = "%s %s" % [Globals.comma_sep(n), "play" if n == 1 else "plays"]
+			pc.add_color_override("font_color", COLOR_ACCENT)
+			h.add_child(pc)
+			_most_played.add_child(h)
+			continue
+		var row := Label.new()
 		row.text = "%d.  %s  —  %s %s" % [i + 1, song.name if song else String(ids[i]), Globals.comma_sep(n), "play" if n == 1 else "plays"]
 		row.add_font_override("font", _font(18, false))
 		row.clip_text = true

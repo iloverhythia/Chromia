@@ -270,7 +270,7 @@ font_data = ExtResource( 27 )
 fallback/0 = ExtResource( 15 )
 
 [sub_resource type="DynamicFont" id=119]
-size = 20
+size = 26
 use_filter = true
 font_data = ExtResource( 27 )
 fallback/0 = ExtResource( 15 )
@@ -1591,6 +1591,7 @@ size_flags_vertical = 3
 margin_top = 161.0
 margin_right = 405.0
 margin_bottom = 186.0
+rect_min_size = Vector2( 0, 44 )
 hint_tooltip = "(Spacebar, Xbox A)"
 size_flags_horizontal = 7
 size_flags_vertical = 7
