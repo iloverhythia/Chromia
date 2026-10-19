@@ -2390,6 +2390,7 @@ func _ready():
 	load("res://scripts/ui/settings/TrailGradientSettings.gd").attach(self) # cursor trail gradient editor
 	_setup_furry_secret()
 	_setup_folder_filters()
+	load("res://scripts/ui/menu/FiltersCollapse.gd").attach(self) # click "Filters" to collapse
 	_add_new_mod_checkboxes()
 	_center_mods()
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
