@@ -40,9 +40,14 @@ const RhythiaPoints = preload("res://scripts/RhythiaPoints.gd")
 
 func _rebuild_data_label(map: Song):
 	var data_text = "%s - %s notes" % [get_time_ms(map.last_ms), comma_sep(map.note_count)]
-	var stars: float = map.get_star_rating()
+	# Never rate on the main thread: an unrated map is rated in the background
+	# and this label is rebuilt when it's done (_on_star_rating_ready).
+	var stars: float = map.star_rating_cached()
 	if stars >= 0.0:
 		data_text += " - %.2f stars" % stars
+	elif not map.star_rating_known():
+		data_text += " - ... stars"
+		Rhythia.request_star_rating(map)
 	$RS/H1/Info/Data/Data.text = data_text
 	var lines := PoolStringArray()
 	if _rank_is_ranked and _rank_song_id == map.id:
@@ -59,6 +64,10 @@ func _rebuild_data_label(map: Song):
 		lines.append(rp_line)
 	$RS/H1/Info/XP.text = lines.join("\n")
 	$RS/H1/Info/XP.visible = lines.size() > 0
+
+func _on_star_rating_ready(song):
+	if is_instance_valid(self) and Rhythia.selected_song != null and Rhythia.selected_song == song:
+		_rebuild_data_label(song)
 
 func _on_map_rank_info_received(song_id: String, ranked: bool, xp: int, _content_hash: String):
 	_rank_song_id = song_id
@@ -77,6 +86,7 @@ func _on_my_map_stats_received(song_id: String, has_passed: bool, best_xp: int, 
 
 func update(_s = null):
 	if not Rhythia.selected_song: return
+	print("[map] selected %s" % String(Rhythia.selected_song.id))
 	$RS.visible = true
 	var map: Song = Rhythia.selected_song
 
@@ -190,6 +200,7 @@ func _ready():
 	Rhythia.connect("selected_song_changed", self, "update")
 	Rhythia.connect("mods_changed", self, "update")
 	RhythiaPoints.get_store().connect("changed", self, "update")
+	Rhythia.connect("star_rating_ready", self, "_on_star_rating_ready")
 	Rhythia.connect("favorite_songs_changed", self, "update")
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null:

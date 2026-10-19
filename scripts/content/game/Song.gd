@@ -202,17 +202,24 @@ func lname() -> String:
 	return _lname
 
 const StarRatingCalc = preload("res://scripts/content/game/StarRating.gd")
+# -1 = not rated yet, -2 = rated but no rating (no notes, or the map made the
+# rater crash once): never tried again.
 var _star_rating: float = -1.0
 
 # The star rating if it has been calculated already, otherwise -1 (no work done).
 func star_rating_cached() -> float:
-	return _star_rating
+	return _star_rating if _star_rating >= 0.0 else -1.0
+
+func star_rating_known() -> bool:
+	return _star_rating >= 0.0 or _star_rating <= -1.5
 
 # Star rating (aim difficulty). Computed on first use and cached; returns -1
 # when the notes aren't available (e.g. an online map that isn't downloaded).
 func get_star_rating() -> float:
 	if _star_rating >= 0.0:
 		return _star_rating
+	if _star_rating <= -1.5:
+		return -1.0
 	# The background rater and the menu can ask for the same map at once;
 	# reading its notes from two threads at the same time could crash.
 	Rhythia.star_mutex.lock()
@@ -223,11 +230,14 @@ func get_star_rating() -> float:
 func _get_star_rating_locked() -> float:
 	if _star_rating >= 0.0:
 		return _star_rating
+	if _star_rating <= -1.5:
+		return -1.0
 	if is_online and (filePath == null or filePath == "" or not File.new().file_exists(filePath)):
 		return -1.0
 	var had_notes := notes.size() > 0
 	var n: Array = read_notes()
 	if n.size() == 0:
+		_star_rating = -2.0
 		return -1.0
 	_star_rating = StarRatingCalc.calculate(n)
 	if is_nan(_star_rating) or is_inf(_star_rating):

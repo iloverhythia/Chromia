@@ -327,13 +327,14 @@ config/save_dir.Android="user://"
 config/show_trail_debug=false
 config/use_custom_user_dir=true
 config/use_custom_user_dir.Android=false
-config/version="oct19-2026-d"
+config/version="oct19-2026-e"
 config/windows_native_icon="res://icon.ico"
 networking/enabled=true
 networking/github_repo="iloverhythia/Chromia"
 networking/mapdb_api="https://cdn.rhythia.net/index.json"
 networking/test_url="https://google.com"
 run/delta_sync_after_draw=true
+run/flush_stdout_on_print=true
 run/main_scene="res://scenes/init.tscn"
 
 [audio]

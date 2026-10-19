@@ -701,7 +701,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e"
 ]
 
 
@@ -758,6 +758,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-e": "- Clicking a map no longer freezes/crashes the game while its star rating is worked out: it now happens in the background (the stars show as ... for a moment)\n- Maps whose star rating crashed the game are never rated again\n- The game log (godot.log) is now written right away, so crash logs show what happened",
 	"oct19-2026-d": "- Fixed the game crashing while loading in (online maps were added to the map list from a background thread)\n- Online maps load much faster at startup\n- Hit/miss effects use CPU particles (GPU particles crash some graphics drivers)\n- Experimental: Realistic Autoplay (autoplay moves like a person)\n- Bigger Start button and score History\n- Stats tab matches the rest of the Profile panel\n- Fixed the Chromia logo being cut off",
 	"oct19-2026-a": "- Fixed crashes/hangs when quitting the game (also when quitting during loading)\n- Fixed crashes from clicking Random Map or the sidebar very fast\n- Fixed a crash when star ratings were being calculated for a map you selected\n- Song previews wait until you stop on a map, so fast clicking stays smooth",
 	"oct18-2026-z": "- Added Waves Classic: the earlier Waves background with the map cover in the sky",
@@ -1008,6 +1009,48 @@ func _star_rating_finished():
 var _thumb_running: bool = false
 var _quitting: bool = false
 var star_mutex := Mutex.new()
+
+# Star rating for a map you click that isn't rated yet: worked out on its own
+# thread so the menu never freezes (big maps take seconds in GDScript), then
+# star_rating_ready is emitted. A marker file names the map while it's being
+# rated; if the game dies there, that map is never rated again (see startup).
+const STAR_CLICK_FILE = "user://caches/star_rating_click.txt"
+signal star_rating_ready(song)
+var _star_req_thread: Thread = null
+var _star_req_pending = null
+
+func request_star_rating(song):
+	if song == null or _quitting or song.star_rating_known():
+		return
+	if song.is_online and (song.filePath == null or song.filePath == "" or not File.new().file_exists(song.filePath)):
+		return
+	if _star_req_thread != null:
+		_star_req_pending = song
+		return
+	var f := File.new()
+	if f.open(Globals.p(STAR_CLICK_FILE), File.WRITE) == OK:
+		f.store_string(String(song.id))
+		f.close()
+	_star_req_thread = Thread.new()
+	if _star_req_thread.start(self, "_star_req_worker", song, Thread.PRIORITY_LOW) != OK:
+		_star_req_thread = null
+
+func _star_req_worker(song):
+	_rate_one(song)
+	call_deferred("_star_req_done", song)
+
+func _star_req_done(song):
+	if _star_req_thread != null and _star_req_thread.is_active():
+		_star_req_thread.wait_to_finish()
+	_star_req_thread = null
+	Directory.new().remove(Globals.p(STAR_CLICK_FILE))
+	if _quitting:
+		return
+	emit_signal("star_rating_ready", song)
+	if _star_req_pending != null:
+		var next = _star_req_pending
+		_star_req_pending = null
+		request_star_rating(next)
 
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
@@ -4415,8 +4458,17 @@ func do_init(_ud = null):
 			var bad_song = registry_song.get_item(bad_id) if registry_song.idx_id.has(bad_id) else null
 			if bad_song:
 				print("[stars] skipping map that failed last time: ", bad_id)
-				_star_cache[bad_id] = [-1.0, _star_cache_key(bad_song)]
+				_star_cache[bad_id] = [-2.0, _star_cache_key(bad_song)]
 			Directory.new().remove(Globals.p(STAR_CURRENT_FILE))
+		if f_cur.open(Globals.p(STAR_CLICK_FILE), File.READ) == OK:
+			# The game closed while rating a map you clicked; never rate it again.
+			var bad_click := f_cur.get_as_text().strip_edges()
+			f_cur.close()
+			var bad_click_song = registry_song.get_item(bad_click) if registry_song.idx_id.has(bad_click) else null
+			if bad_click_song:
+				print("[stars] skipping clicked map that failed last time: ", bad_click)
+				_star_cache[bad_click] = [-2.0, _star_cache_key(bad_click_song)]
+			Directory.new().remove(Globals.p(STAR_CLICK_FILE))
 		var star_songs: Array = []
 		var star_slice := OS.get_ticks_msec()
 		for song in registry_song.get_items():
