@@ -26,6 +26,11 @@ var noteCache: Array = []
 var noteQueue: Array = []
 var colors: Array = Rhythia.selected_colorset.colors
 var scoreEffect: Spatial = load("res://assets/notefx/score/score.tscn").instance()
+# hit/miss particle effects (SS+): hidden template instances, duplicated per note (see _setup_note_effects)
+var hitEffect: Spatial = null
+var missEffect: Spatial = null
+var hit_id: String = ""
+var miss_id: String = ""
 var chaos_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var earthquake_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -336,12 +341,13 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					else:
 						$Miss.transform = notes[i][5]
 						$Miss.play()
-				if false:
+				if missEffect != null and Rhythia.show_miss_effect and not spectating_now:
 					var pos: Vector3 = Vector3(
 						notes[i][5].origin.x,
 						notes[i][5].origin.y,
 						0.002
 					)
+					missEffect.duplicate().spawn(self, pos, notes[i][3], miss_id, true)
 
 				if not spectating_now:
 					emit_signal("miss", notes[i][3])
@@ -361,10 +367,13 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					_n_cursor.global_transform.origin.y,
 					0.002
 				)
-				if false and not Rhythia.visual_mode:
+				if hitEffect != null and Rhythia.show_hit_effect and not Rhythia.visual_mode and not spectating_now:
+					var fx_pos: Vector3 = pos
 					if not Rhythia.hit_effect_at_cursor:
-						pos.x = (global_transform * notes[i][5]).origin.x
-						pos.y = (global_transform * notes[i][5]).origin.y
+						var note_origin: Vector3 = (global_transform * notes[i][5]).origin
+						fx_pos.x = note_origin.x
+						fx_pos.y = note_origin.y
+					hitEffect.duplicate().spawn(get_parent(), fx_pos, notes[i][3], hit_id, false)
 
 				if not spectating_now:
 					emit_signal("hit", notes[i][3])
@@ -541,7 +550,7 @@ func _ready():
 
 
 	var mesh: Mesh
-	if "user://" in Rhythia.selected_mesh.path:
+	if "user://" in Rhythia.selected_mesh.path or not Rhythia.selected_mesh.path.begins_with("res://"):
 		var m = ObjParse.load_obj(Rhythia.selected_mesh.path)
 		if m != null:
 			mesh = m
@@ -549,6 +558,8 @@ func _ready():
 			mesh = load("res://assets/blocks/rounded.obj")
 	else:
 		mesh = load(Rhythia.selected_mesh.path)
+	if mesh == null or mesh.get_surface_count() == 0:
+		mesh = load("res://assets/blocks/rounded.obj")
 
 
 	var img = Globals.imageLoader.load_if_exists("user://note")
@@ -566,10 +577,11 @@ func _ready():
 
 	_n_notes.multimesh.mesh = mesh
 
-
+	_setup_note_effects()
 
 
 	yield(get_tree(), "idle_frame")
+	_warm_note_effects()
 	_n_notes.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
 	_n_notes.multimesh.set_instance_transform(0, Transform())
 	if asq:
@@ -1022,6 +1034,34 @@ func _process(delta: float):
 	elif Grid != null and Grid.spectating and notes_loaded:
 		reposition_notes()
 
+
+func _load_note_effect(effect, miss: bool) -> Spatial:
+	if effect == null or not (effect is NoteEffect) or effect.path == "": return null
+	var scene = load(effect.path)
+	if not (scene is PackedScene): return null
+	var inst = scene.instance()
+	if not (inst is Spatial) or not inst.has_method("spawn"):
+		if inst: inst.free()
+		return null
+	if inst.has_method("setup"): inst.setup(effect.id, miss)
+	inst.visible = false
+	add_child(inst) # hidden template; freed with the NoteManager
+	return inst
+
+func _setup_note_effects():
+	if Rhythia.show_hit_effect and not Rhythia.visual_mode:
+		hitEffect = _load_note_effect(Rhythia.selected_hit_effect, false)
+		if hitEffect: hit_id = Rhythia.selected_hit_effect.id
+	if Rhythia.show_miss_effect:
+		missEffect = _load_note_effect(Rhythia.selected_miss_effect, true)
+		if missEffect: miss_id = Rhythia.selected_miss_effect.id
+
+func _warm_note_effects():
+	# spawn one copy far off-screen so shaders/particles are compiled before the first note
+	if hitEffect != null and is_instance_valid(hitEffect):
+		hitEffect.duplicate().spawn(get_parent(), Vector3(0, 0, -400), Color(1, 1, 1), hit_id, false)
+	if missEffect != null and is_instance_valid(missEffect):
+		missEffect.duplicate().spawn(self, Vector3(0, 0, -400), Color(1, 1, 1), miss_id, true)
 
 func _exit_tree():
 

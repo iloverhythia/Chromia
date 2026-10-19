@@ -195,6 +195,7 @@ func _ready():
 	if lobby_manager != null:
 		lobby_manager.connect("map_rank_info_received", self, "_on_map_rank_info_received")
 		lobby_manager.connect("my_map_stats_received", self, "_on_my_map_stats_received")
+	load("res://scripts/ui/menu/ScoreHistoryPanel.gd").attach(self)
 
 	if Rhythia.selected_song: update()
 	else:

@@ -102,6 +102,7 @@ func end(end_type: int):
 	print("song max combo: ", max_combo)
 	if not Rhythia.replaying:
 		Rhythia.record_play_stats()
+	load("res://scripts/ScoreHistory.gd").record_attempt() # skips replays/autoplay itself
 
 	if Rhythia.record_replays and not Rhythia.replaying:
 		Rhythia.replay.end_recording()
@@ -679,6 +680,8 @@ func _ready():
 	var spinst = Rhythia.loaded_world.instance()
 	get_parent().call_deferred("add_child", spinst)
 	spinst.name = "Space"
+	if not Rhythia.vr and preload("res://scripts/BgLayers.gd").has_visible_layers():
+		add_child(preload("res://scripts/game/BgLayersGame.gd").new())
 
 	$BlackFade.visible = true
 	$BlackFade.color = Color(0, 0, 0, black_fade)

@@ -701,7 +701,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c"
 ]
 
 
@@ -757,6 +757,7 @@ const VERSION_NOTES = {
 	"oct18-2026-j": "- Huge startup speedup for big map libraries: some maps had junk data that took ~1 second each to read and bloated the map cache to 100+ MB\n- Duplicate and broken map files are remembered, so they're no longer re-read on every launch\n- The map cache is only saved when something changed\n- Fixed star ratings being recalculated every launch",
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
+	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
 	"oct19-2026-a": "- Fixed crashes/hangs when quitting the game (also when quitting during loading)\n- Fixed crashes from clicking Random Map or the sidebar very fast\n- Fixed a crash when star ratings were being calculated for a map you selected\n- Song previews wait until you stop on a map, so fast clicking stays smooth",
 	"oct18-2026-z": "- Added Waves Classic: the earlier Waves background with the map cover in the sky",
 	"oct18-2026-y": "- Official Chromia logo for the game icon\n- Discord status shows the Chromia logo",
@@ -804,6 +805,8 @@ signal selected_colorset_changed
 signal selected_mesh_changed
 signal selected_hit_sound_changed
 signal selected_miss_sound_changed
+signal selected_hit_effect_changed
+signal selected_miss_effect_changed
 signal init_stage_reached
 signal init_stage_num
 signal vr_status_checked
@@ -844,10 +847,13 @@ var registry_border: Registry
 
 var selected_space: BackgroundWorld
 var selected_colorset: ColorSet
+var favorite_colorsets: Array = [] # colorset ids, shown first in the colorset picker
 var selected_song: Song
 var selected_mesh: NoteMesh
 var selected_hit_sound: NamedSound
 var selected_miss_sound: NamedSound
+var selected_hit_effect: NoteEffect
+var selected_miss_effect: NoteEffect
 var selected_border: Border
 var border_color: Color = Color(1, 1, 1, 0.588235)
 signal hit_sounds_changed
@@ -869,6 +875,14 @@ func select_miss_sound(snd: NamedSound):
 		selected_miss_sound = snd
 		refresh_active_sound_streams()
 		emit_signal("selected_miss_sound_changed", snd)
+func select_hit_effect(effect: NoteEffect):
+	if effect:
+		selected_hit_effect = effect
+		emit_signal("selected_hit_effect_changed", effect)
+func select_miss_effect(effect: NoteEffect):
+	if effect:
+		selected_miss_effect = effect
+		emit_signal("selected_miss_effect_changed", effect)
 func select_world(world: BackgroundWorld):
 	if world:
 		selected_space = world
@@ -1878,8 +1892,8 @@ func get_fade_length():
 	if replaying and replay.settings.has("fade_length"): return replay.settings.get("fade_length")
 	return fade_length
 
-var show_hit_effect: bool = false
-var hit_effect_at_cursor: bool = false
+var show_hit_effect: bool = true
+var hit_effect_at_cursor: bool = true
 
 var show_miss_effect: bool = false
 
@@ -1952,6 +1966,9 @@ var smart_trail: bool = false
 var trail_detail: int = 10
 var trail_time: float = 0.15
 var trail_opacity: float = 1.0
+# Trail gradient: list of [offset 0..1, color html]; sampled by scripts/game/TrailGradient.gd
+var trail_gradient_enabled: bool = false
+var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html = aarrggbb
 var max_fps_mode: bool = false
 
 # Max FPS mode: uncapped frame rate, VSync off and no MSAA (anti-aliasing).
@@ -2580,8 +2597,19 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			hit_fov_decay = data.hit_fov_decay
 		if data.has("fade_length"):
 			fade_length = data.fade_length
-		if data.has("show_hit_effect"):
-			show_hit_effect = data.show_hit_effect
+		# older Chromia builds always saved the hit effect settings as false; only trust them once re-added
+		if data.has("show_hit_effect") and data.has("hit_effects_v2"):
+			show_hit_effect = bool(data.show_hit_effect)
+		if data.has("hit_effect_at_cursor") and data.has("hit_effects_v2"):
+			hit_effect_at_cursor = bool(data.hit_effect_at_cursor)
+		if data.has("show_miss_effect") and data.has("hit_effects_v2"):
+			show_miss_effect = bool(data.show_miss_effect)
+		if data.has("selected_hit_effect") and registry_effect:
+			var hit_eff = registry_effect.get_item(String(data.selected_hit_effect))
+			if hit_eff: select_hit_effect(hit_eff)
+		if data.has("selected_miss_effect") and registry_effect:
+			var miss_eff = registry_effect.get_item(String(data.selected_miss_effect))
+			if miss_eff: select_miss_effect(miss_eff)
 		if data.has("lock_mouse"):
 			lock_mouse = data.lock_mouse
 		if data.has("absolute_mode"):
@@ -2600,6 +2628,14 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			trail_time = data.trail_time
 		if data.has("trail_opacity"):
 			trail_opacity = clamp(float(data.trail_opacity), 0.0, 1.0)
+		if data.has("trail_gradient_enabled"):
+			trail_gradient_enabled = bool(data.trail_gradient_enabled)
+		if data.has("trail_gradient") and typeof(data.trail_gradient) == TYPE_ARRAY:
+			trail_gradient = data.trail_gradient
+		if data.has("favorite_colorsets") and typeof(data.favorite_colorsets) == TYPE_ARRAY:
+			favorite_colorsets = []
+			for fav_id in data.favorite_colorsets:
+				favorite_colorsets.append(str(fav_id))
 		if data.has("max_fps_mode"):
 			max_fps_mode = bool(data.max_fps_mode)
 			if max_fps_mode: call_deferred("apply_max_fps_mode")
@@ -2622,8 +2658,6 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("rainbow_hud"):
 			rainbow_hud = data.rainbow_hud
 
-		if data.has("hit_effect_at_cursor"):
-			hit_effect_at_cursor = data.hit_effect_at_cursor
 		if data.has("show_warnings"):
 			show_warnings = data.show_warnings
 		if data.has("record_replays"):
@@ -3130,7 +3164,11 @@ func _write_settings_file(saveFile: String):
 			ui_parallax = ui_parallax,
 			grid_parallax = grid_parallax,
 			fade_length = fade_length,
-			show_hit_effect = false,
+			show_hit_effect = show_hit_effect,
+			show_miss_effect = show_miss_effect,
+			hit_effects_v2 = true,
+			selected_hit_effect = (selected_hit_effect.id if selected_hit_effect else "ssp_ripple"),
+			selected_miss_effect = (selected_miss_effect.id if selected_miss_effect else "ssp_miss"),
 			lock_mouse = lock_mouse,
 			absolute_mode = absolute_mode,
 			absolute_scale = absolute_scale,
@@ -3138,6 +3176,9 @@ func _write_settings_file(saveFile: String):
 			trail_detail = trail_detail,
 			trail_time = trail_time,
 			trail_opacity = trail_opacity,
+			trail_gradient_enabled = trail_gradient_enabled,
+			trail_gradient = trail_gradient,
+			favorite_colorsets = favorite_colorsets,
 			max_fps_mode = max_fps_mode,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,
@@ -3149,7 +3190,7 @@ func _write_settings_file(saveFile: String):
 			rainbow_grid = rainbow_grid,
 			rainbow_hud = rainbow_hud,
 			smart_trail = smart_trail,
-			hit_effect_at_cursor = false,
+			hit_effect_at_cursor = hit_effect_at_cursor,
 			show_warnings = show_warnings,
 			record_replays = record_replays,
 			alt_cam = alt_cam,
@@ -3734,6 +3775,7 @@ func register_meshes():
 		"ssp_realplane", "Plane",
 		"res://assets/blocks/quad.tres", "Chedski"
 	))
+	load("res://scripts/ui/settings/NoteBuilderMesh.gd").register(registry_mesh)
 	var dir = Directory.new()
 	if dir.open(user_mesh_dir) == OK:
 		dir.list_dir_begin(true, false)
@@ -3747,6 +3789,16 @@ func register_meshes():
 				))
 			mesh_name = dir.get_next()
 func register_effects():
+	registry_effect.add_item(NoteEffect.new(
+		"ssp_ripple", "Ripple* (no color)", "res://assets/notefx/ripple/ripple.tscn", "Chedski"
+	))
+	registry_effect.add_item(NoteEffect.new(
+		"ssp_ripple_n", "Ripple* (note color)", "res://assets/notefx/ripple/ripple.tscn", "Chedski"
+	))
+	registry_effect.add_item(NoteEffect.new(
+		"ssp_ripple_r", "Ripple* (rainbow)", "res://assets/notefx/ripple/ripple.tscn", "Chedski"
+	))
+
 	registry_effect.add_item(NoteEffect.new(
 		"ssp_shards", "Shards (note color)", "res://assets/notefx/shards/shards.tscn", "Chedski"
 	))
@@ -4393,6 +4445,8 @@ func do_init(_ud = null):
 	selected_mesh = registry_mesh.get_item("ssp_rounded")
 	selected_hit_sound = registry_hit_sound.get_item("default")
 	selected_miss_sound = registry_miss_sound.get_item("default")
+	selected_hit_effect = registry_effect.get_item("ssp_ripple")
+	selected_miss_effect = registry_effect.get_item("ssp_miss")
 	selected_border = registry_border.get_item("default")
 
 	assert(selected_colorset)

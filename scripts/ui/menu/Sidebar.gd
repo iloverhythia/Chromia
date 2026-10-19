@@ -168,6 +168,9 @@ func _ready():
 	if Rhythia.single_map_mode:
 		for n in $L.get_children():
 			n.visible = smm_visibility.get(n, false)
+	# Stats is a tab in the profile panel and Language is a settings tab now.
+	$L/Stats.visible = false
+	$L/Language.visible = false
 
 	refresh_language_labels()
 

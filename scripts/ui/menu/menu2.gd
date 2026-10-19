@@ -537,6 +537,12 @@ func _build_profile_ui():
 	leaderboard_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	leaderboard_scroll.add_child(leaderboard_list_box)
 
+	# Stats (used to be its own sidebar page)
+	var stats_tab = preload("res://prefabs/menu/stats_page.tscn").instance()
+	stats_tab.name = "Stats"
+	stats_tab.compact = true
+	tabs.add_child(stats_tab)
+
 	tabs.connect("tab_changed", self, "_on_profile_tab_changed")
 
 	profile_canvas.visible = not _load_profile_ui_hidden()
@@ -2348,6 +2354,15 @@ func _ready():
 	_embed_panels_in_pages()
 	_layout_lobby_ui()
 	_build_keybinds_settings_tab()
+	preload("res://scripts/ui/settings/BgEditor.gd").install(self)
+	load("res://scripts/ui/settings/NoteBuilder.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer"))
+	load("res://scripts/ui/settings/HitEffectSettings.gd").build(get_node_or_null("Main/Settings/S/F/TabContainer")) # hit/miss effect options (Notes tab)
+	var lang_tabs = get_node_or_null("Main/Settings/S/F/TabContainer")
+	if lang_tabs != null and not lang_tabs.has_node("Language"):
+		var lang_tab = load("res://scripts/ui/settings/LanguageTab.gd").new()
+		lang_tab.name = "Language"
+		lang_tabs.add_child(lang_tab)
+	load("res://scripts/ui/settings/TrailGradientSettings.gd").attach(self) # cursor trail gradient editor
 	_setup_furry_secret()
 	_setup_folder_filters()
 	_add_new_mod_checkboxes()

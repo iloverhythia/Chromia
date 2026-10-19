@@ -8,6 +8,8 @@ const COLOR_LABEL = Color(0.75, 0.78, 0.85)
 const COLOR_TILE = Color(0.12, 0.12, 0.18, 0.85)
 
 var _grid: GridContainer
+# Compact: shown as a tab in the profile panel (smaller margins, 2 columns).
+var compact := false
 var _most_played: VBoxContainer
 var _since: Label
 
@@ -28,21 +30,23 @@ func _ready():
 	var scroll := ScrollContainer.new()
 	scroll.anchor_right = 1.0
 	scroll.anchor_bottom = 1.0
-	scroll.margin_left = 80
-	scroll.margin_right = -40
-	scroll.margin_top = 30
-	scroll.margin_bottom = -20
+	scroll.margin_left = 4 if compact else 80
+	scroll.margin_right = -4 if compact else -40
+	scroll.margin_top = 8 if compact else 30
+	scroll.margin_bottom = -4 if compact else -20
 	scroll.scroll_horizontal_enabled = false
 	add_child(scroll)
 
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
+	v.rect_clip_content = true
 	v.add_constant_override("separation", 18)
 	scroll.add_child(v)
 
 	var title := Label.new()
 	title.text = "Stats"
 	title.add_font_override("font", _font(40, true))
+	title.visible = not compact
 	v.add_child(title)
 
 	_since = Label.new()
@@ -51,7 +55,8 @@ func _ready():
 	v.add_child(_since)
 
 	_grid = GridContainer.new()
-	_grid.columns = 4
+	_grid.columns = 2 if compact else 4
+	_grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	_grid.add_constant_override("hseparation", 14)
 	_grid.add_constant_override("vseparation", 14)
 	v.add_child(_grid)
@@ -97,7 +102,9 @@ func _tile(value: String, label: String):
 	sb.content_margin_top = 12
 	sb.content_margin_bottom = 12
 	panel.add_stylebox_override("panel", sb)
-	panel.rect_min_size = Vector2(250, 0)
+	panel.rect_min_size = Vector2(0 if compact else 250, 0)
+	if compact:
+		panel.size_flags_horizontal = SIZE_EXPAND_FILL
 	var box := VBoxContainer.new()
 	panel.add_child(box)
 	var val := Label.new()
@@ -177,6 +184,9 @@ func refresh():
 		var n := int(counts[ids[i]])
 		row.text = "%d.  %s  —  %s %s" % [i + 1, song.name if song else String(ids[i]), Globals.comma_sep(n), "play" if n == 1 else "plays"]
 		row.add_font_override("font", _font(18, false))
+		row.clip_text = true
+		row.hint_tooltip = row.text
+		row.mouse_filter = MOUSE_FILTER_PASS
 		_most_played.add_child(row)
 
 func _by_count_desc(a, b) -> bool:
