@@ -25,7 +25,7 @@ var _shown := 0.0 # animated fill
 func _ready():
 	store = PlayerLevel.get_store()
 	var sb = StyleBoxFlat.new()
-	sb.bg_color = Color(0.1, 0.1, 0.11, 1)
+	sb.draw_center = false # no background, just the badge, text and bar
 	sb.set_corner_radius_all(6)
 	sb.content_margin_left = 12
 	sb.content_margin_right = 14
