@@ -2531,6 +2531,27 @@ func _center_mods():
 			row.connect("sort_children", self, "_layout_mods", [], CONNECT_DEFERRED)
 	yield(get_tree(), "idle_frame")
 	_layout_mods()
+	# The window is maximized/resized after the menu opens (auto maximize), and
+	# the map screen may be hidden at first: centering measured the old layout,
+	# so the mods ended up off to the side. Center again whenever that changes.
+	if not get_viewport().is_connected("size_changed", self, "_relayout_mods_soon"):
+		get_viewport().connect("size_changed", self, "_relayout_mods_soon")
+	var results = get_node_or_null("Main/Maps/Results")
+	if results != null and not results.is_connected("visibility_changed", self, "_relayout_mods_soon"):
+		results.connect("visibility_changed", self, "_relayout_mods_soon")
+	get_tree().create_timer(1.0).connect("timeout", self, "_relayout_mods_soon")
+
+var _mods_relayout_pending := false
+func _relayout_mods_soon():
+	if _mods_relayout_pending or not is_inside_tree():
+		return
+	_mods_relayout_pending = true
+	# wait for containers to finish laying out at the new size
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	_mods_relayout_pending = false
+	if is_inside_tree():
+		_layout_mods()
 
 func _layout_mods():
 	var mods = get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")
@@ -2559,6 +2580,55 @@ func _layout_mods():
 	for c in mods.get_children():
 		if c is Control and not (c is CheckBox) and c != speed:
 			_shift_to_center([c], mid, scale, null)
+	_keep_mods_clear_of_pb(mods, scale)
+
+# On narrow windows the centered mods reach into the Best Attempt / History
+# column next to them; push them right until they clear it (as far as the
+# column has room).
+func _keep_mods_clear_of_pb(mods, scale: float):
+	var screen = get_node_or_null("Main/Maps/Results/Results")
+	if screen == null:
+		return
+	var left_edge = null
+	var ei = screen.get_node_or_null("RS/H2/EndInfo")
+	if ei != null and ei.visible:
+		left_edge = _labels_right(ei, null)
+	var hist = screen.find_node("ScoreHistory", true, false)
+	if hist != null and hist is Control and hist.visible:
+		var hr: Rect2 = hist.get_global_rect()
+		var he = hr.end.x - 40 * scale # (the list leaves 40 px free on its right)
+		left_edge = he if left_edge == null else max(left_edge, he)
+	if left_edge == null:
+		return
+	var block = null
+	for c in mods.get_children():
+		block = _union_visible(c, block)
+	if block == null:
+		return
+	var gap: float = 10.0 * scale
+	var need: float = left_edge + gap - block.position.x
+	if need <= 0:
+		return
+	var col = screen.get_node_or_null("RS")
+	var right: float = col.get_global_rect().end.x if col != null else mods.get_global_rect().end.x
+	var room: float = right - block.end.x
+	var dx: float = min(need, max(room, 0.0))
+	if dx <= 0:
+		return
+	for c in mods.get_children():
+		if c is Control:
+			c.rect_position.x += dx / scale
+
+func _labels_right(n, best):
+	if not (n is Control) or not n.visible:
+		return best
+	if n is Label:
+		var r = _drawn_rect(n)
+		if r != null:
+			best = r.end.x if best == null else max(best, r.end.x)
+	for c in n.get_children():
+		best = _labels_right(c, best)
+	return best
 
 # Returns the drawn area after the shift.
 func _shift_to_center(nodes: Array, mid: float, scale: float, measure, given = null):

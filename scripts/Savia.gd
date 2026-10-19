@@ -704,7 +704,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n"
 ]
 
 
@@ -761,6 +761,7 @@ const VERSION_NOTES = {
 	"oct18-2026-k": "- The stars filter no longer shows rating progress next to its name",
 	"oct19-2026-b": "- Updates come from the renamed iloverhythia/Chromia repository",
 	"oct19-2026-c": "- Hit and miss effects are back (Notes tab)\n- New Note Builder tab: build your own note shape\n- Favorite colorsets (star them in Colorsets)\n- Cursor trail gradient (World & Cursor)\n- New Background Editor tab: place images/videos on screen\n- Map screen: History of your previous attempts\n- Stats moved to a tab in the Profile panel\n- Language moved to a Settings tab",
+	"oct19-2026-n": "- Fixed starting a map freezing (Not Responding) while star ratings were being worked out in the background: maps now only wait if that exact map is being read, and giant maps (100k+ notes) are no longer star-rated\n- Fixed the Modifiers block being off-center / overlapping Best Attempt when the game first opens",
 	"oct19-2026-m": "- The Update Log shows the notes for the last few updates again",
 	"oct19-2026-l": "- Big bug sweep:\n- Settings changed right before quitting are saved again (they were lost on Windows)\n- Fixed hangs: broken map files at song start, bad values in settings.json at startup, cut-off replay files, short replays, the map list staying empty after a song with the server down\n- Star ratings are 10-50x faster on big/spam maps, and colorsets load in a blink instead of seconds\n- Online maps no longer disappear after Reload Content\n- Music stays in sync after unpausing when you use a music offset\n- Hit/miss effects in 360 mode show at the right spot; Exponential hit FOV no longer goes crazy\n- Replays: pause works with one press; failed replay files no longer spam errors\n- Random map no longer scrolls back to the last clicked map; menu loads faster (stats aren't rebuilt every time)\n- Meshes tab: imports from the meshes folder aren't deleted, .OBJ files load, builder picture updates; Max FPS mode really removes the cap\n- Lobby: no more stuck Connecting/Uploading, notes read safely when a match starts\n- Lots of smaller fixes",
 	"oct19-2026-k": "- Meshes tab: the Favorite tab is now the Mesh Builder, and starred meshes are shown first in the list\n- Long mesh names end in ... instead of being cut off on both sides",
@@ -1023,7 +1024,34 @@ func _star_rating_finished():
 
 var _thumb_running: bool = false
 var _quitting: bool = false
-var star_mutex := Mutex.new()
+var star_mutex := Mutex.new() # (old global lock, no longer used for note reads)
+
+# Per-map note lock: two threads must never read the SAME map's notes at once,
+# but reading different maps is fine. The old single lock made starting a song
+# wait for whatever map the background star rater was reading (minutes for a
+# 750k-note map). Now a song start only waits if the rater is on that same map.
+var _notes_busy := {}
+var _notes_busy_mutex := Mutex.new()
+func lock_song_notes(song):
+	if song == null:
+		return
+	while true:
+		_notes_busy_mutex.lock()
+		if not _notes_busy.has(song):
+			_notes_busy[song] = true
+			_notes_busy_mutex.unlock()
+			return
+		_notes_busy_mutex.unlock()
+		OS.delay_msec(2)
+func unlock_song_notes(song):
+	if song == null:
+		return
+	_notes_busy_mutex.lock()
+	_notes_busy.erase(song)
+	_notes_busy_mutex.unlock()
+
+# Maps with this many notes or more aren't star-rated (reading/rating them takes minutes).
+const STAR_MAX_NOTES = 100000
 
 # Song start timing for the log: "[start +123ms] step". Reset when a song starts loading.
 var _start_t0: int = 0

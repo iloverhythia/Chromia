@@ -253,12 +253,12 @@ func read_data(from_path: String = ""):
 			debug_txt.autoplayer = true
 			update_debug_text()
 			song = Rhythia.selected_song
-			Rhythia.star_mutex.lock() # movers read the map's notes; the star rater may be too
+			Rhythia.lock_song_notes(song) # movers read the map's notes; the star rater may be too
 			if Rhythia.get("realistic_autoplay") == true:
 				dance = load("res://scripts/cursordance/Human.gd").new(song)
 			else:
 				dance = BouncyDanceMover.new(song)
-			Rhythia.star_mutex.unlock()
+			Rhythia.unlock_song_notes(song)
 
 
 

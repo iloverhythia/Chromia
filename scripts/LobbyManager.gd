@@ -1064,9 +1064,9 @@ func _scene_transition_now():
 		var song = Rhythia.registry_song.get_item(lobby_state.song_id, Globals.SEARCH_ID) if Rhythia.registry_song else null
 		var _n_notes: int = -1
 		if song:
-			Rhythia.star_mutex.lock() # the background star rater may be reading this map's notes
+			Rhythia.lock_song_notes(song) # the star rater may be reading this map's notes
 			var got = song.read_notes()
-			Rhythia.star_mutex.unlock()
+			Rhythia.unlock_song_notes(song)
 			_n_notes = got.size() if got is Array else 0
 		if song and _n_notes == 0:
 			print("[furria] cached song ", lobby_state.song_id, " has 0 notes — treating as missing, re-requesting")

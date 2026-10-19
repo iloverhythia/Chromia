@@ -223,12 +223,15 @@ func get_star_rating() -> float:
 	# Reading the notes from two threads at the same time could crash, so the
 	# notes are copied under star_mutex. The rating itself (slow on big maps)
 	# runs on the copy WITHOUT the lock, so starting a song never waits for it.
-	Rhythia.star_mutex.lock()
+	if int(note_count) >= Rhythia.STAR_MAX_NOTES:
+		_star_rating = -2.0 # huge map: not rated
+		return -1.0
+	Rhythia.lock_song_notes(self)
 	if _star_rating >= 0.0 or _star_rating <= -1.5:
-		Rhythia.star_mutex.unlock()
+		Rhythia.unlock_song_notes(self)
 		return _star_rating if _star_rating >= 0.0 else -1.0
 	if is_online and (filePath == null or filePath == "" or not File.new().file_exists(filePath)):
-		Rhythia.star_mutex.unlock()
+		Rhythia.unlock_song_notes(self)
 		return -1.0
 	var had_notes := notes.size() > 0
 	# A broken map file can make read_notes() fail (null): nothing here may stop
@@ -237,7 +240,7 @@ func get_star_rating() -> float:
 	var n: Array = got.duplicate() if got is Array else []
 	if not had_notes and songType != Globals.MAP_RAW and songType != Globals.MAP_TXT:
 		discard_notes()
-	Rhythia.star_mutex.unlock()
+	Rhythia.unlock_song_notes(self)
 	if n.size() == 0:
 		_star_rating = -2.0
 		return -1.0

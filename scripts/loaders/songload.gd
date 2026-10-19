@@ -100,9 +100,9 @@ func finish():
 
 
 
-	Rhythia.star_mutex.lock() # the background star rater may be reading this map
+	Rhythia.lock_song_notes(Rhythia.selected_song) # the star rater may be reading this map
 	var _read = Rhythia.selected_song.read_notes()
-	Rhythia.star_mutex.unlock() # (unlocked before anything that could fail on a broken map)
+	Rhythia.unlock_song_notes(Rhythia.selected_song) # (unlocked before anything that could fail on a broken map)
 	var _n_notes: int = _read.size() if _read is Array else 0
 	if _n_notes == 0:
 		Globals.confirm_prompt.open(
