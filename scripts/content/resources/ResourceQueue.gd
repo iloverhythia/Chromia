@@ -45,6 +45,7 @@ func queue_resource(path, p_in_front = false):
 			_unlock("queue_resource") # still locked here: the loader thread would wait on it forever
 			return FAILED
 		res.set_meta("path", path)
+		Rhythia.trail("loading %s" % path)
 		if p_in_front:
 			queue.insert(0, res)
 		else:
@@ -139,6 +140,7 @@ func thread_process(wait_for_signal: bool = true):
 			if path in pending:
 				if ret == ERR_FILE_EOF:
 					pending[res.get_meta("path")] = res.get_resource()
+					Rhythia.trail("loaded %s" % path)
 				else: pending[res.get_meta("path")] = false
 
 
@@ -161,8 +163,11 @@ func start():
 	mutex = Mutex.new()
 	semaphore = Semaphore.new()
 	thread = Thread.new()
-	# the web build has no threads: _process() does the loading then
-	thread_started = OS.can_use_threads() and thread.start(self, "thread_func", 0) == OK
+	# the web build has no threads: _process() does the loading then. Phones
+	# load on the main thread too: loading scenes on a second thread while the
+	# game runs is a known source of random crashes in Godot 3 on mobile.
+	var phone := OS.has_feature("mobile") or OS.has_feature("iOS") or OS.has_feature("Android")
+	thread_started = not phone and OS.can_use_threads() and thread.start(self, "thread_func", 0) == OK
 
 func _process(_delta):
 	if not thread_started:

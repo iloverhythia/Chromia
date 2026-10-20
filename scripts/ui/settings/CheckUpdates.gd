@@ -74,3 +74,44 @@ func _reset():
 	_busy = false
 	disabled = false
 	text = "Check for Updates"
+
+# Settings > Crash Reports (next to this button): the saved reports of past
+# crashes (Rhythia.saved_crash_reports), to copy and send any time.
+func _enter_tree():
+	if get_parent() == null or get_parent().has_node("CrashReports"):
+		return
+	var b := Button.new()
+	b.name = "CrashReports"
+	b.text = "Crash Reports"
+	b.theme = theme
+	b.size_flags_horizontal = size_flags_horizontal
+	b.size_flags_vertical = size_flags_vertical
+	b.connect("pressed", self, "_on_crash_reports")
+	get_parent().call_deferred("add_child", b)
+
+func _on_crash_reports():
+	var reports: Array = Rhythia.saved_crash_reports()
+	if reports.empty():
+		Globals.notify(Globals.NOTIFY_SUCCEED, "No crashes saved. If Chromia ever closes unexpectedly, its report shows up here.", "Crash Reports")
+		return
+	var f := File.new()
+	var text := ""
+	if f.open(reports[0], File.READ) == OK:
+		text = f.get_as_text()
+		f.close()
+	var lines := Array(text.strip_edges().split("\n"))
+	var shown := []
+	for i in range(max(1, lines.size() - 6), lines.size()):
+		var l := String(lines[i])
+		var cut := l.find("] ")
+		shown.append(l.substr(cut + 2) if cut != -1 else l)
+	Globals.confirm_prompt.open(
+		"%d saved crash report(s). The newest ended with:\n\n%s\n\nCopy it and paste it in a message to the developer." % [reports.size(), PoolStringArray(shown).join("\n")],
+		"Crash Reports",
+		[{text = "Close", wait = 0}, {text = "Copy newest", wait = 0}]
+	)
+	var picked = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	if picked == 1:
+		OS.clipboard = text
+		Globals.notify(Globals.NOTIFY_SUCCEED, "The crash report is copied.", "Copied")

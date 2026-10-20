@@ -728,7 +728,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u"
 ]
 
 
@@ -794,6 +794,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-u": "- iPhone/phones: songs and menus now load on the main thread (loading on a second thread while the game runs is a known cause of random crashes on phones), aimed at the crash when playing the same map again\n- FIX: going back to the menu could clear a map's notes while the star rating was reading them on another thread\n- NEW: Settings > Crash Reports keeps the last 5 crash reports, to copy and send any time (also without internet at the moment of the crash)",
 	"oct20-2026-t": "- NEW (iOS): automatic updates. When a new version is out, the game downloads it at startup; close Chromia completely and open it again to use it. (Install this version's chromia-ios.ipa once; after that it updates itself)\n- iPhone/phones: the song panel fits on screen (it was cut off at the bottom), including the space under the iPhone home bar\n- iPhone/phones: sharper graphics: the game draws at the screen's full resolution, and glow/HDR effects are on like on PC\n- iPhone/phones: the renderer runs on one thread (the multi-threaded one is experimental and was the likely cause of the crash when starting a song)",
 	"oct20-2026-s": "- Crash reports now cover the first moments of a song in detail (each frame, the background in use, when the music starts), to find the iPhone crash when starting a song",
 	"oct20-2026-r": "- NEW: crash reports. If Chromia closes unexpectedly, the next launch shows what it was doing last, with a Copy report button to send to the developer\n- FIX (phones): if holding Give Up ended a song while your finger was still down, Give Up stayed held into the next screen and song",
@@ -1057,6 +1058,7 @@ func _star_rating_worker(songs: Array):
 			f.close()
 		trail("star rating %s" % id)
 		_rate_one(song)
+		trail("star rated %s" % id)
 		_star_cache[id] = [song._star_rating, _star_cache_key(song)]
 		_star_progress = i + 1
 		if _star_progress % 100 == 0:
@@ -1147,6 +1149,7 @@ func request_star_rating(song):
 func _star_req_worker(song):
 	trail("star rating %s (clicked)" % String(song.id))
 	_rate_one(song)
+	trail("star rated %s (clicked)" % String(song.id))
 	call_deferred("_star_req_done", song)
 
 func _star_req_done(song):
@@ -1214,6 +1217,8 @@ func _trail_start():
 		d.remove(Globals.p(TRAIL_PREV_FILE))
 		d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE))
 	last_session_crashed = state == "running" and last_session_trail.strip_edges() != ""
+	if last_session_crashed:
+		_save_crash_report()
 	_set_session_state("running")
 	_trail_file = File.new()
 	if _trail_file.open(Globals.p(TRAIL_FILE), File.WRITE) != OK:
@@ -1266,6 +1271,39 @@ func _on_trail_frame_drawn():
 func _trail_close(how: String):
 	trail(how)
 	_set_session_state("closed")
+
+# Crash reports are kept (newest 5) in user://logs/crashes, so they can be sent
+# later (Settings > Crash Reports), e.g. when there was no internet.
+const CRASH_DIR := "user://logs/crashes"
+func _save_crash_report():
+	var d := Directory.new()
+	var dir := Globals.p(CRASH_DIR)
+	if not d.dir_exists(dir):
+		d.make_dir_recursive(dir)
+	var f := File.new()
+	if f.open(dir.plus_file("crash_%d.txt" % OS.get_unix_time()), File.WRITE) == OK:
+		f.store_string(crash_report(120))
+		f.close()
+	var all := saved_crash_reports()
+	for i in range(5, all.size()):
+		d.remove(all[i])
+
+# Paths of the saved crash reports, newest first.
+func saved_crash_reports() -> Array:
+	var out := []
+	var d := Directory.new()
+	if d.open(Globals.p(CRASH_DIR)) != OK:
+		return out
+	d.list_dir_begin(true, true)
+	var n := d.get_next()
+	while n != "":
+		if n.begins_with("crash_") and n.ends_with(".txt"):
+			out.append(Globals.p(CRASH_DIR).plus_file(n))
+		n = d.get_next()
+	d.list_dir_end()
+	out.sort()
+	out.invert()
+	return out
 
 func crash_report(lines: int = 60) -> String:
 	var all := last_session_trail.strip_edges().split("\n")

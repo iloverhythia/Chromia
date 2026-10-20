@@ -24,7 +24,11 @@ func _ready():
 	Rhythia.replaying = false
 	if Rhythia.was_replay: Rhythia.restore_prev_state()
 	Rhythia.restore_lobby_lead_in()
-	if Rhythia.selected_song: Rhythia.selected_song.discard_notes()
+	if Rhythia.selected_song:
+		# the star rater (another thread) may be reading this map right now
+		Rhythia.lock_song_notes(Rhythia.selected_song)
+		Rhythia.selected_song.discard_notes()
+		Rhythia.unlock_song_notes(Rhythia.selected_song)
 	Rhythia.replay_path = ""
 	$BlackFade.visible = true
 	black_fade = 1
