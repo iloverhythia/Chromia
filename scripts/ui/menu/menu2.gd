@@ -2370,6 +2370,14 @@ func idle_status():
 	Discord.activity_manager.update_activity(activity)
 
 func _ready():
+	# menu music lyric volume (Settings > Video & Audio)
+	var vocals = preload("res://scripts/ui/menu/MenuVocals.gd").new()
+	vocals.name = "MenuVocals"
+	add_child(vocals)
+	var pm = get_node_or_null("Main/Maps/Results/Results/RS/H1/Info/Control/PreviewMusic")
+	if pm:
+		vocals.add_player(pm.get_node_or_null("Song"))
+		vocals.add_player(pm.get_node_or_null("MenuSong"))
 	get_tree().paused = false
 	Rhythia.disarm_post_death_quick_restart()
 	_build_lobby_ui()
