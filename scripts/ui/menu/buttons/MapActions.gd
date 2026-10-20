@@ -114,8 +114,20 @@ func copy_item_selected(idx: int):
 			OS.clipboard = Rhythia.selected_song.name
 			Globals.notify(Globals.NOTIFY_SUCCEED, "Copied map name to clipboard.", "Copied")
 
+# Opens the selected map in the in-game Map Editor (sidebar page).
+func _open_in_editor():
+	var ed = get_tree().root.get_node_or_null("Menu/Main/MapEditor")
+	var sidebar = get_tree().root.get_node_or_null("Menu/Sidebar")
+	if ed == null or Rhythia.selected_song == null:
+		return
+	if sidebar and sidebar.has_method("press_page"):
+		sidebar.press_page(ed)
+	ed.edit_song(Rhythia.selected_song)
+
 func item_selected(idx: int):
 	match idx:
+		7:
+			_open_in_editor()
 		0:
 			if (
 				(Rhythia.selected_song.songType == Globals.MAP_SSPM or
@@ -259,6 +271,7 @@ func _ready():
 	get_popup().add_item("Export .txt map data", 4)
 	get_popup().add_item("Export audio data", 5)
 	get_popup().add_item("Add to Server", 6)
+	get_popup().add_item("Edit in Map Editor", 7)
 
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:

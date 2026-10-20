@@ -87,6 +87,11 @@ func refresh_language_labels():
 		var lbl = buttons[i].get_node("Label")
 		lbl.text = DYV_LABELS[i] if dyv and i < DYV_LABELS.size() else _default_labels[i]
 
+func press_page(page: Node):
+	var i = pages.find(page)
+	if i != -1:
+		press(i, true)
+
 func press(bi: int, q: bool = false):
 	if bi < 0 or bi >= pages.size():
 		return
@@ -143,39 +148,47 @@ func quit():
 func _on_vr_status_checked():
 	$L/StartVR.visible = Rhythia.vr_available and not Rhythia.vr
 
-# The Map Browser page (download maps from rhythia.com) is made here rather
-# than in menu2.tscn: a copy of the Online button plus a page under Main.
-func _add_map_browser():
+# Pages made here rather than in menu2.tscn: a copy of the Online button plus a
+# page under Main. Map Browser (download maps from rhythia.com) and Map Editor
+# (in-game editor, scripts/editor/).
+func _add_page(node_name: String, script_path: String, icon_path: String, label: String, below: Node) -> Button:
 	var main = get_node_or_null("../Main")
 	var online_btn = get_node_or_null("L/OnlineTab")
 	if main == null or online_btn == null:
-		return
+		return null
 	var page = ReferenceRect.new()
-	page.name = "MapBrowser"
+	page.name = node_name
 	page.visible = false
 	page.anchor_right = 1.0
 	page.anchor_bottom = 1.0
 	page.margin_left = 4.0
 	page.margin_top = 4.0
 	page.border_color = Color(1, 0, 0, 0)
-	page.set_script(load("res://scripts/ui/menu/MapBrowser.gd"))
+	page.set_script(load(script_path))
 	main.add_child(page)
 
 	var btn: Button = online_btn.duplicate(DUPLICATE_GROUPS | DUPLICATE_SCRIPTS)
-	btn.name = "MapBrowserTab"
+	btn.name = node_name + "Tab"
 	btn.pressed = false
-	$L.add_child_below_node(online_btn, btn)
-	btn.get_node("Tex").texture = load("res://assets/images/ui/mapbrowser.png")
-	btn.get_node("Label").text = "Map Browser"
+	$L.add_child_below_node(below if below != null else online_btn, btn)
+	btn.get_node("Tex").texture = load(icon_path)
+	btn.get_node("Label").text = label
 
 	pages.append(page)
 	buttons.append(btn)
 	use_ver_b.append(false)
 	hide_ver.append(true)
 	smm_visibility[btn] = false
+	return btn
+
+func _add_extra_pages():
+	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/MapBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Map Browser", null)
+	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
+	if ed != null and (Rhythia.vr or not OS.has_feature("pc")):
+		ed.visible = false # needs a keyboard
 
 func _ready():
-	_add_map_browser()
+	_add_extra_pages()
 	for i in range(buttons.size()):
 		buttons[i].connect("pressed", self, "press", [i])
 
