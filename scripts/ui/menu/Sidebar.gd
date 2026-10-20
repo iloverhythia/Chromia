@@ -209,6 +209,10 @@ func _add_extra_pages():
 
 func _ready():
 	_add_extra_pages()
+	Rhythia.trail("menu open")
+	if Rhythia.last_session_crashed and not Rhythia.crash_report_shown:
+		Rhythia.crash_report_shown = true
+		call_deferred("_show_crash_report")
 	for i in range(buttons.size()):
 		buttons[i].connect("pressed", self, "press", [i])
 
@@ -282,3 +286,28 @@ func _on_Sidebar(isEntered: bool):
 	open = isEntered
 	get_node("Click").visible = not open and not Rhythia.device("mobile")
 	get_node("../SidebarClick").visible = open
+
+
+# The last session ended without closing normally: show what it was doing
+# (Rhythia's crash trail) and offer to copy it for a bug report.
+func _show_crash_report():
+	yield(get_tree().create_timer(1.5), "timeout")
+	if not is_inside_tree() or Globals.confirm_prompt == null:
+		return
+	var last := Array(Rhythia.last_session_trail.strip_edges().split("\n"))
+	var shown := []
+	for i in range(max(0, last.size() - 6), last.size()):
+		# drop the [time | objs | vram] prefix to keep the box short
+		var l := String(last[i])
+		var cut := l.find("] ")
+		shown.append(l.substr(cut + 2) if cut != -1 else l)
+	Globals.confirm_prompt.open(
+		"Chromia closed unexpectedly last time. The last things it did:\n\n%s\n\nTap Copy report and send it to the developer." % PoolStringArray(shown).join("\n"),
+		"Chromia crashed",
+		[{text = "OK"}, {text = "Copy report"}]
+	)
+	var picked = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	if picked == 1:
+		OS.clipboard = Rhythia.crash_report()
+		Globals.notify(Globals.NOTIFY_SUCCEED, "The crash report is copied. Paste it in a message to the developer.", "Copied")

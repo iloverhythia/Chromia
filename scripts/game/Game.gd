@@ -66,6 +66,7 @@ var _desync_to_restore = null
 func end(end_type: int):
 	if ending: return
 	print("My god, what are you doing!?")
+	Rhythia.trail("song ended (%s) at %s ms" % [["pass", "fail", "give up", "?"][clamp(end_type, 0, 3)] if typeof(end_type) == TYPE_INT else str(end_type), int($Spawn.ms)])
 	ending = true
 	if end_type == Globals.END_GIVEUP and Rhythia.record_replays and not Rhythia.replaying:
 		Rhythia.replay.store_sig($Spawn.rms, Globals.RS_GIVEUP)

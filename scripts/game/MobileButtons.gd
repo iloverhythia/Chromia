@@ -13,6 +13,13 @@ func _release(action: String):
 		yield(get_tree(), "idle_frame")
 	Input.action_release(action)
 
+# The screen can change while a finger is still on a button (holding give up
+# ends the song); the button then never reports the release, and the action
+# would stay held into the next song.
+func _exit_tree():
+	Input.action_release("pause")
+	Input.action_release("give_up")
+
 func _on_Pause_pressed():
 	_press("pause")
 

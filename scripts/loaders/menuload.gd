@@ -8,6 +8,7 @@ var black_fade_target: bool = false
 var black_fade: float = 0
 
 func _ready():
+	Rhythia.trail("loading the menu")
 	get_tree().paused = false
 	if Rhythia.vr:
 		target = "res://vr/vrmenu.tscn"

@@ -712,7 +712,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r"
 ]
 
 
@@ -778,6 +778,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-r": "- NEW: crash reports. If Chromia closes unexpectedly, the next launch shows what it was doing last, with a Copy report button to send to the developer\n- FIX (phones): if holding Give Up ended a song while your finger was still down, Give Up stayed held into the next screen and song",
 	"oct20-2026-q": "- FIX: on phones (iPhones especially) the song panel was cut off at the bottom and the cover slid under the sidebar. Phones now get the full 720-tall layout the menus are built for, scaled to the screen",
 	"oct20-2026-p": "- FIX (the real one): opening your Profile after linking Discord closed the game. Players without an avatar on the leaderboard made the search for you hit an error; fixed\n- The same kind of mistake (reading an empty value from the server or a saved file) is fixed in 80+ other places: online lobbies, Discord login, the map browser, leaderboards and the editor",
 	"oct20-2026-o": "- FIX: the Profile page could still close the game on iOS while loading the leaderboard. It now downloads on a background thread like every other part of the game\n- The Profile page's crash report is more detailed (drawing, connecting, reading the reply), in case anything is left",
@@ -1036,6 +1037,7 @@ func _star_rating_worker(songs: Array):
 		if f.open(Globals.p(STAR_CURRENT_FILE), File.WRITE) == OK:
 			f.store_string(id)
 			f.close()
+		trail("star rating %s" % id)
 		_rate_one(song)
 		_star_cache[id] = [song._star_rating, _star_cache_key(song)]
 		_star_progress = i + 1
@@ -1097,6 +1099,7 @@ func start_log(msg: String, reset: bool = false):
 	if reset or _start_t0 == 0:
 		_start_t0 = OS.get_ticks_msec()
 	print("[start +%dms] %s" % [OS.get_ticks_msec() - _start_t0, msg])
+	trail("song start +%dms: %s" % [OS.get_ticks_msec() - _start_t0, msg])
 
 # Star rating for a map you click that isn't rated yet: worked out on its own
 # thread so the menu never freezes (big maps take seconds in GDScript), then
@@ -1124,6 +1127,7 @@ func request_star_rating(song):
 		_star_req_thread = null
 
 func _star_req_worker(song):
+	trail("star rating %s (clicked)" % String(song.id))
 	_rate_one(song)
 	call_deferred("_star_req_done", song)
 
@@ -1143,6 +1147,101 @@ func _star_req_done(song):
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
 		quit_game()
+	elif what == MainLoop.NOTIFICATION_APP_PAUSED:
+		# phones: the app went to the background; the system may close it
+		# from there without telling us, which isn't a crash
+		trail("app paused (in background)")
+		_set_session_state("paused")
+	elif what == MainLoop.NOTIFICATION_APP_RESUMED:
+		_set_session_state("running")
+		trail("app resumed")
+
+# --- Crash trail ----------------------------------------------------------------
+# A short record of what the game is doing (screens, songs starting and ending,
+# a heartbeat while playing), written to user://logs/trail.txt and flushed every
+# line so it survives a crash. If the last session didn't close normally, the
+# menu shows its last lines with a "Copy report" button.
+const TRAIL_FILE := "user://logs/trail.txt"
+const TRAIL_PREV_FILE := "user://logs/trail_prev.txt"
+const SESSION_FILE := "user://logs/session_state.txt"
+var last_session_crashed: bool = false
+var last_session_trail: String = ""
+var crash_report_shown: bool = false
+var _trail_file: File = null
+var _trail_mutex := Mutex.new()
+var _trail_lines: int = 0
+var _heartbeat: Timer = null
+
+func _set_session_state(state: String):
+	var f := File.new()
+	if f.open(Globals.p(SESSION_FILE), File.WRITE) == OK:
+		f.store_string(state)
+		f.close()
+
+func _trail_start():
+	var d := Directory.new()
+	var logs := Globals.p("user://logs")
+	if not d.dir_exists(logs):
+		d.make_dir_recursive(logs)
+	var f := File.new()
+	var state := ""
+	if f.open(Globals.p(SESSION_FILE), File.READ) == OK:
+		state = f.get_as_text().strip_edges()
+		f.close()
+	if f.file_exists(Globals.p(TRAIL_FILE)):
+		if f.open(Globals.p(TRAIL_FILE), File.READ) == OK:
+			last_session_trail = f.get_as_text()
+			f.close()
+		d.remove(Globals.p(TRAIL_PREV_FILE))
+		d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE))
+	last_session_crashed = state == "running" and last_session_trail.strip_edges() != ""
+	_set_session_state("running")
+	_trail_file = File.new()
+	if _trail_file.open(Globals.p(TRAIL_FILE), File.WRITE) != OK:
+		_trail_file = null
+	trail("started %s on %s %s" % [ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name()])
+	_heartbeat = Timer.new()
+	_heartbeat.wait_time = 10
+	_heartbeat.pause_mode = PAUSE_MODE_PROCESS
+	_heartbeat.connect("timeout", self, "_on_heartbeat")
+	add_child(_heartbeat)
+	_heartbeat.start()
+
+func _on_heartbeat():
+	if in_map:
+		var sp = get_tree().current_scene.find_node("Spawn", true, false) if get_tree().current_scene else null
+		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and "ms" in sp else -1])
+
+# Safe from any thread.
+func trail(msg: String):
+	if _trail_file == null:
+		return
+	_trail_mutex.lock()
+	if _trail_lines > 4000: # keep the file small on long sessions
+		_trail_file.close()
+		_trail_file.open(Globals.p(TRAIL_FILE), File.WRITE)
+		_trail_lines = 0
+	_trail_lines += 1
+	_trail_file.store_line("[%7.1fs | objs %d | vram %d MB] %s" % [
+		OS.get_ticks_msec() / 1000.0,
+		Performance.get_monitor(Performance.OBJECT_COUNT),
+		int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576),
+		msg])
+	_trail_file.flush()
+	_trail_mutex.unlock()
+
+func _trail_close(how: String):
+	trail(how)
+	_set_session_state("closed")
+
+func crash_report(lines: int = 60) -> String:
+	var all := last_session_trail.strip_edges().split("\n")
+	var tail := []
+	for i in range(max(0, all.size() - lines), all.size()):
+		tail.append(all[i])
+	return "Chromia crash report (%s, %s %s)\n%s" % [
+		ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name(),
+		PoolStringArray(tail).join("\n")]
 
 # The one way the game closes (quit buttons, the quit key, the window's X).
 # Background work (map import, star ratings, thumbnails) is told to stop and
@@ -1154,6 +1253,7 @@ func quit_game():
 		return
 	_quitting = true
 	print("[quit] closing")
+	_trail_close("quit")
 	# OS.kill below skips _exit_tree, which is where the settings page saves:
 	# without this, settings changed before quitting were lost.
 	if first_init_done:
@@ -1655,6 +1755,7 @@ func _log_stage(name, _extra = null):
 
 func _ready():
 	detect_device()
+	_trail_start()
 	# Closing the window goes through quit_game() too (see there).
 	get_tree().set_auto_accept_quit(false)
 	connect("init_stage_reached", self, "_log_stage")
