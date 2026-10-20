@@ -311,8 +311,14 @@ static func linstep(a: float, b: float, x: float) -> float:
 func world_of(g: Vector2) -> Vector3:
 	return spawn.transform.origin + Vector3(g.x, -g.y, 0)
 
+# The view covers the whole window (so nothing of the menu background peeks
+# out at the edges) but the grid overlay is page-sized: convert between them.
+func _ofs() -> Vector2:
+	var ov = page.grid if page else null
+	return (ov.rect_global_position - rect_global_position) if ov else Vector2()
+
 func screen_of(g: Vector2) -> Vector2:
-	return cam.unproject_position(world_of(g))
+	return cam.unproject_position(world_of(g)) - _ofs()
 
 # [origin of cell (0,0)'s top-left, cell size] in this control's coordinates
 func grid_geom() -> Array:
@@ -321,6 +327,7 @@ func grid_geom() -> Array:
 	return [a, b.x - a.x]
 
 func grid_at(p: Vector2) -> Vector2:
+	p += _ofs()
 	var from := cam.project_ray_origin(p)
 	var dir := cam.project_ray_normal(p)
 	if abs(dir.z) < 0.00001:
@@ -337,7 +344,14 @@ func _process(_delta):
 	var now: float = page.time_ms
 	var notes: Array = page.project.notes
 	var ar: float = page.approach_rate_3d()
-	# the camera stays put (no parallax) so the grid doesn't move while mapping
+	# the camera stays put (no parallax) so the grid doesn't move while mapping;
+	# a lens shift keeps the grid in the middle of the editor area, not the window
+	if rect_size.y > 0:
+		var pc: Vector2 = page.rect_global_position + page.rect_size / 2 - rect_global_position
+		var d: Vector2 = pc - rect_size / 2
+		var upp: float = 2.0 * tan(deg2rad(cam.fov) / 2.0) * 3.75 / rect_size.y
+		cam.h_offset = -d.x * upp
+		cam.v_offset = d.y * upp
 	var cp = page.cursor_pos()
 	var cpos: Vector2 = Vector2(1, 1) if cp == null else cp
 	cursor.transform.origin = Vector3(cpos.x, -cpos.y, 0)

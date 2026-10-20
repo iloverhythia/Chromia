@@ -2565,6 +2565,37 @@ func _center_mods():
 	if results != null and not results.is_connected("visibility_changed", self, "_relayout_mods_soon"):
 		results.connect("visibility_changed", self, "_relayout_mods_soon")
 	get_tree().create_timer(1.0).connect("timeout", self, "_relayout_mods_soon")
+	# Things next to the mods change size later (the History list fills in
+	# after its scores load, the title's row reflows...), which left the mods
+	# off-centre after a restart. Check twice a second and re-centre on change.
+	if _mods_watch_timer == null:
+		_mods_watch_timer = Timer.new()
+		_mods_watch_timer.wait_time = 0.5
+		_mods_watch_timer.autostart = true
+		_mods_watch_timer.connect("timeout", self, "_mods_watch")
+		add_child(_mods_watch_timer)
+
+var _mods_watch_timer: Timer = null
+var _mods_watch_key := ""
+func _mods_watch():
+	var results = get_node_or_null("Main/Maps/Results")
+	if results == null or not results.is_visible_in_tree():
+		_mods_watch_key = ""
+		return
+	var title = get_node_or_null("Main/Maps/Results/Results/RS/HBoxContainer/ModsTitle")
+	var mods = get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")
+	if title == null or mods == null:
+		return
+	var key := str(title.get_global_rect()) + str(mods.get_global_rect())
+	var ei = get_node_or_null("Main/Maps/Results/Results/RS/H2/EndInfo")
+	if ei != null:
+		key += str(ei.visible) + str(ei.get_global_rect())
+	var hist = get_node_or_null("Main/Maps/Results/Results").find_node("ScoreHistory", true, false)
+	if hist is Control:
+		key += str(hist.visible) + str(hist.get_global_rect())
+	if key != _mods_watch_key:
+		_mods_watch_key = key
+		_relayout_mods_soon()
 
 var _mods_relayout_pending := false
 func _relayout_mods_soon():

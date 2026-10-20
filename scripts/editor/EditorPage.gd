@@ -655,8 +655,6 @@ func _build_workspace():
 	view3d.page = self
 	view3d.show_world = show_world
 	view3d.hit_flash = hit_flash
-	view3d.anchor_right = 1
-	view3d.anchor_bottom = 1
 	workspace.add_child(view3d)
 	# grid overlay / 2D grid (input on the grid)
 	grid = load("res://scripts/editor/EditorGrid.gd").new()
@@ -909,8 +907,12 @@ func _layout():
 		var y: float = it[3] * s if it[6] == "T" else h - (REF_H - it[3]) * s
 		n.rect_position = Vector2(round(x), round(y))
 		n.rect_size = Vector2(round(it[4] * s), round(it[5] * s))
-	track.rect_position = Vector2(0, 0)
-	track.rect_size = Vector2(w, round(92 * s))
+	# the game view fills the whole window; the track reaches the edges too
+	view3d.rect_global_position = Vector2.ZERO
+	view3d.rect_size = get_viewport_rect().size
+	var gp: Vector2 = rect_global_position
+	track.rect_position = Vector2(-min(gp.x, 4.0), -gp.y)
+	track.rect_size = Vector2(w + min(gp.x, 4.0), round(92 * s) + gp.y)
 	seekbar.rect_position = Vector2(round(SIDEBAR + 8 * s), round(h - 48 * s))
 	seekbar.rect_size = Vector2(round(w - (REF_W - 875) * s - seekbar.rect_position.x), round(46 * s))
 	# long labels (HORIZONTAL FLIP...) get the smaller font so they fit
