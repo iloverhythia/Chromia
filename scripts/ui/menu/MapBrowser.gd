@@ -21,11 +21,11 @@ const MAX_IMG_CACHE = 300
 
 # [label, sub label, min stars, max stars]
 const DIFF_RANGES = [
-	["Any", "All difficulties", 0.0, 20.0],
+	["Any", "All difficulties", 0.0, 100000.0],
 	["Beginner", "★ 0–3", 0.0, 3.0],
 	["Intermediate", "★ 3–5", 3.0, 5.0],
 	["Hard", "★ 5–7", 5.0, 7.0],
-	["Expert", "★ 7–20", 7.0, 20.0],
+	["Expert", "★ 7+", 7.0, 100000.0],
 ]
 # [label, api value]
 const SORTS = [["Newest", "newest"], ["Most played", "playCount"], ["Difficulty", "starRating"], ["Length", "length"]]
@@ -65,9 +65,16 @@ var _img_order: Array = []
 var _img_queue: Array = []        # [url, TextureRect]
 var _img_waiting: Dictionary = {} # url -> [TextureRect...]
 var _img_active := 0
-var _downloads: Dictionary = {}   # online id -> {req, tmp, btn, map}
+var _downloads: Dictionary = {}   # online id -> {req, map, bytes, idle}
 var _buttons_by_id: Dictionary = {} # online id -> download Button (current page)
 var _maps_by_id: Dictionary = {}    # online id -> map data (current page)
+var _extra_by_id: Dictionary = {}   # online id -> small "download anyway" Button
+# Which rhythia.com map each download became: online id -> local map id.
+# Two different maps can share a name (and the map id inside the file), so the
+# name alone can't say if you have *this* version.
+const RECORD_PATH = "user://map_browser.json"
+const STALL_SECONDS = 30.0
+var _record: Dictionary = {}
 
 # ------------------------------------------------------------------ helpers
 
@@ -158,15 +165,60 @@ static func _local_id(m: Dictionary) -> String:
 		return ""
 	return fname.substr(dash + 1)
 
-func _installed_song(m: Dictionary):
-	if Rhythia.registry_song == null:
+func _song_by_id(id: String):
+	if id == "" or Rhythia.registry_song == null or not Rhythia.registry_song.idx_id.has(id):
 		return null
+	var s = Rhythia.registry_song.get_item(id)
+	return s if s is Song else null
+
+# This exact map, downloaded through the browser before.
+func _installed_song(m: Dictionary):
+	return _song_by_id(String(_record.get(str(m.get("id", "")), "")))
+
+# A map with the same name (map id) that may or may not be this version:
+# installed some other way, and not known to belong to another rhythia.com map.
+func _same_name_song(m: Dictionary):
 	var id := _local_id(m)
-	if id != "" and Rhythia.registry_song.idx_id.has(id):
-		var s = Rhythia.registry_song.get_item(id)
-		if s is Song:
-			return s
-	return null
+	var s = _song_by_id(id)
+	if s == null:
+		return null
+	var oid := str(m.get("id", ""))
+	for k in _record.keys():
+		if k != oid and String(_record[k]) == id:
+			return null # that file is a different rhythia.com map
+	return s
+
+func _load_record():
+	var f = File.new()
+	if f.open(Globals.p(RECORD_PATH), File.READ) == OK:
+		var p = JSON.parse(f.get_as_text())
+		f.close()
+		if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
+			_record = p.result
+
+func _save_record():
+	var f = File.new()
+	if f.open(Globals.p(RECORD_PATH), File.WRITE) == OK:
+		f.store_string(to_json(_record))
+		f.close()
+
+# Leftover temp files from the first Map Browser version (oct19-2026-s).
+func _clean_partial_files():
+	var dir = Directory.new()
+	if dir.open(Globals.p("user://maps")) != OK:
+		return
+	dir.list_dir_begin(true, true)
+	var fn = dir.get_next()
+	var stale = []
+	while fn != "":
+		if fn.begins_with(".download_") and fn.ends_with(".part"):
+			stale.append(fn)
+		fn = dir.get_next()
+	dir.list_dir_end()
+	for f in stale:
+		var oid = f.trim_prefix(".download_").trim_suffix(".part")
+		if not _downloads.has(oid):
+			dir.remove(f)
 
 # ------------------------------------------------------------------ build
 
@@ -176,6 +228,8 @@ func _ready():
 func _on_visibility():
 	if is_visible_in_tree():
 		if not _built:
+			_load_record()
+			_clean_partial_files()
 			_build()
 			_built = true
 			_load_page()
@@ -437,6 +491,7 @@ func _show_maps(maps: Array):
 		c.queue_free()
 	_buttons_by_id.clear()
 	_maps_by_id.clear()
+	_extra_by_id.clear()
 	_img_queue.clear()
 	_img_waiting.clear()
 	scroll.scroll_vertical = 0
@@ -574,10 +629,21 @@ func _make_card(m: Dictionary) -> Control:
 	dl.add_stylebox_override("hover", _pad(_flat(Color(0.27, 0.22, 0.33, 1), 8, LILAC, 1), 12, 6))
 	dl.rect_min_size = Vector2(118, 32)
 	dl.connect("pressed", self, "_on_download_pressed", [m, dl])
+	# shown next to Play when you have a map with this name that may be
+	# another version: downloads this one too
+	var extra = Button.new()
+	_style_button(extra)
+	extra.text = "↓"
+	extra.rect_min_size = Vector2(34, 32)
+	extra.hint_tooltip = "You have a map with this name, maybe another version.\nDownload this one too."
+	extra.visible = false
+	extra.connect("pressed", self, "_start_download", [m, dl])
+	fh.add_child(extra)
 	fh.add_child(dl)
 	var oid := str(m.get("id", ""))
 	_buttons_by_id[oid] = dl
 	_maps_by_id[oid] = m
+	_extra_by_id[oid] = extra
 	_update_button(m, dl)
 	return card
 
@@ -604,6 +670,9 @@ func _update_button(m: Dictionary, b: Button):
 	if not is_instance_valid(b):
 		return
 	var oid := str(m.get("id", ""))
+	var extra = _extra_by_id.get(oid)
+	if extra != null and is_instance_valid(extra):
+		extra.visible = false
 	if _downloads.has(oid):
 		b.disabled = true
 		b.text = "Downloading..."
@@ -613,6 +682,11 @@ func _update_button(m: Dictionary, b: Button):
 	if _installed_song(m) != null:
 		b.text = "▶  Play"
 		b.hint_tooltip = "You have this map. Click to pick it in the map list."
+	elif _same_name_song(m) != null and String(m.get("beatmapFile", "")) != "":
+		b.text = "▶  Play"
+		b.hint_tooltip = "You have a map with this name. Click to pick it in the map list."
+		if extra != null and is_instance_valid(extra):
+			extra.visible = true
 	elif String(m.get("beatmapFile", "")) == "":
 		b.text = "Unavailable"
 		b.disabled = true
@@ -677,6 +751,8 @@ func _on_image(result: int, code: int, _headers, data: PoolByteArray, r: HTTPReq
 
 func _on_download_pressed(m: Dictionary, b: Button):
 	var song = _installed_song(m)
+	if song == null:
+		song = _same_name_song(m)
 	if song != null:
 		_play(song)
 		return
@@ -696,15 +772,11 @@ func _start_download(m: Dictionary, b: Button):
 	var url := String(m.get("beatmapFile", ""))
 	if oid == "" or url == "" or _downloads.has(oid):
 		return
-	var dir = Directory.new()
-	dir.make_dir_recursive(Globals.p("user://maps"))
-	var tmp: String = Globals.p("user://maps/.download_%s.part" % oid)
-	if dir.file_exists(tmp):
-		dir.remove(tmp)
+	# Downloaded into memory; only the finished map is written to disk (no
+	# hidden temp files: antivirus can read those as dropper behaviour).
 	var r = HTTPRequest.new()
-	r.timeout = 120
+	r.timeout = 0 # big maps on slow internet; a stalled download is caught in _process
 	r.use_threads = true
-	r.download_file = tmp
 	r.download_chunk_size = 65536
 	add_child(r)
 	r.connect("request_completed", self, "_on_download_done", [oid])
@@ -712,39 +784,55 @@ func _start_download(m: Dictionary, b: Button):
 		r.queue_free()
 		Globals.notify(Globals.NOTIFY_WARN, "Couldn't start the download.", "Map Browser")
 		return
-	_downloads[oid] = {"req": r, "tmp": tmp, "map": m}
+	_downloads[oid] = {"req": r, "map": m, "bytes": 0, "idle": 0.0}
 	_update_button(m, b)
 	set_process(true)
 
-func _process(_delta):
+func _process(delta):
 	if _downloads.empty():
 		set_process(false)
 		return
 	for oid in _downloads.keys():
 		var d: Dictionary = _downloads[oid]
+		var r: HTTPRequest = d.req
+		var got := r.get_downloaded_bytes()
+		if got != d.bytes:
+			d.bytes = got
+			d.idle = 0.0
+		else:
+			d.idle += delta
+			if d.idle > STALL_SECONDS:
+				r.cancel_request()
+				_on_download_done(HTTPRequest.RESULT_TIMEOUT, 0, null, null, oid)
+				continue
 		var b = _buttons_by_id.get(oid)
 		if b == null or not is_instance_valid(b):
 			continue
-		var r: HTTPRequest = d.req
 		var total := r.get_body_size()
 		if total > 0:
 			b.text = "%d%%" % int(100.0 * r.get_downloaded_bytes() / total)
 		else:
 			b.text = "%.1f MB" % (r.get_downloaded_bytes() / 1048576.0)
 
-func _on_download_done(result: int, code: int, _headers, _data, oid: String):
+func _on_download_done(result: int, code: int, _headers, data, oid: String):
 	var d: Dictionary = _downloads.get(oid, {})
 	_downloads.erase(oid)
 	if d.empty():
 		return
 	d.req.queue_free()
 	var m: Dictionary = d.map
-	var tmp: String = d.tmp
 	var title := String(m.get("title", "map"))
 	var dir = Directory.new()
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
-		dir.remove(tmp)
-		Globals.notify(Globals.NOTIFY_WARN, "Download failed (error %d / %d)." % [result, code], title)
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or not (data is PoolByteArray) or data.size() < 8:
+		var why := "the connection stalled" if result == HTTPRequest.RESULT_TIMEOUT else "error %d / %d" % [result, code]
+		Globals.notify(Globals.NOTIFY_WARN, "Download failed (%s). Try again." % why, title)
+		_after_download(oid, m)
+		return
+	# The map id is inside the file, so it's read from a scratch copy first.
+	dir.make_dir_recursive(Globals.p("user://cache"))
+	var tmp: String = Globals.p("user://cache/browser_map_%s.sspm" % oid)
+	if not _write(tmp, data):
+		Globals.notify(Globals.NOTIFY_WARN, "Couldn't save the map.", title)
 		_after_download(oid, m)
 		return
 	var song = Song.new()
@@ -755,22 +843,41 @@ func _on_download_done(result: int, code: int, _headers, _data, oid: String):
 		_after_download(oid, m)
 		return
 	var id := String(song.id)
-	if Rhythia.registry_song.idx_id.has(id):
-		dir.remove(tmp)
-		Globals.notify(Globals.NOTIFY_INFO, "You already have this map.", title)
-		_after_download(oid, m)
-		return
 	var safe_id := id.replace("/", "_").replace("\\", "_").replace(":", "_")
+	var existing = _song_by_id(id)
+	if existing != null:
+		# Same map id as one you have. The very same file? Then you have it.
+		# Otherwise it's another version: keep both, this one under its own id.
+		if _same_file(tmp, String(existing.filePath)):
+			dir.remove(tmp)
+			_record[oid] = id
+			_save_record()
+			Globals.notify(Globals.NOTIFY_INFO, "You already have this map.", title)
+			_after_download(oid, m)
+			return
+		id = id + "__rh" + oid
+		safe_id = safe_id + "__rh" + oid
+		var mine = _song_by_id(id)
+		if mine != null:
+			dir.remove(tmp)
+			_record[oid] = id
+			_save_record()
+			Globals.notify(Globals.NOTIFY_INFO, "You already have this map.", title)
+			_after_download(oid, m)
+			return
 	var dest: String = Globals.p("user://maps/%s.sspm" % safe_id)
+	dir.remove(tmp)
 	if dir.file_exists(dest):
 		dir.remove(dest)
-	if dir.rename(tmp, dest) != OK:
-		dir.remove(tmp)
+	if not _write(dest, data):
+		dir.remove(dest)
 		Globals.notify(Globals.NOTIFY_WARN, "Couldn't save the map.", title)
 		_after_download(oid, m)
 		return
 	var added = Rhythia.registry_song.add_sspm_map(dest)
 	if added:
+		_record[oid] = String(added.id)
+		_save_record()
 		var list = get_node_or_null("../Maps/MapRegistry/S/VBoxContainer")
 		if list != null and list.has_method("refresh_songs"):
 			list.refresh_songs()
@@ -779,17 +886,38 @@ func _on_download_done(result: int, code: int, _headers, _data, oid: String):
 		Globals.notify(Globals.NOTIFY_WARN, "The map downloaded but failed to load.", title)
 	_after_download(oid, m)
 
+func _write(path: String, data: PoolByteArray) -> bool:
+	var f = File.new()
+	if f.open(path, File.WRITE) != OK:
+		return false
+	f.store_buffer(data)
+	f.close()
+	return true
+
+func _same_file(a: String, b: String) -> bool:
+	var f = File.new()
+	if b == "" or not f.file_exists(b) or not f.file_exists(a):
+		return false
+	var fa = File.new()
+	var fb = File.new()
+	if fa.open(a, File.READ) != OK:
+		return false
+	if fb.open(b, File.READ) != OK:
+		fa.close()
+		return false
+	var same: bool = fa.get_len() == fb.get_len()
+	fa.close()
+	fb.close()
+	return same and f.get_sha256(a) == f.get_sha256(b)
+
 func _after_download(oid: String, m: Dictionary):
 	var b = _buttons_by_id.get(oid)
 	if b != null and is_instance_valid(b):
 		_update_button(m, b)
 
 func _exit_tree():
-	# don't leave half-written files behind when the menu closes mid-download
-	var dir = Directory.new()
 	for oid in _downloads.keys():
 		var d: Dictionary = _downloads[oid]
 		if is_instance_valid(d.req):
 			d.req.cancel_request()
-		dir.remove(d.tmp)
 	_downloads.clear()

@@ -298,18 +298,9 @@ func get_hardware_id() -> String:
 	if _hwid_computed:
 		return _cached_hwid
 	_hwid_computed = true
-	var raw := ""
-	if OS.has_feature("Windows"):
-		var output = []
-		var exit_code = OS.execute("reg", ["query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid"], true, output)
-		if exit_code == 0 and output.size() > 0:
-			var regex = RegEx.new()
-			regex.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-			var m = regex.search(str(output[0]))
-			if m:
-				raw = m.get_string()
-	if raw == "":
-		raw = OS.get_unique_id()
+	# On Windows this is the registry MachineGuid (Godot reads it directly; the
+	# old "reg query" child process got flagged by antivirus).
+	var raw := String(OS.get_unique_id()).strip_edges()
 	_cached_hwid = raw.sha256_text() if raw != "" else ""
 	return _cached_hwid
 
@@ -704,7 +695,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b"
 ]
 
 
@@ -764,6 +755,7 @@ const VERSION_NOTES = {
 	"oct19-2026-r": "- Click the Filters heading to collapse / expand the filters (remembered)",
 	"oct19-2026-s": "- New Map Browser page in the sidebar: browse rhythia.com maps (difficulty, search, sort, ranked/unranked) and download them right into the game, no restart",
 	"oct20-2026-a": "- Map Browser: removed the ranked filter and ranked badges (rhythia.com's ranked maps aren't Chromia's), it shows all maps",
+	"oct20-2026-b": "- Fixed antivirus (Bitdefender) threat warnings: the game no longer runs hidden PowerShell / reg.exe (file pickers use the in-game browser now) and the Map Browser no longer writes hidden temp files\n- Map Browser: you can download a map even if you have one with the same name (different versions are kept side by side), no more 20 star cap on Any / Expert, stalled downloads time out instead of hanging, big maps no longer time out after 2 minutes",
 	"oct19-2026-q": "- The level bar in the Profile tab no longer has a background",
 	"oct19-2026-p": "- Levels and Prestige (like BeatLeader): earn experience from every play, even fails; level 100 lets you Prestige. See the bar in the Profile tab\n- Time played shown in the Profile tab, and how often/how long you played each map on the map screen\n- New map list sort: most played (Filters, under stars)\n- Experimental: Random Colorset - a random colorset every time you start a map (your own one comes back in the menu)",
 	"oct19-2026-o": "- Colorset Maker: add as many colors as you want (they wrap into rows)\n- Mesh Builder: give meshes a name, save as many as you want (New mesh), edit any saved one (Edit on its card in the Meshes tab) and delete them\n- Meshes tab: Rename any other mesh\n- Custom BG Color (World & Cursor): a solid color for the Custom Background world, or a tint over your image",

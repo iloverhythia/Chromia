@@ -1677,6 +1677,17 @@ func convert_to_sspm(upgrade: bool = false):
 
 	return "Converted!"
 
+# The Map Browser saves another version of a map you already have (same map
+# id inside the file) as "<map id>__rh<rhythia.com id>.sspm"; that file keeps
+# its file name as its id so both versions can be installed.
+func _version_id_from_path(path: String):
+	if id == "":
+		return
+	var fn: String = path.get_file().get_basename()
+	var safe: String = id.replace("/", "_").replace("\\", "_").replace(":", "_")
+	if fn.begins_with(id + "__rh") or fn.begins_with(safe + "__rh"):
+		id = fn
+
 func load_from_sspm(path: String):
 	is_online = false
 	songType = Globals.MAP_SSPM
@@ -1697,6 +1708,7 @@ func load_from_sspm(path: String):
 		if file.get_16() != 0: return "Header reserved space is invalid (modded map?)"
 
 		id = file.get_line()
+		_version_id_from_path(path)
 		name = file.get_line()
 		song = name
 		creator = file.get_line()
@@ -1824,6 +1836,7 @@ func load_from_sspm(path: String):
 
 
 		id = _safe_string_from_utf8(file.get_buffer(file.get_16()))
+		_version_id_from_path(path)
 
 
 		name = _safe_string_from_utf8(file.get_buffer(file.get_16()))

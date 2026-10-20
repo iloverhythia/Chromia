@@ -3,7 +3,6 @@ class_name FileSelector2D
 
 var use_native: bool = false
 
-const WinFileDialog = preload("res://scripts/ui/WinFileDialog.gd")
 var _win_dialog = null
 var _win_request: Array = []
 
@@ -87,21 +86,10 @@ func _set_waiting(on: bool):
 		$Label.text = "Waiting for file dialog...\n(click to cancel)"
 		$Label.margin_bottom = 100
 
-# Uses the real Windows file picker. Returns false if it isn't available.
-func _try_windows_dialog(mode: String, filters: PoolStringArray, multiselect: bool, initial_path: String, title: String) -> bool:
-	if not WinFileDialog.available():
-		return false
-	var d = WinFileDialog.new()
-	var dir: String = ProjectSettings.globalize_path(Globals.p(initial_path))
-	if not d.start(mode, filters, multiselect, dir, title):
-		return false
-	_win_dialog = d
-	_win_request = [mode, filters, multiselect, initial_path]
-	d.connect("done", self, "_on_win_dialog_done", [d])
-	_set_waiting(true)
-	visible = true
-	raise()
-	return true
+# The Windows file picker used to be opened through a hidden PowerShell, which
+# antivirus (Bitdefender) flags as a threat. The in-game browser is used now.
+func _try_windows_dialog(_mode: String, _filters: PoolStringArray, _multiselect: bool, _initial_path: String, _title: String) -> bool:
+	return false
 
 func _on_win_dialog_done(ok: bool, paths: Array, d):
 	if d != _win_dialog:

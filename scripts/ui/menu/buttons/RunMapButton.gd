@@ -26,10 +26,9 @@ func _import_settings_json(path: String):
 	Rhythia.save_settings()
 
 func _force_focus_window():
+	# (no hidden PowerShell any more: antivirus flags it)
 	OS.request_attention()
-	if OS.has_feature("Windows"):
-		var ps := "$sig = '[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd);'; Add-Type -MemberDefinition $sig -Name Win32 -Namespace Native; $p = Get-Process -Id %d | Where-Object { $_.MainWindowHandle -ne 0 }; if ($p) { [Native.Win32]::SetForegroundWindow($p.MainWindowHandle) | Out-Null }" % OS.get_process_id()
-		OS.execute("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", ps], false)
+	OS.move_window_to_foreground()
 
 # .sspm maps are copied into the maps folder as they are (the game reads both
 # .sspm versions), instead of being re-encoded. The copy goes to a temporary
