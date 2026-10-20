@@ -2,9 +2,6 @@
 
 importer="texture"
 type="StreamTexture"
-path.s3tc="res://.import/road_normal.png-baf81e0efb065b363747207f5ba3fd3c.s3tc.stex"
-path.etc2="res://.import/road_normal.png-baf81e0efb065b363747207f5ba3fd3c.etc2.stex"
-path.etc="res://.import/road_normal.png-baf81e0efb065b363747207f5ba3fd3c.etc.stex"
 metadata={
 "imported_formats": [ "s3tc", "etc2", "etc" ],
 "vram_texture": true
@@ -17,7 +14,7 @@ dest_files=[ "res://.import/road_normal.png-baf81e0efb065b363747207f5ba3fd3c.s3t
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/lossy_quality=0.7
 compress/hdr_mode=0
 compress/bptc_ldr=0
