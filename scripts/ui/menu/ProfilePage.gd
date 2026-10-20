@@ -85,11 +85,6 @@ func _ready():
 	avatar_rect.rect_min_size = Vector2(128, 128)
 	avatar_rect.expand = true
 	avatar_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	var circle := Shader.new()
-	circle.code = "shader_type canvas_item;\nvoid fragment(){ vec4 c = texture(TEXTURE, UV); float d = distance(UV, vec2(0.5)); c.a *= 1.0 - smoothstep(0.48, 0.5, d); COLOR = c; }"
-	var mat := ShaderMaterial.new()
-	mat.shader = circle
-	avatar_rect.material = mat
 	head.add_child(avatar_rect)
 
 	var names := VBoxContainer.new()
@@ -135,6 +130,38 @@ func _ready():
 	root.add_child(slot)
 
 	connect("visibility_changed", self, "_on_visibility_changed")
+	_report_last_crash()
+
+# --- Crash breadcrumbs --------------------------------------------------------
+# Each step of loading the profile is written to a file before it runs and
+# cleared when loading finishes. If the game closes in between, the next launch
+# says which step it was, so a crash can be reported exactly.
+const CRUMB_FILE := "user://caches/profile_step.txt"
+
+func _crumb(step: String):
+	var d := Directory.new()
+	if not d.dir_exists(Globals.p(CRUMB_FILE.get_base_dir())):
+		d.make_dir_recursive(Globals.p(CRUMB_FILE.get_base_dir()))
+	var f := File.new()
+	if f.open(Globals.p(CRUMB_FILE), File.WRITE) == OK:
+		f.store_string(step)
+		f.close()
+
+func _crumbs_done():
+	var d := Directory.new()
+	d.remove(Globals.p(CRUMB_FILE))
+
+func _report_last_crash():
+	var f := File.new()
+	if not f.file_exists(Globals.p(CRUMB_FILE)) or f.open(Globals.p(CRUMB_FILE), File.READ) != OK:
+		return
+	var step := f.get_as_text().strip_edges()
+	f.close()
+	_crumbs_done()
+	if step != "":
+		Globals.call_deferred("notify", Globals.NOTIFY_WARN,
+			"Chromia closed last time while the profile page was %s. Please send this message to the developer." % step,
+			"Profile page crashed")
 
 func _on_visibility_changed():
 	if is_visible_in_tree() and not _loaded_once:
@@ -185,6 +212,7 @@ func load_profile():
 
 	var number = null
 	for kind in ["sp", "xp"]:
+		_crumb("loading the %s leaderboard" % kind)
 		var lb = yield(_get_json(API + "/leaderboard/%s?limit=5000" % kind), "completed")
 		if lb is Dictionary:
 			for e in lb.get("entries", []):
@@ -204,30 +232,85 @@ func load_profile():
 		var du_avatar := String(Rhythia.discord_user.get("avatar_url", ""))
 		if du_avatar != "":
 			_load_avatar(du_avatar)
+		else:
+			_crumbs_done()
 		return
 
+	_crumb("loading your profile")
 	var profile = yield(_get_json(API + "/player/%s" % String(number).http_escape()), "completed")
+	var av := ""
 	if profile is Dictionary:
+		_crumb("showing your profile")
 		_show_profile(profile)
-		var av := String(profile.get("avatar_url", ""))
-		if av != "":
-			_load_avatar(SITE + av if av.begins_with("/") else av)
+		av = String(profile.get("avatar_url", ""))
+	_crumb("loading your scores")
 	var scores = yield(_get_json(API + "/player/%s/scores" % String(number).http_escape()), "completed")
 	if scores is Dictionary:
+		_crumb("showing your scores")
 		_show_scores(scores.get("scores", []))
 	status_label.text = ""
 	_loading = false
+	if av != "":
+		_load_avatar(SITE + av if av.begins_with("/") else av)
+	else:
+		_crumbs_done()
+
+# Discord's CDN can send animated GIF/WebP avatars at any size; always ask
+# for a small still PNG.
+static func _small_png_avatar(url: String) -> String:
+	if url.find("cdn.discordapp.com") == -1 and url.find("media.discordapp.net") == -1:
+		return url
+	var base := url.split("?")[0]
+	var ext := base.get_extension().to_lower()
+	if ext in ["gif", "webp", "jpg", "jpeg", "png"]:
+		base = base.get_basename() + ".png"
+	return base + "?size=128"
 
 func _load_avatar(url: String):
+	url = _small_png_avatar(url)
+	_crumb("downloading your avatar (%s)" % url)
 	var body = yield(_http_get(url), "completed")
 	if body == null:
+		_crumbs_done()
 		return
-	var img = Globals.imageLoader.load_buffer_image(body)
-	if img == null or img.is_empty():
+	var format: String = Globals.imageLoader.get_format(body)
+	# still images only: decoding animations here isn't worth the risk
+	if not format in ["png", "jpg"]:
+		_crumbs_done()
 		return
+	_crumb("decoding your avatar (%s, %d bytes)" % [format, body.size()])
+	var img: Image = Globals.imageLoader.load_buffer_image(body)
+	if img == null or img.is_empty() or img.get_width() > 4096 or img.get_height() > 4096:
+		_crumbs_done()
+		return
+	_crumb("preparing your avatar (%dx%d)" % [img.get_width(), img.get_height()])
+	if img.get_width() != 128 or img.get_height() != 128:
+		img.resize(128, 128, Image.INTERPOLATE_BILINEAR)
+	img.convert(Image.FORMAT_RGBA8)
+	_round_mask(img)
 	var tex := ImageTexture.new()
-	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+	tex.create_from_image(img, Texture.FLAG_FILTER)
+	_crumb("drawing your avatar")
 	avatar_rect.texture = tex
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	_crumbs_done()
+
+# Cuts the avatar into a circle with a soft edge (instead of a custom shader).
+static func _round_mask(img: Image):
+	var w := img.get_width()
+	var h := img.get_height()
+	var c := Vector2(w, h) * 0.5
+	var r: float = min(w, h) * 0.5
+	img.lock()
+	for y in range(h):
+		for x in range(w):
+			var d: float = Vector2(x + 0.5, y + 0.5).distance_to(c) / r
+			if d > 0.96:
+				var px := img.get_pixel(x, y)
+				px.a *= clamp((1.0 - d) / 0.04, 0.0, 1.0)
+				img.set_pixel(x, y, px)
+	img.unlock()
 
 # --- Display ----------------------------------------------------------------
 
