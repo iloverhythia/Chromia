@@ -168,8 +168,8 @@ jobs:
           "$GODOT" --no-window --path . --export "Android" "$PWD/chromia-android.apk"
           test -f "chromia-android.apk"
 
-      # iOS: Godot can only write the Xcode project here; the ios job below
-      # builds the .ipa from it on a Mac. Exported last because it turns off the
+      # iOS: Godot can only write the Xcode project here (its game pack goes into
+      # the .ipa and the in-app updates). Exported last because it turns off the
       # GLES2 fallback (every iPhone/iPad Chromia can run on has GLES3).
       - name: Export iOS Xcode project
         if: steps.version.outputs.exists == 'false'
@@ -189,8 +189,8 @@ jobs:
 
       # The iOS app's engine is the same in every release; only its game pack
       # changes. So the .ipa is made here from the last released one with the
-      # new pack inside: players get it right away even when GitHub has no Mac
-      # free. (The ios job below still builds a fresh one and replaces it.)
+      # new pack inside. (Building one from scratch needs a Mac with Xcode,
+      # only if the Godot engine version changes.)
       - name: iOS .ipa from the last one
         if: steps.version.outputs.exists == 'false' && steps.ios.outcome == 'success'
         continue-on-error: true
@@ -211,14 +211,6 @@ jobs:
           test -f "$app/Chromia.pck"
           cp ../ios-dist/Chromia.pck "$app/Chromia.pck"
           zip -q -r -y ../chromia-ios.ipa Payload
-
-      - name: Keep the iOS project for the Mac build
-        if: steps.version.outputs.exists == 'false' && steps.ios.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ios-xcode
-          path: chromia-ios-xcode.zip
-          retention-days: 3
 
       # The browser version on GitHub Pages (Settings > Pages > branch gh-pages):
       # replaced on every release, so the branch never grows.
@@ -262,35 +254,3 @@ jobs:
           done
           gh release create "$TAG" "${files[@]}" \
             --target "$GITHUB_SHA" --title "Chromia $TAG" --notes "$notes"
-
-  # Builds an unsigned .ipa from the Xcode project (sideloading apps sign it on install).
-  ios:
-    needs: release
-    if: needs.release.outputs.created == 'true' && needs.release.outputs.ios == 'success'
-    runs-on: macos-latest
-    continue-on-error: true
-    timeout-minutes: 60
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: ios-xcode
-
-      - name: Build unsigned .ipa
-        env:
-          TAG: ${{ needs.release.outputs.tag }}
-        run: |
-          mkdir proj && cd proj
-          unzip -q "../chromia-ios-xcode.zip"
-          xcodebuild -project Chromia.xcodeproj -scheme Chromia -configuration Release -sdk iphoneos \
-            -derivedDataPath build IPHONEOS_DEPLOYMENT_TARGET=12.0 \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
-          app=$(find build/Build/Products -maxdepth 2 -name "*.app" -type d | head -n1)
-          test -n "$app"
-          mkdir Payload && cp -R "$app" Payload/
-          zip -q -r -y "../chromia-ios.ipa" Payload
-
-      - name: Attach to the release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.release.outputs.tag }}
-        run: gh release upload "$TAG" "chromia-ios.ipa" --repo "$GITHUB_REPOSITORY" --clobber
