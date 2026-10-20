@@ -29,7 +29,6 @@ const DIFF_RANGES = [
 ]
 # [label, api value]
 const SORTS = [["Newest", "newest"], ["Most played", "playCount"], ["Difficulty", "starRating"], ["Length", "length"]]
-const STATUSES = [["All maps", ""], ["Ranked", "RANKED"], ["Approved", "APPROVED"], ["Qualified", "QUALIFIED"], ["Unranked", "UNRANKED"]]
 # rhythia.com's difficulty names / colors (index = map "difficulty")
 const DIFF_NAMES = ["N/A", "EASY", "MEDIUM", "HARD", "LOGIC", "TASUKETE"]
 const DIFF_COLORS = [
@@ -43,7 +42,6 @@ var font_small: DynamicFont
 var font_card_title: DynamicFont
 
 var search: LineEdit
-var status_opt: OptionButton
 var diff_buttons: Array = []
 var sort_buttons: Array = []
 var grid: GridContainer
@@ -58,7 +56,6 @@ var total_pages: int = 1
 var diff_idx: int = 0
 var sort_idx: int = 0
 var sort_desc: bool = true
-var status_idx: int = 1 # Ranked, like rhythia.com
 
 var _built := false
 var _query_id := 0 # newest list request; older answers are dropped
@@ -213,15 +210,6 @@ func _build():
 	titles.add_child(_label("Map Browser", font_title))
 	titles.add_child(_label("Download maps from rhythia.com straight into the game", font_regular, DIM))
 
-	status_opt = OptionButton.new()
-	_style_button(status_opt)
-	for s in STATUSES:
-		status_opt.add_item(s[0])
-	status_opt.selected = status_idx
-	status_opt.rect_min_size = Vector2(140, 36)
-	status_opt.size_flags_vertical = SIZE_SHRINK_CENTER
-	status_opt.connect("item_selected", self, "_on_status")
-	top.add_child(status_opt)
 	var refresh = _button("Refresh", "_load_page")
 	refresh.rect_min_size = Vector2(100, 36)
 	refresh.size_flags_vertical = SIZE_SHRINK_CENTER
@@ -367,11 +355,6 @@ func _on_sort(i: int):
 	_sync_filter_buttons()
 	_load_page()
 
-func _on_status(i: int):
-	status_idx = i
-	page = 1
-	_load_page()
-
 func _on_search_changed(_t: String):
 	_search_timer.start()
 
@@ -405,7 +388,7 @@ func _load_page():
 		"tagsFilter": "",
 		"minStars": DIFF_RANGES[diff_idx][2],
 		"maxStars": DIFF_RANGES[diff_idx][3],
-		"status": STATUSES[status_idx][1],
+		"status": "", # all maps; rhythia.com's ranked list isn't Chromia's
 		"sort": SORTS[sort_idx][1],
 		"sortDirection": "desc" if sort_desc else "asc",
 	}
@@ -524,19 +507,6 @@ func _make_card(m: Dictionary) -> Control:
 	badges.add_constant_override("separation", 6)
 	badges.mouse_filter = MOUSE_FILTER_IGNORE
 	cover.add_child(badges)
-	var st := String(m.get("status", "UNRANKED"))
-	if bool(m.get("qualified", false)):
-		st = "QUALIFIED"
-	var st_bg := Color(0.3, 0.3, 0.34, 0.9)
-	match st:
-		"RANKED": st_bg = Color(0.16, 0.3, 0.75, 0.92)
-		"APPROVED": st_bg = Color(0.15, 0.55, 0.4, 0.92)
-		"QUALIFIED": st_bg = Color(0.1, 0.5, 0.75, 0.92)
-		"LEGACY": st_bg = Color(0.7, 0.45, 0.1, 0.92)
-	var row1 = HBoxContainer.new()
-	row1.mouse_filter = MOUSE_FILTER_IGNORE
-	row1.add_child(_pill(st, Color(1, 1, 1), st_bg))
-	badges.add_child(row1)
 	var di := int(clamp(int(m.get("difficulty", 0)), 0, DIFF_NAMES.size() - 1))
 	var row2 = HBoxContainer.new()
 	row2.mouse_filter = MOUSE_FILTER_IGNORE
