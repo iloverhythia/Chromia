@@ -1,0 +1,58 @@
+name: Web map database
+
+# Keeps the web-db branch up to date: copies of the online map databases the
+# browser version can read (see .github/scripts/build_web_db.py).
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/scripts/build_web_db.py"
+      - ".github/workflows/web-db.yml"
+
+concurrency:
+  group: web-db
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get the previous copy
+        run: |
+          mkdir -p out prev
+          if git fetch --depth=1 origin web-db; then
+            git archive FETCH_HEAD | tar -x -C out
+            cp -r out/. prev/
+          fi
+
+      - name: Build
+        run: python3 .github/scripts/build_web_db.py out
+
+      - name: Publish
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          changed=0
+          for f in out/db*.json out/hashes.json; do
+            cmp -s "$f" "prev/$(basename "$f")" || changed=1
+          done
+          if [ "$changed" = 0 ]; then
+            echo "No changes"
+            exit 0
+          fi
+          cd out
+          git init -q -b web-db
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Map database copy for the web version"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" web-db

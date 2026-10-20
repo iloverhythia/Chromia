@@ -191,8 +191,14 @@ func _add_extra_pages():
 	if ed != null and (Rhythia.vr or OS.has_feature("Android") or OS.has_feature("iOS")):
 		ed.visible = false # needs a keyboard
 	# browser version: a new player has no maps yet; point them to the Map Browser
-	if OS.has_feature("JavaScript") and Rhythia.registry_song != null and Rhythia.registry_song.get_items().empty():
-		Globals.call_deferred("notify", Globals.NOTIFY_INFO, "You don't have any maps yet. Open the Map Browser (download icon on the left) to get some.", "Welcome to Chromia")
+	if OS.has_feature("JavaScript") and Rhythia.registry_song != null:
+		var has_local := false
+		for s in Rhythia.registry_song.get_items():
+			if not s.is_online:
+				has_local = true
+				break
+		if not has_local:
+			Globals.call_deferred("notify", Globals.NOTIFY_INFO, "You don't have any maps yet. Pick an online map in the list to download it, or open the Map Browser (download icon on the left).", "Welcome to Chromia")
 
 func _ready():
 	_add_extra_pages()

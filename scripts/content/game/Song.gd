@@ -43,6 +43,7 @@ var is_builtin: bool = false
 
 var is_online: bool = false
 var download_url: String = ""
+var web_blocked: bool = false # its host doesn't allow downloads from the browser version
 var has_combo: bool
 
 var sspm_song_stored: bool = false
@@ -359,6 +360,7 @@ func load_from_db_data(data: Dictionary = {
 	download_url = data.download
 	is_online = true
 	is_broken = data.get("broken", false)
+	web_blocked = bool(data.get("web_blocked", false))
 
 	return {success = true}
 

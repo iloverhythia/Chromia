@@ -8,6 +8,20 @@ var mapdb_apis: Array = [
 	"https://savia.nysr.host/ranked-maps/index.json"
 ]
 
+# The browser version can't read the databases above directly (their hosts
+# don't allow it), so it reads copies kept in the web-db branch by
+# .github/workflows/web-db.yml, with download links moved to rhythia.com's
+# archive where possible.
+const WEB_DB_BASE := "https://raw.githubusercontent.com/iloverhythia/savia/web-db/"
+
+func is_web() -> bool:
+	return OS.has_feature("JavaScript")
+
+func db_url(api_idx: int) -> String:
+	if is_web():
+		return WEB_DB_BASE + "db%d.json" % api_idx
+	return mapdb_apis[api_idx]
+
 var map_registry: Registry
 
 signal db_maps_done
@@ -44,6 +58,11 @@ func _on_ctest_request_completed(result: int, response_code: int, headers: PoolS
 		emit_signal("_connection_test", false)
 
 func test_connection():
+	if is_web():
+		# the test site doesn't allow browser requests; a failed database
+		# download reports the problem instead
+		emit_signal("_connection_test", true)
+		return
 	var res = ctest_hr.request(ProjectSettings.get_setting("application/networking/test_url"))
 	if res != OK: emit_signal("_connection_test", false)
 
@@ -54,6 +73,8 @@ func _mapdl_handler(id: String, map: Song):
 	if mapdb_apis.empty():
 		mapdl_error(id, "MapDB APIs Invalid", map); return
 	print(id)
+	if is_web() and map.web_blocked:
+		mapdl_error(id, "This map's host doesn't allow downloads from the browser. Get it in the desktop client, or look for it in the Map Browser.", map); return
 
 	call_deferred("test_connection")
 	if not yield(self, "_connection_test"):
@@ -205,7 +226,7 @@ func load_db_maps():
 	_dbmap_pending = mapdb_apis.size()
 	var requesters := []
 	for api_idx in range(mapdb_apis.size()):
-		var current_api = mapdb_apis[api_idx]
+		var current_api = db_url(api_idx)
 
 		var file: File = File.new()
 		var dict_date = Time.get_datetime_dict_from_unix_time(1373)
@@ -225,11 +246,14 @@ func load_db_maps():
 		hr.connect("request_completed", self, "_on_dbmap_request_completed", [api_idx])
 		requesters.append(hr)
 		var request_headers := PoolStringArray()
-		request_headers.append("If-Modified-Since: %s, %02d %s %04d %02d:%02d:%02d GMT" % [
-			weekday[dict_date.weekday],
-			dict_date.day, month[dict_date.month - 1], dict_date.year,
-			dict_date.hour, dict_date.minute, dict_date.second
-		])
+		# (browser: no extra headers, the mirror host refuses them; the browser's
+		# own cache does the job)
+		if not is_web():
+			request_headers.append("If-Modified-Since: %s, %02d %s %04d %02d:%02d:%02d GMT" % [
+				weekday[dict_date.weekday],
+				dict_date.day, month[dict_date.month - 1], dict_date.year,
+				dict_date.hour, dict_date.minute, dict_date.second
+			])
 		var request_error = hr.request(current_api, request_headers)
 		if request_error != OK:
 			_on_dbmap_request_completed(request_error, 0, PoolStringArray(), PoolByteArray(), api_idx)
@@ -241,7 +265,7 @@ func load_db_maps():
 		hr.queue_free()
 
 	for api_idx in range(mapdb_apis.size()):
-		var current_api = mapdb_apis[api_idx]
+		var current_api = db_url(api_idx)
 		var netmaps_res = _dbmap_results[api_idx]
 		var file: File = File.new()
 		var cache_file = Globals.p(CACHE_DIR.plus_file(".mapdb_cache_%d.json" % api_idx))
