@@ -11,7 +11,7 @@ var banned_clients: Array = []
 var heartbeat_timer: Timer
 var cid: String = ""
 var dev = "pc"
-const MOBILE_UI_SIZE := Vector2(1024, 576)
+const MOBILE_UI_SIZE := Vector2(1024, 720)
 
 const CLIENT_DB_DIR := "user://savia"
 const CLIENT_DB_PATH := "user://savia/.db"
@@ -68,8 +68,8 @@ func detect_device():
 	Rhythia.dev = dev
 	if dev == "mobile":
 		# phone screens are small and very high-res: lay the UI out for a
-		# 1024x576 screen and scale it up, so text and buttons are big enough
-		# to tap, and the game draws fewer pixels
+		# screen at least 720 tall (what the menus are built for; less cut
+		# the song panel off on iPhones) and scale it to the screen
 		get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_VIEWPORT, SceneTree.STRETCH_ASPECT_EXPAND, MOBILE_UI_SIZE)
 
 # Browser on a phone or tablet (touch is the main input).
@@ -712,7 +712,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q"
 ]
 
 
@@ -778,6 +778,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-q": "- FIX: on phones (iPhones especially) the song panel was cut off at the bottom and the cover slid under the sidebar. Phones now get the full 720-tall layout the menus are built for, scaled to the screen",
 	"oct20-2026-p": "- FIX (the real one): opening your Profile after linking Discord closed the game. Players without an avatar on the leaderboard made the search for you hit an error; fixed\n- The same kind of mistake (reading an empty value from the server or a saved file) is fixed in 80+ other places: online lobbies, Discord login, the map browser, leaderboards and the editor",
 	"oct20-2026-o": "- FIX: the Profile page could still close the game on iOS while loading the leaderboard. It now downloads on a background thread like every other part of the game\n- The Profile page's crash report is more detailed (drawing, connecting, reading the reply), in case anything is left",
 	"oct20-2026-n": "- FIX: opening your Profile after linking Discord could close the game on iOS. Avatars are now always fetched as a small still PNG, and the round avatar is cut out of the picture itself instead of using a custom shader\n- If the Profile page ever closes the game again, the next launch says exactly which step it was on",
