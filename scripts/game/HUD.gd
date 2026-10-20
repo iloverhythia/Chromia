@@ -669,7 +669,7 @@ func _update_spectate_target_name():
 	if lobby_manager != null:
 		for p in lobby_manager.players:
 			if int(p.get("peer_id", -1)) == spectate_peer_id:
-				name_text = String(p.get("name", "Player"))
+				name_text = Globals.s(p.get("name", "Player"))
 	_spectate_banner.text = "👁 SPECTATING: %s" % name_text
 
 var spectate_cursor: Spatial = null
@@ -745,7 +745,7 @@ func _on_lobby_state_changed_for_spectators_list():
 	var alive_names = {}
 	for p in lobby_manager.players:
 		if not bool(p.get("failed", false)):
-			alive_names[int(p.get("peer_id", -1))] = String(p.get("name", "Player"))
+			alive_names[int(p.get("peer_id", -1))] = Globals.s(p.get("name", "Player"))
 	var groups = {}
 	var unassigned = []
 	var spectator_count = 0
@@ -755,7 +755,7 @@ func _on_lobby_state_changed_for_spectators_list():
 		if int(p.get("peer_id", -1)) == lobby_manager.local_peer_id:
 			continue
 		spectator_count += 1
-		var spec_name = String(p.get("name", "Player"))
+		var spec_name = Globals.s(p.get("name", "Player"))
 		var target_id = int(p.get("spectate_target", -1))
 		if target_id != -1 and alive_names.has(target_id):
 			if not groups.has(target_id):

@@ -205,9 +205,9 @@ func _get_json(url: String):
 	return p.result if p.error == OK else null
 
 func _matches_me(e: Dictionary, discord_id: String, names: Array) -> bool:
-	if discord_id != "" and String(e.get("avatar_url", "")).find(discord_id) != -1:
+	if discord_id != "" and Globals.s(e.get("avatar_url", "")).find(discord_id) != -1:
 		return true
-	var n := String(e.get("name", "")).strip_edges().to_lower()
+	var n := Globals.s(e.get("name", "")).strip_edges().to_lower()
 	return n != "" and names.has(n)
 
 func load_profile():
@@ -256,7 +256,7 @@ func load_profile():
 	if profile is Dictionary:
 		_crumb("showing your profile")
 		_show_profile(profile)
-		av = String(profile.get("avatar_url", ""))
+		av = Globals.s(profile.get("avatar_url", ""))
 	_crumb("loading your scores")
 	var scores = yield(_get_json(API + "/player/%s/scores" % String(number).http_escape()), "completed")
 	if scores is Dictionary:
@@ -332,17 +332,17 @@ func _fmt(n) -> String:
 	return Globals.comma_sep(int(n))
 
 func _show_profile(p: Dictionary):
-	name_label.text = String(p.get("name", "Player"))
+	name_label.text = Globals.s(p.get("name", "Player"))
 	var tag = p.get("tag")
-	if tag is Dictionary and String(tag.get("text", "")) != "":
-		tag_label.text = String(tag.text)
+	if tag is Dictionary and Globals.s(tag.get("text", "")) != "":
+		tag_label.text = Globals.s(tag.text)
 		tag_label.visible = true
-		var c := String(tag.get("color", ""))
+		var c := Globals.s(tag.get("color", ""))
 		if c.is_valid_html_color():
 			tag_label.add_color_override("font_color", Color(c))
 	else:
 		tag_label.visible = false
-	rank_label.text = "#%s SP   •   #%s XP%s" % [String(p.get("sp_rank", "-")), String(p.get("xp_rank", "-")), "   •   ranker" if p.get("is_ranker", false) else ""]
+	rank_label.text = "#%s SP   •   #%s XP%s" % [Globals.s(p.get("sp_rank", "-")), Globals.s(p.get("xp_rank", "-")), "   •   ranker" if p.get("is_ranker", false) else ""]
 	stats_label.text = "%s SP     %s XP\n%s passes on %s maps%s" % [
 		_fmt(p.get("sp", 0)), _fmt(p.get("xp", 0)),
 		_fmt(p.get("pass_count", 0)), _fmt(p.get("map_count", 0)),
@@ -353,7 +353,7 @@ func _play_line(s: Dictionary) -> String:
 	var acc := float(s.get("accuracy", 0)) * 100.0
 	return "%s SP  •  %.2f%%  •  %sx  •  %s miss%s" % [
 		_fmt(s.get("sp_final", 0)), acc, String(stepify(float(s.get("speed", 1)), 0.01)),
-		String(s.get("misses", 0)), "" if int(s.get("misses", 0)) == 1 else "es"
+		Globals.s(s.get("misses", 0)), "" if int(s.get("misses", 0)) == 1 else "es"
 	]
 
 func _show_scores(scores: Array):
@@ -371,7 +371,7 @@ func _show_scores(scores: Array):
 	card.add_stylebox_override("panel", _panel_style(0.75))
 	var cv := VBoxContainer.new()
 	card.add_child(cv)
-	cv.add_child(_label(String(best.get("song_name", best.get("song_id", "?"))), 22))
+	cv.add_child(_label(Globals.s(best.get("song_name", best.get("song_id", "?"))), 22))
 	cv.add_child(_label(_play_line(best), 18, Color(1, 0.8, 0.9)))
 	cv.add_child(_label("%s XP  •  %s notes" % [_fmt(best.get("xp_awarded", 0)), _fmt(best.get("note_count", 0))], 0, Color(0.75, 0.75, 0.8)))
 	top_play_box.add_child(card)
@@ -383,7 +383,7 @@ func _show_scores(scores: Array):
 		rank.rect_min_size = Vector2(36, 0)
 		rank.autowrap = false
 		row.add_child(rank)
-		var nm := _label(String(s.get("song_name", s.get("song_id", "?"))))
+		var nm := _label(Globals.s(s.get("song_name", s.get("song_id", "?"))))
 		nm.size_flags_horizontal = SIZE_EXPAND_FILL
 		nm.autowrap = false
 		nm.clip_text = true

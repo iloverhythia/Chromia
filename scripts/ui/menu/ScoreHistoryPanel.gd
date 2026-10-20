@@ -251,7 +251,7 @@ func _rebuild():
 	var rank := 0
 	for e in _entries:
 		rank += 1
-		if hide_failed and String(e.get("r", "")) != ScoreHistory.RESULT_PASS:
+		if hide_failed and Globals.s(e.get("r", "")) != ScoreHistory.RESULT_PASS:
 			continue
 		_pending.append([e, rank])
 	var shown := _pending.size()
@@ -315,7 +315,7 @@ static func _date_str(ts: int) -> String:
 	return "%d-%02d-%02d %02d:%02d" % [dt.year, dt.month, dt.day, dt.hour, dt.minute]
 
 func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
-	var result := String(e.get("r", ""))
+	var result := Globals.s(e.get("r", ""))
 	var passed := result == ScoreHistory.RESULT_PASS
 	var misses := int(e.get("m", 0))
 	var acc := ScoreHistory.accuracy(e)
@@ -348,7 +348,7 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	h.add_child(rl)
 
 	# Avatar: your initial in a round badge.
-	var nm := String(e.get("nm", "You"))
+	var nm := Globals.s(e.get("nm", "You"))
 	var av := Panel.new()
 	av.rect_min_size = Vector2(22, 22)
 	av.size_flags_vertical = SIZE_SHRINK_CENTER

@@ -109,16 +109,16 @@ func import_rhm(path: String) -> Dictionary:
 		_cleanup()
 		return result
 
-	var song_name := String(data.get("SongName", data.get("Title", "Unknown")))
+	var song_name := Globals.s(data.get("SongName", data.get("Title", "Unknown")))
 	var mappers = data.get("Mappers", [])
 	var creator := PoolStringArray(mappers).join(", ") if typeof(mappers) == TYPE_ARRAY and mappers.size() > 0 else "Unknown"
 
-	var legacy_id := _slugify(String(data.get("LegacyId", "")))
+	var legacy_id := _slugify(Globals.s(data.get("LegacyId", "")))
 	var id: String
 	if legacy_id != "" and _is_valid_song_id(legacy_id):
 		id = legacy_id
 	else:
-		var basis = "%s|%s|%d|%s" % [song_name, creator, rhm_notes.size(), String(data.get("Duration", 0))]
+		var basis = "%s|%s|%d|%s" % [song_name, creator, rhm_notes.size(), Globals.s(data.get("Duration", 0))]
 		id = "rhm_" + basis.sha256_text().substr(0, 24)
 
 	var notes := []

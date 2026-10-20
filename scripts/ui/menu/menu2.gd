@@ -614,7 +614,7 @@ func _build_leaderboard_rows(list_box: VBoxContainer, entries: Array, value_key:
 		rank_label.rect_min_size = Vector2(36, 0)
 		row.add_child(rank_label)
 		var name_label = Label.new()
-		name_label.text = String(e.get("name", "Player"))
+		name_label.text = Globals.s(e.get("name", "Player"))
 		name_label.theme = ui_theme
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(name_label)
@@ -1658,10 +1658,10 @@ func _format_mods(mods: Dictionary) -> String:
 	return txt
 
 func _make_player_tag_label(p: Dictionary) -> Label:
-	var tag_text = String(p.get("tag_text", ""))
+	var tag_text = Globals.s(p.get("tag_text", ""))
 	if tag_text == "":
 		return null
-	var tag_color_str = String(p.get("tag_color", ""))
+	var tag_color_str = Globals.s(p.get("tag_color", ""))
 	var tag_color = Color(tag_color_str) if tag_color_str != "" else Color(1, 1, 1)
 	var label = Label.new()
 	label.text = "● [%s]" % tag_text
@@ -2143,7 +2143,7 @@ func _refresh_rp():
 		row.add_child(rank)
 		var nm = Label.new()
 		nm.theme = rp_total_label.theme
-		nm.text = String(p.get("name", p.id))
+		nm.text = Globals.s(p.get("name", p.id))
 		nm.clip_text = true
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nm.hint_tooltip = nm.text

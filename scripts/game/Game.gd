@@ -374,7 +374,7 @@ func _update_lobby_score_ui():
 	if lobby_manager.players.size() > 0:
 		for p in lobby_manager.players:
 			rows.append({
-				"name": String(p.get("name", "Player")),
+				"name": Globals.s(p.get("name", "Player")),
 				"score": int(p.get("score", 0)),
 				"misses": int(p.get("misses", 0)),
 				"accuracy": float(p.get("accuracy", 0.0)),
@@ -382,8 +382,8 @@ func _update_lobby_score_ui():
 				"is_you": int(p.get("peer_id", -1)) == lobby_manager.local_peer_id,
 				"peer_id": int(p.get("peer_id", -1)),
 				"alive": not bool(p.get("failed", false)),
-				"tag_text": String(p.get("tag_text", "")),
-				"tag_color": String(p.get("tag_color", "")),
+				"tag_text": Globals.s(p.get("tag_text", "")),
+				"tag_color": Globals.s(p.get("tag_color", "")),
 			})
 	else:
 		rows.append({
@@ -421,9 +421,9 @@ func _update_lobby_score_ui():
 		refs.name_label.add_color_override("font_color",
 			Color(0.4, 0.85, 1.0) if row.is_you else Color(1, 1, 1))
 
-		var tag_text = String(row.get("tag_text", ""))
+		var tag_text = Globals.s(row.get("tag_text", ""))
 		if tag_text != "":
-			var tag_color_str = String(row.get("tag_color", ""))
+			var tag_color_str = Globals.s(row.get("tag_color", ""))
 			refs.tag_label.text = "● [%s]" % tag_text
 			refs.tag_label.add_color_override("font_color", Color(tag_color_str) if tag_color_str != "" else Color(1, 1, 1))
 			refs.tag_label.visible = true

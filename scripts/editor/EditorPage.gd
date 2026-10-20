@@ -279,7 +279,7 @@ func _resume_after_playtest(info: Dictionary):
 	if sidebar and sidebar.has_method("press_page"):
 		sidebar.press_page(self)
 	_ensure_built()
-	if open_project(String(info.get("pid", ""))):
+	if open_project(Globals.s(info.get("pid", ""))):
 		seek(float(info.get("time", 0.0)))
 
 func _on_visibility():
@@ -428,7 +428,7 @@ func _refresh_home():
 		return
 	var s = Rhythia.selected_song
 	if s is Song:
-		edit_selected_btn.text = "EDIT: " + String(s.name).to_upper()
+		edit_selected_btn.text = "EDIT: " + Globals.s(s.name).to_upper()
 		edit_selected_btn.hint_tooltip = "Open the map selected in your map list"
 		edit_selected_btn.disabled = false
 	else:
@@ -585,7 +585,7 @@ func edit_song(s):
 		Globals.notify(Globals.NOTIFY_WARN, res, "Can't edit this map")
 		return
 	_open(res)
-	Globals.notify(Globals.NOTIFY_INFO, "Timing guessed from the notes: %s BPM (check it in TIMING). Saving makes a new copy; to save over the original, tick it in EXPORT." % str(res.bpm), "Editing " + String(s.name))
+	Globals.notify(Globals.NOTIFY_INFO, "Timing guessed from the notes: %s BPM (check it in TIMING). Saving makes a new copy; to save over the original, tick it in EXPORT." % str(res.bpm), "Editing " + Globals.s(s.name))
 
 func open_project(pid: String) -> bool:
 	_ensure_built()

@@ -155,7 +155,7 @@ static func _star_color(stars: float) -> Color:
 # The .sspm's own map id is the tail of the cover image name:
 # ".../beatmap-img-<timestamp>-<map id>". Used to tell which maps you have.
 static func _local_id(m: Dictionary) -> String:
-	var img := String(m.get("image", ""))
+	var img := Globals.s(m.get("image", ""))
 	var fname := img.get_file()
 	if not fname.begins_with("beatmap-img-"):
 		return ""
@@ -551,7 +551,7 @@ func _make_card(m: Dictionary) -> Control:
 	if typeof(imgs) == TYPE_DICTIONARY:
 		url = String(imgs.get("small", ""))
 	if url == "":
-		url = String(m.get("image", ""))
+		url = Globals.s(m.get("image", ""))
 	if url != "":
 		_request_image(url, tex)
 
@@ -587,7 +587,7 @@ func _make_card(m: Dictionary) -> Control:
 		stats.add_child(h)
 
 	# title, bottom left
-	var title = _label(String(m.get("title", "Untitled")), font_card_title, Color(1, 1, 1))
+	var title = _label(Globals.s(m.get("title", "Untitled")), font_card_title, Color(1, 1, 1))
 	title.anchor_top = 1
 	title.anchor_bottom = 1
 	title.anchor_right = 1
@@ -617,7 +617,7 @@ func _make_card(m: Dictionary) -> Control:
 	var mapped = _label("Mapped by", font_regular, DIM)
 	mapped.size_flags_vertical = SIZE_SHRINK_CENTER
 	by.add_child(mapped)
-	var who = _label(String(m.get("ownerUsername", "Unknown")), font_bold, LILAC)
+	var who = _label(Globals.s(m.get("ownerUsername", "Unknown")), font_bold, LILAC)
 	who.size_flags_vertical = SIZE_SHRINK_CENTER
 	who.clip_text = true
 	who.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -682,12 +682,12 @@ func _update_button(m: Dictionary, b: Button):
 	if _installed_song(m) != null:
 		b.text = "▶  Play"
 		b.hint_tooltip = "You have this map. Click to pick it in the map list."
-	elif _same_name_song(m) != null and String(m.get("beatmapFile", "")) != "":
+	elif _same_name_song(m) != null and Globals.s(m.get("beatmapFile", "")) != "":
 		b.text = "▶  Play"
 		b.hint_tooltip = "You have a map with this name. Click to pick it in the map list."
 		if extra != null and is_instance_valid(extra):
 			extra.visible = true
-	elif String(m.get("beatmapFile", "")) == "":
+	elif Globals.s(m.get("beatmapFile", "")) == "":
 		b.text = "Unavailable"
 		b.disabled = true
 	else:
@@ -769,7 +769,7 @@ func _play(song):
 
 func _start_download(m: Dictionary, b: Button):
 	var oid := str(m.get("id", ""))
-	var url := String(m.get("beatmapFile", ""))
+	var url := Globals.s(m.get("beatmapFile", ""))
 	if oid == "" or url == "" or _downloads.has(oid):
 		return
 	# Downloaded into memory; only the finished map is written to disk (no
@@ -821,7 +821,7 @@ func _on_download_done(result: int, code: int, _headers, data, oid: String):
 		return
 	d.req.queue_free()
 	var m: Dictionary = d.map
-	var title := String(m.get("title", "map"))
+	var title := Globals.s(m.get("title", "map"))
 	var dir = Directory.new()
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or not (data is PoolByteArray) or data.size() < 8:
 		var why := "the connection stalled" if result == HTTPRequest.RESULT_TIMEOUT else "error %d / %d" % [result, code]

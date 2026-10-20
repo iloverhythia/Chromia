@@ -749,3 +749,9 @@ func new_video_stream(path: String) -> VideoStream:
 	if not ClassDB.class_exists(cls) or not ClassDB.can_instance(cls):
 		return null
 	return ClassDB.instance(cls) as VideoStream
+
+# Text from a value read from JSON (a server reply or a saved file). Unlike
+# String(v), a null (JSON null, e.g. a player without an avatar) gives "" instead
+# of a script error, which in release builds could close the game.
+func s(v) -> String:
+	return "" if v == null else str(v)

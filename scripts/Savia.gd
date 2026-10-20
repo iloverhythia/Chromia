@@ -402,7 +402,7 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 		if record_replays:
 			upload_replay_for_pass(song_id, replay_id_snapshot)
 	elif data.has("reason"):
-		var reason_text = XP_REJECT_REASONS.get(String(data.reason), String(data.reason))
+		var reason_text = XP_REJECT_REASONS.get(Globals.s(data.reason), Globals.s(data.reason))
 		if show_xp_notifications:
 			Globals.notify(Globals.NOTIFY_WARN, "No XP awarded — %s" % reason_text, "Score Not Submitted")
 
@@ -447,10 +447,10 @@ func _on_discord_link_checked(result, response_code, headers, body, http_request
 
 func _apply_discord_user(du: Dictionary):
 	discord_user = {
-		"id": String(du.get("id", "")),
-		"username": String(du.get("username", "")),
-		"display_name": String(du.get("global_name", du.get("display_name", ""))),
-		"avatar_url": String(du.get("avatar_url", "")),
+		"id": Globals.s(du.get("id", "")),
+		"username": Globals.s(du.get("username", "")),
+		"display_name": Globals.s(du.get("global_name", du.get("display_name", ""))),
+		"avatar_url": Globals.s(du.get("avatar_url", "")),
 	}
 	_save_discord_profile()
 	emit_signal("discord_login_changed")
@@ -536,7 +536,7 @@ func _on_discord_login_poll_received(result, response_code, headers, body, http_
 	if json_result.error != OK or typeof(json_result.result) != TYPE_DICTIONARY:
 		return
 	var data = json_result.result
-	var status = String(data.get("status", "pending"))
+	var status = Globals.s(data.get("status", "pending"))
 	if status == "complete" and typeof(data.get("discord_user")) == TYPE_DICTIONARY:
 		if _discord_login_timer != null:
 			_discord_login_timer.stop()
@@ -544,7 +544,7 @@ func _on_discord_login_poll_received(result, response_code, headers, body, http_
 	elif status == "error":
 		if _discord_login_timer != null:
 			_discord_login_timer.stop()
-		discord_login_error = String(data.get("error", "Discord login failed."))
+		discord_login_error = Globals.s(data.get("error", "Discord login failed."))
 		emit_signal("discord_login_changed")
 
 func _on_heartbeat_timeout(cid: String):
@@ -712,7 +712,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p"
 ]
 
 
@@ -778,6 +778,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-p": "- FIX (the real one): opening your Profile after linking Discord closed the game. Players without an avatar on the leaderboard made the search for you hit an error; fixed\n- The same kind of mistake (reading an empty value from the server or a saved file) is fixed in 80+ other places: online lobbies, Discord login, the map browser, leaderboards and the editor",
 	"oct20-2026-o": "- FIX: the Profile page could still close the game on iOS while loading the leaderboard. It now downloads on a background thread like every other part of the game\n- The Profile page's crash report is more detailed (drawing, connecting, reading the reply), in case anything is left",
 	"oct20-2026-n": "- FIX: opening your Profile after linking Discord could close the game on iOS. Avatars are now always fetched as a small still PNG, and the round avatar is cut out of the picture itself instead of using a custom shader\n- If the Profile page ever closes the game again, the next launch says exactly which step it was on",
 	"oct20-2026-m": "- FIX: iOS \"Menu failed to load\": the iOS engine can't play .webm videos, and the scripts that mention that video type couldn't even start there. They now check first, so the menu loads (on iOS, .webm backgrounds are skipped; .ogv still works)\n- The \"Menu failed to load\" screen now names the file that broke, and error screens say Chromia instead of Furria",
@@ -2829,10 +2830,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("show_miss_effect") and data.has("hit_effects_v2"):
 			show_miss_effect = bool(data.show_miss_effect)
 		if data.has("selected_hit_effect") and registry_effect:
-			var hit_eff = registry_effect.get_item(String(data.selected_hit_effect))
+			var hit_eff = registry_effect.get_item(Globals.s(data.selected_hit_effect))
 			if hit_eff: select_hit_effect(hit_eff)
 		if data.has("selected_miss_effect") and registry_effect:
-			var miss_eff = registry_effect.get_item(String(data.selected_miss_effect))
+			var miss_eff = registry_effect.get_item(Globals.s(data.selected_miss_effect))
 			if miss_eff: select_miss_effect(miss_eff)
 		if data.has("lock_mouse"):
 			lock_mouse = data.lock_mouse

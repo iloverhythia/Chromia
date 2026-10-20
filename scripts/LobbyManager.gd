@@ -892,9 +892,9 @@ func _sort_players_for_first(a, b) -> bool:
 
 
 func _handle_message(msg: Dictionary):
-	match String(msg.get("type", "")):
+	match Globals.s(msg.get("type", "")):
 		"lobby_created":
-			lobby_code = String(msg.get("code", ""))
+			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))
 			is_host = true
 			lobby_active = true
@@ -905,7 +905,7 @@ func _handle_message(msg: Dictionary):
 			emit_signal("lobby_created", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_joined":
-			lobby_code = String(msg.get("code", ""))
+			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))
 			is_host = false
 			lobby_active = true
@@ -938,7 +938,7 @@ func _handle_message(msg: Dictionary):
 		"skip_triggered":
 			emit_signal("skip_triggered", float(msg.get("target_ms", 0)))
 		"error":
-			emit_signal("lobby_error", String(msg.get("reason", "Unknown error")))
+			emit_signal("lobby_error", Globals.s(msg.get("reason", "Unknown error")))
 			if not lobby_active:
 				close_lobby()
 				emit_signal("lobby_state_changed") # e.g. a failed join: the panel kept saying "Joining lobby..."
@@ -962,12 +962,12 @@ func _handle_message(msg: Dictionary):
 					p["missing_map"] = true
 			emit_signal("player_missing_map", mmp)
 		"request_map_upload":
-			var upload_song_id = String(msg.get("song_id", ""))
+			var upload_song_id = Globals.s(msg.get("song_id", ""))
 			print("[furria] received request_map_upload for ", upload_song_id)
 			if upload_song_id != "":
 				_start_map_upload(upload_song_id)
 		"map_download_start":
-			_map_download_song_id = String(msg.get("song_id", ""))
+			_map_download_song_id = Globals.s(msg.get("song_id", ""))
 			_map_download_chunks = []
 			_map_download_chars_received = 0
 			_map_download_total_bytes = int(msg.get("total_bytes", 0))
@@ -975,19 +975,19 @@ func _handle_message(msg: Dictionary):
 			emit_signal("map_download_started", _map_download_song_id)
 			emit_signal("map_download_progress", _map_download_song_id, 0, _map_download_total_bytes)
 		"map_download_chunk":
-			if String(msg.get("song_id", "")) == _map_download_song_id:
-				var chunk_str = String(msg.get("chunk", ""))
+			if Globals.s(msg.get("song_id", "")) == _map_download_song_id:
+				var chunk_str = Globals.s(msg.get("chunk", ""))
 				_map_download_chunks.append(chunk_str)
 				_map_download_chars_received += chunk_str.length()
 				var approx_bytes = int(_map_download_chars_received * 0.75)
 				emit_signal("map_download_progress", _map_download_song_id, approx_bytes, _map_download_total_bytes)
 		"map_download_end":
-			var dl_song_id = String(msg.get("song_id", ""))
+			var dl_song_id = Globals.s(msg.get("song_id", ""))
 			if dl_song_id == _map_download_song_id and dl_song_id != "":
 				_finish_map_download(dl_song_id)
 		"map_unavailable":
-			print("[furria] map_unavailable: ", String(msg.get("reason", "")))
-			emit_signal("lobby_error", String(msg.get("reason", "That map isn't available.")))
+			print("[furria] map_unavailable: ", Globals.s(msg.get("reason", "")))
+			emit_signal("lobby_error", Globals.s(msg.get("reason", "That map isn't available.")))
 		"round_ended":
 			emit_signal("round_ended")
 		"all_players_loaded":
@@ -996,25 +996,25 @@ func _handle_message(msg: Dictionary):
 			close_lobby()
 		"chat_message":
 			var lm_peer_id = int(msg.get("peer_id", -1))
-			var lm_name = String(msg.get("name", ""))
-			var lm_text = String(msg.get("text", ""))
+			var lm_name = Globals.s(msg.get("name", ""))
+			var lm_text = Globals.s(msg.get("text", ""))
 			var lm_ts = float(msg.get("ts", 0))
 			lobby_chat_history.append({peer_id = lm_peer_id, name = lm_name, text = lm_text, ts = lm_ts})
 			if lobby_chat_history.size() > CHAT_HISTORY_MAX:
 				lobby_chat_history.pop_front()
 			emit_signal("chat_message_received", lm_peer_id, lm_name, lm_text, lm_ts)
 		"global_chat_message":
-			var gm_client_id = String(msg.get("client_id", ""))
-			var gm_name = String(msg.get("name", ""))
-			var gm_text = String(msg.get("text", ""))
+			var gm_client_id = Globals.s(msg.get("client_id", ""))
+			var gm_name = Globals.s(msg.get("name", ""))
+			var gm_text = Globals.s(msg.get("text", ""))
 			var gm_ts = float(msg.get("ts", 0))
 			global_chat_history.append({client_id = gm_client_id, name = gm_name, text = gm_text, ts = gm_ts})
 			if global_chat_history.size() > CHAT_HISTORY_MAX:
 				global_chat_history.pop_front()
 			emit_signal("global_chat_message_received", gm_client_id, gm_name, gm_text, gm_ts)
 		"announcement":
-			var announce_text = String(msg.get("text", ""))
-			var announce_from = String(msg.get("from_name", ""))
+			var announce_text = Globals.s(msg.get("text", ""))
+			var announce_from = Globals.s(msg.get("from_name", ""))
 			emit_signal("announcement_received", announce_text, announce_from, float(msg.get("ts", 0)))
 			if Rhythia.in_map:
 				_pending_announcement = {"text": announce_text, "from_name": announce_from}
@@ -1037,21 +1037,21 @@ func _handle_message(msg: Dictionary):
 		"ranker_status":
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
 		"map_rank_info":
-			emit_signal("map_rank_info_received", String(msg.get("song_id", "")), bool(msg.get("ranked", false)), int(msg.get("xp", 0)), String(msg.get("content_hash", "")))
+			emit_signal("map_rank_info_received", Globals.s(msg.get("song_id", "")), bool(msg.get("ranked", false)), int(msg.get("xp", 0)), Globals.s(msg.get("content_hash", "")))
 		"my_map_stats":
-			emit_signal("my_map_stats_received", String(msg.get("song_id", "")), bool(msg.get("has_passed", false)), int(msg.get("best_xp", 0)), int(msg.get("best_sp", 0)))
+			emit_signal("my_map_stats_received", Globals.s(msg.get("song_id", "")), bool(msg.get("has_passed", false)), int(msg.get("best_xp", 0)), int(msg.get("best_sp", 0)))
 		"client_id_rotated":
-			Rhythia.apply_rotated_client_id(String(msg.get("new_client_id", "")))
+			Rhythia.apply_rotated_client_id(Globals.s(msg.get("new_client_id", "")))
 		"ranked_maps":
 			emit_signal("ranked_maps_received", msg.get("song_ids", []))
 		"unpublished_ranked_maps":
 			emit_signal("unpublished_ranked_maps_received", msg.get("song_ids", []))
 		"set_map_rank_ok":
-			emit_signal("set_map_rank_result", true, String(msg.get("song_id", "")), int(msg.get("xp", 0)))
+			emit_signal("set_map_rank_result", true, Globals.s(msg.get("song_id", "")), int(msg.get("xp", 0)))
 		"rank_denied":
 			emit_signal("set_map_rank_result", false, "", 0)
 		"map_publish_status":
-			emit_signal("map_publish_status_received", String(msg.get("song_id", "")), bool(msg.get("published", false)))
+			emit_signal("map_publish_status_received", Globals.s(msg.get("song_id", "")), bool(msg.get("published", false)))
 		"admin_ban_ok", "admin_unban_ok":
 			admin_list_bans()
 		"admin_denied":

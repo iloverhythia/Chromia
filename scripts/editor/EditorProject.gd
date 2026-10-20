@@ -220,15 +220,15 @@ static func load_project(project_id: String):
 	var d: Dictionary = p.result
 	var pr = load("res://scripts/editor/EditorProject.gd").new()
 	pr.pid = project_id
-	pr.title = String(d.get("title", ""))
-	pr.mapper = String(d.get("mapper", ""))
+	pr.title = Globals.s(d.get("title", ""))
+	pr.mapper = Globals.s(d.get("mapper", ""))
 	pr.difficulty = int(d.get("difficulty", -1))
 	pr.bpm = float(d.get("bpm", 120.0))
 	pr.offset = float(d.get("offset", 0.0))
-	pr.audio_file = String(d.get("audio_file", ""))
+	pr.audio_file = Globals.s(d.get("audio_file", ""))
 	pr.has_cover = bool(d.get("has_cover", false))
-	pr.map_id = String(d.get("map_id", ""))
-	pr.source_id = String(d.get("source_id", ""))
+	pr.map_id = Globals.s(d.get("map_id", ""))
+	pr.source_id = Globals.s(d.get("source_id", ""))
 	pr.overwrite_source = bool(d.get("overwrite_source", false))
 	if pr.map_id == "":
 		pr.map_id = "chromia_editor_" + project_id
@@ -355,13 +355,13 @@ static func from_song(s):
 		copy.append([float(n[0]), float(n[1]), float(n[2])])
 	Rhythia.unlock_song_notes(s)
 	var pr = load("res://scripts/editor/EditorProject.gd").new()
-	pr.title = String(s.name)
-	pr.mapper = String(s.creator)
+	pr.title = Globals.s(s.name)
+	pr.mapper = Globals.s(s.creator)
 	pr.difficulty = int(s.difficulty)
 	pr.pid = _new_pid(pr.title)
 	# saved as a copy unless you choose to overwrite the original (Map tab)
 	pr.map_id = "chromia_editor_" + pr.pid
-	pr.source_id = String(s.id)
+	pr.source_id = Globals.s(s.id)
 	pr.notes = copy
 	pr.sort_notes()
 	pr.guess_timing()

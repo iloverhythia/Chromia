@@ -345,13 +345,13 @@ func _make_card(m):
 	star.margin_right = -6
 	star.margin_top = 6
 	star.margin_bottom = 30
-	star.fav = Rhythia.favorite_meshes.has(String(m.id))
+	star.fav = Rhythia.favorite_meshes.has(Globals.s(m.id))
 	star.connect("pressed", self, "_on_star", [m.id])
 	wrap.add_child(star)
 
 	# Edit: builder meshes open in the Mesh Builder, others get renamed
 	var edit = Button.new()
-	edit.text = "Edit" if NBMesh.slot_of(String(m.id)) != null else "Rename"
+	edit.text = "Edit" if NBMesh.slot_of(Globals.s(m.id)) != null else "Rename"
 	edit.focus_mode = Control.FOCUS_NONE
 	edit.flat = true
 	edit.add_font_override("font", font_small)
@@ -427,7 +427,7 @@ func _relayout():
 # ------------------------------------------------------------------ thumbnails
 
 func _thumb_key(m) -> String:
-	var path = String(m.path)
+	var path = Globals.s(m.path)
 	var extra = ""
 	if not path.begins_with("res://"):
 		var f = File.new()
@@ -452,7 +452,7 @@ func _set_thumb(id, tex):
 		cards[id].tex.texture = tex
 
 func _load_mesh(m) -> Mesh:
-	var path = String(m.path)
+	var path = Globals.s(m.path)
 	if path == "":
 		return null
 	if path.begins_with("res://"):
