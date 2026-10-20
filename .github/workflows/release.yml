@@ -26,6 +26,10 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      created: ${{ steps.version.outputs.exists == 'false' }}
+      ios: ${{ steps.ios.outcome }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,7 +48,7 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install Godot and Windows export templates
+      - name: Install Godot and export templates
         if: steps.version.outputs.exists == 'false'
         run: |
           base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
@@ -54,7 +58,9 @@ jobs:
           curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           tpl="$HOME/.local/share/godot/templates/${GODOT_VERSION}.stable"
           mkdir -p "$tpl"
-          unzip -q -j templates.tpz templates/windows_64_release.exe templates/windows_64_debug.exe templates/webassembly_release.zip templates/webassembly_debug.zip templates/version.txt -d "$tpl"
+          unzip -q -j templates.tpz templates/windows_64_release.exe templates/windows_64_debug.exe templates/webassembly_release.zip templates/webassembly_debug.zip \
+            templates/linux_x11_64_release templates/linux_x11_64_debug templates/osx.zip templates/android_release.apk templates/android_debug.apk templates/iphone.zip \
+            templates/version.txt -d "$tpl"
           rm godot.zip templates.tpz
 
       - name: Import project
@@ -103,6 +109,87 @@ jobs:
           rm -rf web-dist/actions
           (cd web-dist && zip -q -r "../Chromia-$TAG-web.zip" .)
 
+      - name: Export Linux build
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          mkdir -p linux-dist
+          "$GODOT" --no-window --path . --export "Linux/X11" "$PWD/linux-dist/Chromia.x86_64"
+          test -f linux-dist/Chromia.x86_64 && test -f linux-dist/Chromia.pck
+          chmod +x linux-dist/Chromia.x86_64
+          (cd linux-dist && zip -q -r "../Chromia-$TAG-linux.zip" .)
+
+      - name: Export macOS build
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          "$GODOT" --no-window --path . --export "Mac OSX" "$PWD/Chromia-$TAG-macos.zip"
+          test -f "Chromia-$TAG-macos.zip"
+
+      # Signed with .github/android/chromia.keystore unless the repository has
+      # ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS secrets.
+      # Keep using the same key: Android only installs an update signed with the same key.
+      - name: Export Android build
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          ks="$PWD/.github/android/chromia.keystore"; pass="chromia-android"; alias="chromia"
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            ks="$RUNNER_TEMP/release.keystore"; pass="$KS_PASS"; alias="$KS_ALIAS"
+          fi
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-3.tres" <<SETTINGS
+          [gd_resource type="EditorSettings" format=2]
+
+          [resource]
+          export/android/android_sdk_path = "$sdk"
+          export/android/debug_keystore = "$ks"
+          export/android/debug_keystore_user = "$alias"
+          export/android/debug_keystore_pass = "$pass"
+          SETTINGS
+          sed -i 's/^          //' "$HOME/.config/godot/editor_settings-3.tres"
+          # every release gets a higher version code so it installs over the last one
+          sed -i "s|^keystore/release=\"\"|keystore/release=\"$ks\"|; s|^keystore/release_user=\"\"|keystore/release_user=\"$alias\"|; s|^keystore/release_password=\"\"|keystore/release_password=\"$pass\"|; s|^version/code=1$|version/code=$GITHUB_RUN_NUMBER|; s|^version/name=\"1.0\"|version/name=\"$TAG\"|" export_presets.cfg
+          "$GODOT" --no-window --path . --export "Android" "$PWD/Chromia-$TAG-android.apk"
+          test -f "Chromia-$TAG-android.apk"
+
+      # iOS: Godot can only write the Xcode project here; the ios job below
+      # builds the .ipa from it on a Mac. Exported last because it turns off the
+      # GLES2 fallback (every iPhone/iPad Chromia can run on has GLES3).
+      - name: Export iOS Xcode project
+        if: steps.version.outputs.exists == 'false'
+        id: ios
+        continue-on-error: true
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          sed -i 's/^quality\/driver\/fallback_to_gles2=true/quality\/driver\/fallback_to_gles2=false/' project.godot
+          mkdir -p ios-dist
+          "$GODOT" --no-window --path . --export "iOS" "$PWD/ios-dist/Chromia.ipa" || true
+          test -d ios-dist/Chromia.xcodeproj && test -f ios-dist/Chromia.pck
+          rm -rf ios-dist/actions
+          (cd ios-dist && zip -q -r -y "../Chromia-$TAG-ios-xcode.zip" .)
+          git checkout project.godot
+
+      - name: Keep the iOS project for the Mac build
+        if: steps.version.outputs.exists == 'false' && steps.ios.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-xcode
+          path: Chromia-${{ steps.version.outputs.tag }}-ios-xcode.zip
+          retention-days: 3
+
       # The browser version on GitHub Pages (Settings > Pages > branch gh-pages):
       # replaced on every release, so the branch never grows.
       - name: Publish web build to gh-pages
@@ -129,7 +216,50 @@ jobs:
         run: |
           notes="$NOTES"
           if [ -z "$notes" ]; then
-            notes="Chromia $TAG. Windows: unzip Chromia-$TAG-windows.zip and run Chromia.exe (existing installs update automatically). Browser: Chromia-$TAG-web.zip, put its files on any web server."
+            notes="Chromia $TAG.
+          - Windows: unzip Chromia-$TAG-windows.zip and run Chromia.exe (existing installs update automatically).
+          - Linux: unzip Chromia-$TAG-linux.zip and run Chromia.x86_64 (updates automatically too).
+          - macOS: unzip Chromia-$TAG-macos.zip and open Chromia.app (first time: right-click > Open).
+          - Android: install Chromia-$TAG-android.apk (allow installing from your browser/files app).
+          - iOS: Chromia-$TAG-ios-unsigned.ipa, install with a sideloading app such as AltStore or Sideloadly (or use the browser version).
+          - Browser: https://iloverhythia.github.io/Chromia/ or Chromia-$TAG-web.zip on any web server."
+            notes=$(printf '%s' "$notes" | sed 's/^          //')
           fi
-          gh release create "$TAG" "Chromia-$TAG-windows.zip" "Chromia-$TAG-web.zip" dist/Chromia.pck legacy/Furria.pck legacy/Savia.pck \
+          files=("Chromia-$TAG-windows.zip" "Chromia-$TAG-web.zip" dist/Chromia.pck legacy/Furria.pck legacy/Savia.pck)
+          # the other platforms are attached when their export worked
+          for f in "Chromia-$TAG-linux.zip" "Chromia-$TAG-macos.zip" "Chromia-$TAG-android.apk" "Chromia-$TAG-ios-xcode.zip"; do
+            [ -f "$f" ] && files+=("$f")
+          done
+          gh release create "$TAG" "${files[@]}" \
             --target "$GITHUB_SHA" --title "Chromia $TAG" --notes "$notes"
+
+  # Builds an unsigned .ipa from the Xcode project (sideloading apps sign it on install).
+  ios:
+    needs: release
+    if: needs.release.outputs.created == 'true' && needs.release.outputs.ios == 'success'
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ios-xcode
+
+      - name: Build unsigned .ipa
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          mkdir proj && cd proj
+          unzip -q "../Chromia-$TAG-ios-xcode.zip"
+          xcodebuild -project Chromia.xcodeproj -scheme Chromia -configuration Release -sdk iphoneos \
+            -derivedDataPath build IPHONEOS_DEPLOYMENT_TARGET=12.0 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+          app=$(find build/Build/Products -maxdepth 2 -name "*.app" -type d | head -n1)
+          test -n "$app"
+          mkdir Payload && cp -R "$app" Payload/
+          zip -q -r -y "../Chromia-$TAG-ios-unsigned.ipa" Payload
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release.outputs.tag }}
+        run: gh release upload "$TAG" "Chromia-$TAG-ios-unsigned.ipa" --repo "$GITHUB_REPOSITORY" --clobber

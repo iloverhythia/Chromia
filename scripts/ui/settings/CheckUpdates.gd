@@ -6,6 +6,13 @@ var _busy: bool = false
 func _pressed():
 	if _busy:
 		return
+	if not Online.can_self_update():
+		if OS.has_feature("JavaScript"):
+			Globals.notify(Globals.NOTIFY_SUCCEED, "The browser version is always the latest one.", "No Updates")
+		else:
+			# macOS and phones install new versions from the releases page
+			OS.shell_open("https://github.com/%s/releases/latest" % Online.UPDATE_REPO)
+		return
 	_busy = true
 	disabled = true
 	text = "Checking..."

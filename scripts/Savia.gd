@@ -66,7 +66,7 @@ func detect_device():
 	else:
 		dev = "pc"
 	Rhythia.dev = dev
-	if dev == "mobile" and OS.has_feature("JavaScript"):
+	if dev == "mobile":
 		# phone screens are small and very high-res: lay the UI out for a
 		# 1024x576 screen and scale it up, so text and buttons are big enough
 		# to tap, and the game draws fewer pixels
@@ -712,7 +712,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k"
 ]
 
 
@@ -778,6 +778,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-k": "- NEW: Chromia for Linux, macOS, Android and iOS! Every release now comes for Windows, Linux, macOS, Android, iOS and the browser\n- Linux updates itself like the Windows version; on macOS, Android and iOS, Check for Updates opens the download page\n- Android and iOS use the phone-friendly layout and touch controls",
 	"oct20-2026-j": "- Phones and tablets (browser version): bigger UI that fits the screen, tap a sidebar icon to open it, drag to scroll lists, drag anywhere to move the cursor, tap the top-left to pause and hold the bottom-left to give up\n- Phones: the first tap goes fullscreen in landscape (where the browser allows it), and holding the phone upright shows a reminder to turn it\n- Browser version: an Import button for map files, the Fullscreen setting, and the on-screen keyboard for text boxes\n- Browser version: map lists now also load through a second copy (jsDelivr) if the first can't be reached",
 	"oct20-2026-i": "- Browser version: the online map lists now load (from copies the browser is allowed to read)\n- Browser version: most online maps download straight from rhythia.com's archive; maps from hosts that block browsers say so instead of failing silently",
 	"oct20-2026-h": "- NEW: Chromia in the browser! Every release now also comes as a web version (Chromia-<version>-web.zip, and on GitHub Pages)\n- In the browser, picking files opens your browser's file chooser and saving a file downloads it\n- Startup no longer depends on background threads (needed for the browser)",
@@ -4333,7 +4334,7 @@ func do_init(_ud = null):
 			single_map_mode_audio_path = Globals.cmdline.audio
 
 
-	if OS.has_feature("Windows"):
+	if Online.can_self_update():
 		emit_signal("init_stage_reached", "Check for updates")
 		emit_signal("init_stage_num", -1)
 		yield(get_tree(), "idle_frame")

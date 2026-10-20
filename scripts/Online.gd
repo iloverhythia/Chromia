@@ -492,8 +492,13 @@ static func local_pck_path() -> String:
 	var exe := OS.get_executable_path()
 	return exe.get_base_dir().plus_file(exe.get_file().get_basename() + ".pck")
 
+# Builds that update by swapping the .pck next to the executable
+# (macOS keeps it inside the .app, phones inside the app package).
+static func can_self_update() -> bool:
+	return OS.has_feature("Windows") or OS.has_feature("X11")
+
 func check_latest_version():
-	if not OS.has_feature("Windows") or not ProjectSettings.get_setting("application/networking/enabled"):
+	if not can_self_update() or not ProjectSettings.get_setting("application/networking/enabled"):
 		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
 		return
 
