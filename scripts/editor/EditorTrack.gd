@@ -8,9 +8,11 @@ extends Control
 
 var page # EditorPage
 const LILAC = Color(0.764706, 0.65098, 0.8)
-const PLAYHEAD = 0.3
+const ACCENT = Color(1, 0.756863, 0.960784)
+const TEXT = Color(0.898039, 0.94902, 1, 1)
 
 var _font: DynamicFont
+var _font_b: DynamicFont
 var _mode := "" # "", "scrub", "move", "box"
 var _press_ms := 0.0
 var _press_x := 0.0
@@ -26,22 +28,33 @@ func _ready():
 	rect_clip_content = true
 	_font = DynamicFont.new()
 	_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
-	_font.size = 12
+	_font.size = 11
 	_font.use_filter = true
+	_font_b = DynamicFont.new()
+	_font_b.font_data = load("res://assets/font/Lato/Lato-Black.ttf")
+	_font_b.size = 11
+	_font_b.use_filter = true
+
+# the grey band; the note labels hang below it (like SSQE)
+func _band_h() -> float:
+	return round(rect_size.y * 0.62)
 
 func x_at(ms: float) -> float:
-	return rect_size.x * PLAYHEAD + (ms - page.time_ms) * page.zoom
+	return rect_size.x * page.cursor_position + (ms - page.time_ms) * page.zoom
 
 func ms_at(x: float) -> float:
-	return page.time_ms + (x - rect_size.x * PLAYHEAD) / page.zoom
+	return page.time_ms + (x - rect_size.x * page.cursor_position) / page.zoom
 
 func _box_size() -> float:
-	return clamp(rect_size.y - 34, 24, 54)
+	return clamp(_band_h() * 0.55, 18, 44)
+
+func _box_y() -> float:
+	return (_band_h() - _box_size()) / 2 - 4
 
 # index of the note whose box is under x (closest one)
 func _note_at(pos: Vector2) -> int:
 	var b := _box_size()
-	if pos.y < 6 or pos.y > 6 + b:
+	if pos.y < _box_y() - 4 or pos.y > _box_y() + b + 4:
 		return -1
 	var notes: Array = page.project.notes
 	var lo: int = page.project.lower_bound(ms_at(pos.x - b / 2))
@@ -129,26 +142,28 @@ func _draw():
 	if page == null or page.project == null:
 		return
 	var w := rect_size.x
-	var h := rect_size.y
-	draw_rect(Rect2(Vector2(), rect_size), Color(0.07, 0.065, 0.09, 0.95))
+	var bh := _band_h()
+	draw_rect(Rect2(0, 0, w, bh), Color(0.15, 0.14, 0.18, 1))
+	draw_line(Vector2(0, bh), Vector2(w, bh), Color(1, 1, 1, 0.08), 1.0)
 	var pr = page.project
 	var left := ms_at(0)
 	var right := ms_at(w)
 
-	# song bounds
+	# outside the song
 	var end_x := x_at(page.song_length_ms)
 	var start_x := x_at(0)
 	if start_x > 0:
-		draw_rect(Rect2(0, 0, start_x, h), Color(0, 0, 0, 0.35))
+		draw_rect(Rect2(0, 0, start_x, bh), Color(0, 0, 0, 0.35))
 	if end_x < w:
-		draw_rect(Rect2(end_x, 0, w - end_x, h), Color(0, 0, 0, 0.35))
+		draw_rect(Rect2(end_x, 0, w - end_x, bh), Color(0, 0, 0, 0.35))
+	# centre line (SSQE draws the waveform here)
+	draw_line(Vector2(max(start_x, 0), bh / 2), Vector2(min(end_x, w), bh / 2), Color(1, 1, 1, 0.12), 1.0)
 
-	# beat lines
+	# beat ticks along the bottom of the band
 	var step: float = pr.beat_ms() / max(page.divisor, 1)
 	var div: int = page.divisor
 	var show_sub: bool = step * page.zoom >= 5.0
-	var k0 := int(ceil((left - pr.offset) / step))
-	var k := k0
+	var k := int(ceil((left - pr.offset) / step))
 	var guard := 0
 	while guard < 4000:
 		guard += 1
@@ -156,54 +171,58 @@ func _draw():
 		if ms > right:
 			break
 		var x := x_at(ms)
-		var on_beat := posmod(k, div) == 0
-		if on_beat:
-			var beat := k / div
-			var measure := posmod(beat, 4) == 0
-			draw_line(Vector2(x, h * (0.25 if measure else 0.5)), Vector2(x, h), Color(1, 1, 1, 0.35 if measure else 0.22), 1.0)
+		if posmod(k, div) == 0:
+			var measure := posmod(k / div, 4) == 0
+			draw_line(Vector2(x, bh - (bh * 0.3 if measure else bh * 0.18)), Vector2(x, bh), Color(1, 1, 1, 0.55 if measure else 0.35), 1.0)
 		elif show_sub:
-			draw_line(Vector2(x, h * 0.78), Vector2(x, h), Color(LILAC.r, LILAC.g, LILAC.b, 0.35), 1.0)
+			draw_line(Vector2(x, bh - bh * 0.09), Vector2(x, bh), Color(ACCENT.r, ACCENT.g, ACCENT.b, 0.45), 1.0)
 		k += 1
 
 	# box selection
 	if _mode == "box":
 		var a := x_at(min(_box_from, _box_to))
 		var b := x_at(max(_box_from, _box_to))
-		draw_rect(Rect2(a, 0, b - a, h), Color(LILAC.r, LILAC.g, LILAC.b, 0.15))
-		draw_rect(Rect2(a, 0, b - a, h), Color(LILAC.r, LILAC.g, LILAC.b, 0.6), false, 1.0)
+		draw_rect(Rect2(a, 0, b - a, bh), Color(LILAC.r, LILAC.g, LILAC.b, 0.15))
+		draw_rect(Rect2(a, 0, b - a, bh), Color(LILAC.r, LILAC.g, LILAC.b, 0.6), false, 1.0)
 
-	# notes
+	# notes: 3x3 boxes, labels under the band
 	var bs := _box_size()
+	var by := _box_y()
+	var c := bs / 3.0
 	var notes: Array = pr.notes
-	var i0: int = pr.lower_bound(left - 200.0 / max(page.zoom, 0.01))
-	var i := i0
-	var drawn := []
+	var i: int = pr.lower_bound(left - 60.0 / max(page.zoom, 0.01))
+	var last_label_x := -1e9
 	while i < notes.size() and notes[i][2] <= right + bs / max(page.zoom, 0.01):
-		drawn.append(i)
-		i += 1
-	# backgrounds first so stacked notes (same time) show all their cells
-	for idx in drawn:
-		var n = notes[idx]
+		var n = notes[i]
 		var x := x_at(n[2])
-		var r := Rect2(x - bs / 2, 6, bs, bs)
-		draw_rect(r, Color(0.12, 0.11, 0.15, 1))
-	for idx in drawn:
-		var n = notes[idx]
-		var x := x_at(n[2])
-		var r := Rect2(x - bs / 2, 6, bs, bs)
-		var c := bs / 3.0
-		var cp := r.position + Vector2(clamp(n[0], -0.5, 2.5), clamp(n[1], -0.5, 2.5)) * c
-		draw_rect(Rect2(cp + Vector2(1, 1), Vector2(c - 2, c - 2)), page.note_color(idx))
-	for idx in drawn:
-		var n = notes[idx]
-		var x := x_at(n[2])
-		var r := Rect2(x - bs / 2, 6, bs, bs)
+		var col: Color = page.note_color(i)
 		var sel: bool = page.is_selected(n[3])
-		draw_rect(r, LILAC if sel else Color(1, 1, 1, 0.2), false, 2.0 if sel else 1.0)
-		if sel:
-			var t := "%d" % int(round(n[2]))
-			draw_string(_font, Vector2(x - _font.get_string_size(t).x / 2, 6 + bs + 14), t, LILAC)
+		var past: bool = n[2] < page.time_ms - 1.0
+		var a := 0.45 if past else 1.0
+		var r := Rect2(round(x - bs / 2), by, bs, bs)
+		draw_rect(r, Color(0, 0, 0, 0.6))
+		for gx in range(1, 3):
+			draw_line(r.position + Vector2(gx * c, 2), r.position + Vector2(gx * c, bs - 2), Color(col.r, col.g, col.b, 0.3 * a), 1.0)
+			draw_line(r.position + Vector2(2, gx * c), r.position + Vector2(bs - 2, gx * c), Color(col.r, col.g, col.b, 0.3 * a), 1.0)
+		var cp := r.position + Vector2(clamp(n[0], -0.5, 2.5), clamp(n[1], -0.5, 2.5)) * c
+		draw_rect(Rect2(cp + Vector2(2, 2), Vector2(c - 4, c - 4)), Color(col.r, col.g, col.b, a))
+		draw_rect(r, Color(1, 1, 1) if sel else Color(col.r, col.g, col.b, a), false, 2.0 if sel else 1.0)
+		# labels, when there's room
+		if r.position.x - last_label_x > 46 or sel:
+			draw_line(Vector2(r.position.x, bh), Vector2(r.position.x, bh + 4), Color(1, 1, 1, 0.5 * a), 1.0)
+			draw_string(_font_b, Vector2(r.position.x + 2, bh + 4 + _font_b.get_ascent()), "Note %d" % (i + 1), Color(LILAC.r, LILAC.g, LILAC.b, a) if not sel else Color(1, 1, 1))
+			draw_string(_font, Vector2(r.position.x + 2, bh + 4 + _font_b.get_height() + _font.get_ascent() - 2), "%sms" % _comma(int(round(n[2]))), Color(ACCENT.r, ACCENT.g, ACCENT.b, a))
+			last_label_x = r.position.x
+		i += 1
 
 	# playhead
-	var px := w * PLAYHEAD
-	draw_line(Vector2(px, 0), Vector2(px, h), Color(1, 0.756863, 0.960784), 2.0)
+	var px: float = w * page.cursor_position
+	draw_line(Vector2(px, 0), Vector2(px, bh), ACCENT, 2.0)
+
+static func _comma(v: int) -> String:
+	var s := str(abs(v))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if v < 0 else "") + s + out

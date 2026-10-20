@@ -30,19 +30,28 @@ func _on_exit():
 	_hover = Vector2(-10, -10)
 	update()
 
+func _3d() -> bool:
+	return page != null and page.view3d != null and page.game_view and page.view3d.is_built()
+
 func _geom() -> Array:
-	var s: float = floor(min(rect_size.x, rect_size.y))
+	if _3d():
+		return page.view3d.grid_geom()
+	# about where the game's grid is (SSQE's centre frame)
+	var s: float = floor(min(rect_size.x, rect_size.y) * 0.57 * page.grid_zoom)
 	var origin := Vector2(floor((rect_size.x - s) / 2), floor((rect_size.y - s) / 2))
 	return [origin, s / 3.0]
 
 func to_grid(p: Vector2) -> Vector2:
+	if _3d():
+		return page.view3d.grid_at(p)
 	var g = _geom()
 	return (p - g[0]) / g[1] - Vector2(0.5, 0.5)
 
 func _placement(gp: Vector2) -> Vector2:
 	if page.quantum:
 		var q: float = float(max(page.quantum_divisor, 1))
-		var v := Vector2(round(gp.x * q) / q, round(gp.y * q) / q)
+		var off: Vector2 = page.quantum_offset
+		var v := Vector2(round((gp.x - off.x) * q) / q + off.x, round((gp.y - off.y) * q) / q + off.y)
 		return Vector2(clamp(v.x, -0.5, 2.5), clamp(v.y, -0.5, 2.5))
 	return Vector2(clamp(round(gp.x), 0, 2), clamp(round(gp.y), 0, 2))
 
@@ -103,6 +112,9 @@ func _draw():
 	var o: Vector2 = g[0]
 	var cell: float = g[1]
 	var size: float = cell * 3.0
+	if _3d():
+		_draw_overlay(o, cell)
+		return
 	draw_rect(Rect2(o, Vector2(size, size)), Color(0.06, 0.055, 0.08, 0.92))
 	# cells
 	for i in range(9):
@@ -110,8 +122,8 @@ func _draw():
 		var cy := i / 3
 		var r := Rect2(o + Vector2(cx, cy) * cell, Vector2(cell, cell))
 		draw_rect(r.grow(-1), Color(1, 1, 1, 0.025))
-		if page.show_letters:
-			var t: String = KEYS[i]
+		if page.show_letters or page.show_numbers:
+			var t: String = KEYS[i] if not page.show_numbers else str(i + 1)
 			var ts := _font.get_string_size(t)
 			draw_string(_font, r.position + (r.size - ts) / 2 + Vector2(0, _font.get_ascent()), t, Color(1, 1, 1, 0.07))
 	# grid lines
@@ -119,7 +131,7 @@ func _draw():
 		var c := Color(1, 1, 1, 0.14 if k == 0 or k == 3 else 0.08)
 		draw_line(o + Vector2(k * cell, 0), o + Vector2(k * cell, size), c, 1.0)
 		draw_line(o + Vector2(0, k * cell), o + Vector2(size, k * cell), c, 1.0)
-	if page.quantum and page.quantum_divisor > 1:
+	if page.quantum and page.quantum_divisor > 1 and page.quantum_lines:
 		var q: int = page.quantum_divisor
 		var qc := Color(LILAC.r, LILAC.g, LILAC.b, 0.07)
 		# lines through every spot a quantum note can sit (cell centres + fractions)
@@ -180,3 +192,36 @@ func _draw():
 			var cc: Vector2 = o + (cp + Vector2(0.5, 0.5)) * cell
 			draw_circle(cc, cell * 0.09, Color(1, 1, 1, 0.9))
 			draw_arc(cc, cell * 0.12, 0, TAU, 24, Color(0, 0, 0, 0.5), 2.0)
+
+# Over the game view: only what the game doesn't draw (letters, quantum lines,
+# hover, selection).
+func _draw_overlay(o: Vector2, cell: float):
+	var a: float = page.overlay_opacity
+	var size := cell * 3.0
+	if page.show_letters or page.show_numbers:
+		for i in range(9):
+			var r := Rect2(o + Vector2(i % 3, i / 3) * cell, Vector2(cell, cell))
+			var t: String = KEYS[i] if not page.show_numbers else str(i + 1)
+			var ts := _font.get_string_size(t)
+			draw_string(_font, r.position + (r.size - ts) / 2 + Vector2(0, _font.get_ascent()), t, Color(1, 1, 1, 0.12 * a))
+	if page.quantum and page.quantum_divisor > 1 and page.quantum_lines:
+		var q: int = page.quantum_divisor
+		var qc := Color(LILAC.r, LILAC.g, LILAC.b, 0.18 * a)
+		for k in range(-q, 3 * q + 1):
+			if k % q == 0:
+				continue
+			var fx: float = (float(k) / q + page.quantum_offset.x + 0.5) * cell
+			var fy: float = (float(k) / q + page.quantum_offset.y + 0.5) * cell
+			if fx > 0.0 and fx < size:
+				draw_line(o + Vector2(fx, 0), o + Vector2(fx, size), qc, 1.0)
+			if fy > 0.0 and fy < size:
+				draw_line(o + Vector2(0, fy), o + Vector2(size, fy), qc, 1.0)
+	var ns := cell * 0.9
+	if _hover.x > -5:
+		var hc: Vector2 = o + (_hover + Vector2(0.5, 0.5)) * cell
+		draw_rect(Rect2(hc - Vector2(ns, ns) / 2, Vector2(ns, ns)), Color(1, 1, 1, 0.07 * a))
+		draw_rect(Rect2(hc - Vector2(ns, ns) / 2, Vector2(ns, ns)), Color(1, 1, 1, 0.35 * a), false, 1.5)
+	for n in page._at_current():
+		if page.is_selected(n[3]):
+			var c: Vector2 = o + (Vector2(n[0], n[1]) + Vector2(0.5, 0.5)) * cell
+			draw_rect(Rect2(c - Vector2(ns, ns) / 2 - Vector2(3, 3), Vector2(ns + 6, ns + 6)), LILAC.lightened(0.3), false, 3.0)
