@@ -11,6 +11,7 @@ var banned_clients: Array = []
 var heartbeat_timer: Timer
 var cid: String = ""
 var dev = "pc"
+const MOBILE_UI_SIZE := Vector2(1024, 576)
 
 const CLIENT_DB_DIR := "user://savia"
 const CLIENT_DB_PATH := "user://savia/.db"
@@ -57,12 +58,28 @@ func set_client_id():
 	Rhythia.cid = client_id
 	cid = client_id
 
-	if OS.has_feature("Android"):
-		dev = "android"
+	detect_device()
+
+func detect_device():
+	if OS.has_feature("Android") or OS.has_feature("iOS") or is_touch_web():
+		dev = "mobile" # phones and tablets: tap controls, pause buttons
 	else:
 		dev = "pc"
-
 	Rhythia.dev = dev
+	if dev == "mobile" and OS.has_feature("JavaScript"):
+		# phone screens are small and very high-res: lay the UI out for a
+		# 1024x576 screen and scale it up, so text and buttons are big enough
+		# to tap, and the game draws fewer pixels
+		get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_VIEWPORT, SceneTree.STRETCH_ASPECT_EXPAND, MOBILE_UI_SIZE)
+
+# Browser on a phone or tablet (touch is the main input).
+func is_touch_web() -> bool:
+	if not OS.has_feature("JavaScript"):
+		return false
+	var js = Engine.get_singleton("JavaScript")
+	if js == null:
+		return false
+	return bool(js.eval("!!(window.matchMedia && matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0)", true))
 
 func device(input):
 	return Rhythia.dev == input
@@ -695,7 +712,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j"
 ]
 
 
@@ -761,6 +778,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-j": "- Phones and tablets (browser version): bigger UI that fits the screen, tap a sidebar icon to open it, drag to scroll lists, drag anywhere to move the cursor, tap the top-left to pause and hold the bottom-left to give up\n- Phones: the first tap goes fullscreen in landscape (where the browser allows it), and holding the phone upright shows a reminder to turn it\n- Browser version: an Import button for map files, the Fullscreen setting, and the on-screen keyboard for text boxes\n- Browser version: map lists now also load through a second copy (jsDelivr) if the first can't be reached",
 	"oct20-2026-i": "- Browser version: the online map lists now load (from copies the browser is allowed to read)\n- Browser version: most online maps download straight from rhythia.com's archive; maps from hosts that block browsers say so instead of failing silently",
 	"oct20-2026-h": "- NEW: Chromia in the browser! Every release now also comes as a web version (Chromia-<version>-web.zip, and on GitHub Pages)\n- In the browser, picking files opens your browser's file chooser and saving a file downloads it\n- Startup no longer depends on background threads (needed for the browser)",
 	"oct19-2026-q": "- The level bar in the Profile tab no longer has a background",
@@ -942,12 +960,18 @@ func select_song(song: Song):
 			emit_signal("download_done")
 		else:
 			Globals.confirm_prompt.s_alert.play()
+			var err_text: String = str(result.error)
+			var options := [{text = "OK"}]
+			if Online.is_embedded():
+				options.append({text = "Open full version"})
 			Globals.confirm_prompt.open(
-				"Failed to download map.\nError code: %s" % result.error,
+				("Failed to download map.\n%s" if err_text.length() > 24 else "Failed to download map.\nError code: %s") % err_text,
 				"Error",
-				[{text = "OK"}]
+				options
 			)
-			yield(Globals.confirm_prompt, "option_selected")
+			var picked = yield(Globals.confirm_prompt, "option_selected")
+			if picked == 1:
+				OS.shell_open(Online.WEB_FULL_URL)
 			Globals.confirm_prompt.s_back.play()
 			Globals.confirm_prompt.close()
 			yield(Globals.confirm_prompt, "done_closing")
@@ -1623,6 +1647,7 @@ func _log_stage(name, _extra = null):
 	_stage_start = now
 
 func _ready():
+	detect_device()
 	# Closing the window goes through quit_game() too (see there).
 	get_tree().set_auto_accept_quit(false)
 	connect("init_stage_reached", self, "_log_stage")

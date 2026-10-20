@@ -107,6 +107,13 @@ func press(bi: int, q: bool = false):
 		get_node("../VersionNumber").self_modulate = Color(1, 1, 1, 0)
 	else:
 		get_node("../VersionNumber").self_modulate = Color(1, 1, 1, 1)
+	if Rhythia.device("mobile"):
+		# small screens: the label overlaps the pages, and a tapped page
+		# shouldn't stay half-covered by the opened sidebar
+		get_node("../VersionNumber").visible = false
+		get_node("../VersionNumberB").visible = false
+		if not q:
+			_on_Sidebar(false)
 
 
 
@@ -210,6 +217,8 @@ func _ready():
 		$Click.connect("vr_click", self, "_on_Sidebar", [true])
 		$L.connect("vr_click", self, "_on_Sidebar", [true])
 	$Click.connect("mouse_entered", self, "_on_Sidebar", [true])
+	if Rhythia.device("mobile"):
+		$Click.visible = false # touch: a tap on an icon opens that page right away
 	$L.connect("mouse_entered", self, "_on_Sidebar", [true])
 	connect("mouse_exited", self, "_on_Sidebar", [false])
 	$L/OldMenu.connect("pressed", self, "to_old_menu")
@@ -250,7 +259,7 @@ func _input(ev):
 		if ev.pressed != true: return
 		open = ev.position.x < rect_size.x and ev.position.y < rect_size.y
 		yield(get_tree(), "idle_frame")
-		get_node("Click").visible = not open
+		get_node("Click").visible = not open and not Rhythia.device("mobile")
 		get_node("../SidebarClick").visible = open
 
 	if Input.is_action_just_pressed("ui_quicksettings") and not _typing():
@@ -258,7 +267,7 @@ func _input(ev):
 
 	if Input.is_action_just_pressed("menu_quickbar"):
 		open = true
-		get_node("Click").visible = not open
+		get_node("Click").visible = not open and not Rhythia.device("mobile")
 
 # True while a text box has focus (or the map editor is open), so typing an "o"
 # doesn't jump to Settings.
@@ -271,5 +280,5 @@ func _typing() -> bool:
 
 func _on_Sidebar(isEntered: bool):
 	open = isEntered
-	get_node("Click").visible = not open
+	get_node("Click").visible = not open and not Rhythia.device("mobile")
 	get_node("../SidebarClick").visible = open

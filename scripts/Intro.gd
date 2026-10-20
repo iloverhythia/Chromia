@@ -57,7 +57,7 @@ func _ready():
 func _input(event):
 	if Input.is_action_just_pressed("pause") and can_skip:
 		get_tree().change_scene("res://scenes/init.tscn")
-	elif Rhythia.device("mobile") and can_skip:
+	elif Rhythia.device("mobile") and can_skip and (event is InputEventScreenTouch or event is InputEventMouseButton) and event.pressed:
 		get_tree().change_scene("res://scenes/init.tscn")
 
 func _process(delta):

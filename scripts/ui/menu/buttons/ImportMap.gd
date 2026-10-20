@@ -48,4 +48,4 @@ func _on_map_files_selected(files: PoolStringArray):
 		Globals.notify(Globals.NOTIFY_SUCCEED, "%d map(s) added." % imported, "Maps Imported")
 
 func _ready():
-	visible = Rhythia.device("mobile")
+	visible = Rhythia.device("mobile") or OS.has_feature("JavaScript") # the browser has no maps folder to drop files into

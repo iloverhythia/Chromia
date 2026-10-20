@@ -1,16 +1,29 @@
 extends Control
 
+# A quick tap can press and release in the same frame, which the game would
+# never see as a press, so a release always waits for the next frame.
+var _pressed_frame := {}
+
+func _press(action: String):
+	_pressed_frame[action] = Engine.get_idle_frames()
+	Input.action_press(action)
+
+func _release(action: String):
+	while Engine.get_idle_frames() <= int(_pressed_frame.get(action, -1)) + 1:
+		yield(get_tree(), "idle_frame")
+	Input.action_release(action)
+
 func _on_Pause_pressed():
-	Input.action_press("pause")
+	_press("pause")
 
 func _on_Pause_released():
-	Input.action_release("pause")
+	_release("pause")
 
 func _on_GiveUp_pressed():
-	Input.action_press("give_up")
+	_press("give_up")
 
 func _on_GiveUp_released():
-	Input.action_release("give_up")
+	_release("give_up")
 
 func _ready():
 	var tween: Tween = Tween.new()

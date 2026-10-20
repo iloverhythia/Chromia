@@ -5,4 +5,4 @@ func _pressed():
 		OS.window_fullscreen = pressed
 
 func _ready():
-	visible = Rhythia.device("pc")
+	visible = Rhythia.device("pc") or OS.has_feature("JavaScript")

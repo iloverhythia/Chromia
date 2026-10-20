@@ -17,10 +17,35 @@ const WEB_DB_BASE := "https://raw.githubusercontent.com/iloverhythia/savia/web-d
 func is_web() -> bool:
 	return OS.has_feature("JavaScript")
 
+const WEB_DB_CDN := "https://cdn.jsdelivr.net/gh/iloverhythia/savia@web-db/"
+const WEB_FULL_URL := "https://iloverhythia.github.io/Chromia/"
+
+func _js_eval(code: String):
+	var js = Engine.get_singleton("JavaScript")
+	if js == null:
+		return null
+	return js.eval(code, true)
+
+# True when running inside a page that can't reach other sites (the Claude
+# artifact): its page sets window.CHROMIA_EMBEDDED and ships the database
+# copies next to itself.
+func is_embedded() -> bool:
+	return is_web() and bool(_js_eval("!!window.CHROMIA_EMBEDDED"))
+
+# Where to get database api_idx from, in order of preference.
+func db_urls(api_idx: int) -> Array:
+	if not is_web():
+		return [mapdb_apis[api_idx]]
+	var name := "db%d.json" % api_idx
+	var urls := [WEB_DB_BASE + name, WEB_DB_CDN + name]
+	if is_embedded():
+		var local = _js_eval("new URL('%s', location.href).href" % name)
+		if typeof(local) == TYPE_STRING and local != "":
+			urls.append(local)
+	return urls
+
 func db_url(api_idx: int) -> String:
-	if is_web():
-		return WEB_DB_BASE + "db%d.json" % api_idx
-	return mapdb_apis[api_idx]
+	return db_urls(api_idx)[0]
 
 var map_registry: Registry
 
@@ -42,6 +67,8 @@ func cancel():
 	emit_signal("_mapdl_req", {result = -1})
 
 func mapdl_error(id: String, error: String, map: Song):
+	if error != "Cancelled" and is_embedded():
+		error += " - this page can't download from other sites. Get maps in the full web version: " + WEB_FULL_URL
 	print("[MapDB Download] Map %s errored with code %s" % [map.id, error])
 	emit_signal("map_downloaded", {id = id, success = false, error = error})
 
@@ -146,9 +173,20 @@ func download_map(map: Song):
 
 
 signal _dbmap_batch_done
+func _dbmap_retry(hr: HTTPRequest, url: String, api_idx: int):
+	if hr.request(url) != OK:
+		_on_dbmap_request_completed(ERR_CANT_CONNECT, 0, PoolStringArray(), PoolByteArray(), api_idx)
+
 var _dbmap_results: Array = []
 var _dbmap_pending: int = 0
+var _dbmap_fallbacks: Dictionary = {} # api_idx -> [HTTPRequest, [urls left to try]]
 func _on_dbmap_request_completed(result: int, response_code: int, headers: PoolStringArray, body: PoolByteArray, api_idx: int):
+	var fb = _dbmap_fallbacks.get(api_idx)
+	if fb != null and not fb[1].empty() and (result != HTTPRequest.RESULT_SUCCESS or response_code != 200):
+		var next_url: String = fb[1].pop_front()
+		print("[MapDB] trying %s" % next_url)
+		call_deferred("_dbmap_retry", fb[0], next_url, api_idx)
+		return
 	_dbmap_results[api_idx] = {result = result, response_code = response_code, headers = headers, body = body}
 	_dbmap_pending -= 1
 	if _dbmap_pending == 0:
@@ -224,9 +262,11 @@ func load_db_maps():
 	_dbmap_results = []
 	_dbmap_results.resize(mapdb_apis.size())
 	_dbmap_pending = mapdb_apis.size()
+	_dbmap_fallbacks = {}
 	var requesters := []
 	for api_idx in range(mapdb_apis.size()):
-		var current_api = db_url(api_idx)
+		var urls := db_urls(api_idx)
+		var current_api: String = urls.pop_front()
 
 		var file: File = File.new()
 		var dict_date = Time.get_datetime_dict_from_unix_time(1373)
@@ -245,6 +285,8 @@ func load_db_maps():
 		hr.timeout = 80
 		hr.connect("request_completed", self, "_on_dbmap_request_completed", [api_idx])
 		requesters.append(hr)
+		if not urls.empty():
+			_dbmap_fallbacks[api_idx] = [hr, urls]
 		var request_headers := PoolStringArray()
 		# (browser: no extra headers, the mirror host refuses them; the browser's
 		# own cache does the job)
@@ -261,6 +303,7 @@ func load_db_maps():
 	if _dbmap_pending > 0:
 		yield(self, "_dbmap_batch_done")
 
+	_dbmap_fallbacks = {}
 	for hr in requesters:
 		hr.queue_free()
 
