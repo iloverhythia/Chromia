@@ -495,7 +495,13 @@ static func local_pck_path() -> String:
 # Builds that update by swapping the .pck next to the executable
 # (macOS keeps it inside the .app, phones inside the app package).
 static func can_self_update() -> bool:
-	return OS.has_feature("Windows") or OS.has_feature("X11")
+	return OS.has_feature("Windows") or OS.has_feature("X11") or PackUpdate.supported()
+
+# iOS can't replace its own files: it downloads the game pack into the user
+# folder instead (loaded at the next start by scripts/PackUpdate.gd).
+const IOS_PCK_NAME := "chromia-ios.pck"
+static func updates_by_pack() -> bool:
+	return PackUpdate.supported()
 
 func check_latest_version():
 	if not can_self_update() or not ProjectSettings.get_setting("application/networking/enabled"):
@@ -530,8 +536,15 @@ func attempt_update():
 		emit_signal("update_finished")
 		return
 
+	if updates_by_pack():
+		var why = yield(_pack_compatible(), "completed")
+		if why != "":
+			update_blocked_reason = why
+			emit_signal("update_finished")
+			return
 	var download_url = ""
-	for wanted in UPDATE_PCK_NAMES:
+	var wanted_names: Array = [IOS_PCK_NAME] if updates_by_pack() else UPDATE_PCK_NAMES
+	for wanted in wanted_names:
 		for asset in latest_version_data.assets:
 			if asset.name == wanted:
 				download_url = asset.browser_download_url
@@ -545,11 +558,70 @@ func attempt_update():
 		return
 
 	var temp_path = local_pck_path() + ".tmp"
+	if updates_by_pack():
+		var d := Directory.new()
+		if not d.dir_exists(PackUpdate.DIR):
+			d.make_dir_recursive(PackUpdate.DIR)
+		temp_path = PackUpdate.PACK + ".tmp"
 
 	update_hr.download_file = temp_path
 	update_hr.request(download_url)
 
+var update_installed: bool = false # the last attempt_update() worked
+var update_blocked_reason: String = "" # pack updates: why this one can't be used
+
+# A pack can only replace the game's files, not the app's list of startup
+# scripts and script classes: those must match (res://pack_compat.txt, written
+# by the release workflow). Returns "" when the latest pack fits this app.
+func _pack_compatible():
+	yield(get_tree(), "idle_frame")
+	update_blocked_reason = ""
+	var url := ""
+	for asset in latest_version_data.get("assets", []):
+		if asset.name == "chromia-ios-compat.txt":
+			url = asset.browser_download_url
+	var f := File.new()
+	var mine := ""
+	if f.open("res://pack_compat.txt", File.READ) == OK:
+		mine = f.get_as_text().strip_edges()
+		f.close()
+	if url == "" or mine == "":
+		return "This update can't be installed from inside the app. Install the new chromia-ios.ipa instead."
+	var hr := HTTPRequest.new()
+	hr.use_threads = OS.can_use_threads()
+	hr.timeout = 20
+	add_child(hr)
+	if hr.request(url) != OK:
+		hr.queue_free()
+		return "Couldn't check the update."
+	var res = yield(hr, "request_completed")
+	hr.queue_free()
+	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200:
+		return "Couldn't check the update."
+	if res[3].get_string_from_utf8().strip_edges() != mine:
+		return "This update changes parts of the app that can only be updated by installing the new chromia-ios.ipa."
+	return ""
+
 func _on_update_request_completed(result, response_code, headers, body):
+	update_installed = false
+	if updates_by_pack():
+		var tmp := PackUpdate.PACK + ".tmp"
+		var dir := Directory.new()
+		if result != HTTPRequest.RESULT_SUCCESS or response_code != 200 or not dir.file_exists(tmp):
+			print("Pack download failed.")
+			dir.remove(tmp)
+			emit_signal("update_finished")
+			return
+		dir.remove(PackUpdate.PACK)
+		if dir.rename(tmp, PackUpdate.PACK) == OK:
+			var f := File.new()
+			if f.open(PackUpdate.VERSION_FILE, File.WRITE) == OK:
+				f.store_string(String(latest_version_data.tag_name))
+				f.close()
+				update_installed = true
+				print("Pack update downloaded: ", latest_version_data.tag_name)
+		emit_signal("update_finished")
+		return
 	var final_path = local_pck_path()
 	var temp_path = final_path + ".tmp"
 	var backup_path = final_path + ".old"
@@ -573,6 +645,7 @@ func _on_update_request_completed(result, response_code, headers, body):
 	var err = dir.rename(temp_path, final_path)
 
 	if err == OK:
+		update_installed = true
 		print("Update successful. Restart required.")
 	else:
 		print("Error swapping files: ", err)

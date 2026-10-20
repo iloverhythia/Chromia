@@ -67,6 +67,10 @@ jobs:
         if: steps.version.outputs.exists == 'false'
         run: |
           cp .github/godot/export_presets.cfg export_presets.cfg
+          # What a downloaded game pack (iOS updates) must match in the installed app:
+          # the autoload list and the script classes (scripts/PackUpdate.gd, Online.gd).
+          { sed -n '/^\[autoload\]/,/^\[/p' project.godot; grep '^_global_script_class' project.godot; } | sha1sum | cut -c1-16 > pack_compat.txt
+          cp pack_compat.txt chromia-ios-compat.txt
           # A fresh checkout has no .import cache; let the editor import everything once.
           # The editor never exits on its own, so stop it once .import stops growing for 60s.
           "$GODOT" --no-window --editor --path . > import.log 2>&1 &
@@ -178,9 +182,35 @@ jobs:
           mkdir -p ios-dist
           "$GODOT" --no-window --path . --export "iOS" "$PWD/ios-dist/Chromia.ipa" || true
           test -d ios-dist/Chromia.xcodeproj && test -f ios-dist/Chromia.pck
+          cp ios-dist/Chromia.pck chromia-ios.pck # in-app updates (scripts/PackUpdate.gd)
           rm -rf ios-dist/actions
           (cd ios-dist && zip -q -r -y "../chromia-ios-xcode.zip" .)
           git checkout project.godot
+
+      # The iOS app's engine is the same in every release; only its game pack
+      # changes. So the .ipa is made here from the last released one with the
+      # new pack inside: players get it right away even when GitHub has no Mac
+      # free. (The ios job below still builds a fresh one and replaces it.)
+      - name: iOS .ipa from the last one
+        if: steps.version.outputs.exists == 'false' && steps.ios.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p base-ipa
+          for t in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 40 --json tagName -q '.[].tagName'); do
+            if gh release download "$t" --repo "$GITHUB_REPOSITORY" --pattern chromia-ios.ipa --dir base-ipa 2>/dev/null; then
+              echo "starting from the $t app"
+              break
+            fi
+          done
+          test -f base-ipa/chromia-ios.ipa
+          mkdir ipa-work && cd ipa-work
+          unzip -q ../base-ipa/chromia-ios.ipa
+          app=$(ls -d Payload/*.app | head -n1)
+          test -f "$app/Chromia.pck"
+          cp ../ios-dist/Chromia.pck "$app/Chromia.pck"
+          zip -q -r -y ../chromia-ios.ipa Payload
 
       - name: Keep the iOS project for the Mac build
         if: steps.version.outputs.exists == 'false' && steps.ios.outcome == 'success'
@@ -221,13 +251,13 @@ jobs:
           - Linux: unzip chromia-linux.zip and run Chromia.x86_64 (updates automatically too).
           - macOS: unzip chromia-macos.zip and open Chromia.app (first time: right-click > Open).
           - Android: install chromia-android.apk (allow installing from your browser/files app).
-          - iOS: chromia-ios.ipa (added a few minutes after the rest), install with a sideloading app such as AltStore or Sideloadly (or use the browser version).
+          - iOS: chromia-ios.ipa, install with a sideloading app such as AltStore or Sideloadly (or use the browser version).
           - Browser: https://iloverhythia.github.io/Chromia/ or chromia-web.zip on any web server."
             notes=$(printf '%s' "$notes" | sed 's/^          //')
           fi
           files=("chromia-windows.zip" "chromia-web.zip" dist/Chromia.pck legacy/Furria.pck legacy/Savia.pck)
           # the other platforms are attached when their export worked
-          for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk"; do
+          for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk" "chromia-ios.ipa" "chromia-ios.pck" "chromia-ios-compat.txt"; do
             [ -f "$f" ] && files+=("$f")
           done
           gh release create "$TAG" "${files[@]}" \
@@ -239,6 +269,7 @@ jobs:
     if: needs.release.outputs.created == 'true' && needs.release.outputs.ios == 'success'
     runs-on: macos-latest
     continue-on-error: true
+    timeout-minutes: 60
     steps:
       - uses: actions/download-artifact@v4
         with:

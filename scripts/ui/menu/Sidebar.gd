@@ -210,6 +210,12 @@ func _add_extra_pages():
 func _ready():
 	_add_extra_pages()
 	Rhythia.trail("menu open")
+	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
+	if Rhythia._pending_update_notice != "":
+		Globals.call_deferred("notify", Globals.NOTIFY_SUCCEED,
+			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it." % Rhythia._pending_update_notice,
+			"Update ready")
+		Rhythia._pending_update_notice = ""
 	if Rhythia.last_session_crashed and not Rhythia.crash_report_shown:
 		Rhythia.crash_report_shown = true
 		call_deferred("_show_crash_report")

@@ -40,9 +40,20 @@ func _pressed():
 	text = "Downloading..."
 	Online.attempt_update()
 	yield(Online, "update_finished")
-	if not Directory.new().file_exists(Online.local_pck_path() + ".old"):
-		Globals.notify(Globals.NOTIFY_WARN, "The update couldn't be downloaded. Try again later.", "Update Failed")
+	if not Online.update_installed:
+		Globals.notify(Globals.NOTIFY_WARN, Online.update_blocked_reason if Online.update_blocked_reason != "" else "The update couldn't be downloaded. Try again later.", "Update Failed")
 		_reset()
+		return
+	if Online.updates_by_pack():
+		# iOS: the app can't restart itself
+		Globals.confirm_prompt.open(
+			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it." % latest,
+			"Update Downloaded",
+			[{text = "OK", wait = 0}]
+		)
+		yield(Globals.confirm_prompt, "option_selected")
+		Globals.confirm_prompt.close()
+		text = "Reopen to update"
 		return
 
 	Globals.confirm_prompt.open(

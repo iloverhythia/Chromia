@@ -11,7 +11,7 @@ var banned_clients: Array = []
 var heartbeat_timer: Timer
 var cid: String = ""
 var dev = "pc"
-const MOBILE_UI_SIZE := Vector2(1024, 720)
+const MOBILE_UI_SIZE := Vector2(1024, 860)
 
 const CLIENT_DB_DIR := "user://savia"
 const CLIENT_DB_PATH := "user://savia/.db"
@@ -67,10 +67,26 @@ func detect_device():
 		dev = "pc"
 	Rhythia.dev = dev
 	if dev == "mobile":
-		# phone screens are small and very high-res: lay the UI out for a
-		# screen at least 720 tall (what the menus are built for; less cut
-		# the song panel off on iPhones) and scale it to the screen
-		get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_VIEWPORT, SceneTree.STRETCH_ASPECT_EXPAND, MOBILE_UI_SIZE)
+		apply_mobile_layout()
+
+# Phones: the menus are laid out for a screen tall enough for the song panel
+# (800-860 px with all its lines) plus the part the system covers (the iPhone home bar), then
+# scaled to the screen. 2D stretch keeps drawing at the screen's full
+# resolution, so text and the game stay sharp.
+var _mobile_layout_h: float = -1.0
+func apply_mobile_layout():
+	var h: float = MOBILE_UI_SIZE.y
+	var win := OS.get_window_size()
+	var safe := OS.get_window_safe_area()
+	if win.y > 0 and safe.size.y > 0 and safe.size.y < win.y:
+		h = min(h * win.y / safe.size.y, MOBILE_UI_SIZE.y * 1.25)
+	if abs(h - _mobile_layout_h) < 1.0:
+		return
+	_mobile_layout_h = h
+	get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_2D, SceneTree.STRETCH_ASPECT_EXPAND, Vector2(MOBILE_UI_SIZE.x, h))
+	if not get_tree().root.is_connected("size_changed", self, "apply_mobile_layout"):
+		# the safe area can be known only once the window is up, and changes when the phone turns
+		get_tree().root.connect("size_changed", self, "apply_mobile_layout", [], CONNECT_DEFERRED)
 
 # Browser on a phone or tablet (touch is the main input).
 func is_touch_web() -> bool:
@@ -712,7 +728,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t"
 ]
 
 
@@ -778,6 +794,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-t": "- NEW (iOS): automatic updates. When a new version is out, the game downloads it at startup; close Chromia completely and open it again to use it. (Install this version's chromia-ios.ipa once; after that it updates itself)\n- iPhone/phones: the song panel fits on screen (it was cut off at the bottom), including the space under the iPhone home bar\n- iPhone/phones: sharper graphics: the game draws at the screen's full resolution, and glow/HDR effects are on like on PC\n- iPhone/phones: the renderer runs on one thread (the multi-threaded one is experimental and was the likely cause of the crash when starting a song)",
 	"oct20-2026-s": "- Crash reports now cover the first moments of a song in detail (each frame, the background in use, when the music starts), to find the iPhone crash when starting a song",
 	"oct20-2026-r": "- NEW: crash reports. If Chromia closes unexpectedly, the next launch shows what it was doing last, with a Copy report button to send to the developer\n- FIX (phones): if holding Give Up ended a song while your finger was still down, Give Up stayed held into the next screen and song",
 	"oct20-2026-q": "- FIX: on phones (iPhones especially) the song panel was cut off at the bottom and the cover slid under the sidebar. Phones now get the full 720-tall layout the menus are built for, scaled to the screen",
@@ -1168,6 +1185,7 @@ const SESSION_FILE := "user://logs/session_state.txt"
 var last_session_crashed: bool = false
 var last_session_trail: String = ""
 var crash_report_shown: bool = false
+var _pending_update_notice: String = "" # iOS: an update was downloaded at startup
 var _trail_file: File = null
 var _trail_mutex := Mutex.new()
 var _trail_lines: int = 0
@@ -4475,9 +4493,16 @@ func do_init(_ud = null):
 				emit_signal("init_stage_reached", "Updating the game")
 				Online.attempt_update()
 				yield(Online, "update_finished")
-				get_tree().call_deferred("quit", 1)
-				OS.execute(OS.get_executable_path(), [], false)
-				return
+				if Online.updates_by_pack():
+					# iOS can't restart itself: the new version loads next time
+					if Online.update_installed:
+						_pending_update_notice = latest_version
+					elif Online.update_blocked_reason != "":
+						Globals.call_deferred("notify", Globals.NOTIFY_WARN, Online.update_blocked_reason, "Update needs a reinstall")
+				else:
+					get_tree().call_deferred("quit", 1)
+					OS.execute(OS.get_executable_path(), [], false)
+					return
 		var rdir = Directory.new()
 		if rdir.file_exists(Online.local_pck_path() + ".old"):
 			rdir.remove(Online.local_pck_path() + ".old")

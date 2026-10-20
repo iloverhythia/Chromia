@@ -327,7 +327,7 @@ config/save_dir.Android="user://"
 config/show_trail_debug=false
 config/use_custom_user_dir=true
 config/use_custom_user_dir.Android=false
-config/version="oct20-2026-s"
+config/version="oct20-2026-t"
 config/windows_native_icon="res://icon.ico"
 networking/enabled=true
 networking/github_repo="iloverhythia/Chromia"
@@ -344,6 +344,7 @@ channel_disable_time=15.0
 
 [autoload]
 
+PackUpdate="*res://scripts/PackUpdate.gd"
 Dance="*res://scripts/cursordance/Dance.gd"
 Discord="*res://scripts/discord/DiscordBridge.gd"
 Globals="*res://scripts/Globals.gd"
@@ -575,11 +576,14 @@ quality/directional_shadow/size.mobile=512
 quality/driver/fallback_to_gles2=true
 quality/filters/anisotropic_filter_level=2
 quality/filters/msaa=1
+quality/intended_usage/framebuffer_allocation.mobile=2
+quality/depth/hdr.mobile=true
 quality/lightmapping/use_bicubic_sampling=false
 quality/reflections/texture_array_reflections=false
 quality/shadow_atlas/size=2048
 quality/shadow_atlas/size.mobile=1024
 quality/shadows/filter_mode=0
 threads/thread_model=2
+threads/thread_model.mobile=1
 vram_compression/import_etc=true
 vram_compression/import_etc2=true
