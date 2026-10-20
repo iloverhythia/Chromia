@@ -65,6 +65,8 @@ func _ready():
 		$C/OpenFile.connect("hide", self, "files_sel", [PoolStringArray()])
 		$C/SaveFile.connect("hide", self, "save_sel", [""])
 		$C/Folder.connect("hide", self, "folder_sel", [""])
+		# preview pane (images, GIFs, videos, audio) next to the file list
+		load("res://scripts/ui/FilePreview.gd").attach($C/OpenFile)
 
 		$Spinner.visible = false
 		$Label.visible = false

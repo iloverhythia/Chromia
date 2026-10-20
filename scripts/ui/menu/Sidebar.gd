@@ -227,12 +227,21 @@ func _input(ev):
 		get_node("Click").visible = not open
 		get_node("../SidebarClick").visible = open
 
-	if Input.is_action_just_pressed("ui_quicksettings"):
+	if Input.is_action_just_pressed("ui_quicksettings") and not _typing():
 		press(1)
 
 	if Input.is_action_just_pressed("menu_quickbar"):
 		open = true
 		get_node("Click").visible = not open
+
+# True while a text box has focus (or the map editor is open), so typing an "o"
+# doesn't jump to Settings.
+func _typing() -> bool:
+	var f = get_focus_owner()
+	if f is LineEdit or f is TextEdit:
+		return true
+	var ed = get_node_or_null("../Main/MapEditor")
+	return ed != null and ed.visible
 
 func _on_Sidebar(isEntered: bool):
 	open = isEntered
