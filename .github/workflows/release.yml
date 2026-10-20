@@ -210,7 +210,7 @@ jobs:
           app=$(ls -d Payload/*.app | head -n1)
           test -f "$app/Chromia.pck"
           cp ../ios-dist/Chromia.pck "$app/Chromia.pck"
-          python3 ../.github/scripts/ipa_icons.py "$app" ..
+          python3 ../.github/scripts/ipa_icons.py "$app" .. "$GITHUB_RUN_NUMBER"
           zip -q -r -y ../chromia-ios.ipa Payload
 
       # The browser version on GitHub Pages (Settings > Pages > branch gh-pages):
