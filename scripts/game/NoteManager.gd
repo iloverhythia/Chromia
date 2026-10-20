@@ -967,6 +967,8 @@ func _process(delta: float):
 				do_note_queue()
 				if (ms + Rhythia.music_offset) >= Rhythia.start_offset:
 					_n_music.play((ms + Rhythia.music_offset) / 1000)
+					if not music_started:
+						Rhythia.trail("music started")
 					music_started = true
 			if just_cancelled_unpause:
 				pause_state = -1
@@ -1015,6 +1017,8 @@ func _process(delta: float):
 				do_note_queue()
 				if (ms + Rhythia.music_offset) >= Rhythia.start_offset and not music_started:
 					_n_music.play((ms + Rhythia.music_offset) / 1000)
+					if not music_started:
+						Rhythia.trail("music started")
 					music_started = true
 
 			if Rhythia.replaying:

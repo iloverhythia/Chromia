@@ -711,11 +711,16 @@ func _ready():
 
 
 	Rhythia.update_rpc_song()
+	Rhythia.trail("song start: status set; world %s, bg layers %s, hud %s, cursor %s" % [
+		Rhythia.selected_space.id if Rhythia.selected_space else "?",
+		preload("res://scripts/BgLayers.gd").has_visible_layers(),
+		"faraway" if Rhythia.faraway_hud else "default",
+		"custom" if File.new().file_exists(Globals.p("user://cursor.png")) or File.new().file_exists(Globals.p("user://cursor.gif")) else "default"])
+	Rhythia.trail_frames(8)
 
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
+	for i in range(4):
+		yield(get_tree(), "idle_frame")
+		Rhythia.trail("song start: frame %d processed" % (i + 1))
 	black_fade_target = false
 	$ForceMatLoad.visible = false
 	Rhythia.start_log("playing")
