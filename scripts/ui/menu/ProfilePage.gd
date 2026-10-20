@@ -166,19 +166,31 @@ func _report_last_crash():
 func _on_visibility_changed():
 	if is_visible_in_tree() and not _loaded_once:
 		_loaded_once = true
+		# the page's first frames are drawn before anything is downloaded,
+		# so a crash report can tell drawing and downloading apart
+		_crumb("being drawn for the first time")
+		for _i in range(3):
+			yield(get_tree(), "idle_frame")
+		_crumbs_done()
 		load_profile()
 
 # --- Networking -------------------------------------------------------------
 
 func _http_get(url: String):
 	yield(get_tree(), "idle_frame")
+	var what := url.get_file().split("?")[0]
+	_crumb("connecting to the server (%s)" % what)
 	var r := HTTPRequest.new()
 	r.timeout = 20
+	# like every other download in the game (on iOS a main-thread download
+	# from this page closed the game)
+	r.use_threads = OS.can_use_threads()
 	add_child(r)
 	if r.request(url) != OK:
 		r.queue_free()
 		return null
 	var res = yield(r, "request_completed")
+	_crumb("reading the server's reply (%s, result %d, HTTP %d, %d bytes)" % [what, res[0], res[1], res[3].size()])
 	r.queue_free()
 	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200:
 		return null
@@ -188,6 +200,7 @@ func _get_json(url: String):
 	var body = yield(_http_get(url), "completed")
 	if body == null:
 		return null
+	_crumb("reading the downloaded data (%d bytes)" % body.size())
 	var p := JSON.parse(body.get_string_from_utf8())
 	return p.result if p.error == OK else null
 
@@ -214,6 +227,7 @@ func load_profile():
 	for kind in ["sp", "xp"]:
 		_crumb("loading the %s leaderboard" % kind)
 		var lb = yield(_get_json(API + "/leaderboard/%s?limit=5000" % kind), "completed")
+		_crumb("looking for you on the %s leaderboard" % kind)
 		if lb is Dictionary:
 			for e in lb.get("entries", []):
 				if e is Dictionary and _matches_me(e, discord_id, names):
