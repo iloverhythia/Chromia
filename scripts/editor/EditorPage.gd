@@ -77,6 +77,16 @@ var jump_on_paste := false
 var pause_on_seek := true
 var clamp_bounds := true
 var move_on_key := false
+var smooth_cursor := true
+var show_asq := false
+var note_size_2d := 1.0
+var apply_on_paste := false
+var paste_reversed := false
+var curve_bezier := true
+var bezier_nodes: Array = [] # [x, y, ms, uid] stored by STORE NODES
+var copy_btn: Button
+var back_btn: Button
+var f_bez: LineEdit
 
 var _selected: Dictionary = {}
 var _uid := 0
@@ -304,12 +314,13 @@ func _ensure_built():
 	if _built:
 		return
 	_built = true
-	f_btn = _mkfont("res://assets/font/Lato/Lato-Bold.ttf", 12)
-	f_lbl = _mkfont("res://assets/font/Lato/Lato-Bold.ttf", 13)
-	f_val = _mkfont("res://assets/font/Lato/Lato-Black.ttf", 13)
-	f_small = _mkfont("res://assets/font/Lato/Lato-Bold.ttf", 11)
-	f_title = _mkfont("res://assets/font/Lato/Lato-Black.ttf", 22)
-	f_big = _mkfont("res://assets/font/Lato/Lato-Black.ttf", 44)
+	# the game's own fonts (uitheme.tres: Lato Regular; headings Lato Bold)
+	f_btn = _mkfont("res://assets/font/Lato/Lato-Regular.ttf", 13)
+	f_lbl = _mkfont("res://assets/font/Lato/Lato-Regular.ttf", 14)
+	f_val = _mkfont("res://assets/font/Lato/Lato-Bold.ttf", 14)
+	f_small = _mkfont("res://assets/font/Lato/Lato-Regular.ttf", 12)
+	f_title = _mkfont("res://assets/font/Lato/Lato-Bold.ttf", 22)
+	f_big = _mkfont("res://assets/font/Lato/Lato-Bold.ttf", 44)
 	_load_settings()
 
 	music = AudioStreamPlayer.new()
@@ -359,12 +370,6 @@ func _build_home():
 	home.anchor_bottom = 1
 	home.margin_left = 4
 	add_child(home)
-	var bg = ColorRect.new()
-	bg.anchor_right = 1
-	bg.anchor_bottom = 1
-	bg.color = Color(0.07, 0.065, 0.09, 1)
-	bg.mouse_filter = MOUSE_FILTER_IGNORE
-	home.add_child(bg)
 
 	var title = _label("MAP EDITOR", f_big, TEXT)
 	title.name = "Title"
@@ -375,7 +380,7 @@ func _build_home():
 
 	var panel = PanelContainer.new()
 	panel.name = "Panel"
-	panel.add_stylebox_override("panel", _flat(Color(0.1, 0.095, 0.125, 1), 6))
+	panel.add_stylebox_override("panel", _flat(Color(0.06, 0.055, 0.08, 0.8), 6))
 	home.add_child(panel)
 	var pv = VBoxContainer.new()
 	pv.add_constant_override("separation", 8)
@@ -644,13 +649,6 @@ func _build_workspace():
 	workspace.anchor_right = 1
 	workspace.anchor_bottom = 1
 	add_child(workspace)
-	var bg = ColorRect.new()
-	bg.name = "Black"
-	bg.anchor_right = 1
-	bg.anchor_bottom = 1
-	bg.color = Color(0, 0, 0)
-	bg.mouse_filter = MOUSE_FILTER_IGNORE
-	workspace.add_child(bg)
 
 	# the game, behind everything, full size (grid lands where SSQE's is)
 	view3d = load("res://scripts/editor/EditorView3D.gd").new()
@@ -686,8 +684,10 @@ func _build_workspace():
 		var b = _btn(t[0], "_set_tab", [t[1]])
 		tab_buttons[t[1]] = b
 		_put(b, "R", t[2], 114, 119, 34)
-	_put(_btn("COPY MAP DATA", "_on_copy_text"), "C", 539, 114, 202, 30)
-	_put(_btn("BACK TO MENU", "close_project"), "C", 539, 640, 202, 30, "B")
+	copy_btn = _btn("COPY MAP DATA", "_on_copy_text")
+	_put(copy_btn, "C", 539, 114, 202, 30)
+	back_btn = _btn("BACK TO MENU", "close_project")
+	_put(back_btn, "C", 539, 640, 202, 30, "B")
 
 	_build_options()
 	_build_timing()
@@ -732,8 +732,7 @@ func _build_options():
 	var t = "options"
 	var y = 155
 	for it in [["Use Numpad", use_numpad, "_on_numpad"], ["Jump on Paste", jump_on_paste, "_on_jump_paste"],
-			["Pause on Seek", pause_on_seek, "_on_pause_seek"], ["Hitsounds", hitsounds, "_on_hitsounds"],
-			["Move Selected on Grid Key Pressed", move_on_key, "_on_move_key"]]:
+			["Pause on Seek", pause_on_seek, "_on_pause_seek"], ["Hitsounds", hitsounds, "_on_hitsounds"]]:
 		_put(_toggle(it[0], it[1], it[2]), "L", 6, y, 300, 20, "T", t)
 		y += 26
 	_put(_btn("KEYBINDS", "_show_keys"), "L", 6, y + 8, 135, 28, "T", t)
@@ -761,6 +760,27 @@ func _build_timing():
 	_put(_btn("USE TAPPED BPM", "_tap_apply"), "L", 6, 370, 160, 28, "T", t)
 	_put(_btn("RESET TAPS", "_tap_reset"), "L", 170, 370, 124, 28, "T", t)
 
+# small up / down arrows next to a number field (SSQE's spin box)
+func _arrows(field: LineEdit, stepv: float, minv: float, maxv: float) -> Control:
+	var v = VBoxContainer.new()
+	v.add_constant_override("separation", 0)
+	for it in [["▲", stepv], ["▼", -stepv]]:
+		var b = Button.new()
+		b.text = it[0]
+		b.flat = true
+		b.focus_mode = FOCUS_NONE
+		b.size_flags_vertical = SIZE_EXPAND_FILL
+		b.add_font_override("font", f_small)
+		b.add_color_override("font_color", LILAC)
+		b.add_color_override("font_color_hover", ACCENT)
+		b.connect("pressed", self, "_bump_field", [field, it[1], minv, maxv])
+		v.add_child(b)
+	return v
+
+func _bump_field(field: LineEdit, d: float, minv: float, maxv: float):
+	var v: float = float(field.text) if field.text.is_valid_float() else 0.0
+	field.text = str(clamp(v + d, minv, maxv))
+
 func _build_patterns():
 	var t = "patterns"
 	_put(_btn("HORIZONTAL FLIP", "flip_h"), "L", 6, 160, 119, 30, "T", t)
@@ -768,21 +788,35 @@ func _build_patterns():
 	_put(_label("Rotate by Degrees:", f_val, LILAC), "L", 6, 204, 200, 18, "T", t)
 	f_rot = _field("")
 	f_rot.text = "90"
-	_put(f_rot, "L", 6, 222, 64, 28, "T", t)
-	_put(_btn("ROTATE", "_on_rotate"), "L", 76, 222, 72, 28, "T", t)
+	_put(f_rot, "L", 6, 220, 58, 28, "T", t)
+	_put(_arrows(f_rot, 15, -360, 360), "L", 64, 220, 12, 28, "T", t)
+	_put(_btn("ROTATE", "_on_rotate"), "L", 79, 220, 69, 28, "T", t)
 	_put(_label("Scale by Percent:", f_val, LILAC), "L", 6, 258, 200, 18, "T", t)
 	f_scale = _field("")
 	f_scale.text = "150"
-	_put(f_scale, "L", 6, 276, 64, 28, "T", t)
-	_put(_btn("SCALE", "_on_scale"), "L", 76, 276, 72, 28, "T", t)
-	_put(_toggle("Clamp Rotate/Scale in Bounds", clamp_bounds, "_on_clamp"), "L", 6, 316, 240, 20, "T", t)
-	_put(_label("Selection:", f_val, LILAC), "L", 252, 160, 119, 18, "T", t)
-	var y = 180
-	for it in [["SELECT ALL", "select_all"], ["DESELECT", "deselect"], ["DELETE", "delete_selected"],
-			["‹ EARLIER", "nudge", -1], ["LATER ›", "nudge", 1], ["COPY", "copy_selected"],
-			["PASTE", "paste_here"], ["UNDO", "undo"], ["REDO", "redo"], ["CLEAR ALL", "_on_clear_all"]]:
-		_put(_btn(it[0], it[1], [it[2]] if it.size() > 2 else []), "L", 252, y, 119, 28, "T", t)
-		y += 32
+	_put(f_scale, "L", 6, 274, 58, 28, "T", t)
+	_put(_arrows(f_scale, 10, 1, 1000), "L", 64, 274, 12, 28, "T", t)
+	_put(_btn("SCALE", "_on_scale"), "L", 79, 274, 69, 28, "T", t)
+	var y = 316
+	for it in [["Apply Rotate/Scale on Paste", apply_on_paste, "_on_apply_paste"],
+			["Clamp Rotate/Scale in Bounds", clamp_bounds, "_on_clamp"],
+			["Paste Reversed", paste_reversed, "_on_paste_reversed"],
+			["Move Selected on Grid Key Pressed", move_on_key, "_on_move_key"]]:
+		_put(_toggle(it[0], it[1], it[2]), "L", 6, y, 300, 20, "T", t)
+		y += 26
+	var sn = _btn("STORE NODES", "_on_store_nodes")
+	sn.hint_tooltip = "Store the selected notes as bezier nodes"
+	_put(sn, "L", 6, 434, 119, 28, "T", t)
+	_put(_btn("CLEAR NODES", "_on_clear_nodes"), "L", 129, 434, 119, 28, "T", t)
+	_put(_toggle("Curve Bezier", curve_bezier, "_on_curve"), "L", 6, 476, 200, 20, "T", t)
+	_put(_label("Draw Bezier with Divisor:", f_val, LILAC), "L", 6, 504, 240, 18, "T", t)
+	f_bez = _field("")
+	f_bez.text = "4"
+	_put(f_bez, "L", 6, 520, 58, 28, "T", t)
+	_put(_arrows(f_bez, 1, 1, 32), "L", 64, 520, 12, 28, "T", t)
+	var db = _btn("DRAW", "_on_draw_bezier")
+	db.hint_tooltip = "Fill notes along the curve through the stored nodes"
+	_put(db, "L", 79, 520, 69, 28, "T", t)
 
 func _build_snapping():
 	var t = "snapping"
@@ -798,20 +832,21 @@ func _build_snapping():
 
 func _build_graphics():
 	var t = "graphics"
-	_put(_toggle("Game View", game_view, "_on_game_view"), "R", 909, 155, 160, 20, "T", t)
-	_put(_toggle("Background World", show_world, "_on_world"), "R", 909, 181, 160, 20, "T", t)
-	_put(_slider("Overlay Opacity: %d%%", 0, 1, 0.05, overlay_opacity, "_on_overlay", 100.0), "R", 920, 216, 132, 40, "T", t)
-	_put(_slider("Grid Zoom: %d%%", 0.5, 1.0, 0.05, grid_zoom, "_on_grid_zoom", 100.0), "R", 920, 263, 132, 40, "T", t)
-	_put(_slider("Track Zoom: %d%%", 0.1, 4.0, 0.05, zoom / 0.35, "_on_track_zoom", 100.0), "R", 920, 310, 132, 40, "T", t)
+	_put(_toggle("3D Mode", game_view, "_on_game_view"), "R", 909, 155, 160, 20, "T", t)
+	_put(_toggle("3D Hit Effect", hit_flash, "_on_hit_flash"), "R", 909, 181, 160, 20, "T", t)
+	_put(_toggle("Background World", show_world, "_on_world"), "R", 909, 207, 160, 20, "T", t)
+	_put(_slider("3D Grid Opacity: %d%%", 0, 1, 0.05, overlay_opacity, "_on_overlay", 100.0), "R", 920, 236, 132, 40, "T", t)
+	_put(_slider("Grid Zoom: %d%%", 0.6, 1.6, 0.05, grid_zoom, "_on_grid_zoom", 100.0), "R", 920, 283, 132, 40, "T", t)
+	_put(_slider("Note Size: %d%%", 0.5, 1.2, 0.05, note_size_2d, "_on_note_size", 100.0), "R", 920, 330, 132, 40, "T", t)
 	var y = 155
-	for it in [["Autoplay Cursor", show_cursor, "_on_cursor"], ["Hit Flash", hit_flash, "_on_hit_flash"],
-			["Grid Numbers", show_numbers, "_on_numbers"], ["Grid Letters", show_letters, "_on_letters"],
-			["Quantum Grid Lines", quantum_lines, "_on_qlines"]]:
+	for it in [["Autoplay", show_cursor, "_on_cursor"], ["Smooth Autoplay Cursor", smooth_cursor, "_on_smooth"],
+			["Approach Squares", show_asq, "_on_asq"], ["Grid Numbers", show_numbers, "_on_numbers"],
+			["Grid Letters", show_letters, "_on_letters"], ["Quantum Grid Lines", quantum_lines, "_on_qlines"]]:
 		_put(_toggle(it[0], it[1], it[2]), "R", 1072, y, 200, 20, "T", t)
 		y += 26
 	var ar_start: float = ar_override if ar_override > 0 else float(Rhythia.get("approach_rate"))
-	_put(_slider("Approach Rate: %d", 5, 150, 1, ar_start, "_on_ar"), "R", 1080, 296, 152, 40, "T", t)
-	_put(_slider("Cursor Position: %d%%", 0.1, 0.9, 0.05, cursor_position, "_on_cursor_pos", 100.0), "R", 1080, 343, 152, 40, "T", t)
+	_put(_slider("Approach Rate: %d", 5, 150, 1, ar_start, "_on_ar"), "R", 1080, 320, 152, 40, "T", t)
+	_put(_slider("Cursor Position: %d%%", 0.1, 0.9, 0.05, cursor_position, "_on_cursor_pos", 100.0), "R", 1080, 367, 152, 40, "T", t)
 
 func _build_export():
 	var t = "export"
@@ -858,10 +893,10 @@ func _layout():
 	var s: float = clamp(h / REF_H, 0.6, 2.5)
 	if abs(s - _scale) > 0.001:
 		_scale = s
-		f_btn.size = int(round(12 * s))
-		f_lbl.size = int(round(13 * s))
-		f_val.size = int(round(13 * s))
-		f_small.size = int(round(11 * s))
+		f_btn.size = int(round(13 * s))
+		f_lbl.size = int(round(14 * s))
+		f_val.size = int(round(14 * s))
+		f_small.size = int(round(12 * s))
 		f_title.size = int(round(22 * s))
 		f_big.size = int(round(44 * s))
 	for it in _items:
@@ -878,6 +913,16 @@ func _layout():
 	track.rect_size = Vector2(w, round(92 * s))
 	seekbar.rect_position = Vector2(round(SIDEBAR + 8 * s), round(h - 48 * s))
 	seekbar.rect_size = Vector2(round(w - (REF_W - 875) * s - seekbar.rect_position.x), round(46 * s))
+	# long labels (HORIZONTAL FLIP...) get the smaller font so they fit
+	for it in _items:
+		var b = it[0]
+		if b is Button and not b.flat:
+			var fits: bool = f_btn.get_string_size(b.text).x <= b.rect_size.x - 8
+			b.add_font_override("font", f_btn if fits else f_small)
+	# 2D view: inside SSQE's frame, above / below the grid, like SSQE
+	if not game_view and copy_btn:
+		copy_btn.rect_position = Vector2(round(w / 2 - 101 * s), round(181 * s))
+		back_btn.rect_position = Vector2(round(w / 2 - 101 * s), round(515 * s))
 	_redraw()
 
 func _set_tab(name: String):
@@ -903,6 +948,7 @@ func _apply_view_mode():
 	if view3d == null:
 		return
 	view3d.visible = game_view
+	_layout()
 	if game_view and project != null:
 		view3d.build()
 		view3d.set_world_visible(show_world)
@@ -1058,6 +1104,119 @@ func _on_pause_seek(on: bool):
 func _on_move_key(on: bool):
 	move_on_key = on
 	_save_settings()
+
+func _on_smooth(on: bool):
+	smooth_cursor = on
+	_save_settings()
+	_redraw()
+
+func _on_asq(on: bool):
+	show_asq = on
+	_save_settings()
+	_redraw()
+
+func _on_note_size(v: float):
+	note_size_2d = v
+	_save_settings()
+	_redraw()
+
+func _on_apply_paste(on: bool):
+	apply_on_paste = on
+	_save_settings()
+
+func _on_paste_reversed(on: bool):
+	paste_reversed = on
+	_save_settings()
+
+func _on_curve(on: bool):
+	curve_bezier = on
+	_save_settings()
+	_redraw()
+
+# ---- bezier (PATTERNS): STORE NODES keeps the selected notes as nodes, DRAW
+# fills notes along the curve between the first and last node, one every
+# beat / divisor. With Curve Bezier off it goes straight from node to node.
+func _on_store_nodes():
+	if project == null:
+		return
+	var nodes := []
+	for n in project.notes:
+		if _selected.has(n[3]):
+			nodes.append([n[0], n[1], n[2], n[3]])
+	if nodes.size() < 2:
+		Globals.notify(Globals.NOTIFY_INFO, "Select at least 2 notes to use as nodes.", "Bezier")
+		return
+	bezier_nodes = nodes
+	Globals.notify(Globals.NOTIFY_INFO, "Stored %d nodes. Set the divisor and press DRAW." % nodes.size(), "Bezier")
+	_redraw()
+
+func _on_clear_nodes():
+	bezier_nodes = []
+	_redraw()
+
+# point on the path at u (0..1)
+func bezier_point(u: float) -> Vector2:
+	var pts := []
+	for nd in bezier_nodes:
+		pts.append(Vector2(nd[0], nd[1]))
+	if pts.empty():
+		return Vector2(1, 1)
+	if not curve_bezier:
+		# straight lines, timed like the nodes
+		var t0: float = bezier_nodes[0][2]
+		var t1: float = bezier_nodes[-1][2]
+		var ms: float = t0 + (t1 - t0) * u
+		for k in range(1, bezier_nodes.size()):
+			if ms <= bezier_nodes[k][2] or k == bezier_nodes.size() - 1:
+				var a = bezier_nodes[k - 1]
+				var b = bezier_nodes[k]
+				var span: float = max(b[2] - a[2], 0.001)
+				return Vector2(a[0], a[1]).linear_interpolate(Vector2(b[0], b[1]), clamp((ms - a[2]) / span, 0, 1))
+		return pts[-1]
+	# de Casteljau over all nodes
+	while pts.size() > 1:
+		var nxt := []
+		for k in range(pts.size() - 1):
+			nxt.append(pts[k].linear_interpolate(pts[k + 1], u))
+		pts = nxt
+	return pts[0]
+
+func _on_draw_bezier():
+	if project == null:
+		return
+	if bezier_nodes.size() < 2:
+		Globals.notify(Globals.NOTIFY_INFO, "STORE NODES first (select 2 or more notes).", "Bezier")
+		return
+	var div: int = int(clamp(int(float(f_bez.text)) if f_bez.text.is_valid_float() else 4, 1, 32))
+	var t0: float = bezier_nodes[0][2]
+	var t1: float = bezier_nodes[-1][2]
+	if t1 - t0 < 1.0:
+		return
+	push_undo()
+	# the middle nodes were only control points for the curve
+	if curve_bezier and bezier_nodes.size() > 2:
+		var gone := {}
+		for k in range(1, bezier_nodes.size() - 1):
+			gone[bezier_nodes[k][3]] = true
+		var keep := []
+		for n in project.notes:
+			if not gone.has(n[3]):
+				keep.append(n)
+		project.notes = keep
+	var step: float = project.beat_ms() / div
+	_selected.clear()
+	var t := t0 + step
+	var guard := 0
+	while t < t1 - 0.5 and guard < 5000:
+		guard += 1
+		var u := (t - t0) / (t1 - t0)
+		var p := bezier_point(u)
+		var n := [stepify(p.x, 0.0001), stepify(p.y, 0.0001), round(t), _next_uid()]
+		project.notes.append(n)
+		_selected[n[3]] = true
+		t += step
+	bezier_nodes = []
+	notes_changed()
 
 func _on_clamp(on: bool):
 	clamp_bounds = on
@@ -1283,7 +1442,7 @@ func _load_settings():
 	show_world = bool(d.get("show_world", show_world))
 	hit_flash = bool(d.get("hit_flash", hit_flash))
 	overlay_opacity = clamp(float(d.get("overlay_opacity", 1.0)), 0, 1)
-	grid_zoom = clamp(float(d.get("grid_zoom", 1.0)), 0.5, 1.0)
+	grid_zoom = clamp(float(d.get("grid_zoom", 1.0)), 0.6, 1.6)
 	cursor_position = clamp(float(d.get("cursor_position", 0.4)), 0.1, 0.9)
 	hitsounds = bool(d.get("hitsounds", hitsounds))
 	metronome = bool(d.get("metronome", metronome))
@@ -1300,6 +1459,12 @@ func _load_settings():
 	pause_on_seek = bool(d.get("pause_on_seek", pause_on_seek))
 	clamp_bounds = bool(d.get("clamp_bounds", clamp_bounds))
 	move_on_key = bool(d.get("move_on_key", move_on_key))
+	smooth_cursor = bool(d.get("smooth_cursor", smooth_cursor))
+	show_asq = bool(d.get("show_asq", show_asq))
+	note_size_2d = clamp(float(d.get("note_size_2d", 1.0)), 0.5, 1.2)
+	apply_on_paste = bool(d.get("apply_on_paste", apply_on_paste))
+	paste_reversed = bool(d.get("paste_reversed", paste_reversed))
+	curve_bezier = bool(d.get("curve_bezier", curve_bezier))
 	_sync_approach()
 
 func _sync_approach():
@@ -1321,6 +1486,8 @@ func _save_settings():
 			"sfx_offset": sfx_offset, "music_vol": music_vol, "hit_vol": hit_vol, "speed": speed,
 			"zoom": zoom, "use_numpad": use_numpad, "jump_on_paste": jump_on_paste,
 			"pause_on_seek": pause_on_seek, "clamp_bounds": clamp_bounds, "move_on_key": move_on_key,
+			"smooth_cursor": smooth_cursor, "show_asq": show_asq, "note_size_2d": note_size_2d,
+			"apply_on_paste": apply_on_paste, "paste_reversed": paste_reversed, "curve_bezier": curve_bezier,
 		}))
 		f.close()
 
@@ -1680,6 +1847,20 @@ func _transform_selected(kind: String, amount: float = 0.0):
 			n[1] = stepify(q.y, 0.0001)
 	notes_changed()
 
+# Apply Rotate/Scale on Paste: the rotate and scale fields, on the pasted notes
+func _apply_paste_transform():
+	var ang := deg2rad(float(f_rot.text)) if f_rot.text.is_valid_float() else 0.0
+	var sc := float(f_scale.text) / 100.0 if f_scale.text.is_valid_float() else 1.0
+	for n in project.notes:
+		if _selected.has(n[3]):
+			var q := Vector2(n[0] - 1.0, n[1] - 1.0).rotated(ang) * sc + Vector2(1, 1)
+			if clamp_bounds:
+				var lim := 2.5 if quantum else 2.0
+				var lo := -0.5 if quantum else 0.0
+				q = Vector2(clamp(q.x, lo, lim), clamp(q.y, lo, lim))
+			n[0] = stepify(q.x, 0.0001)
+			n[1] = stepify(q.y, 0.0001)
+
 func flip_h():
 	_transform_selected("h")
 
@@ -1729,11 +1910,17 @@ func paste_here():
 	var t: float = snap_now(time_ms)
 	_selected.clear()
 	var last := t
+	var span := 0.0
 	for c in _clip:
-		var n := [c[0], c[1], t + c[2], _next_uid()]
+		span = max(span, c[2])
+	for c in _clip:
+		var off: float = (span - c[2]) if paste_reversed else c[2]
+		var n := [c[0], c[1], t + off, _next_uid()]
 		project.notes.append(n)
 		_selected[n[3]] = true
 		last = max(last, n[2])
+	if apply_on_paste:
+		_apply_paste_transform()
 	notes_changed()
 	if jump_on_paste:
 		seek(last)
@@ -1782,7 +1969,10 @@ func cursor_pos():
 	var b = notes[i]
 	var span: float = max(b[2] - a[2], 1.0)
 	var t: float = clamp((time_ms - a[2]) / span, 0.0, 1.0)
-	t = t * t * (3.0 - 2.0 * t)
+	if smooth_cursor:
+		t = t * t * (3.0 - 2.0 * t)
+	else:
+		t = 0.0 if t < 1.0 else 1.0 # jumps from note to note
 	return Vector2(a[0], a[1]).linear_interpolate(Vector2(b[0], b[1]), t)
 
 func _jump_note(dir: int):

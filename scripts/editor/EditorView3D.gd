@@ -296,14 +296,9 @@ func set_world_visible(on: bool):
 	elif not on and world != null:
 		world.queue_free()
 		world = null
-	# no world: plain black like the void
-	if world == null:
-		var env = Environment.new()
-		env.background_mode = Environment.BG_COLOR
-		env.background_color = Color(0, 0, 0)
-		cam.environment = env
-	else:
-		cam.environment = null
+	# no world: see-through, so the menu background (waves etc.) shows behind
+	cam.environment = null
+	viewport.transparent_bg = world == null
 
 static func linstep(a: float, b: float, x: float) -> float:
 	if a == b:
@@ -342,12 +337,9 @@ func _process(_delta):
 	var now: float = page.time_ms
 	var notes: Array = page.project.notes
 	var ar: float = page.approach_rate_3d()
-	# camera parallax around the cursor (NoteManager.do_half_lock)
+	# the camera stays put (no parallax) so the grid doesn't move while mapping
 	var cp = page.cursor_pos()
 	var cpos: Vector2 = Vector2(1, 1) if cp == null else cp
-	var centeroff := Vector2(cpos.x - 1, -(cpos.y - 1))
-	cam.transform.origin = Vector3(centeroff.x * _hlpower * 0.25, centeroff.y * _hlpower * 0.25, 3.75)
-	spawn.transform.origin = Vector3(-(centeroff.x * 0.25 * grid_parallax) - 1, -(centeroff.y * 0.25 * grid_parallax) + 1, 0)
 	cursor.transform.origin = Vector3(cpos.x, -cpos.y, 0)
 	cursor.visible = Rhythia.show_cursor and page.show_cursor
 

@@ -18,11 +18,11 @@ func _ready():
 	focus_mode = FOCUS_NONE
 	connect("resized", self, "mark_dirty")
 	_font = DynamicFont.new()
-	_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	_font.font_data = load("res://assets/font/Lato/Lato-Regular.ttf")
 	_font.size = 12
 	_font.use_filter = true
 	_font_b = DynamicFont.new()
-	_font_b.font_data = load("res://assets/font/Lato/Lato-Black.ttf")
+	_font_b.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	_font_b.size = 14
 	_font_b.use_filter = true
 

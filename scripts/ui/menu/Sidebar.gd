@@ -182,6 +182,10 @@ func _add_page(node_name: String, script_path: String, icon_path: String, label:
 	return btn
 
 func _add_extra_pages():
+	# the content manager's black backdrop hid the menu background (waves...)
+	var cm = get_node_or_null("../Main/Content/Menu")
+	if cm is ColorRect:
+		cm.color = Color(0, 0, 0, 0)
 	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/MapBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Map Browser", null)
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
 	if ed != null and (Rhythia.vr or not OS.has_feature("pc")):
