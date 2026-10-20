@@ -739,3 +739,13 @@ func _ready():
 		fps_visible = true
 	if thread != null and thread.is_active():
 		thread.wait_to_finish()
+
+# A video stream for `path` (.webm or .ogv), or null when this build of the
+# engine has no player for it (the iOS engine is built without WebM). The class
+# is looked up by name: writing VideoStreamWebm in a script stops that script
+# from compiling at all on iOS.
+func new_video_stream(path: String) -> VideoStream:
+	var cls := "VideoStreamWebm" if path.get_extension().to_lower() == "webm" else "VideoStreamTheora"
+	if not ClassDB.class_exists(cls) or not ClassDB.can_instance(cls):
+		return null
+	return ClassDB.instance(cls) as VideoStream

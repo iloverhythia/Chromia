@@ -6,7 +6,7 @@ func _ready():
 	 \
 	 \
 	 \
-		"-- menu load error --\nfurria version: %s\nplatform: %s\nerror info: %s\nmenu target: %s" % [
+		"-- menu load error --\nchromia version: %s\nplatform: %s\nerror info: %s\nmenu target: %s" % [
 		ProjectSettings.get_setting("application/config/version"),
 		OS.get_name(),
 		Rhythia.errorstr,

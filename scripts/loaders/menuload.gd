@@ -62,7 +62,25 @@ func _process(delta):
 			black_fade_target = true
 			if not (result is Object):
 				Rhythia.errorstr = "get_resource returned non-object (probably null)"
+				var broken := _find_broken(target, {})
+				if broken != "":
+					Rhythia.errorstr += "\nbroken file: " + broken
 				get_tree().change_scene("res://scenes/errors/menuload.tscn")
 
 	if leaving and result and black_fade == 1:
 		get_tree().change_scene_to(result)
+
+
+# The first file in `path`'s dependency tree that fails to load (deepest first),
+# shown on the error screen so a report says what broke.
+func _find_broken(path: String, seen: Dictionary) -> String:
+	if seen.has(path) or not path.begins_with("res://"):
+		return ""
+	seen[path] = true
+	for dep in ResourceLoader.get_dependencies(path):
+		var found := _find_broken(String(dep).split("::")[0], seen)
+		if found != "":
+			return found
+	if not ResourceLoader.exists(path) or load(path) == null:
+		return path
+	return ""

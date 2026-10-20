@@ -5,7 +5,7 @@ func _ready():
 	$Info.text = \
 	 \
 	 \
-		"-- user folder open error --\nfurria version: %s\nplatform: %s\nerror code: %s" % [
+		"-- user folder open error --\nchromia version: %s\nplatform: %s\nerror code: %s" % [
 		ProjectSettings.get_setting("application/config/version"),
 		OS.get_name(),
 		Globals.errornum,

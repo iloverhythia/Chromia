@@ -183,12 +183,8 @@ static func build_visual(l: Dictionary, parent: Node, placeholder: Texture = nul
 	var path = media_path(l.get("file", ""))
 	var f = File.new()
 	if is_video_file(path):
-		if _video_header_ok(path):
-			var stream: VideoStream = null
-			if path.get_extension().to_lower() == "webm":
-				stream = VideoStreamWebm.new()
-			else:
-				stream = VideoStreamTheora.new()
+		var stream: VideoStream = Globals.new_video_stream(path) if _video_header_ok(path) else null
+		if stream != null:
 			stream.set_file(path)
 			var vp = VideoPlayer.new()
 			vp.name = "Video"

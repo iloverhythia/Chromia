@@ -3,7 +3,7 @@ extends ColorRect
 func _ready():
 	Engine.target_fps = 30
 	$Info.text = \
-		"furria version: %s\n%s" % [
+		"chromia version: %s\n%s" % [
 		ProjectSettings.get_setting("application/config/version"),
 		Rhythia.errorstr,
 	]

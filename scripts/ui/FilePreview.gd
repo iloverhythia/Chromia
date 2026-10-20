@@ -189,12 +189,15 @@ func _show(path: String):
 		else:
 			info_label.text += " · can't read this image"
 	elif ext in VIDEO_EXT:
-		var s = VideoStreamWebm.new() if ext == "webm" else VideoStreamTheora.new()
-		s.set_file(path)
-		video.stream = s
-		video.visible = true
-		video.play()
-		info_label.text += " · video"
+		var s: VideoStream = Globals.new_video_stream(path)
+		if s != null:
+			s.set_file(path)
+			video.stream = s
+			video.visible = true
+			video.play()
+			info_label.text += " · video"
+		else:
+			info_label.text += " · this device can't play .%s videos" % ext
 	elif ext in AUDIO_EXT:
 		play_btn.visible = true
 		info_label.text += " · audio"

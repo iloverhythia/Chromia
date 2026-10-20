@@ -77,7 +77,7 @@ margin_top = 15.0
 margin_right = 78.0
 margin_bottom = 34.0
 custom_fonts/font = SubResource( 3 )
-text = "furria version: %s
+text = "chromia version: %s
 platform: %s
 error code: %s
 https://discord.gg/savia"
