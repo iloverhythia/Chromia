@@ -6,29 +6,86 @@ var use_native: bool = false
 var _win_dialog = null
 var _win_request: Array = []
 
+# The system file dialog opens as its own window, which a fullscreen game
+# covers (it then seemed stuck on "waiting for file dialog"): the game leaves
+# fullscreen while one is open and goes back after.
+var _was_fullscreen: bool = false
+func _leave_fullscreen():
+	if OS.window_fullscreen:
+		_was_fullscreen = true
+		OS.window_fullscreen = false
+		OS.move_window_to_foreground()
+
+func _restore_fullscreen():
+	if _was_fullscreen:
+		_was_fullscreen = false
+		OS.window_fullscreen = true
+
+# A system dialog that answers "nothing picked" right away couldn't be shown
+# (e.g. a Linux desktop without a file chooser): the in-game browser opens.
+var _native_opened_ms: int = 0
+var _native_request: Array = []
+func _native_failed(empty: bool) -> bool:
+	return empty and OS.get_ticks_msec() - _native_opened_ms < 400 and not _native_request.empty()
+
+func _native_files(files: PoolStringArray):
+	if _native_failed(files.empty()):
+		_native_fallback()
+		return
+	files_sel(files)
+
+func _native_save(file: String):
+	if _native_failed(file == ""):
+		_native_fallback()
+		return
+	save_sel(file)
+
+func _native_folder(folder: String):
+	if _native_failed(folder == ""):
+		_native_fallback()
+		return
+	folder_sel(folder)
+
+func _native_fallback():
+	_restore_fullscreen()
+	var r := _native_request
+	_native_request = []
+	use_native = false
+	$Spinner.visible = false
+	$Label.visible = false
+	_connect_ingame()
+	match r[0]:
+		"open": _open_ingame(r[1], r[2], r[3])
+		"save": _save_ingame(r[1], r[3])
+		"folder": _folder_ingame(r[3])
+
 var target_object: Object
 var target_method: String
 var cancel_method: String
 
 func save_sel(file: String):
+	_restore_fullscreen()
 	if target_object and target_object != self:
 		target_object.call(target_method, file)
 		target_object = self
 		visible = false
 
 func files_single(file: String):
+	_restore_fullscreen()
 	if target_object and target_object != self:
 		target_object.call(target_method, PoolStringArray([file]))
 		target_object = self
 		visible = false
 
 func files_sel(files: PoolStringArray):
+	_restore_fullscreen()
 	if target_object and target_object != self:
 		target_object.call(target_method, files)
 		target_object = self
 		visible = false
 
 func folder_sel(folder: String):
+	_restore_fullscreen()
 	if target_object and target_object != self:
 		target_object.call(target_method, folder)
 		target_object = self
@@ -41,6 +98,11 @@ func _ready():
 		$OpenFile.set_script(load("res://addons/native_dialogs/bin/native_dialog_open_file.gdns"))
 		$SaveFile.set_script(load("res://addons/native_dialogs/bin/native_dialog_save_file.gdns"))
 		$Folder.set_script(load("res://addons/native_dialogs/bin/native_dialog_select_folder.gdns"))
+		# the native dialogs only open while processing; a script set on a node
+		# that's already in the scene doesn't get its _ready to turn that on
+		# (show() then did nothing and the game waited forever)
+		for n in [$OpenFile, $SaveFile, $Folder]:
+			n.set_process(true)
 	if (
 		not ProjectSettings.get_setting("application/config/disable_native_file_dialogs") and
 		$OpenFile.has_signal("files_selected") and
@@ -48,15 +110,23 @@ func _ready():
 		$Folder.has_signal("folder_selected")
 	):
 		use_native = true
-		$OpenFile.connect("files_selected", self, "files_sel")
-		$SaveFile.connect("file_selected", self, "save_sel")
-		$Folder.connect("folder_selected", self, "folder_sel")
+		$OpenFile.connect("files_selected", self, "_native_files")
+		$SaveFile.connect("file_selected", self, "_native_save")
+		$Folder.connect("folder_selected", self, "_native_folder")
 
 		$Spinner.visible = true
 		$Label.visible = true
 		$Label.text = "Waiting for file dialog...\n(click to cancel)"
 		$Label.margin_bottom = 100
 	else:
+		_connect_ingame()
+
+var _ingame_connected: bool = false
+func _connect_ingame():
+	if _ingame_connected:
+		return
+	_ingame_connected = true
+	if true:
 		$C/SaveFile.connect("file_selected", self, "save_sel")
 		$C/OpenFile.connect("file_selected", self, "files_single")
 		$C/OpenFile.connect("files_selected", self, "files_sel")
@@ -67,6 +137,12 @@ func _ready():
 		$C/Folder.connect("hide", self, "folder_sel", [""])
 		# preview pane (images, GIFs, videos, audio) next to the file list
 		load("res://scripts/ui/FilePreview.gd").attach($C/OpenFile)
+		if OS.has_feature("iOS"):
+			# iOS has no file picker for games built like this one; Chromia's
+			# folder is in the Files app instead (On My iPhone > Chromia)
+			for d in [$C/OpenFile, $C/SaveFile, $C/Folder]:
+				d.add_button("Open Files app", false, "files_app")
+				d.connect("custom_action", self, "_on_custom_action")
 
 		$Spinner.visible = false
 		$Label.visible = false
@@ -114,6 +190,7 @@ func _on_win_dialog_done(ok: bool, paths: Array, d):
 var _pending_kind: String = "open"
 
 func _cancel():
+	_restore_fullscreen()
 	if target_object and target_object != self:
 		var obj = target_object
 		target_object = self
@@ -140,6 +217,7 @@ func open_file(
 	_open_ingame(filters, multiselect, initial_path)
 
 func _open_ingame(filters: PoolStringArray, multiselect: bool, initial_path: String):
+	_ios_files_tip()
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
 
 	if use_native:
@@ -150,6 +228,9 @@ func _open_ingame(filters: PoolStringArray, multiselect: bool, initial_path: Str
 			$OpenFile.title = "Select files..."
 		else:
 			$OpenFile.title = "Select file..."
+		_leave_fullscreen()
+		_native_request = ["open", filters, multiselect, initial_path]
+		_native_opened_ms = OS.get_ticks_msec()
 		$OpenFile.show()
 
 	else:
@@ -187,6 +268,9 @@ func _save_ingame(filters: PoolStringArray, initial_path: String):
 	if use_native:
 		$SaveFile.filters = filters
 		$SaveFile.initial_path = Globals.p(initial_path)
+		_leave_fullscreen()
+		_native_request = ["save", filters, false, initial_path]
+		_native_opened_ms = OS.get_ticks_msec()
 		$SaveFile.show()
 
 	else:
@@ -216,6 +300,9 @@ func _folder_ingame(initial_path: String):
 
 	if use_native:
 		$Folder.initial_path = Globals.p(initial_path)
+		_leave_fullscreen()
+		_native_request = ["folder", PoolStringArray(), false, initial_path]
+		_native_opened_ms = OS.get_ticks_msec()
 		$Folder.show()
 
 	else:
@@ -293,3 +380,20 @@ func _web_save(filters: PoolStringArray):
 		var buf = f.get_buffer(f.get_len())
 		f.close()
 		Engine.get_singleton("JavaScript").download_buffer(buf, path.get_file(), "application/octet-stream")
+
+
+func _on_custom_action(action: String):
+	if action == "files_app":
+		open_files_app()
+
+# iOS: opens the Files app in Chromia's own folder, where files can be copied
+# in (and the game's maps, replays and exports are).
+static func open_files_app():
+	OS.shell_open("shareddocuments://" + OS.get_user_data_dir().replace(" ", "%20"))
+
+var _files_tip_shown: bool = false
+func _ios_files_tip():
+	if _files_tip_shown or not OS.has_feature("iOS"):
+		return
+	_files_tip_shown = true
+	Globals.notify(Globals.NOTIFY_INFO, "To use a file from your iPhone, copy it into Chromia's folder with the Files app (On My iPhone > Chromia). Tap \"Open Files app\" here to go there.", "Files")
