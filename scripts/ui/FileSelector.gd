@@ -132,6 +132,9 @@ func open_file(
 	target_object = obj
 	target_method = method
 	_pending_kind = "open"
+	if _web():
+		_web_open(filters, multiselect)
+		return
 	if _try_windows_dialog("open", filters, multiselect, initial_path, "Select files..." if multiselect else "Select file..."):
 		return
 	_open_ingame(filters, multiselect, initial_path)
@@ -171,6 +174,9 @@ func save_file(
 	target_object = obj
 	target_method = method
 	_pending_kind = "save"
+	if _web():
+		_web_save(filters)
+		return
 	if _try_windows_dialog("save", filters, false, initial_path, "Save file..."):
 		return
 	_save_ingame(filters, initial_path)
@@ -198,6 +204,10 @@ func open_folder(
 	target_object = obj
 	target_method = method
 	_pending_kind = "folder"
+	if _web():
+		Globals.notify(Globals.NOTIFY_WARN, "Picking folders isn't possible in the browser version. Pick the files instead.", "Not available")
+		folder_sel("")
+		return
 	if _try_windows_dialog("folder", PoolStringArray(), false, initial_path, "Select folder..."):
 		return
 	_folder_ingame(initial_path)
@@ -213,3 +223,73 @@ func _folder_ingame(initial_path: String):
 		$C/Folder.call_deferred("set_current_dir", ProjectSettings.globalize_path(Globals.p(initial_path)))
 	visible = true
 	raise()
+
+
+# ---- Browser (web) version -----------------------------------------------
+# The in-game browser can only see the game's own storage there, so files come
+# from the browser's file chooser (copied into the game's file system) and
+# saving a file downloads it.
+
+func _web() -> bool:
+	return OS.has_feature("JavaScript")
+
+# "*.png, *.jpg ; Images" -> ".png,.jpg"
+static func _web_accept(filters: PoolStringArray) -> String:
+	var exts := []
+	for f in filters:
+		for pat in f.split(";")[0].split(","):
+			pat = pat.strip_edges()
+			if pat.begins_with("*.") and pat.length() > 2:
+				exts.append(pat.substr(1))
+	return PoolStringArray(exts).join(",")
+
+func _web_open(filters: PoolStringArray, multiselect: bool):
+	var js := """(function () {
+		window.chromiaPicked = null;
+		var i = document.createElement('input');
+		i.type = 'file'; i.accept = %s; i.multiple = %s; i.style.display = 'none';
+		document.body.appendChild(i);
+		var done = function (v) { if (window.chromiaPicked === null) window.chromiaPicked = v; i.remove(); };
+		i.addEventListener('cancel', function () { done(''); });
+		i.addEventListener('change', async function () {
+			var out = [];
+			for (var k = 0; k < i.files.length; k++) {
+				var f = i.files[k];
+				var p = '/chromia_upload/' + Date.now() + '_' + k + '/' + f.name;
+				engine.copyToFS(p, await f.arrayBuffer());
+				out.push(p);
+			}
+			done(out.join('\\n'));
+		});
+		i.click();
+	})();""" % [to_json(_web_accept(filters)), "true" if multiselect else "false"]
+	Engine.get_singleton("JavaScript").eval(js, true)
+	var picked = null
+	var waited := 0.0
+	while picked == null and waited < 600.0:
+		yield(get_tree().create_timer(0.25), "timeout")
+		waited += 0.25
+		picked = Engine.get_singleton("JavaScript").eval("window.chromiaPicked", true)
+	var files := PoolStringArray()
+	if picked is String and picked != "":
+		files = PoolStringArray(picked.split("\n", false))
+	if target_object and target_object != self:
+		files_sel(files)
+
+func _web_save(filters: PoolStringArray):
+	var acc: String = _web_accept(filters)
+	var ext: String = acc.split(",")[0] if acc != "" else ""
+	var d = Directory.new()
+	d.make_dir_recursive("/chromia_export")
+	var path := "/chromia_export/chromia_export" + ext
+	if d.file_exists(path):
+		d.remove(path)
+	save_sel(path)
+	# the caller writes the file now; then hand it to the browser as a download
+	for i in range(3):
+		yield(get_tree(), "idle_frame")
+	var f = File.new()
+	if f.open(path, File.READ) == OK:
+		var buf = f.get_buffer(f.get_len())
+		f.close()
+		Engine.get_singleton("JavaScript").download_buffer(buf, path.get_file(), "application/octet-stream")

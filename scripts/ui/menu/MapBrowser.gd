@@ -448,7 +448,7 @@ func _load_page():
 	}
 	var r = HTTPRequest.new()
 	r.timeout = 20
-	r.use_threads = true
+	r.use_threads = OS.can_use_threads()
 	add_child(r)
 	r.connect("request_completed", self, "_on_list", [r, qid])
 	if r.request(API, PoolStringArray(["Content-Type: application/json"]), true, HTTPClient.METHOD_POST, to_json(body)) != OK:
@@ -718,7 +718,7 @@ func _pump_images():
 		var url: String = _img_queue.pop_front()
 		var r = HTTPRequest.new()
 		r.timeout = 20
-		r.use_threads = true
+		r.use_threads = OS.can_use_threads()
 		add_child(r)
 		r.connect("request_completed", self, "_on_image", [r, url])
 		if r.request(url) == OK:
@@ -776,7 +776,7 @@ func _start_download(m: Dictionary, b: Button):
 	# hidden temp files: antivirus can read those as dropper behaviour).
 	var r = HTTPRequest.new()
 	r.timeout = 0 # big maps on slow internet; a stalled download is caught in _process
-	r.use_threads = true
+	r.use_threads = OS.can_use_threads()
 	r.download_chunk_size = 65536
 	add_child(r)
 	r.connect("request_completed", self, "_on_download_done", [oid])

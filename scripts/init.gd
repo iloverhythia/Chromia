@@ -43,7 +43,8 @@ func _ready():
 		stage("", true)
 		return
 	elif Rhythia.first_init_done:
-		thread.start(Rhythia, "do_init")
+		if not OS.can_use_threads() or thread.start(Rhythia, "do_init") != OK:
+			Rhythia.call_deferred("do_init") # no threads (web build)
 
 	Rhythia.is_init = false
 

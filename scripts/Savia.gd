@@ -651,7 +651,7 @@ func send_analytics_event(event_name: String, other_payload: Dictionary, cid: St
 	}
 
 	var http = HTTPRequest.new()
-	http.use_threads = true # connecting/TLS off the main thread (this runs as a song starts)
+	http.use_threads = OS.can_use_threads() # connecting/TLS off the main thread (this runs as a song starts)
 	add_child(http)
 	http.request(url, ["Content-Type: application/json"], false, HTTPClient.METHOD_POST, JSON.print(payload))
 	yield(http, "request_completed")
@@ -695,7 +695,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h"
 ]
 
 
@@ -761,6 +761,7 @@ const VERSION_NOTES = {
 	"oct20-2026-e": "- Map Editor redone to look like Sound Space Quantum Editor (same layout: track on top, OPTIONS / TIMING / PATTERNS and SNAPPING / GRAPHICS / EXPORT tabs, timeline, playback speed, SFX / Music) in Chromia's colours\n- The middle of the editor is now the game itself: your note mesh, colorset, approach rate, fades, note size, border, cursor and background world, from the game's camera (turn it off in GRAPHICS > Game View for the flat grid)\n- New editor options: snap to grid, quantum offsets, numpad keys, jump on paste, pause on seek, SFX offset, rotate / scale by any amount, export .sspm, replace song, save as, star rating",
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
+	"oct20-2026-h": "- NEW: Chromia in the browser! Every release now also comes as a web version (Chromia-<version>-web.zip, and on GitHub Pages)\n- In the browser, picking files opens your browser's file chooser and saving a file downloads it\n- Startup no longer depends on background threads (needed for the browser)",
 	"oct19-2026-q": "- The level bar in the Profile tab no longer has a background",
 	"oct19-2026-p": "- Levels and Prestige (like BeatLeader): earn experience from every play, even fails; level 100 lets you Prestige. See the bar in the Profile tab\n- Time played shown in the Profile tab, and how often/how long you played each map on the map screen\n- New map list sort: most played (Filters, under stars)\n- Experimental: Random Colorset - a random colorset every time you start a map (your own one comes back in the menu)",
 	"oct19-2026-o": "- Colorset Maker: add as many colors as you want (they wrap into rows)\n- Mesh Builder: give meshes a name, save as many as you want (New mesh), edit any saved one (Edit on its card in the Meshes tab) and delete them\n- Meshes tab: Rename any other mesh\n- Custom BG Color (World & Cursor): a solid color for the Custom Background world, or a tint over your image",
@@ -1087,7 +1088,7 @@ func request_star_rating(song):
 		f.store_string(String(song.id))
 		f.close()
 	_star_req_thread = Thread.new()
-	if _star_req_thread.start(self, "_star_req_worker", song, Thread.PRIORITY_LOW) != OK:
+	if not OS.can_use_threads() or _star_req_thread.start(self, "_star_req_worker", song, Thread.PRIORITY_LOW) != OK:
 		_star_req_thread = null
 
 func _star_req_worker(song):
@@ -1263,7 +1264,7 @@ func _start_thumb_builder(full: bool = true):
 	if list.empty() and _thumb_priority.empty():
 		return
 	_thumb_thread = Thread.new()
-	if _thumb_thread.start(self, "_thumb_builder_worker", list, Thread.PRIORITY_LOW) != OK:
+	if not OS.can_use_threads() or _thumb_thread.start(self, "_thumb_builder_worker", list, Thread.PRIORITY_LOW) != OK:
 		_thumb_thread = null
 
 func _thumb_builder_worker(list: Array):
@@ -1454,6 +1455,9 @@ var _vr_checked: bool = false
 
 func ensure_vr_checked():
 	if _vr_checked or _vr_check_thread:
+		return
+	if not OS.can_use_threads():
+		_vr_checked = true # no VR in a browser
 		return
 	_vr_check_thread = Thread.new()
 	_vr_check_thread.start(self, "_check_vr_availability")
@@ -4522,7 +4526,7 @@ func do_init(_ud = null):
 		_sspm_import_done = false
 		var import_thread := Thread.new()
 		var counts: Array
-		if import_thread.start(self, "_import_sspm_worker", [smaps, caches]) == OK:
+		if OS.can_use_threads() and import_thread.start(self, "_import_sspm_worker", [smaps, caches]) == OK:
 			while not _sspm_import_done:
 				emit_signal("init_stage_reached", "Register content 1/5\nImport Rhythia maps\n%d / %s" % [_sspm_import_progress, smaps.size()])
 				yield(get_tree(), "idle_frame")
@@ -4659,7 +4663,7 @@ func do_init(_ud = null):
 			_star_total = star_songs.size()
 			_star_done = false
 			_star_thread = Thread.new()
-			if _star_thread.start(self, "_star_rating_worker", star_songs, Thread.PRIORITY_LOW) != OK:
+			if not OS.can_use_threads() or _star_thread.start(self, "_star_rating_worker", star_songs, Thread.PRIORITY_LOW) != OK:
 				_star_thread = null
 				_star_done = true
 

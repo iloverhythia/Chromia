@@ -161,7 +161,8 @@ func start():
 	mutex = Mutex.new()
 	semaphore = Semaphore.new()
 	thread = Thread.new()
-	thread_started = thread.start(self, "thread_func", 0) == OK
+	# the web build has no threads: _process() does the loading then
+	thread_started = OS.can_use_threads() and thread.start(self, "thread_func", 0) == OK
 
 func _process(_delta):
 	if not thread_started:

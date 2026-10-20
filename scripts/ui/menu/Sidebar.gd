@@ -188,8 +188,11 @@ func _add_extra_pages():
 		cm.color = Color(0, 0, 0, 0)
 	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/MapBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Map Browser", null)
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
-	if ed != null and (Rhythia.vr or not OS.has_feature("pc")):
+	if ed != null and (Rhythia.vr or OS.has_feature("Android") or OS.has_feature("iOS")):
 		ed.visible = false # needs a keyboard
+	# browser version: a new player has no maps yet; point them to the Map Browser
+	if OS.has_feature("JavaScript") and Rhythia.registry_song != null and Rhythia.registry_song.get_items().empty():
+		Globals.call_deferred("notify", Globals.NOTIFY_INFO, "You don't have any maps yet. Open the Map Browser (download icon on the left) to get some.", "Welcome to Chromia")
 
 func _ready():
 	_add_extra_pages()

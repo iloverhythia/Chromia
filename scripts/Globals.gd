@@ -680,8 +680,10 @@ func _ready():
 	var thread: Thread = null
 	Rhythia.is_init = true
 	thread = Thread.new()
-	if thread.start(Rhythia, "do_init") != OK:
+	if not OS.can_use_threads() or thread.start(Rhythia, "do_init") != OK:
+		# no threads (the web build): run it on the main thread instead
 		thread = null
+		Rhythia.call_deferred("do_init")
 
 	var disable_intro = false
 	var file: File = File.new()

@@ -54,7 +54,7 @@ jobs:
           curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           tpl="$HOME/.local/share/godot/templates/${GODOT_VERSION}.stable"
           mkdir -p "$tpl"
-          unzip -q -j templates.tpz templates/windows_64_release.exe templates/windows_64_debug.exe templates/version.txt -d "$tpl"
+          unzip -q -j templates.tpz templates/windows_64_release.exe templates/windows_64_debug.exe templates/webassembly_release.zip templates/webassembly_debug.zip templates/version.txt -d "$tpl"
           rm godot.zip templates.tpz
 
       - name: Import project
@@ -92,6 +92,34 @@ jobs:
           # Installs from before the renames look for Furria.pck / Savia.pck when updating.
           mkdir -p legacy && cp dist/Chromia.pck legacy/Furria.pck && cp dist/Chromia.pck legacy/Savia.pck
 
+      - name: Export web build
+        if: steps.version.outputs.exists == 'false'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          mkdir -p web-dist
+          "$GODOT" --no-window --path . --export "HTML5" "$PWD/web-dist/index.html"
+          test -f web-dist/index.pck && test -f web-dist/index.wasm
+          rm -rf web-dist/actions
+          (cd web-dist && zip -q -r "../Chromia-$TAG-web.zip" .)
+
+      # The browser version on GitHub Pages (Settings > Pages > branch gh-pages):
+      # replaced on every release, so the branch never grows.
+      - name: Publish web build to gh-pages
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          cd web-dist
+          touch .nojekyll
+          git init -q
+          git checkout -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "Chromia $TAG (web)"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+
       - name: Create release
         if: steps.version.outputs.exists == 'false'
         env:
@@ -101,7 +129,7 @@ jobs:
         run: |
           notes="$NOTES"
           if [ -z "$notes" ]; then
-            notes="Chromia $TAG for Windows. Unzip and run Chromia.exe. Existing installs update automatically."
+            notes="Chromia $TAG. Windows: unzip Chromia-$TAG-windows.zip and run Chromia.exe (existing installs update automatically). Browser: Chromia-$TAG-web.zip, put its files on any web server."
           fi
-          gh release create "$TAG" "Chromia-$TAG-windows.zip" dist/Chromia.pck legacy/Furria.pck legacy/Savia.pck \
+          gh release create "$TAG" "Chromia-$TAG-windows.zip" "Chromia-$TAG-web.zip" dist/Chromia.pck legacy/Furria.pck legacy/Savia.pck \
             --target "$GITHUB_SHA" --title "Chromia $TAG" --notes "$notes"

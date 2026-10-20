@@ -220,7 +220,7 @@ func load_db_maps():
 
 		var hr := HTTPRequest.new()
 		add_child(hr)
-		hr.use_threads = true
+		hr.use_threads = OS.can_use_threads()
 		hr.timeout = 80
 		hr.connect("request_completed", self, "_on_dbmap_request_completed", [api_idx])
 		requesters.append(hr)
@@ -328,7 +328,7 @@ func _import_netmaps_threaded(json_text: String):
 		return true
 	var nmp = null
 	var thread := Thread.new()
-	if thread.start(self, "_netmaps_parse_worker", json_text) == OK:
+	if OS.can_use_threads() and thread.start(self, "_netmaps_parse_worker", json_text) == OK:
 		# Wait for this import's own parser: with two imports at once (Reload
 		# Content during the background download) the shared signal woke both,
 		# and wait_to_finish() then froze the game until the other one was done.
@@ -508,7 +508,7 @@ func _on_update_request_completed(result, response_code, headers, body):
 
 func _ready():
 	add_child(ctest_hr)
-	ctest_hr.use_threads = true
+	ctest_hr.use_threads = OS.can_use_threads()
 	ctest_hr.timeout = 5
 	ctest_hr.connect("request_completed", self, "_on_ctest_request_completed")
 
@@ -518,12 +518,12 @@ func _ready():
 	mapdl_hr.connect("request_completed", self, "_on_mapdl_request_completed")
 
 	add_child(version_hr)
-	version_hr.use_threads = true
+	version_hr.use_threads = OS.can_use_threads()
 	version_hr.timeout = 5
 	version_hr.connect("request_completed", self, "_on_version_request_completed")
 
 	add_child(update_hr)
-	update_hr.use_threads = true
+	update_hr.use_threads = OS.can_use_threads()
 	update_hr.timeout = 0
 	update_hr.connect("request_completed", self, "_on_update_request_completed")
 
