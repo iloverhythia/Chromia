@@ -6249,6 +6249,28 @@ flat = true
 script = ExtResource( 54 )
 target = "wave_menu_colorset"
 
+
+[node name="SoundSpaceMode" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_top = 141.0
+margin_right = 955.0
+margin_bottom = 169.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "Songs look like the original Sound Space: grey side panels with your hits and misses, a thin health bar and progress bar, corner brackets around the grid, a grey square cursor, rounded notes, the Void background, a grey circle where you miss, and Sound Space's hit, miss and fail sounds."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Sound Space Mode"
+flat = true
+script = ExtResource( 54 )
+target = "sound_space_mode"
+
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Replays & Misc"]
 margin_top = 501.0
 margin_right = 1280.0

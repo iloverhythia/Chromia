@@ -193,6 +193,8 @@ func note_reposition(i: int):
 
 # Where note i is drawn at hit time, in this node's space (the 360 mod rotates
 # the Notes node, so the stored grid position alone would be unrotated).
+var _ss_mode: bool = false # Sound Space Mode (scripts/game/SoundSpaceMode.gd)
+
 func _note_fx_pos(i: int) -> Vector3:
 	var p: Vector2 = notes[i][0]
 	if Rhythia.mod_360:
@@ -349,6 +351,8 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					else:
 						$Miss.transform = notes[i][5]
 						$Miss.play()
+				if _ss_mode and not spectating_now:
+					load("res://scripts/game/SoundSpaceMode.gd").miss_marker(self, _note_fx_pos(i))
 				if missEffect != null and Rhythia.show_miss_effect and not spectating_now:
 					var np: Vector3 = _note_fx_pos(i)
 					var pos: Vector3 = Vector3(np.x, np.y, 0.002)
@@ -478,6 +482,7 @@ func _on_networked_skip(target_ms: float):
 
 func _ready():
 	Rhythia.start_log("note spawner")
+	_ss_mode = bool(Rhythia.get("sound_space_mode"))
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null:
 		lobby_manager.connect("skip_triggered", self, "_on_networked_skip")
@@ -558,16 +563,17 @@ func _ready():
 		_n_asq.visible = false
 
 
-	Rhythia.start_log("note mesh: %s" % Rhythia.selected_mesh.path)
+	var note_mesh = load("res://scripts/game/SoundSpaceMode.gd").note_mesh(Rhythia.selected_mesh)
+	Rhythia.start_log("note mesh: %s" % note_mesh.path)
 	var mesh: Mesh
-	if "user://" in Rhythia.selected_mesh.path or not Rhythia.selected_mesh.path.begins_with("res://"):
-		var m = ObjParse.load_obj(Rhythia.selected_mesh.path)
+	if "user://" in note_mesh.path or not note_mesh.path.begins_with("res://"):
+		var m = ObjParse.load_obj(note_mesh.path)
 		if m != null:
 			mesh = _double_sided(m) # imported meshes may face away from the camera
 		else:
 			mesh = load("res://assets/blocks/rounded.obj")
 	else:
-		mesh = load(Rhythia.selected_mesh.path)
+		mesh = load(note_mesh.path)
 	if mesh == null or mesh.get_surface_count() == 0:
 		mesh = load("res://assets/blocks/rounded.obj")
 

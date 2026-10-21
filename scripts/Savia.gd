@@ -774,7 +774,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k"
 ]
 
 
@@ -842,6 +842,7 @@ const VERSION_NOTES = {
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
 	"oct20-2026-y": "- NEW (phones): touch indicator, a ring under each finger in menus and songs, fading out when you lift it. Turn it on/off in Settings > Gameplay > Touch Indicator (a picture named \"touch\" in Chromia's folder replaces the ring)",
 	"oct21-2026-a": "- NEW (phones): the touch indicator is fully customizable. Settings > Gameplay > Customize Touch Indicator: 8 shapes (ring, filled circle, dot, ring with dot, square, diamond, crosshair, your own picture), size, outline width, outline and fill colours, opacity, fade out time, grow and pop animations, tap ripples, a trail behind moving fingers, rainbow colours, show it in menus and/or songs, presets, and a live preview",
+	"oct21-2026-k": "- NEW (Settings > Replays & Misc > Experimental): Sound Space Mode. Songs look like the original Sound Space (from the SSLookalike skin): grey side panels with your hits and misses, a thin green health bar under the grid and a white progress bar over it, corner brackets around the grid, the grey square cursor, rounded notes, the Void background, a grey circle where you miss a note, and Sound Space's hit, miss and fail sounds. Your own settings stay as they are for when it's off",
 	"oct21-2026-j": "- Map Browser: .rhm maps download now (most new maps on rhythia.com are .rhm; they failed with \"isn't a working map\"). They're converted and added to your maps like the others\n- Importing .rhm files works on every platform (it only worked on Windows: phones, Mac and Linux couldn't open them)",
 	"oct21-2026-i": "- Map Editor: Detect From Notes (TIMING > OPEN BPM SETUP). Works out the BPM and offset from where the notes are, including tempo changes (each one becomes a timing point). Uses the selected notes, or the notes between Start and End (all of them when both are 0). Shows how many notes fit and other tempos that fit too; x2 and /2 change it, Apply adds the timing points (undo works)",
 	"oct21-2026-h": "- iPad (and other squarer screens): the menus were cut off on the right (map filters, scroll buttons, settings tabs and buttons) next to the sidebar. Everything is a little smaller there now so it all fits",
@@ -2497,6 +2498,7 @@ var menu_lyric_volume: float = 1.0
 # Phones: rings under the fingers (scripts/ui/TouchIndicator.gd)
 var show_touch_indicator: bool = true
 # Phones: Settings > "No Touch Delay" and "120 Hz" (apply_mobile_tuning)
+var sound_space_mode: bool = false # Experimental: songs look like the original Sound Space
 var mobile_no_delay: bool = false setget _set_mobile_no_delay
 var mobile_high_hz: bool = false setget _set_mobile_high_hz
 # its look (shape, colours, trail...), only the changed keys of TouchIndicator.DEFAULTS
@@ -3266,6 +3268,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			last_search_incl_online = data.last_search_incl_online
 		if data.has("show_touch_indicator"):
 			show_touch_indicator = bool(data.show_touch_indicator)
+		if data.has("sound_space_mode"):
+			sound_space_mode = bool(data.sound_space_mode)
 		if data.has("mobile_no_delay"):
 			mobile_no_delay = bool(data.mobile_no_delay)
 		if data.has("mobile_high_hz"):
@@ -3723,6 +3727,7 @@ func _write_settings_file(saveFile: String):
 			last_search_incl_online = last_search_incl_online,
 			menu_lyric_volume = menu_lyric_volume,
 			show_touch_indicator = show_touch_indicator,
+			sound_space_mode = sound_space_mode,
 			mobile_no_delay = mobile_no_delay,
 			mobile_high_hz = mobile_high_hz,
 			touch_style = touch_style,

@@ -3,7 +3,7 @@ extends Node
 var leaving: bool = false
 
 var target: String = "res://scenes/song.tscn"
-var target2: String = Rhythia.selected_space.path
+var target2: String = load("res://scripts/game/SoundSpaceMode.gd").space_path(Rhythia.selected_space.path)
 
 var black_fade_target: bool = false
 var black_fade: float = 0
