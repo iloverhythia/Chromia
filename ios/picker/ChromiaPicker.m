@@ -10,8 +10,12 @@
 //
 // request.txt lines:  open|export   multi (0/1)   destination folder or file to export
 // result.txt lines:   ok|cancel     then one path per picked / saved file
+//
+// tune.txt (Settings > No Touch Delay / 120 Hz):  frames per second (0 = leave),
+// touch delay in seconds (-1 = leave). Answered with tune_ok.txt.
 
 #import <UIKit/UIKit.h>
+#import <QuartzCore/QuartzCore.h>
 
 static NSString *picker_dir(void) {
 	NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -92,7 +96,7 @@ static ChromiaPicker *active_picker = nil;
 }
 
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
-	[self finishWithPaths:@[] ok:NO];
+	[self finishWithPaths:[NSArray array] ok:NO];
 }
 
 - (void)show:(BOOL)multi {
@@ -103,7 +107,7 @@ static ChromiaPicker *active_picker = nil;
 		c = [[UIDocumentPickerViewController alloc] initWithURL:[NSURL fileURLWithPath:self.target] inMode:UIDocumentPickerModeExportToService];
 	} else {
 		c = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:@[@"public.item"] inMode:UIDocumentPickerModeImport];
-		if (@available(iOS 11.0, *)) c.allowsMultipleSelection = multi;
+		c.allowsMultipleSelection = multi; // iOS 11+, and Chromia needs 12
 	}
 #pragma clang diagnostic pop
 	c.delegate = self;
@@ -111,7 +115,7 @@ static ChromiaPicker *active_picker = nil;
 	self.controller = c;
 	UIViewController *top = top_controller();
 	if (top == nil) {
-		[self finishWithPaths:@[] ok:NO];
+		[self finishWithPaths:[NSArray array] ok:NO];
 		return;
 	}
 	[top presentViewController:c animated:YES completion:nil];
@@ -134,11 +138,86 @@ static void handle_request(void) {
 	[p show:[lines[1] isEqualToString:@"1"]];
 }
 
+// Godot's view (GodotView): the view under the root view controller that has
+// a display link.
+static UIView *godot_view(void) {
+	UIWindow *win = nil;
+	for (UIWindow *w in UIApplication.sharedApplication.windows) {
+		if (w.isKeyWindow) { win = w; break; }
+	}
+	if (win == nil) win = UIApplication.sharedApplication.windows.firstObject;
+	NSMutableArray<UIView *> *todo = [NSMutableArray array];
+	if (win.rootViewController.view) [todo addObject:win.rootViewController.view];
+	while (todo.count > 0) {
+		UIView *v = todo.firstObject;
+		[todo removeObjectAtIndex:0];
+		if ([v respondsToSelector:NSSelectorFromString(@"setRenderingInterval:")]) return v;
+		[todo addObjectsFromArray:v.subviews];
+	}
+	return nil;
+}
+
+static void handle_tune(void) {
+	NSFileManager *fm = NSFileManager.defaultManager;
+	NSString *path = [picker_dir() stringByAppendingPathComponent:@"tune.txt"];
+	NSString *text = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil];
+	if (text == nil) return;
+	[fm removeItemAtPath:path error:nil];
+	NSArray<NSString *> *lines = [text componentsSeparatedByString:@"\n"];
+	NSInteger fps = lines.count > 0 ? lines[0].integerValue : 0;
+	double delay = lines.count > 1 ? lines[1].doubleValue : -1;
+	NSMutableString *report = [NSMutableString string];
+	UIView *view = godot_view();
+	if (view == nil) {
+		[report appendString:@"no view\n"];
+	} else {
+		if (fps > 0) {
+			NSInteger maxfps = UIScreen.mainScreen.maximumFramesPerSecond;
+			if (fps > maxfps) fps = maxfps;
+			// Godot restarts its display link with this rate (also after the app comes back)
+			[view setValue:@(1.0 / (double)fps) forKey:@"renderingInterval"];
+			CADisplayLink *link = nil;
+			@try { link = [view valueForKey:@"displayLink"]; } @catch (NSException *e) { link = nil; }
+			if (link != nil) {
+				link.preferredFramesPerSecond = fps;
+				// iOS 15+ (ProMotion screens)
+				if ([link respondsToSelector:@selector(setPreferredFrameRateRange:)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
+					CAFrameRateRange range;
+					range.minimum = fps >= 80 ? 80 : (float)fps;
+					range.maximum = (float)fps;
+					range.preferred = (float)fps;
+					link.preferredFrameRateRange = range;
+#pragma clang diagnostic pop
+				}
+			}
+			[report appendFormat:@"fps %ld (screen max %ld)\n", (long)fps, (long)maxfps];
+		}
+		if (delay >= 0) {
+			// Godot holds each new touch back for input_devices/pointing/ios/touch_delay
+			// (0.15 s) in a gesture recognizer on its view
+			for (UIGestureRecognizer *g in view.gestureRecognizers) {
+				if ([g respondsToSelector:NSSelectorFromString(@"setDelayTimeInterval:")]) {
+					[g setValue:@(delay) forKey:@"delayTimeInterval"];
+					[report appendFormat:@"touch delay %.3f\n", delay];
+				}
+			}
+		}
+	}
+	[fm createDirectoryAtPath:picker_dir() withIntermediateDirectories:YES attributes:nil error:nil];
+	[report writeToFile:[picker_dir() stringByAppendingPathComponent:@"tune_ok.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
 __attribute__((visibility("default"))) void godot_gdnative_init(void *options) {
 	if (NSThread.isMainThread) {
+		handle_tune();
 		handle_request();
 	} else {
-		dispatch_async(dispatch_get_main_queue(), ^{ handle_request(); });
+		dispatch_async(dispatch_get_main_queue(), ^{
+			handle_tune();
+			handle_request();
+		});
 	}
 }
 

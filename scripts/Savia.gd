@@ -91,6 +91,43 @@ func apply_mobile_layout():
 		# the safe area can be known only once the window is up, and changes when the phone turns
 		get_tree().root.connect("size_changed", self, "apply_mobile_layout", [], CONNECT_DEFERRED)
 
+# --- Phones: touch delay and refresh rate ------------------------------------
+# No Touch Delay: every finger movement is handled as it comes (not merged per
+# frame) and, on iPhone, Godot's 0.15 s hold on each new touch is removed.
+# 120 Hz: the game draws at the screen's highest refresh rate (ProMotion).
+# The iPhone parts need the native helper (scripts/IosNative.gd) from an
+# installed .ipa; mobile_tuning_status says what applied.
+var mobile_tuning_status: String = ""
+
+func _set_mobile_no_delay(v: bool):
+	mobile_no_delay = v
+	if is_inside_tree():
+		call_deferred("apply_mobile_tuning")
+
+func _set_mobile_high_hz(v: bool):
+	mobile_high_hz = v
+	if is_inside_tree():
+		call_deferred("apply_mobile_tuning")
+
+var _tuned_once := false
+func apply_mobile_tuning():
+	if dev != "mobile":
+		return
+	Input.use_accumulated_input = not mobile_no_delay
+	if mobile_high_hz and Engine.target_fps > 0 and Engine.target_fps < 120:
+		Engine.target_fps = 0 # an FPS limit under 120 would hold it back
+	if not OS.has_feature("iOS"):
+		mobile_tuning_status = ""
+		return
+	# only touch what's on, or what was turned off after being on
+	if not mobile_no_delay and not mobile_high_hz and not _tuned_once:
+		return
+	_tuned_once = true
+	var fps := 120 if mobile_high_hz else 60
+	var delay := 0.0 if mobile_no_delay else 0.15
+	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay)
+	print("[mobile tuning] ", mobile_tuning_status if mobile_tuning_status != "" else "native helper not in this app")
+
 # Browser on a phone or tablet (touch is the main input).
 func is_touch_web() -> bool:
 	if not OS.has_feature("JavaScript"):
@@ -731,7 +768,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g"
 ]
 
 
@@ -799,6 +836,7 @@ const VERSION_NOTES = {
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
 	"oct20-2026-y": "- NEW (phones): touch indicator, a ring under each finger in menus and songs, fading out when you lift it. Turn it on/off in Settings > Gameplay > Touch Indicator (a picture named \"touch\" in Chromia's folder replaces the ring)",
 	"oct21-2026-a": "- NEW (phones): the touch indicator is fully customizable. Settings > Gameplay > Customize Touch Indicator: 8 shapes (ring, filled circle, dot, ring with dot, square, diamond, crosshair, your own picture), size, outline width, outline and fill colours, opacity, fade out time, grow and pop animations, tap ripples, a trail behind moving fingers, rainbow colours, show it in menus and/or songs, presets, and a live preview",
+	"oct21-2026-g": "- Phones: two new settings under Settings > Gameplay > Touch Indicator.\n- No Touch Delay: every finger movement is used as it comes instead of once per frame, and on iPhone the 0.15 s hold the game engine put on each new touch is gone.\n- 120 Hz: the game draws at your screen's highest refresh rate (120 Hz on ProMotion iPhones and iPads), for smoother movement and less delay; an FPS limit under 120 is lifted when you turn it on.\n- iPhone: both need this version's chromia-ios.ipa installed once (in-app updates can't add them)",
 	"oct21-2026-f": "- iPhone: Phone files button in the file browser. It opens the phone's own file picker right inside Chromia (iCloud Drive, On My iPhone, Downloads and other apps' folders) instead of sending you to the Files app; the file you pick is copied into Chromia and opened. When saving, Save to phone lets you put the file anywhere on your phone. Needs this version's chromia-ios.ipa installed once (in-app updates can't add it)",
 	"oct21-2026-e": "- Phones: a new file browser made for touch, instead of the tiny desktop one. Big rows you scroll with your finger, a Back button, the folder you're in shown as Chromia › maps › ..., file sizes, and big Open / Save / Cancel buttons. Tap a folder to go in, tap a file to select it and tap it again (or Open) to open it. Saving has the name box at the top so the keyboard doesn't cover it, and asks before replacing a file. Show all files lists files of every type. iPhone: Files app button at the top; Android: Places (Chromia, Downloads, phone storage)",
 	"oct21-2026-d": "- Phones: the file picker's bottom buttons (Open / Save, Cancel, Open Files app) are much bigger and easier to tap",
@@ -2449,6 +2487,9 @@ var music_volume_db: float = 0 setget _set_music_volume
 var menu_lyric_volume: float = 1.0
 # Phones: rings under the fingers (scripts/ui/TouchIndicator.gd)
 var show_touch_indicator: bool = true
+# Phones: Settings > "No Touch Delay" and "120 Hz" (apply_mobile_tuning)
+var mobile_no_delay: bool = false setget _set_mobile_no_delay
+var mobile_high_hz: bool = false setget _set_mobile_high_hz
 # its look (shape, colours, trail...), only the changed keys of TouchIndicator.DEFAULTS
 var touch_style: Dictionary = {}
 func _set_menu_music(v: bool):
@@ -3216,6 +3257,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			last_search_incl_online = data.last_search_incl_online
 		if data.has("show_touch_indicator"):
 			show_touch_indicator = bool(data.show_touch_indicator)
+		if data.has("mobile_no_delay"):
+			mobile_no_delay = bool(data.mobile_no_delay)
+		if data.has("mobile_high_hz"):
+			mobile_high_hz = bool(data.mobile_high_hz)
 		if data.has("touch_style") and data.touch_style is Dictionary:
 			touch_style = data.touch_style
 		if data.has("menu_lyric_volume"):
@@ -3669,6 +3714,8 @@ func _write_settings_file(saveFile: String):
 			last_search_incl_online = last_search_incl_online,
 			menu_lyric_volume = menu_lyric_volume,
 			show_touch_indicator = show_touch_indicator,
+			mobile_no_delay = mobile_no_delay,
+			mobile_high_hz = mobile_high_hz,
 			touch_style = touch_style,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
@@ -4964,6 +5011,7 @@ func do_init(_ud = null):
 	emit_signal("init_stage_reached", "Read user settings")
 	yield(get_tree(), "idle_frame")
 	var result = load_saved_settings(get_startup_settings_path())
+	call_deferred("apply_mobile_tuning")
 	if typeof(result) != TYPE_INT:
 		# load_saved_settings stopped on an error part-way (null): keep the
 		# settings read so far instead of getting stuck on this screen

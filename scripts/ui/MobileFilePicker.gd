@@ -453,43 +453,19 @@ func _go_place(path: String):
 # phone. The picker is native code in the app (ios/picker/ChromiaPicker.m)
 # that only comes with an installed .ipa, not with in-app updates.
 
-const IOS_FRAMEWORK := "Frameworks/ChromiaPicker.framework/ChromiaPicker"
-var _natives := [] # keeps the loaded picker library alive
+const IosNative = preload("res://scripts/IosNative.gd")
 var _waiting_native := false
 
 static func ios_picker_available() -> bool:
-	if not OS.has_feature("iOS") or not ClassDB.class_exists("GDNative"):
-		return false
-	return File.new().file_exists(OS.get_executable_path().get_base_dir().plus_file(IOS_FRAMEWORK))
+	return IosNative.available()
 
 func _native_dir() -> String:
-	return OS.get_user_data_dir().plus_file(".chromia_picker")
+	return IosNative.dir()
 
 # Writes the request and has the picker library read it.
 func _ask_native(mode: String, multi: bool, target: String) -> bool:
-	var d := Directory.new()
-	d.make_dir_recursive(_native_dir())
-	d.remove(_native_dir().plus_file("result.txt"))
-	var f := File.new()
-	if f.open(_native_dir().plus_file("request.txt"), File.WRITE) != OK:
-		return false
-	f.store_string("%s\n%s\n%s\n" % [mode, "1" if multi else "0", target])
-	f.close()
-	var cfg := ConfigFile.new()
-	cfg.set_value("entry", "iOS", OS.get_executable_path().get_base_dir().plus_file(IOS_FRAMEWORK))
-	cfg.set_value("dependencies", "iOS", [])
-	# every initialize() runs the library's init, which shows the picker
-	cfg.set_value("general", "load_once", false)
-	var lib = ClassDB.instance("GDNativeLibrary")
-	lib.config_file = cfg
-	var g = ClassDB.instance("GDNative")
-	g.library = lib
-	var ok: bool = g.initialize()
-	_natives.append(g)
-	_natives.append(lib)
-	if not ok:
-		d.remove(_native_dir().plus_file("request.txt"))
-	return ok
+	Directory.new().remove(_native_dir().plus_file("result.txt"))
+	return IosNative.send("request.txt", "%s\n%s\n%s\n" % [mode, "1" if multi else "0", target])
 
 # Waits for the picker's answer: [ok, [paths]], or null if it never came.
 func _native_result():
