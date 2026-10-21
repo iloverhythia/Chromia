@@ -101,7 +101,7 @@ func _build():
 	places_btn = _button("Places", "_toggle_places")
 	places_btn.visible = _places().size() > 1
 	top_bar.add_child(places_btn)
-	files_app_btn = _button("Files app", "_on_files_app")
+	files_app_btn = _button("Phone files", "_on_files_app")
 	files_app_btn.visible = OS.has_feature("iOS")
 	top_bar.add_child(files_app_btn)
 
@@ -250,6 +250,8 @@ func open(p_kind: String, p_filters: PoolStringArray, p_multi: bool, start_dir: 
 	name_edit.visible = kind == "save"
 	all_btn.visible = kind == "open" and not exts.empty()
 	ok_btn.text = {"open": "Open", "save": "Save", "folder": "Use folder"}[kind]
+	files_app_btn.visible = OS.has_feature("iOS") and kind != "folder"
+	files_app_btn.text = "Save to phone" if kind == "save" else "Phone files"
 	places_menu.visible = false
 	visible = true
 	_go(start_dir)
@@ -444,8 +446,136 @@ func _go_place(path: String):
 		d.make_dir_recursive(path)
 	_go(path)
 
+# --- iPhone: Apple's file picker ---------------------------------------------
+# "Phone files" opens the system file picker (iCloud Drive, On My iPhone,
+# Downloads, ...) over the game; picked files are copied into Chromia's
+# "imported" folder and opened. "Save to phone" saves the file anywhere on the
+# phone. The picker is native code in the app (ios/picker/ChromiaPicker.m)
+# that only comes with an installed .ipa, not with in-app updates.
+
+const IOS_FRAMEWORK := "Frameworks/ChromiaPicker.framework/ChromiaPicker"
+var _natives := [] # keeps the loaded picker library alive
+var _waiting_native := false
+
+static func ios_picker_available() -> bool:
+	if not OS.has_feature("iOS") or not ClassDB.class_exists("GDNative"):
+		return false
+	return File.new().file_exists(OS.get_executable_path().get_base_dir().plus_file(IOS_FRAMEWORK))
+
+func _native_dir() -> String:
+	return OS.get_user_data_dir().plus_file(".chromia_picker")
+
+# Writes the request and has the picker library read it.
+func _ask_native(mode: String, multi: bool, target: String) -> bool:
+	var d := Directory.new()
+	d.make_dir_recursive(_native_dir())
+	d.remove(_native_dir().plus_file("result.txt"))
+	var f := File.new()
+	if f.open(_native_dir().plus_file("request.txt"), File.WRITE) != OK:
+		return false
+	f.store_string("%s\n%s\n%s\n" % [mode, "1" if multi else "0", target])
+	f.close()
+	var cfg := ConfigFile.new()
+	cfg.set_value("entry", "iOS", OS.get_executable_path().get_base_dir().plus_file(IOS_FRAMEWORK))
+	cfg.set_value("dependencies", "iOS", [])
+	# every initialize() runs the library's init, which shows the picker
+	cfg.set_value("general", "load_once", false)
+	var lib = ClassDB.instance("GDNativeLibrary")
+	lib.config_file = cfg
+	var g = ClassDB.instance("GDNative")
+	g.library = lib
+	var ok: bool = g.initialize()
+	_natives.append(g)
+	_natives.append(lib)
+	if not ok:
+		d.remove(_native_dir().plus_file("request.txt"))
+	return ok
+
+# Waits for the picker's answer: [ok, [paths]], or null if it never came.
+func _native_result():
+	var path := _native_dir().plus_file("result.txt")
+	var f := File.new()
+	_waiting_native = true
+	while _waiting_native:
+		yield(get_tree().create_timer(0.2), "timeout")
+		if f.file_exists(path) and f.open(path, File.READ) == OK:
+			var lines: Array = f.get_as_text().split("\n", false)
+			f.close()
+			Directory.new().remove(path)
+			_waiting_native = false
+			var paths := []
+			for i in range(1, lines.size()):
+				paths.append(lines[i])
+			return [lines.size() > 0 and lines[0] == "ok", paths]
+	return null
+
+func _needs_reinstall():
+	Globals.notify(Globals.NOTIFY_WARN, "To pick files from anywhere on your phone, install chromia-ios.ipa from the latest release once (in-app updates can't add this part). Until then, put files in Chromia's folder with the Files app (On My iPhone > Chromia).", "Phone files")
+
 func _on_files_app():
-	sel.open_files_app()
+	if not ios_picker_available():
+		_needs_reinstall()
+		return
+	if kind == "save":
+		_save_to_phone()
+		return
+	var dest := OS.get_user_data_dir().plus_file("imported")
+	if not _ask_native("open", multiselect, dest):
+		_needs_reinstall()
+		return
+	info_label.text = "Pick a file in the window that opened"
+	var res = yield(_native_result(), "completed")
+	if res == null or not visible:
+		return
+	if not res[0]:
+		_refresh_labels()
+		return
+	var picked := PoolStringArray()
+	for p in res[1]:
+		if exts.empty() or exts.has(String(p).get_extension().to_lower()):
+			picked.append(p)
+	if picked.empty():
+		# nothing of the wanted type: show where the files went
+		Globals.notify(Globals.NOTIFY_WARN, "That isn't a %s file. It was copied to Chromia's imported folder." % (filter_name if filter_name != "" else "supported"), "Phone files")
+		show_all = true
+		_go(dest)
+		return
+	if not multiselect:
+		picked = PoolStringArray([picked[0]])
+	visible = false
+	sel.files_sel(picked)
+
+# Saving: the game writes the file into Chromia's folder first, then the
+# phone's save window lets you put a copy anywhere.
+func _save_to_phone():
+	var n := _save_name()
+	if n == "":
+		n = "chromia" + ("." + String(exts[0]) if not exts.empty() else "")
+	var dir := _native_dir().plus_file("export")
+	var d := Directory.new()
+	d.make_dir_recursive(dir)
+	var path := dir.plus_file(n)
+	d.remove(path)
+	visible = false
+	sel.save_sel(path)
+	# wait until the file is written (sizes stop changing)
+	var f := File.new()
+	var last := -1
+	for i in range(100):
+		yield(get_tree().create_timer(0.15), "timeout")
+		var size: int = _size(path) if f.file_exists(path) else -1
+		if size > 0 and size == last:
+			break
+		last = size
+	if not f.file_exists(path):
+		Globals.notify(Globals.NOTIFY_WARN, "The file wasn't made, so there's nothing to save.", "Save to phone")
+		return
+	if not _ask_native("export", false, path):
+		_needs_reinstall()
+		return
+	var res = yield(_native_result(), "completed")
+	if res != null and res[0]:
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Saved %s to your phone." % n, "Save to phone")
 
 func _toggle_all():
 	show_all = not show_all
@@ -459,6 +589,7 @@ func _on_name_entered(_t):
 	_on_ok()
 
 func _on_cancel():
+	_waiting_native = false
 	visible = false
 	sel._cancel()
 

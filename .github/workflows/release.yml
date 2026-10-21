@@ -210,6 +210,8 @@ jobs:
           app=$(ls -d Payload/*.app | head -n1)
           test -f "$app/Chromia.pck"
           cp ../ios-dist/Chromia.pck "$app/Chromia.pck"
+          # the iPhone file picker (native code the in-app updates can't add)
+          bash ../.github/scripts/build_ios_picker.sh "$PWD/$app" || echo "::warning::iPhone file picker not built"
           python3 ../.github/scripts/ipa_icons.py "$app" .. "$GITHUB_RUN_NUMBER"
           zip -q -r -y ../chromia-ios.ipa Payload
 
