@@ -527,9 +527,20 @@ func _on_version_request_completed(result, response_code, headers, body):
 		var seq: Array = Rhythia.VERSION_SEQUENCE
 		if seq.has(tag) and seq.has(current) and seq.find(tag) <= seq.find(current):
 			tag = current
+		# iOS: an update that failed to start on this phone isn't offered again
+		if updates_by_pack() and tag == _read_text(PackUpdate.DIR + "/bad_version.txt"):
+			tag = current
 		emit_signal("latest_version", tag)
 	else:
 		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
+
+static func _read_text(path: String) -> String:
+	var f := File.new()
+	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+		return ""
+	var t := f.get_as_text().strip_edges()
+	f.close()
+	return t
 
 func attempt_update():
 	if not latest_version_data or not latest_version_data.has("assets"):
@@ -619,6 +630,7 @@ func _on_update_request_completed(result, response_code, headers, body):
 				f.store_string(String(latest_version_data.tag_name))
 				f.close()
 				update_installed = true
+				load("res://scripts/PackGuard.gd").fresh_download()
 				print("Pack update downloaded: ", latest_version_data.tag_name)
 		emit_signal("update_finished")
 		return

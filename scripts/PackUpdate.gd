@@ -16,8 +16,10 @@ const DIR := "user://pack_update"
 const PACK := DIR + "/chromia.pck"
 const VERSION_FILE := DIR + "/version.txt"
 const BOOT_FILE := DIR + "/booting.txt"
+const BAD_FILE := DIR + "/bad_version.txt" # an update that failed to start; not offered again
 
 var loaded_version: String = "" # the pack's version when one was loaded
+var discarded_version: String = "" # an update that failed to start and was removed this start
 
 static func supported() -> bool:
 	return OS.has_feature("iOS")
@@ -28,7 +30,14 @@ func _init():
 	var f := File.new()
 	var d := Directory.new()
 	if f.file_exists(BOOT_FILE):
-		# the last start with the downloaded pack didn't get to the menu
+		# the last starts with the downloaded pack didn't get to the menu
+		# (scripts/PackGuard.gd allows a few interrupted starts first)
+		if f.open(VERSION_FILE, File.READ) == OK:
+			discarded_version = f.get_as_text().strip_edges()
+			f.close()
+			if discarded_version != "" and f.open(BAD_FILE, File.WRITE) == OK:
+				f.store_string(discarded_version)
+				f.close()
 		_remove_all()
 		return
 	if not f.file_exists(PACK) or not f.file_exists(VERSION_FILE):

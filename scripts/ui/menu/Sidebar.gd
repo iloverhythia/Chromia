@@ -211,6 +211,12 @@ func _ready():
 	_add_extra_pages()
 	Rhythia.trail("menu open")
 	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
+	load("res://scripts/PackGuard.gd").ok()
+	var failed_update = PackUpdate.get("discarded_version")
+	if failed_update != null and String(failed_update) != "":
+		Globals.call_deferred("notify", Globals.NOTIFY_WARN,
+			"Version %s didn't get to the menu on this phone, so Chromia went back to the installed version %s. It will update again when a newer version is out." % [String(failed_update), String(ProjectSettings.get_setting("application/config/version"))],
+			"Update removed")
 	if Rhythia._pending_update_notice != "":
 		Globals.call_deferred("notify", Globals.NOTIFY_SUCCEED,
 			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it." % Rhythia._pending_update_notice,
