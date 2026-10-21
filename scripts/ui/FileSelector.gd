@@ -148,6 +148,23 @@ func _connect_ingame():
 		$Label.visible = false
 
 
+# Phones: a file browser made for touch (scripts/ui/MobileFilePicker.gd)
+# instead of Godot's FileDialog.
+var _mobile_picker = null
+func _open_mobile(kind: String, filters: PoolStringArray, multiselect: bool, initial_path: String) -> bool:
+	if Rhythia.dev != "mobile" or _web():
+		return false
+	if _mobile_picker == null:
+		_mobile_picker = load("res://scripts/ui/MobileFilePicker.gd").new()
+		_mobile_picker.sel = self
+		add_child(_mobile_picker)
+	$Spinner.visible = false
+	$Label.visible = false
+	visible = true
+	raise()
+	_mobile_picker.open(kind, filters, multiselect, ProjectSettings.globalize_path(Globals.p(initial_path)))
+	return true
+
 # Phones: the dialog's bottom buttons (Open / Save, Cancel, Open Files app)
 # are big enough to tap.
 func _big_buttons(d: AcceptDialog):
@@ -238,6 +255,8 @@ func open_file(
 	_open_ingame(filters, multiselect, initial_path)
 
 func _open_ingame(filters: PoolStringArray, multiselect: bool, initial_path: String):
+	if _open_mobile("open", filters, multiselect, initial_path):
+		return
 	_ios_files_tip()
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
 
@@ -285,6 +304,8 @@ func save_file(
 	_save_ingame(filters, initial_path)
 
 func _save_ingame(filters: PoolStringArray, initial_path: String):
+	if _open_mobile("save", filters, false, initial_path):
+		return
 	$C/OpenFile.rect_pivot_offset = get_viewport_rect().size / 2
 
 	if use_native:
@@ -320,6 +341,8 @@ func open_folder(
 	_folder_ingame(initial_path)
 
 func _folder_ingame(initial_path: String):
+	if _open_mobile("folder", PoolStringArray(), false, initial_path):
+		return
 
 	if use_native:
 		$Folder.initial_path = Globals.p(initial_path)
@@ -420,4 +443,4 @@ func _ios_files_tip():
 	if _files_tip_shown or not OS.has_feature("iOS"):
 		return
 	_files_tip_shown = true
-	Globals.notify(Globals.NOTIFY_INFO, "To use a file from your iPhone, copy it into Chromia's folder with the Files app (On My iPhone > Chromia). Tap \"Open Files app\" here to go there.", "Files")
+	Globals.notify(Globals.NOTIFY_INFO, "To use a file from your iPhone, copy it into Chromia's folder with the Files app (On My iPhone > Chromia). Tap \"Files app\" at the top of the file list to go there.", "Files")
