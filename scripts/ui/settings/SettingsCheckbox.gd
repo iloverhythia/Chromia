@@ -15,3 +15,18 @@ func _pressed():
 
 func _ready():
 	upd()
+	if target == "absolute_mode" and Rhythia.device("mobile"):
+		call_deferred("_add_touch_toggle")
+
+# Phones: "Touch Indicator" (rings under the fingers) goes under this one.
+func _add_touch_toggle():
+	var parent = get_parent()
+	if parent == null or parent.has_node("TouchIndicator"):
+		return
+	var cb = duplicate()
+	cb.name = "TouchIndicator"
+	cb.target = "show_touch_indicator"
+	cb.text = "Touch Indicator"
+	cb.hint_tooltip = "Shows a ring where your fingers touch the screen."
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)

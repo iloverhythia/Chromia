@@ -129,11 +129,7 @@ func _input(event: InputEvent):
 					else:
 						move_cursor(event.relative * 0.018 * Rhythia.sensitivity)
 
-		if (event is InputEventScreenDrag):
-			$VisualPos.visible = false
-			$VisualPos.rect_position = event.position
-		elif event is InputEventScreenTouch:
-			$VisualPos.visible = event.pressed
+		# (touches are shown by scripts/ui/TouchIndicator.gd now)
 
 var frame: int = Engine.get_frames_drawn()
 var trail_cache: Array = []
