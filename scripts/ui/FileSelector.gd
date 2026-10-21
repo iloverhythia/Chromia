@@ -148,6 +148,27 @@ func _connect_ingame():
 		$Label.visible = false
 
 
+# Phones: the dialog's bottom buttons (Open / Save, Cancel, Open Files app)
+# are big enough to tap.
+func _big_buttons(d: AcceptDialog):
+	if Rhythia.dev != "mobile" or d.has_meta("big_buttons"):
+		return
+	d.set_meta("big_buttons", true)
+	var row = d.get_ok().get_parent()
+	if row is BoxContainer:
+		row.add_constant_override("separation", 24)
+	var vp := get_viewport_rect().size
+	var size := Vector2(max(240.0, vp.x * 0.17), max(64.0, vp.y * 0.075))
+	for b in row.get_children():
+		if not (b is Button):
+			continue
+		b.rect_min_size = size
+		var f = b.get_font("font")
+		if f is DynamicFont:
+			var big: DynamicFont = f.duplicate()
+			big.size = int(round(f.size * 1.6))
+			b.add_font_override("font", big)
+
 # While a native dialog is open the game only shows "waiting for file dialog".
 # If that dialog never reports back (e.g. it opened behind a fullscreen window
 # or was closed without a result), clicking the overlay cancels.
@@ -241,6 +262,7 @@ func _open_ingame(filters: PoolStringArray, multiselect: bool, initial_path: Str
 		else:
 			$C/OpenFile.mode = $C/OpenFile.MODE_OPEN_FILE
 			$C/OpenFile.window_title = "Select file..."
+		_big_buttons($C/OpenFile)
 		$C/OpenFile.show()
 		$C/OpenFile.call_deferred("set_current_dir", ProjectSettings.globalize_path(Globals.p(initial_path)))
 	visible = true
@@ -275,6 +297,7 @@ func _save_ingame(filters: PoolStringArray, initial_path: String):
 
 	else:
 		$C/SaveFile.filters = filters
+		_big_buttons($C/SaveFile)
 		$C/SaveFile.show()
 		$C/SaveFile.call_deferred("set_current_dir", ProjectSettings.globalize_path(Globals.p(initial_path)))
 	visible = true
@@ -306,6 +329,7 @@ func _folder_ingame(initial_path: String):
 		$Folder.show()
 
 	else:
+		_big_buttons($C/Folder)
 		$C/Folder.show()
 		$C/Folder.call_deferred("set_current_dir", ProjectSettings.globalize_path(Globals.p(initial_path)))
 	visible = true
