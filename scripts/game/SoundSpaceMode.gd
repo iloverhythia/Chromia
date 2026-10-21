@@ -12,7 +12,7 @@ extends Node
 #   grid (notes keep your own mesh and colors)
 #
 # While a song plays, your display settings are set to how classic Sound Space
-# looks (LOOK: its camera, FOV, no trail or effects...) and put back when the
+# looks (LOOK: FOV, no trail or effects...) and put back when the
 # song ends (begin_song / end_song; a backup file covers a crash or quit).
 # Your notes keep your own mesh and colors.
 #
@@ -54,12 +54,10 @@ var popups: CanvasLayer
 var _last_score := 0
 var _saved := {}
 
-# Classic Sound Space's look, for the length of a song. The camera is
-# "Half-lock (faraway)" (camera parallax 10, HUD far back), measured from a
-# recording: there the grid shifts 34% as far as the cursor and the HUD 10%.
+# Classic Sound Space's look, for the length of a song. Your camera (half-lock,
+# spin, parallax, faraway HUD) is left as it is.
 const LOOK := {
-	"parallax": 10.0, "ui_parallax": 0.0, "grid_parallax": 0.0,
-	"cam_unlock": false, "faraway_hud": true, "fov": 75.0, "hit_fov": false,
+	"fov": 75.0, "hit_fov": false,
 	"cursor_trail": false, "enable_drift_cursor": false, "follow_drift_cursor": false,
 	"cursor_spin": 0.0, "cursor_face_velocity": false, "cursor_scale": 1.1,
 	"show_hit_effect": false, "show_miss_effect": false, "note_spawn_effect": false,
@@ -71,7 +69,7 @@ const LOOK := {
 	"show_right_panel": true, "show_timer": true, "show_hp_bar": true, "show_stats": false,
 }
 # a replay brings its own camera; those aren't touched while one plays
-const REPLAY_KEYS := ["parallax", "ui_parallax", "grid_parallax", "cam_unlock", "fov"]
+const REPLAY_KEYS := ["fov"]
 const BACKUP_FILE := "user://.sound_space_backup.json"
 
 static func begin_song():
