@@ -2400,6 +2400,7 @@ func _ready():
 	_setup_folder_filters()
 	load("res://scripts/ui/menu/FiltersCollapse.gd").attach(self) # click "Filters" to collapse
 	_add_new_mod_checkboxes()
+	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
 	_center_mods()
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
