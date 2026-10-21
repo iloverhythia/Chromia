@@ -12,6 +12,7 @@ var heartbeat_timer: Timer
 var cid: String = ""
 var dev = "pc"
 const MOBILE_UI_SIZE := Vector2(1024, 860)
+const MOBILE_MIN_UI_WIDTH := 1500.0
 
 const CLIENT_DB_DIR := "user://savia"
 const CLIENT_DB_PATH := "user://savia/.db"
@@ -83,6 +84,11 @@ func apply_mobile_layout():
 	var safe := OS.get_window_safe_area()
 	if win.y > 0 and safe.size.y > 0 and safe.size.y < win.y:
 		h = min(h * win.y / safe.size.y, MOBILE_UI_SIZE.y * 1.25)
+	# squarer screens (iPads are 4:3): the menus need about a phone's width
+	# (1500+ at this height), so make everything a bit smaller instead of
+	# cutting their right side off
+	if win.x > 0 and win.y > 0:
+		h = max(h, MOBILE_MIN_UI_WIDTH * win.y / win.x)
 	if abs(h - _mobile_layout_h) < 1.0:
 		return
 	_mobile_layout_h = h
@@ -768,7 +774,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h"
 ]
 
 
@@ -836,6 +842,7 @@ const VERSION_NOTES = {
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
 	"oct20-2026-y": "- NEW (phones): touch indicator, a ring under each finger in menus and songs, fading out when you lift it. Turn it on/off in Settings > Gameplay > Touch Indicator (a picture named \"touch\" in Chromia's folder replaces the ring)",
 	"oct21-2026-a": "- NEW (phones): the touch indicator is fully customizable. Settings > Gameplay > Customize Touch Indicator: 8 shapes (ring, filled circle, dot, ring with dot, square, diamond, crosshair, your own picture), size, outline width, outline and fill colours, opacity, fade out time, grow and pop animations, tap ripples, a trail behind moving fingers, rainbow colours, show it in menus and/or songs, presets, and a live preview",
+	"oct21-2026-h": "- iPad (and other squarer screens): the menus were cut off on the right (map filters, scroll buttons, settings tabs and buttons) next to the sidebar. Everything is a little smaller there now so it all fits",
 	"oct21-2026-g": "- Phones: two new settings under Settings > Gameplay > Touch Indicator.\n- No Touch Delay: every finger movement is used as it comes instead of once per frame, and on iPhone the 0.15 s hold the game engine put on each new touch is gone.\n- 120 Hz: the game draws at your screen's highest refresh rate (120 Hz on ProMotion iPhones and iPads), for smoother movement and less delay; an FPS limit under 120 is lifted when you turn it on.\n- iPhone: both need this version's chromia-ios.ipa installed once (in-app updates can't add them)",
 	"oct21-2026-f": "- iPhone: Phone files button in the file browser. It opens the phone's own file picker right inside Chromia (iCloud Drive, On My iPhone, Downloads and other apps' folders) instead of sending you to the Files app; the file you pick is copied into Chromia and opened. When saving, Save to phone lets you put the file anywhere on your phone. Needs this version's chromia-ios.ipa installed once (in-app updates can't add it)",
 	"oct21-2026-e": "- Phones: a new file browser made for touch, instead of the tiny desktop one. Big rows you scroll with your finger, a Back button, the folder you're in shown as Chromia › maps › ..., file sizes, and big Open / Save / Cancel buttons. Tap a folder to go in, tap a file to select it and tap it again (or Open) to open it. Saving has the name box at the top so the keyboard doesn't cover it, and asks before replacing a file. Show all files lists files of every type. iPhone: Files app button at the top; Android: Places (Chromia, Downloads, phone storage)",
