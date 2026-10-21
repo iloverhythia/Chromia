@@ -731,7 +731,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a"
 ]
 
 
@@ -798,6 +798,7 @@ const VERSION_NOTES = {
 	"oct20-2026-f": "- Map Editor uses the game's font\n- 2D view like Sound Space Quantum Editor's (GRAPHICS > turn off 3D Mode): frame, grey grid, rounded notes fading in, approach squares, note size, grid zoom, smooth autoplay cursor\n- The grid no longer moves with parallax in the editor\n- Editor and content manager backgrounds are see-through, so menu backgrounds like waves show properly\n- PATTERNS tab like SSQE+: flips, rotate / scale with arrows, apply on paste, paste reversed, clamp in bounds, store / clear nodes and Draw Bezier with Divisor",
 	"oct20-2026-g": "- Map Editor: the game view now covers the whole screen, so the menu background no longer peeks out at the edges\n- Fixed the modifiers ending up off-centre (over the History list) after restarting the game: they re-centre whenever the things around them change size",
 	"oct20-2026-y": "- NEW (phones): touch indicator, a ring under each finger in menus and songs, fading out when you lift it. Turn it on/off in Settings > Gameplay > Touch Indicator (a picture named \"touch\" in Chromia's folder replaces the ring)",
+	"oct21-2026-a": "- NEW (phones): the touch indicator is fully customizable. Settings > Gameplay > Customize Touch Indicator: 8 shapes (ring, filled circle, dot, ring with dot, square, diamond, crosshair, your own picture), size, outline width, outline and fill colours, opacity, fade out time, grow and pop animations, tap ripples, a trail behind moving fingers, rainbow colours, show it in menus and/or songs, presets, and a live preview",
 	"oct20-2026-x": "- NEW: Settings > Video & Audio > Menu Music Lyrics: how loud the singing is in the menu music (song previews and the menu song). At 0% it plays as an instrumental (works best on songs mixed in stereo; the bass is kept)",
 	"oct20-2026-w": "- The app icon is the Chromia ring again, now with room around it so the rounded corners don't cut it off (and on iPhone it now really replaces the old icon: reinstall chromia-ios.ipa to see it)",
 	"oct20-2026-v": "- NEW: picking files on Windows, Linux and macOS uses your computer's own file manager again. It used to get stuck on \"waiting for file dialog\" (it never opened); fixed, and the game leaves fullscreen while it's open so it can't hide behind the game\n- iPhone: the file browser has an \"Open Files app\" button that opens Chromia's folder in the Files app (On My iPhone > Chromia), to copy maps and pictures in\n- NEW: a new app icon",
@@ -2440,6 +2441,8 @@ var music_volume_db: float = 0 setget _set_music_volume
 var menu_lyric_volume: float = 1.0
 # Phones: rings under the fingers (scripts/ui/TouchIndicator.gd)
 var show_touch_indicator: bool = true
+# its look (shape, colours, trail...), only the changed keys of TouchIndicator.DEFAULTS
+var touch_style: Dictionary = {}
 func _set_menu_music(v: bool):
 	play_menu_music = v; emit_signal("menu_music_state_changed")
 func _set_music_volume(v: float):
@@ -3205,6 +3208,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			last_search_incl_online = data.last_search_incl_online
 		if data.has("show_touch_indicator"):
 			show_touch_indicator = bool(data.show_touch_indicator)
+		if data.has("touch_style") and data.touch_style is Dictionary:
+			touch_style = data.touch_style
 		if data.has("menu_lyric_volume"):
 			menu_lyric_volume = clamp(float(data.menu_lyric_volume), 0.0, 1.0)
 		if data.has("last_search_incl_broken"):
@@ -3656,6 +3661,7 @@ func _write_settings_file(saveFile: String):
 			last_search_incl_online = last_search_incl_online,
 			menu_lyric_volume = menu_lyric_volume,
 			show_touch_indicator = show_touch_indicator,
+			touch_style = touch_style,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
 

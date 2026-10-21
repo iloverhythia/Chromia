@@ -30,3 +30,20 @@ func _add_touch_toggle():
 	cb.hint_tooltip = "Shows a ring where your fingers touch the screen."
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
+	var b := Button.new()
+	b.name = "CustomizeTouchIndicator"
+	b.text = "Customize Touch Indicator..."
+	b.theme = theme
+	b.add_font_override("font", get_font("font"))
+	b.rect_min_size = Vector2(rect_size.x, 40)
+	b.hint_tooltip = "Shape, colours, size, trail, ripple, rainbow and more."
+	b.connect("pressed", self, "_open_touch_editor")
+	parent.add_child(b)
+	parent.move_child(b, cb.get_index() + 1)
+
+func _open_touch_editor():
+	var root := get_tree().root
+	if root.has_node("TouchIndicatorEditor"):
+		return
+	var ed = load("res://scripts/ui/TouchIndicatorEditor.gd").new()
+	root.add_child(ed)
