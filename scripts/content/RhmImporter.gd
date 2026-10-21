@@ -71,35 +71,34 @@ func _find_cover_file(root: String) -> String:
 	return found
 
 func import_rhm(path: String) -> Dictionary:
-
 	yield(get_tree(), "idle_frame")
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return {"song": null, "error": "Couldn't read the selected file."}
+	var bytes := f.get_buffer(f.get_len())
+	f.close()
+	return _import(bytes)
 
+# A .rhm downloaded into memory (Map Browser).
+func import_rhm_bytes(bytes: PoolByteArray) -> Dictionary:
+	yield(get_tree(), "idle_frame")
+	return _import(bytes)
+
+# A .rhm is a zip with "map" (JSON), "audio" and maybe "cover".
+func _import(bytes: PoolByteArray) -> Dictionary:
 	var result := {"song": null, "error": ""}
-	var dir := Directory.new()
-
-	if dir.copy(path, Globals.p(TMP_ZIP)) != OK:
-		result.error = "Couldn't read the selected file."
+	var files: Dictionary = load("res://scripts/content/ZipReader.gd").read(bytes)
+	if files.empty():
+		result.error = "Couldn't open the archive. Is it really a .rhm (zip) file?"
 		return result
-
-	if not _extract_zip(_real_path(TMP_ZIP), _real_path(TMP_DIR)):
-		result.error = "Couldn't extract the archive — is it really a .rhm (zip) file?"
-		_cleanup()
+	if not files.has("map"):
+		result.error = "No 'map' found inside. Is this really a .rhm file?"
 		return result
-
-	var root := Globals.p(TMP_DIR)
-
-	var map_file := File.new()
-	if map_file.open(root.plus_file("map"), File.READ) != OK:
-		result.error = "No 'map' found inside — is this really a .rhm file?"
-		_cleanup()
-		return result
-	var map_text := map_file.get_as_text()
-	map_file.close()
+	var map_text: String = files["map"].get_string_from_utf8()
 
 	var parsed = JSON.parse(map_text)
 	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
 		result.error = "'map' inside the archive isn't valid JSON."
-		_cleanup()
 		return result
 	var data: Dictionary = parsed.result
 
@@ -132,13 +131,10 @@ func import_rhm(path: String) -> Dictionary:
 		_cleanup()
 		return result
 
-	var audio_file := File.new()
-	if audio_file.open(root.plus_file("audio"), File.READ) != OK:
+	if not files.has("audio") or files["audio"].empty():
 		result.error = "'audio' inside the archive couldn't be read."
-		_cleanup()
 		return result
-	var audio_bytes: PoolByteArray = audio_file.get_buffer(audio_file.get_len())
-	audio_file.close()
+	var audio_bytes: PoolByteArray = files["audio"]
 	var audio_out := File.new()
 	if audio_out.open(Globals.p(TMP_AUDIO), File.WRITE) != OK:
 		result.error = "Couldn't stage the audio for conversion."
@@ -148,13 +144,10 @@ func import_rhm(path: String) -> Dictionary:
 	audio_out.close()
 
 	var cover_texture: Texture = null
-	var cover_path := _find_cover_file(root)
-	if cover_path != "":
-		var cover_file := File.new()
-		if cover_file.open(cover_path, File.READ) == OK:
-			var cover_bytes: PoolByteArray = cover_file.get_buffer(cover_file.get_len())
-			cover_file.close()
-			cover_texture = Globals.imageLoader.load_buffer(cover_bytes)
+	for name in files:
+		if String(name).get_file().get_basename().to_lower() == "cover" and not files[name].empty():
+			cover_texture = Globals.imageLoader.load_buffer(files[name])
+			break
 
 	var song := Song.new(id, song_name, creator)
 	song.songType = Globals.MAP_RAW

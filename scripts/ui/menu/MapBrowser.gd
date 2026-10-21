@@ -828,6 +828,11 @@ func _on_download_done(result: int, code: int, _headers, data, oid: String):
 		Globals.notify(Globals.NOTIFY_WARN, "Download failed (%s). Try again." % why, title)
 		_after_download(oid, m)
 		return
+	# rhythia.com's newer maps are .rhm (a zip): converted like an imported .rhm
+	var url := Globals.s(m.get("beatmapFile", "")).to_lower()
+	if url.ends_with(".rhm") or (data[0] == 0x50 and data[1] == 0x4b):
+		_finish_rhm(oid, m, data)
+		return
 	# The map id is inside the file, so it's read from a scratch copy first.
 	dir.make_dir_recursive(Globals.p("user://cache"))
 	var tmp: String = Globals.p("user://cache/browser_map_%s.sspm" % oid)
@@ -884,6 +889,23 @@ func _on_download_done(result: int, code: int, _headers, data, oid: String):
 		Globals.notify(Globals.NOTIFY_SUCCEED, "Added to your maps.", title)
 	else:
 		Globals.notify(Globals.NOTIFY_WARN, "The map downloaded but failed to load.", title)
+	_after_download(oid, m)
+
+func _finish_rhm(oid: String, m: Dictionary, data: PoolByteArray):
+	var title := Globals.s(m.get("title", "map"))
+	var importer = RhmImporter.new()
+	add_child(importer)
+	var res = yield(importer.import_rhm_bytes(data), "completed")
+	importer.queue_free()
+	if res.song != null:
+		_record[oid] = String(res.song.id)
+		_save_record()
+		var list = get_node_or_null("../Maps/MapRegistry/S/VBoxContainer")
+		if list != null and list.has_method("refresh_songs"):
+			list.refresh_songs()
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Added to your maps.", title)
+	else:
+		Globals.notify(Globals.NOTIFY_WARN, res.error if res.error != "" else "The map downloaded but failed to load.", title)
 	_after_download(oid, m)
 
 func _write(path: String, data: PoolByteArray) -> bool:
