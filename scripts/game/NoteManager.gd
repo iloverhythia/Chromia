@@ -558,7 +558,7 @@ func _ready():
 		_n_asq.visible = false
 
 
-	var note_mesh = load("res://scripts/game/SoundSpaceMode.gd").note_mesh(Rhythia.selected_mesh)
+	var note_mesh = Rhythia.selected_mesh
 	Rhythia.start_log("note mesh: %s" % note_mesh.path)
 	var mesh: Mesh
 	if "user://" in note_mesh.path or not note_mesh.path.begins_with("res://"):
