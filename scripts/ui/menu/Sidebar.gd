@@ -212,6 +212,7 @@ func _ready():
 	Rhythia.trail("menu open")
 	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
 	load("res://scripts/PackGuard.gd").ok()
+	load("res://scripts/game/SoundSpaceMode.gd").end_song() # back in the menu: your own settings
 	var failed_update = PackUpdate.get("discarded_version")
 	if failed_update != null and String(failed_update) != "":
 		Globals.call_deferred("notify", Globals.NOTIFY_WARN,

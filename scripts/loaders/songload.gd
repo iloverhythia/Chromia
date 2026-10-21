@@ -10,6 +10,7 @@ var black_fade: float = 0
 
 
 func _ready():
+	load("res://scripts/game/SoundSpaceMode.gd").begin_song() # Sound Space Mode: its look for this song
 	print("song loading")
 	Rhythia.start_log("loading screen", true)
 	Rhythia.pick_random_colorset()

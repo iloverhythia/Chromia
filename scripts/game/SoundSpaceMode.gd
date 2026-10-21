@@ -11,7 +11,13 @@ extends Node
 # - the grey square cursor, and the points of each hit popping up under the
 #   grid (notes keep your own mesh and colors)
 #
-# HUD.gd adds this node (apply_hud); songload asks it for the background. Your own settings stay as they are.
+# While a song plays, your display settings are set to how classic Sound Space
+# looks (LOOK: its camera, FOV, no trail or effects...) and put back when the
+# song ends (begin_song / end_song; a backup file covers a crash or quit).
+# Your notes keep your own mesh and colors.
+#
+# HUD.gd adds this node (apply_hud); songload asks it for the background and
+# calls begin_song.
 
 const DIR := "res://assets/soundspace/"
 const FONT := "res://assets/font/PressStart2P/PressStart2P-Regular.ttf"
@@ -47,6 +53,70 @@ var health_fill: ColorRect
 var popups: CanvasLayer
 var _last_score := 0
 var _saved := {}
+
+# Classic Sound Space's look, for the length of a song. The camera is
+# "Half-lock (faraway)" (camera parallax 10, HUD far back), measured from a
+# recording: there the grid shifts 34% as far as the cursor and the HUD 10%.
+const LOOK := {
+	"parallax": 10.0, "ui_parallax": 0.0, "grid_parallax": 0.0,
+	"cam_unlock": false, "faraway_hud": true, "fov": 75.0, "hit_fov": false,
+	"cursor_trail": false, "enable_drift_cursor": false, "follow_drift_cursor": false,
+	"cursor_spin": 0.0, "cursor_face_velocity": false, "cursor_scale": 1.1,
+	"show_hit_effect": false, "show_miss_effect": false, "note_spawn_effect": false,
+	"note_visual_approach": false, "note_spin_x": 0.0, "note_spin_y": 0.0, "note_spin_z": 0.0,
+	"glow": 0.0, "bloom": 0.0, "vhs_shader": false,
+	"show_config": false, "simple_hud": false, "rainbow_hud": false,
+	"attach_hp_to_grid": false, "attach_timer_to_grid": false, "expand_hud_onhr": false,
+	"enable_grid": false, "enable_border": true, "show_left_panel": true,
+	"show_right_panel": true, "show_timer": true, "show_hp_bar": true, "show_stats": false,
+}
+# a replay brings its own camera; those aren't touched while one plays
+const REPLAY_KEYS := ["parallax", "ui_parallax", "grid_parallax", "cam_unlock", "fov"]
+const BACKUP_FILE := "user://.sound_space_backup.json"
+
+static func begin_song():
+	if not enabled() or Rhythia.has_meta("ss_backup"):
+		return
+	var backup := {}
+	for k in LOOK:
+		if Rhythia.replaying and REPLAY_KEYS.has(k):
+			continue
+		if not (k in Rhythia):
+			continue
+		backup[k] = Rhythia.get(k)
+		Rhythia.set(k, LOOK[k])
+	Rhythia.set_meta("ss_backup", backup)
+	var f := File.new()
+	if f.open(Globals.p(BACKUP_FILE), File.WRITE) == OK:
+		f.store_string(var2str(backup))
+		f.close()
+
+static func end_song():
+	if not Rhythia.has_meta("ss_backup"):
+		return
+	var backup: Dictionary = Rhythia.get_meta("ss_backup")
+	for k in backup:
+		Rhythia.set(k, backup[k])
+	Rhythia.remove_meta("ss_backup")
+	Directory.new().remove(Globals.p(BACKUP_FILE))
+
+# At startup: a song didn't end normally last time (crash), so the settings
+# saved then may be Sound Space's. Put yours back.
+static func recover():
+	var f := File.new()
+	var path: String = Globals.p(BACKUP_FILE)
+	if Rhythia.has_meta("ss_backup") or not f.file_exists(path):
+		return
+	if f.open(path, File.READ) != OK:
+		return
+	var backup = str2var(f.get_as_text())
+	f.close()
+	Directory.new().remove(path)
+	if backup is Dictionary:
+		for k in backup:
+			if k in Rhythia:
+				Rhythia.set(k, backup[k])
+		Rhythia.save_settings()
 
 static func enabled() -> bool:
 	return bool(Rhythia.get("sound_space_mode"))
@@ -298,6 +368,7 @@ func _process(delta):
 	health_fill.rect_position.x = 450 - HEALTH_W * hp / 2.0
 
 func _exit_tree():
+	end_song()
 	if _saved.has("hit"):
 		Rhythia.hit_snd = _saved.hit
 		Rhythia.miss_snd = _saved.miss
