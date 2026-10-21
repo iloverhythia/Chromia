@@ -339,7 +339,7 @@ func timings():
 	var X := 15.0
 	var Y := 15.0
 	var O := Y + 375
-	var info := floating("timings", "BPM Setup", 390, 635)
+	var info := floating("timings", "BPM Setup", 390, 720)
 	_t = {"info": info, "version": -1}
 	_t.grid = a_grid(info, [["BPM", 180], ["Ms", 180]], X, Y, 360, 370)
 	_t.grid.connect("multi_selected", self, "_t_selected")
@@ -369,6 +369,18 @@ func timings():
 	_t.result = a_box(info, X + 274, O + 208, 86, 22, "0")
 	_t.result.editable = false
 	_t.result.align = LineEdit.ALIGN_CENTER
+	# BPM from where the notes are (SSQENoteBpm.gd): selected notes, or the
+	# notes between Start and End (all of them when both are 0)
+	a_button(info, "Detect From Notes", X, O + 240, 176, 24, "_t_from_notes")
+	a_button(info, "x2", X + 182, O + 240, 41, 24, "_t_notes_scale", [2.0])
+	a_button(info, "/2", X + 228, O + 240, 41, 24, "_t_notes_scale", [0.5])
+	_t.apply = a_button(info, "Apply", X + 274, O + 240, 86, 24, "_t_notes_apply")
+	_t.apply.disabled = true
+	_t.notes_info = a_label(info, "", X, O + 268, 360, 42)
+	_t.notes_info.clip_text = true
+	_t.notes_info.valign = Label.VALIGN_TOP
+	_t_info("Finds the BPM and offset (and tempo changes) that fit the notes: the selected ones, or the notes between Start and End")
+	_t.found = []
 	_t_reset_list()
 	var cur = map.get_current_bpm(ed.current_time())
 	var idx: int = map.timing_points.find(cur)
@@ -542,6 +554,110 @@ func _t_detected(found):
 		_t.offset.text = str(found.offsetMs)
 	else:
 		_t.result.text = "0"
+
+# the info line under Detect From Notes, broken into lines that fit
+func _t_info(text: String):
+	var lines := []
+	var line := ""
+	for word in text.split(" "):
+		if line != "" and (line + " " + word).length() > 66:
+			lines.append(line)
+			line = word
+		else:
+			line = word if line == "" else line + " " + word
+	if line != "":
+		lines.append(line)
+	_t.notes_info.text = PoolStringArray(lines).join("\n")
+
+func _t_note_times() -> Array:
+	var map = ed.map
+	var picked := []
+	for o in map.notes.selected:
+		picked.append(o.ms)
+	if picked.size() >= 8:
+		return picked
+	var from = _num(_t.start.text)
+	var to = _num(_t.end.text)
+	from = from if from != null else 0.0
+	to = to if to != null and to > from else INF
+	var out := []
+	for o in map.notes.items:
+		if o.ms >= from and o.ms <= to:
+			out.append(o.ms)
+	return out
+
+func _t_from_notes():
+	var times := _t_note_times()
+	var ref := 150.0
+	var cur = ed.map.get_current_bpm(ed.current_time())
+	if cur != null and cur.bpm > 0:
+		ref = cur.bpm
+	var r: Dictionary = load("res://scripts/editor/ssqe/SSQENoteBpm.gd").detect(times, ref)
+	if r.has("error"):
+		_t.found = []
+		_t.apply.disabled = true
+		_t_info(r.error)
+		return
+	_t.found = r.points
+	if not times.empty():
+		var last := 0.0
+		for t in times:
+			last = max(last, float(t))
+		_t.found_end = last
+	_t_show_found(r)
+
+func _t_show_found(r = null):
+	var pts: Array = _t.found
+	if pts.empty():
+		return
+	_t.bpm.text = str(pts[0].bpm)
+	_t.offset.text = str(pts[0].ms)
+	_t.apply.disabled = false
+	var txt := ""
+	if pts.size() == 1:
+		txt = "%s BPM, offset %d ms" % [str(pts[0].bpm), pts[0].ms]
+	else:
+		var parts := []
+		for p in pts.slice(0, min(pts.size(), 4) - 1):
+			parts.append("%s @ %d" % [str(p.bpm), p.ms])
+		txt = "%d tempos: %s%s" % [pts.size(), PoolStringArray(parts).join(", "), " ..." if pts.size() > 4 else ""]
+	if r is Dictionary:
+		txt += " - fits %d%% of %d notes" % [int(round(r.fit * 100.0)), r.notes]
+		if r.has("also") and not r.also.empty():
+			var alts := []
+			for a in r.also:
+				alts.append(str(a))
+			txt += ". Also fits: " + PoolStringArray(alts).join(", ")
+		_t.last_result = r
+	txt += ". Apply adds them as timing points"
+	_t_info(txt)
+
+func _t_notes_scale(k: float):
+	if _t.found.empty():
+		return
+	var out := []
+	for p in _t.found:
+		out.append({"bpm": stepify(p.bpm * k, 0.001), "ms": p.ms})
+	_t.found = out
+	_t_show_found(_t.get("last_result"))
+
+# Replaces the timing points in the detected range with the detected ones.
+func _t_notes_apply():
+	var pts: Array = _t.found
+	if pts.empty():
+		return
+	var start: int = pts[0].ms
+	var end: float = _t.get("found_end", INF)
+	var old := []
+	for p in ed.map.timing_points:
+		if p.ms >= start and p.ms <= end:
+			old.append(p)
+	var add := []
+	for p in pts:
+		add.append(SSQEMap.timing_point(float(p.bpm), int(p.ms)))
+	ed.map.replace_points("DETECT FROM NOTES", old, add)
+	_t.apply.disabled = true
+	_t_info("Added %d timing point%s." % [add.size(), "" if add.size() == 1 else "s"])
 
 # ---- timing formats (TimingsWindow.ParseOSU / ParseCH / ParseADOFAI)
 
