@@ -774,7 +774,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q"
 ]
 
 
@@ -859,6 +859,7 @@ const VERSION_NOTES = {
 	"oct22-2026-n": "- Touch indicator trail: smooth and much lighter (one tapered ribbon instead of hundreds of circles; only new points when your finger moves), so it no longer lags the game\n- Cursor trail on phones: drawn over the grid like the cursor (phones hid it behind the grid), and it no longer piles up while the cursor stands still\n- No Touch Delay: less delay. The cursor is put one frame ahead of your finger along the way it moves (back on the exact spot as soon as you stop), and iOS no longer holds the first touch back (also without the native helper)",
 	"oct22-2026-o": "- Fixed: the game could crash on phones right after failing with auto retry on. Retrying now goes through the song loader like starting a song from the menu (the crash log also shows more of the song start now)\n- Crash logs only show after a crash: closing the app from the phone's app switcher no longer counts as one. New experimental setting (Settings > Replays & Misc > Experimental, off by default): Always show crash logs, which shows the last session's log at every start\n- Phones: Load Replay button next to Map Folders in the map list, to watch a replay (.sspre) from your replays folder or anywhere on the phone\n- VR fixed (it couldn't start: the menu and songs failed to load in VR). The menu screen, the controller pointer and clicking work, the pointer dot sits where you point (it was drawn off to the side), the sidebar stays open while you point at it, the map list scrolls with the controller, songs play with the controller ray as the cursor, and Sound Space Mode works in VR. If SteamVR isn't running, Start VR tells you instead of breaking the menu",
 	"oct22-2026-p": "- VR: the game recenters to you. Resetting the boundary / Reset view on a Meta Quest (or SteamVR's reset) now puts the game at your eye height and in front of where you're facing: the menu screen straight ahead, the grid straight ahead in songs, whatever your real height. It also does this once when VR starts (it used to sit too low for most people)\n- VR: the crash log now shows each click and each map you open, to find the crash when clicking a map (send the crash log if it happens again)",
+	"oct22-2026-q": "- VR recentering follows where you look: look down when you reset the boundary / view and the menu screen (or the grid in a song) moves down in front of you and tilts to face you; look up and it goes up. It stays that way between the menu and songs\n- VR: recenter any time with A / X, and smaller view resets are noticed too\n- Crash reports now include the game engine's own error messages from the session that crashed (send them when it happens: they show what broke)\n- The engine log is now also kept on phones",
 	"oct21-2026-o": "- Sound Space Mode no longer changes your camera (half-lock / spin, camera, HUD and grid parallax, faraway HUD)",
 	"oct21-2026-n": "- Sound Space Mode also sets your display settings to classic Sound Space's while a song plays, and puts yours back after: its camera (Half-lock faraway, camera parallax 10, measured from a recording), FOV 75, no cursor trail, buffer cursor, spin, hit/miss/spawn effects, approach squares, note spin, glow, bloom or VHS, and all HUD parts on in their normal places. Your notes keep your own mesh and colors, and your settings are never saved with Sound Space's (even if the game closes during a song)",
 	"oct21-2026-m": "- Sound Space Mode matches classic Sound Space more closely (measured from a recording): floor and ceiling grid fading into the dark, the time on the top bracket line with the progress line under it, the health line on the bottom bracket line, wider side panels with bigger text, the multiplier box filling clockwise from the top-right corner and flashing orange when you reach x8, the grey square cursor with a thin white edge, and grey hit points in a normal font. It no longer changes your note mesh (or your colors)",
@@ -1305,6 +1306,7 @@ func _trail_start():
 		d.remove(Globals.p(TRAIL_PREV_FILE))
 		d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE))
 	last_session_crashed = state == "running" and last_session_trail.strip_edges() != ""
+	last_session_engine_log = _previous_engine_log(40)
 	if last_session_crashed:
 		_save_crash_report()
 	_set_session_state("running")
@@ -1398,9 +1400,46 @@ func crash_report(lines: int = 60) -> String:
 	var tail := []
 	for i in range(max(0, all.size() - lines), all.size()):
 		tail.append(all[i])
-	return "Chromia crash report (%s, %s %s)\n%s" % [
+	var out := "Chromia crash report (%s, %s %s)\n%s" % [
 		ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name(),
 		PoolStringArray(tail).join("\n")]
+	if last_session_engine_log != "":
+		out += "\n--- engine log (last lines) ---\n" + last_session_engine_log
+	return out
+
+# The engine's own log of the last session (errors and warnings from Godot,
+# which the trail doesn't have). Godot keeps the current one as godot.log and
+# renames the previous ones to godot<date>.log when it starts.
+var last_session_engine_log: String = ""
+func _previous_engine_log(lines: int) -> String:
+	var d := Directory.new()
+	var logs := Globals.p("user://logs")
+	if d.open(logs) != OK:
+		return ""
+	var newest := ""
+	d.list_dir_begin(true, true)
+	var fn := d.get_next()
+	while fn != "":
+		if fn.begins_with("godot") and fn.ends_with(".log") and fn != "godot.log" and fn > newest:
+			newest = fn
+		fn = d.get_next()
+	d.list_dir_end()
+	if newest == "":
+		return ""
+	var f := File.new()
+	if f.open(logs.plus_file(newest), File.READ) != OK:
+		return ""
+	var all := f.get_as_text().strip_edges().split("\n")
+	f.close()
+	var keep := []
+	for i in range(all.size() - 1, -1, -1):
+		var l := String(all[i]).strip_edges()
+		if l == "" or l.find("getaddrinfo") != -1 or l.find("_resolve_hostname") != -1 or l.find("TLS handshake") != -1 or l.find("_do_handshake") != -1:
+			continue
+		keep.push_front(l)
+		if keep.size() >= lines:
+			break
+	return PoolStringArray(keep).join("\n")
 
 # The one way the game closes (quit buttons, the quit key, the window's X).
 # Background work (map import, star ratings, thumbnails) is told to stop and
@@ -1859,6 +1898,11 @@ func setup_controller_bindings():
 	ev = InputEventJoypadButton.new()
 	ev.button_index = JOY_OCULUS_BY
 	InputMap.action_add_event("pause", ev)
+
+	# A / X: put the game where you're looking (VRPlayer.recenter_to_head)
+	ev = InputEventJoypadButton.new()
+	ev.button_index = JOY_OCULUS_AX
+	InputMap.action_add_event("vr_recenter", ev)
 
 	ev = InputEventJoypadMotion.new()
 	ev.axis = 2
