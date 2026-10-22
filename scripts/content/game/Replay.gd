@@ -436,7 +436,7 @@ func start_recording(with_song: Song):
 	file.store_buffer(file_sig)
 	file.store_16(current_sv)
 	file.store_64(0)
-	file.store_line(OS.get_unique_id())
+	file.store_line(Rhythia.get_hardware_id()) # hashed (never the raw device id)
 	file.store_line(id)
 	file.store_line(Rhythia.generate_pb_str())
 

@@ -111,6 +111,8 @@ jobs:
           "$GODOT" --no-window --path . --export "HTML5" "$PWD/web-dist/index.html"
           test -f web-dist/index.pck && test -f web-dist/index.wasm
           rm -rf web-dist/actions
+          # the privacy policy (iloverhythia.github.io/Chromia/privacy.html, for the stores)
+          cp web/privacy.html web-dist/privacy.html
           (cd web-dist && zip -q -r "../chromia-web.zip" .)
 
       - name: Export Linux build
