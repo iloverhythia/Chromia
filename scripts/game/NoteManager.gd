@@ -356,6 +356,8 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 				if not spectating_now:
 					emit_signal("miss", notes[i][3])
+					if _tracker != null:
+						_tracker.note_miss(i)
 				prev_ms = notems
 			elif result:
 
@@ -381,6 +383,8 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					hitEffect.duplicate().spawn(get_parent(), fx_pos, notes[i][3], hit_id, false)
 
 				if not spectating_now:
+					if _tracker != null:
+						_tracker.note_hit(i)
 					emit_signal("hit", notes[i][3])
 					var score: int = get_parent().hit(notes[i][3])
 					if Rhythia.sound_space_mode:
@@ -480,8 +484,12 @@ func _on_networked_skip(target_ms: float):
 		_n_music.play((ms + Rhythia.music_offset) / 1000)
 		music_started = true
 
+var _tracker = null # PlayTracker: how you play, for the Settings Generator
+
 func _ready():
 	Rhythia.start_log("note spawner")
+	load("res://scripts/game/PlayTracker.gd").attach(self)
+	_tracker = get_node_or_null("PlayTracker")
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null:
 		lobby_manager.connect("skip_triggered", self, "_on_networked_skip")

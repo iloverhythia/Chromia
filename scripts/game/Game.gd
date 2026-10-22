@@ -108,6 +108,9 @@ func end(end_type: int):
 	if not Rhythia.replaying:
 		Rhythia.record_play_stats()
 	load("res://scripts/ScoreHistory.gd").record_attempt() # skips replays/autoplay itself
+	var tracker = get_node_or_null("Spawn/PlayTracker")
+	if tracker != null:
+		tracker.finish(end_type) # Settings Generator data
 
 	if Rhythia.record_replays and not Rhythia.replaying:
 		Rhythia.replay.end_recording()

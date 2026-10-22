@@ -774,7 +774,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m"
 ]
 
 
@@ -855,6 +855,7 @@ const VERSION_NOTES = {
 	"oct22-2026-j": "- Sound Space Mode menu switching animations, like Sound Space's camera turning between panels: the screen you leave leans and slides off to the side while the new one slides in from the other side and settles (going into something comes from the right, BACK from the left). The screens stay still otherwise",
 	"oct22-2026-k": "- Sound Space Mode: the speed icons show at the bottom while playing again (they were pushed off the HUD), as Sound Space's modifier tiles; without Sound Space Mode they're the normal icons",
 	"oct22-2026-l": "- New experimental setting \"Sound Space Mode: gameplay only\" (Settings > Replays & Misc > Experimental): Sound Space Mode only changes the songs, and the menus (sidebar, map list, modifiers, pages) stay Chromia's",
+	"oct22-2026-m": "- NEW: Settings Generator (Settings > Generator). Chromia now keeps track of how you play every map (on this device only, turn it off with Track my plays): every note you hit or miss, how early your cursor gets there, whether you miss by being late, overshooting, being just off or aiming elsewhere, which jump speeds and parts of the grid you miss most, and the settings you had on. Generate my settings shows what it found and suggests settings that fit you, each with the reason and how sure it is: from your own history (plays compared on maps of the same difficulty, allowing for you improving) and from how you miss (e.g. overshooting -> lower sensitivity, late on fast jumps -> earlier notes). Apply one or all, Undo puts your old settings back. It only changes how the game feels (sensitivity, approach, parallax, FOV, fade, cursor scale, spin), never hitbox, hit window or mods",
 	"oct21-2026-o": "- Sound Space Mode no longer changes your camera (half-lock / spin, camera, HUD and grid parallax, faraway HUD)",
 	"oct21-2026-n": "- Sound Space Mode also sets your display settings to classic Sound Space's while a song plays, and puts yours back after: its camera (Half-lock faraway, camera parallax 10, measured from a recording), FOV 75, no cursor trail, buffer cursor, spin, hit/miss/spawn effects, approach squares, note spin, glow, bloom or VHS, and all HUD parts on in their normal places. Your notes keep your own mesh and colors, and your settings are never saved with Sound Space's (even if the game closes during a song)",
 	"oct21-2026-m": "- Sound Space Mode matches classic Sound Space more closely (measured from a recording): floor and ceiling grid fading into the dark, the time on the top bracket line with the progress line under it, the health line on the bottom bracket line, wider side panels with bigger text, the multiplier box filling clockwise from the top-right corner and flashing orange when you reach x8, the grey square cursor with a thin white edge, and grey hit points in a normal font. It no longer changes your note mesh (or your colors)",
@@ -2517,6 +2518,7 @@ var menu_lyric_volume: float = 1.0
 var show_touch_indicator: bool = true
 # Phones: Settings > "No Touch Delay" and "120 Hz" (apply_mobile_tuning)
 var sound_space_mode: bool = false # Experimental: songs look like the original Sound Space
+var track_plays: bool = true # PlayTracker: how you play, for the Settings Generator (stays on this device)
 var ss_gameplay_only: bool = false # Sound Space Mode only for songs: the menus stay Chromia's
 # the Sound Space Mode menus (main menu, map grid, page look, modifier tiles)
 func ss_menus_on() -> bool:
@@ -3297,6 +3299,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			show_touch_indicator = bool(data.show_touch_indicator)
 		if data.has("sound_space_mode"):
 			sound_space_mode = bool(data.sound_space_mode)
+		if data.has("track_plays"):
+			track_plays = bool(data.track_plays)
 		if data.has("ss_gameplay_only"):
 			ss_gameplay_only = bool(data.ss_gameplay_only)
 		if data.has("ss_score_popups"):
@@ -3763,6 +3767,7 @@ func _write_settings_file(saveFile: String):
 			show_touch_indicator = show_touch_indicator,
 			sound_space_mode = sound_space_mode,
 			ss_gameplay_only = ss_gameplay_only,
+			track_plays = track_plays,
 			ss_score_popups = ss_score_popups,
 			ss_health_y = ss_health_y,
 			ss_health_w = ss_health_w,
