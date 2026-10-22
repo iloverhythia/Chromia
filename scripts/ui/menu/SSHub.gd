@@ -33,6 +33,16 @@ var logo: TextureRect
 var _closing := false
 var _last_page = null
 const Sfx = preload("res://scripts/ui/menu/SSSfx.gd")
+const Cam = preload("res://scripts/ui/menu/SSCam.gd")
+const WHIP_TIME := 0.28
+# the camera (scripts/ui/menu/SSCam.gd): sway follows the cursor and is shared
+# with the map screen and the pages; whip is this menu's turn away / back
+var cam: Node2D
+var sway := Vector2.ZERO
+var whip := 0.0
+var page_whip := 0.0
+var entry_whip := -1.0 # where the next screen comes in from
+var _main_base = null  # Main's margins before the pages were moved
 
 static func install(menu_node: Node):
 	if menu_node == null or menu_node.has_node("SSHub"):
@@ -67,10 +77,14 @@ func _ready():
 		backdrop.margin_top = -2000
 		backdrop.margin_right = 2000
 		backdrop.margin_bottom = 2000
+	# the menu hangs under a "camera" node that leans and turns it
+	cam = Node2D.new()
+	cam.set_as_toplevel(true)
+	add_child(cam)
 	stage = Control.new()
 	stage.rect_size = STAGE
 	stage.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(stage)
+	cam.add_child(stage)
 	_build()
 	# BACK on the left of the other pages (where the sidebar was)
 	back_btn = _side_back()
@@ -195,33 +209,17 @@ func open():
 	_closing = false
 	_rebuild_items()
 	if not was:
-		_animate_in()
+		# the camera turns back to the menu: from the maps (on its left) it
+		# comes in from the right, from a page (on its right) from the left
+		var maps = menu.get_node_or_null("Main/Maps")
+		var from_maps: bool = maps != null and maps.visible
+		_whip_in(1.0 if from_maps else -1.0)
 
-# Like Sound Space: the menu fades in, the logo pops and the words come in
-# one after another, each with a tick.
-func _animate_in():
+func _whip_in(from: float):
 	Sfx.play(self, "swoosh")
-	stage.modulate.a = 0.0
+	whip = from
 	var tw := create_tween()
-	tw.tween_property(stage, "modulate:a", 1.0, 0.22)
-	if logo:
-		logo.rect_pivot_offset = logo.rect_size / 2.0
-		logo.rect_scale = Vector2(0.8, 0.8)
-		var lt := create_tween()
-		lt.tween_property(logo, "rect_scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var i := 0
-	for it in items_box.get_children():
-		if it.is_queued_for_deletion():
-			continue
-		var home: Vector2 = it.rect_position
-		it.rect_position = home - Vector2(90, 0)
-		it.modulate.a = 0.0
-		var t := create_tween()
-		t.tween_interval(0.12 + i * 0.055)
-		t.tween_callback(self, "_tick")
-		t.parallel().tween_property(it, "rect_position", home, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		t.parallel().tween_property(it, "modulate:a", 1.0, 0.2)
-		i += 1
+	tw.tween_property(self, "whip", 0.0, WHIP_TIME).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 
 func _on_back_btn():
 	Sfx.play(self, "select")
@@ -237,27 +235,39 @@ func _resharpen(k: float):
 	_build()
 	_rebuild_items()
 
-func close():
+# to_maps: PLAY (the maps are to the menu's left, so the menu is thrown to
+# the right and the maps come in from the left); anything else the other way
+func close(to_maps: bool = false):
 	if not hub_open:
 		return
 	hub_open = false
-	# fades out while the page comes in underneath
 	_closing = true
+	entry_whip = -1.0 if to_maps else 1.0
+	var ssm = menu.get_node_or_null("Main/SSMenu")
+	var maps = menu.get_node_or_null("Main/Maps")
+	if to_maps and ssm and maps and maps.visible:
+		ssm.call_deferred("_whip_in") # the maps were already up under the menu
 	var tw := create_tween()
-	tw.tween_property(stage, "modulate:a", 0.0, 0.18)
+	tw.tween_property(self, "whip", 1.0 if to_maps else -1.0, WHIP_TIME * 0.6).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
 	tw.tween_callback(self, "_closed")
 
 func _closed():
 	_closing = false
-	stage.modulate.a = 1.0
+	whip = 0.0
+
+# the screen that comes up next asks where to come in from
+func take_entry_whip() -> float:
+	var w := entry_whip
+	entry_whip = -1.0
+	return w
 
 func _on_item(btn):
 	Sfx.play(self, "select")
-	close()
+	close(is_instance_valid(btn) and btn.name == "Results")
 	if is_instance_valid(btn):
 		btn.emit_signal("pressed")
 
-func _process(_d):
+func _process(delta):
 	var on: bool = bool(Rhythia.get("sound_space_mode"))
 	if on != _on:
 		_on = on
@@ -289,7 +299,14 @@ func _process(_d):
 	if visible and abs(want - ui_k) > ui_k * 0.03:
 		_resharpen(want)
 	stage.rect_scale = Vector2(k, k)
-	stage.rect_global_position = ((vp - STAGE * k) / 2.0).floor()
+	stage.rect_position = ((vp - STAGE * k) / 2.0).floor()
+	# the camera drifts toward the cursor / finger, smoothly
+	var m: Vector2 = get_viewport().get_mouse_position()
+	var target := Vector2(clamp((m.x - vp.x / 2.0) / (vp.x / 2.0), -1.0, 1.0), clamp((m.y - vp.y / 2.0) / (vp.y / 2.0), -1.0, 1.0))
+	sway = sway.linear_interpolate(target, 1.0 - exp(-delta * 3.0))
+	cam.visible = visible
+	cam.transform = Cam.xform(vp, sway, whip)
+	_move_pages(on, vp)
 	# BACK on the pages other than the maps (those have their own)
 	if is_instance_valid(back_btn):
 		var maps = menu.get_node_or_null("Main/Maps")
@@ -300,8 +317,8 @@ func _process(_d):
 			back_btn.rect_scale = Vector2(s, s)
 			back_btn.rect_global_position = Vector2(30 * s - back_btn.rect_size.x / 2.0, vp.y / 2.0 - back_btn.rect_size.y / 2.0)
 
-# A page that comes up swings in (scales up from a bit smaller and fades in),
-# like Sound Space's camera turning to another panel.
+# A page that comes up is turned to like Sound Space's camera turning to
+# another panel: it whips in from the side, then drifts with the cursor.
 func _page_anim(on: bool):
 	var main = menu.get_node_or_null("Main")
 	if main == null:
@@ -317,12 +334,33 @@ func _page_anim(on: bool):
 	if not on or cur == null or cur.name == "Maps":
 		return
 	Sfx.play(self, "swoosh")
-	cur.rect_pivot_offset = cur.rect_size / 2.0
-	cur.rect_scale = Vector2(0.93, 0.93)
-	cur.modulate.a = 0.0
+	page_whip = take_entry_whip() if entry_whip != -1.0 else 1.0
 	var tw := create_tween()
-	tw.tween_property(cur, "rect_scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(cur, "modulate:a", 1.0, 0.22)
+	tw.tween_property(self, "page_whip", 0.0, WHIP_TIME).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+
+# The pages (settings, profile...) can only be moved, not leaned: they drift
+# with the cursor and whip in sideways. Put back when Sound Space Mode is off.
+func _move_pages(on: bool, vp: Vector2):
+	var main = menu.get_node_or_null("Main")
+	if main == null:
+		return
+	if not on:
+		if _main_base != null:
+			main.margin_left = _main_base[0]
+			main.margin_right = _main_base[1]
+			main.margin_top = _main_base[2]
+			main.margin_bottom = _main_base[3]
+			_main_base = null
+		return
+	if _main_base == null:
+		_main_base = [main.margin_left, main.margin_right, main.margin_top, main.margin_bottom]
+	var d: Vector2 = Cam.shift(vp, sway, page_whip)
+	var sc: Vector2 = main.get_global_transform().get_scale()
+	d /= Vector2(max(sc.x, 0.001), max(sc.y, 0.001))
+	main.margin_left = _main_base[0] + d.x
+	main.margin_right = _main_base[1] + d.x
+	main.margin_top = _main_base[2] + d.y
+	main.margin_bottom = _main_base[3] + d.y
 
 func _page_names() -> Array:
 	var out := []
@@ -341,7 +379,8 @@ func _unhandled_key_input(e):
 			return # that closes the map's screen first
 		if hub_open:
 			# back to where you were
-			close()
+			var mp = menu.get_node_or_null("Main/Maps")
+			close(mp != null and mp.visible)
 		else:
 			open()
 		get_tree().set_input_as_handled()
@@ -360,9 +399,6 @@ class Item extends Control:
 	func _h(v: bool):
 		if lab:
 			lab.add_color_override("font_color", hover_color if v else base_color)
-		rect_pivot_offset = rect_size / 2.0
-		var tw := create_tween()
-		tw.tween_property(self, "rect_scale", Vector2(1.08, 1.08) if v else Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		if v:
 			load("res://scripts/ui/menu/SSSfx.gd").play(self, "tick")
 	func _gui_input(e):

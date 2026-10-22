@@ -18,6 +18,7 @@ extends Control
 
 const ScoreHistory = preload("res://scripts/ScoreHistory.gd")
 const Sfx = preload("res://scripts/ui/menu/SSSfx.gd")
+const Cam = preload("res://scripts/ui/menu/SSCam.gd")
 const PlayerLevel = preload("res://scripts/PlayerLevel.gd")
 const PIXEL := "res://assets/font/PressStart2P/PressStart2P-Regular.ttf"
 const BOLD := "res://assets/font/Lato/Lato-Black.ttf"
@@ -70,6 +71,10 @@ var _fonts := {}
 # 1/ui_k) so it stays sharp on big and phone screens.
 var ui_k := 1.0
 var _was_visible := false
+# the camera (scripts/ui/menu/SSCam.gd): this screen leans with the cursor and
+# whips in when it comes up
+var cam: Node2D
+var whip := 0.0
 
 static func install(menu_node: Node):
 	var main = menu_node.get_node_or_null("Main")
@@ -94,10 +99,13 @@ func _ready():
 	list = get_parent().get_node_or_null("Maps/MapRegistry/S/VBoxContainer")
 	if list and list.has_signal("search_updated"):
 		list.connect("search_updated", self, "_on_search_updated")
+	cam = Node2D.new()
+	cam.set_as_toplevel(true)
+	add_child(cam)
 	stage = Control.new()
 	stage.rect_size = STAGE
 	stage.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(stage)
+	cam.add_child(stage)
 	_build_grid_view()
 
 func font(path: String, size: int, outline: int = 0, outline_color: Color = Color(0, 0, 0), sharp: bool = true) -> DynamicFont:
@@ -161,8 +169,12 @@ func _process(_d):
 	if want != visible:
 		visible = want
 	if visible and not _was_visible:
-		_refresh(0, true)
+		_refresh()
+		var hub = menu.get_node_or_null("SSHub")
+		if hub == null or not hub.hub_open:
+			_whip_in()
 	_was_visible = visible
+	cam.visible = visible
 	if not visible:
 		return
 	# centred on the whole window (not just the part right of the sidebar)
@@ -173,9 +185,11 @@ func _process(_d):
 	var sharp: float = k * stretch
 	if abs(sharp - ui_k) > ui_k * 0.03:
 		_resharpen(sharp)
-	var ps: float = max(get_global_transform().get_scale().x, 0.001)
-	stage.rect_scale = Vector2(k, k) / ps
-	stage.rect_global_position = ((vp - STAGE * k) / 2.0).floor()
+	stage.rect_scale = Vector2(k, k)
+	stage.rect_position = ((vp - STAGE * k) / 2.0).floor()
+	var hub = menu.get_node_or_null("SSHub")
+	var sway: Vector2 = hub.sway if hub else Vector2.ZERO
+	cam.transform = Cam.xform(vp, sway, whip)
 
 func _gui_input(e):
 	if e is InputEventMouseButton and e.pressed and (e.button_index == BUTTON_WHEEL_DOWN or e.button_index == BUTTON_WHEEL_UP) and song_view == null:
@@ -335,28 +349,14 @@ func _refresh(dir: int = 0, pop: bool = false):
 		tile_box.add_child(t)
 		t.setup(it.get("text", ""))
 		t.connect("clicked", self, "_on_tile", [it])
-		if dir != 0 or pop:
-			_animate_tile(t, i, dir)
-	if pop:
-		Sfx.play(self, "swoosh")
 
-func _animate_tile(t: Control, i: int, dir: int):
-	var home: Vector2 = t.rect_position
-	var alpha: float = t.modulate.a
-	t.modulate.a = 0.0
-	t.rect_pivot_offset = t.rect_size / 2.0
+
+func _whip_in():
+	var hub = menu.get_node_or_null("SSHub")
+	whip = hub.take_entry_whip() if hub else -1.0
+	Sfx.play(self, "swoosh")
 	var tw := create_tween()
-	if dir != 0:
-		# slide in from the side the page turned to
-		t.rect_position = home + Vector2(140 * dir, 0)
-		tw.tween_interval((i % 3) * 0.03 + (i / 3) * 0.015)
-		tw.tween_property(t, "rect_position", home, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	else:
-		# pop in, one after another
-		t.rect_scale = Vector2(0.6, 0.6)
-		tw.tween_interval(0.05 + i * 0.035)
-		tw.tween_property(t, "rect_scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(t, "modulate:a", alpha, 0.18)
+	tw.tween_property(self, "whip", 0.0, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 
 func _resharpen(k: float):
 	ui_k = k
@@ -451,17 +451,12 @@ func _open_song(s):
 	if s != Rhythia.selected_song:
 		Rhythia.select_song(s)
 	_build_song_view()
-	# swings in like Sound Space's camera turning to it
+	# comes in from the side like Sound Space's camera turning to it
 	Sfx.play(self, "swoosh")
-	song_view.rect_pivot_offset = STAGE / 2.0
-	song_view.rect_scale = Vector2(1.06, 1.06)
-	song_view.modulate.a = 0.0
 	var home: Vector2 = song_view.rect_position
-	song_view.rect_position = home + Vector2(70, 0)
+	song_view.rect_position = home + Vector2(STAGE.x * 0.6, 0)
 	var tw := create_tween()
-	tw.tween_property(song_view, "modulate:a", 1.0, 0.2)
-	tw.parallel().tween_property(song_view, "rect_scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(song_view, "rect_position", home, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(song_view, "rect_position", home, 0.26).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
 
 func _close_song():
 	if song_view != null:
@@ -471,8 +466,7 @@ func _close_song():
 		sv.mouse_filter = MOUSE_FILTER_IGNORE
 		Sfx.play(self, "swoosh")
 		var tw := create_tween()
-		tw.tween_property(sv, "modulate:a", 0.0, 0.16)
-		tw.parallel().tween_property(sv, "rect_scale", Vector2(0.96, 0.96), 0.16)
+		tw.tween_property(sv, "rect_position", sv.rect_position + Vector2(STAGE.x * 0.6, 0), 0.16).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
 		tw.tween_callback(sv, "queue_free")
 	_song = null
 
@@ -753,10 +747,8 @@ class Clickable extends RoundedBox:
 		_grow(v)
 		update()
 	# hover: a little bigger, with a tick (like Sound Space's buttons)
+	# hover: a tick, like Sound Space's buttons
 	func _grow(v: bool):
-		rect_pivot_offset = rect_size / 2.0
-		var tw := create_tween()
-		tw.tween_property(self, "rect_scale", Vector2(1.06, 1.06) if v else Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		if v:
 			load("res://scripts/ui/menu/SSSfx.gd").play(self, "tick")
 	func _gui_input(e):
