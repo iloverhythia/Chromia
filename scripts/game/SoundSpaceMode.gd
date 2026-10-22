@@ -30,7 +30,7 @@ const ORANGE := Color(1.0, 0.55, 0.0)
 const SCORE_YELLOW := Color(1.0, 0.95, 0.15)
 const CYAN := Color(0.0, 1.0, 1.0)
 const TIME_GREY := Color(0.6, 0.6, 0.63)
-const PANEL := Color(0.0, 0.0, 0.0, 0.62)
+const PANEL := Color(0.0, 0.0, 0.0, 0.4) # measured from the video
 const PANEL_SIZE := Vector2(420, 1000)
 const PROGRESS_W := 690.0
 const HEALTH_W := 620.0
@@ -216,7 +216,7 @@ func _build():
 	var top := _bar_root(hud.get_node("TimerVP/Control"), "SoundSpace")
 	time_label = _label(top, "0:00", 52, TIME_GREY, 127, 900)
 	var line_bg := ColorRect.new()
-	line_bg.color = Color(0.16, 0.15, 0.18)
+	line_bg.color = Color8(40, 40, 40) # the skin's progress_background
 	line_bg.rect_position = Vector2(450 - PROGRESS_W / 2, 172)
 	line_bg.rect_size = Vector2(PROGRESS_W, 5)
 	top.add_child(line_bg)
@@ -229,6 +229,13 @@ func _build():
 	# bottom (on the bottom bracket line): green health line
 	var show_hp: bool = hud.energybar.visible
 	var bottom := _bar_root(hud.get_node("EnergyVP/Control"), "SoundSpace")
+	# the skin's health_background: red behind the green line
+	var health_bg := ColorRect.new()
+	health_bg.color = Color(1, 0, 0)
+	health_bg.rect_position = Vector2(450 - HEALTH_W / 2, 145)
+	health_bg.rect_size = Vector2(HEALTH_W, 10)
+	health_bg.visible = show_hp
+	bottom.add_child(health_bg)
 	health_fill = ColorRect.new()
 	health_fill.color = GREEN
 	health_fill.rect_position = Vector2(450 - HEALTH_W / 2, 145)
