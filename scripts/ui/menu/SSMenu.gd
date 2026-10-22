@@ -18,7 +18,6 @@ extends Control
 
 const ScoreHistory = preload("res://scripts/ScoreHistory.gd")
 const Sfx = preload("res://scripts/ui/menu/SSSfx.gd")
-const Cam = preload("res://scripts/ui/menu/SSCam.gd")
 const PlayerLevel = preload("res://scripts/PlayerLevel.gd")
 const PIXEL := "res://assets/font/PressStart2P/PressStart2P-Regular.ttf"
 const BOLD := "res://assets/font/Lato/Lato-Black.ttf"
@@ -71,10 +70,12 @@ var _fonts := {}
 # 1/ui_k) so it stays sharp on big and phone screens.
 var ui_k := 1.0
 var _was_visible := false
-# the camera (scripts/ui/menu/SSCam.gd): this screen leans with the cursor and
-# whips in when it comes up
-var cam: Node2D
-var whip := 0.0
+var cam: Node2D # holds the screen, drawn at the window's size
+# opening a map: Sound Space's "LOADING (click to cancel)" box on the grid
+var loading: Control = null
+var _load_t := 0.0
+const LOAD_MIN := 0.6
+const LOAD_GIVE_UP := 40.0
 
 static func install(menu_node: Node):
 	var main = menu_node.get_node_or_null("Main")
@@ -89,6 +90,7 @@ static func install(menu_node: Node):
 		main.move_child(n, mp.get_index() + 1)
 
 func _ready():
+	pause_mode = PAUSE_MODE_PROCESS # the loading ring keeps spinning while a map downloads
 	anchor_right = 1
 	anchor_bottom = 1
 	margin_right = 0
@@ -164,7 +166,7 @@ func fit(text: String, f: Font, w: float) -> String:
 		t = t.substr(0, t.length() - 1)
 	return t.strip_edges() + "..."
 
-func _process(_d):
+func _process(delta):
 	var want: bool = bool(Rhythia.get("sound_space_mode")) and maps != null and maps.visible
 	if want != visible:
 		visible = want
@@ -172,7 +174,7 @@ func _process(_d):
 		_refresh()
 		var hub = menu.get_node_or_null("SSHub")
 		if hub == null or not hub.hub_open:
-			_whip_in()
+			Sfx.play(self, "swoosh")
 	_was_visible = visible
 	cam.visible = visible
 	if not visible:
@@ -187,9 +189,7 @@ func _process(_d):
 		_resharpen(sharp)
 	stage.rect_scale = Vector2(k, k)
 	stage.rect_position = ((vp - STAGE * k) / 2.0).floor()
-	var hub = menu.get_node_or_null("SSHub")
-	var sway: Vector2 = hub.sway if hub else Vector2.ZERO
-	cam.transform = Cam.xform(vp, sway, whip)
+	_loading_step(delta)
 
 func _gui_input(e):
 	if e is InputEventMouseButton and e.pressed and (e.button_index == BUTTON_WHEEL_DOWN or e.button_index == BUTTON_WHEEL_UP) and song_view == null:
@@ -351,13 +351,6 @@ func _refresh(dir: int = 0, pop: bool = false):
 		t.connect("clicked", self, "_on_tile", [it])
 
 
-func _whip_in():
-	var hub = menu.get_node_or_null("SSHub")
-	whip = hub.take_entry_whip() if hub else -1.0
-	Sfx.play(self, "swoosh")
-	var tw := create_tween()
-	tw.tween_property(self, "whip", 0.0, 0.28).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-
 func _resharpen(k: float):
 	ui_k = k
 	_fonts.clear()
@@ -446,27 +439,54 @@ func _on_replay_picked(path):
 
 # --- the map's screen ---------------------------------------------------------
 
+# Like Sound Space: tapping a map shows "LOADING (click to cancel)" with a
+# spinning ring over the grid (until an online map has downloaded), then the
+# map's screen fades in over the dimmed grid.
 func _open_song(s):
+	if loading != null:
+		return
 	_song = s
+	loading = LoadingBox.new()
+	loading.ui = self
+	loading.rect_position = Vector2(412, 188)
+	loading.rect_size = Vector2(456, 456)
+	loading.connect("clicked", self, "_cancel_loading")
+	grid_view.add_child(loading)
+	_load_t = 0.0
 	if s != Rhythia.selected_song:
 		Rhythia.select_song(s)
-	_build_song_view()
-	# comes in from the side like Sound Space's camera turning to it
-	Sfx.play(self, "swoosh")
-	var home: Vector2 = song_view.rect_position
-	song_view.rect_position = home + Vector2(STAGE.x * 0.6, 0)
-	var tw := create_tween()
-	tw.tween_property(song_view, "rect_position", home, 0.26).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+
+func _loading_step(delta: float):
+	if loading == null:
+		return
+	_load_t += delta
+	if _song == null or _load_t > LOAD_GIVE_UP:
+		_cancel_loading()
+		return
+	if _load_t >= LOAD_MIN and not _song.is_online and Rhythia.selected_song == _song:
+		loading.queue_free()
+		loading = null
+		_build_song_view()
+		Sfx.play(self, "swoosh")
+		song_view.modulate.a = 0.0
+		var tw := create_tween()
+		tw.tween_property(song_view, "modulate:a", 1.0, 0.2)
+
+func _cancel_loading():
+	if loading != null:
+		loading.queue_free()
+		loading = null
+	_song = null
 
 func _close_song():
 	if song_view != null:
-		# fades out and drops away a little
+		# fades back to the grid
 		var sv := song_view
 		song_view = null
 		sv.mouse_filter = MOUSE_FILTER_IGNORE
 		Sfx.play(self, "swoosh")
 		var tw := create_tween()
-		tw.tween_property(sv, "rect_position", sv.rect_position + Vector2(STAGE.x * 0.6, 0), 0.16).set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_IN)
+		tw.tween_property(sv, "modulate:a", 0.0, 0.18)
 		tw.tween_callback(sv, "queue_free")
 	_song = null
 
@@ -993,6 +1013,30 @@ class Cover extends Control:
 			var tex = song.cover
 			if tex:
 				draw_texture_rect(tex, r.grow(-6), false)
+
+# Sound Space's map loading box: dark over the grid, LOADING, (click to
+# cancel), and an orange ring going round.
+class LoadingBox extends Control:
+	signal clicked
+	var ui
+	var angle := 0.0
+	func _ready():
+		mouse_filter = MOUSE_FILTER_STOP
+		pause_mode = PAUSE_MODE_PROCESS
+		ui.label(self, "LOADING", ui.font(ui.BOLD, 46, 4, Color(0.05, 0.05, 0.05)), Color(1, 1, 1), Vector2(0, rect_size.y / 2 - 44), Vector2(rect_size.x, 60), Label.ALIGN_CENTER)
+		ui.label(self, "(click to cancel)", ui.font(ui.BOLD, 15, 1, Color(0, 0, 0)), Color(0.8, 0.8, 0.8), Vector2(0, rect_size.y / 2 + 10), Vector2(rect_size.x, 22), Label.ALIGN_CENTER)
+	func _process(delta):
+		angle = fmod(angle + delta * 5.0, TAU)
+		update()
+	func _gui_input(e):
+		if e is InputEventMouseButton and e.button_index == BUTTON_LEFT:
+			accept_event()
+			if not e.pressed:
+				emit_signal("clicked")
+	func _draw():
+		draw_rect(Rect2(Vector2.ZERO, rect_size), Color(0, 0, 0, 0.62))
+		var c := rect_size / 2.0 - Vector2(0, 10)
+		draw_arc(c, 92, angle, angle + PI * 1.3, 48, Color8(245, 140, 40), 9.0, true)
 
 class DiffSquare extends Control:
 	var color := Color(1, 1, 1)
