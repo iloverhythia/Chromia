@@ -12,6 +12,8 @@ func _input(event: InputEvent):
 			viewport.input(event)
 		elif event is InputEventMouseButton:
 			var e: InputEventMouseButton = event as InputEventMouseButton
+			if e.pressed:
+				Rhythia.trail("VR click at %s" % last_screen_pos)
 			var ev: InputEventMouseButton = InputEventMouseButton.new()
 			ev.position = last_screen_pos
 			ev.button_index = e.button_index
@@ -21,6 +23,8 @@ func _input(event: InputEvent):
 		elif event is InputEventJoypadButton and (event as InputEventJoypadButton):
 			var e: InputEventJoypadButton = event
 			if e.button_index == 15:
+				if e.pressed:
+					Rhythia.trail("VR trigger at %s" % last_screen_pos)
 				var ev: InputEventMouseButton = InputEventMouseButton.new()
 				ev.position = last_screen_pos
 				ev.button_index = BUTTON_LEFT

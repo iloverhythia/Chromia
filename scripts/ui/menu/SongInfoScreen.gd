@@ -97,6 +97,7 @@ func _on_my_map_stats_received(song_id: String, has_passed: bool, best_xp: int, 
 func update(_s = null):
 	if not Rhythia.selected_song: return
 	print("[map] selected %s" % String(Rhythia.selected_song.id))
+	Rhythia.trail("map screen: %s" % String(Rhythia.selected_song.id))
 	$RS.visible = true
 	var map: Song = Rhythia.selected_song
 
@@ -202,6 +203,7 @@ func update(_s = null):
 		$Actions/Convert.text = "Convert map to .sspm"
 
 
+	Rhythia.trail("map screen ready")
 	if is_inside_tree():
 		yield(get_tree(), "idle_frame")
 		yield(get_tree(), "idle_frame")
