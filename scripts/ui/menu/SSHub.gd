@@ -34,6 +34,32 @@ var _last_page = null
 const Sfx = preload("res://scripts/ui/menu/SSSfx.gd")
 var cam: Node2D # holds the menu, drawn at the window's size over everything
 
+# Switching menus, like Sound Space's camera turning from one panel to the
+# next: the screen you leave slides off to one side, leaning and fading, and
+# the new one slides in from the other side and settles. Going into something
+# comes in from the right, BACK from the left. t: 0 = in place, -1 / +1 = off
+# to the left / right.
+const IN_TIME := 0.34
+const OUT_TIME := 0.24
+var t_hub := 0.0
+var t_page := 0.0
+var _closing := false
+var _page_from := 1.0
+var _main_base = null # the pages' margins / look before moving them
+
+static func screen_xf(vp: Vector2, t: float) -> Transform2D:
+	var c := vp / 2.0
+	var x_axis := Vector2(1.0 - abs(t) * 0.1, t * 0.16) # squeezed and leaning while off to the side
+	var y_axis := Vector2(0, 1)
+	return Transform2D(x_axis, y_axis, c + Vector2(t * vp.x * 0.35, 0) - (x_axis * c.x + y_axis * c.y))
+
+func _slide(prop: String, from: float, to: float, time: float, ease_in: bool):
+	set(prop, from)
+	var tw := create_tween()
+	# leaving: off fast so the new screen shows; coming in: settles softly
+	tw.tween_property(self, prop, to, time).set_trans(Tween.TRANS_CUBIC if ease_in else Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	return tw
+
 static func install(menu_node: Node):
 	if menu_node == null or menu_node.has_node("SSHub"):
 		return
@@ -195,9 +221,18 @@ func _side_back() -> Control:
 func open():
 	var was := hub_open
 	hub_open = true
+	_closing = false
 	_rebuild_items()
 	if not was:
 		Sfx.play(self, "swoosh")
+		# back to the menu: it comes in from the left, what you were on goes right
+		_slide("t_hub", -1.0, 0.0, IN_TIME, false)
+		var maps = menu.get_node_or_null("Main/Maps")
+		var ssm = menu.get_node_or_null("Main/SSMenu")
+		if maps and maps.visible and ssm:
+			ssm.slide(0.0, 1.0, OUT_TIME, true)
+		elif _last_page != null:
+			_slide("t_page", 0.0, 1.0, OUT_TIME, true)
 
 func _on_back_btn():
 	Sfx.play(self, "select")
@@ -210,8 +245,24 @@ func _resharpen(k: float):
 	_build()
 	_rebuild_items()
 
-func close(_to_maps: bool = false):
+func close(to_maps: bool = false):
+	if not hub_open:
+		return
 	hub_open = false
+	# the menu goes off to the left, what you picked comes in from the right
+	_closing = true
+	_slide("t_hub", 0.0, -1.0, OUT_TIME, true).tween_callback(self, "_closed")
+	_page_from = 1.0
+	var maps = menu.get_node_or_null("Main/Maps")
+	var ssm = menu.get_node_or_null("Main/SSMenu")
+	if to_maps and maps and maps.visible and ssm:
+		ssm.slide(1.0, 0.0, IN_TIME, false) # the maps were already up under the menu
+	elif not to_maps:
+		_last_page = null # whatever page shows next slides in
+
+func _closed():
+	_closing = false
+	t_hub = 0.0
 
 func _on_item(btn):
 	Sfx.play(self, "select")
@@ -234,7 +285,7 @@ func _process(_delta):
 			sc.visible = false
 	if on:
 		Engine.set_meta(META_SEEN, true)
-	visible = on and hub_open
+	visible = on and (hub_open or _closing)
 	backdrop.visible = on
 	if visible:
 		# the sidebar's buttons can change (VR found, single map mode)
@@ -253,6 +304,9 @@ func _process(_delta):
 	stage.rect_scale = Vector2(k, k)
 	stage.rect_position = ((vp - STAGE * k) / 2.0).floor()
 	cam.visible = visible
+	cam.transform = screen_xf(vp, t_hub)
+	stage.modulate.a = 1.0 - abs(t_hub)
+	_place_pages(on, vp)
 	# BACK on the pages other than the maps (those have their own)
 	if is_instance_valid(back_btn):
 		var maps = menu.get_node_or_null("Main/Maps")
@@ -279,6 +333,29 @@ func _page_anim(on: bool):
 	if not on or cur == null or cur.name == "Maps":
 		return
 	Sfx.play(self, "swoosh")
+	_slide("t_page", _page_from, 0.0, IN_TIME, false)
+	_page_from = 1.0
+
+# The pages (settings, profile...) slide and fade (they can't lean); they're
+# put back exactly when they're in place or Sound Space Mode is off.
+func _place_pages(on: bool, vp: Vector2):
+	var main = menu.get_node_or_null("Main")
+	if main == null:
+		return
+	if not on or is_zero_approx(t_page):
+		if _main_base != null:
+			main.margin_left = _main_base[0]
+			main.margin_right = _main_base[1]
+			main.modulate.a = _main_base[2]
+			_main_base = null
+		return
+	if _main_base == null:
+		_main_base = [main.margin_left, main.margin_right, main.modulate.a]
+	var sc: float = max(main.get_global_transform().get_scale().x, 0.001)
+	var dx: float = t_page * vp.x * 0.35 / sc
+	main.margin_left = _main_base[0] + dx
+	main.margin_right = _main_base[1] + dx
+	main.modulate.a = _main_base[2] * (1.0 - abs(t_page))
 
 func _page_names() -> Array:
 	var out := []

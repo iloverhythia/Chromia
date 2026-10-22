@@ -71,6 +71,7 @@ var _fonts := {}
 var ui_k := 1.0
 var _was_visible := false
 var cam: Node2D # holds the screen, drawn at the window's size
+var t_screen := 0.0 # sliding in / out when switching menus (see SSHub.gd)
 # opening a map: Sound Space's "LOADING (click to cancel)" box on the grid
 var loading: Control = null
 var _load_t := 0.0
@@ -101,6 +102,18 @@ func _ready():
 	list = get_parent().get_node_or_null("Maps/MapRegistry/S/VBoxContainer")
 	if list and list.has_signal("search_updated"):
 		list.connect("search_updated", self, "_on_search_updated")
+	# solid black under the screen, so the normal map list never shows
+	# through while it fades in / out
+	var under := ColorRect.new()
+	under.color = Color(0, 0, 0)
+	under.mouse_filter = MOUSE_FILTER_IGNORE
+	under.anchor_right = 1
+	under.anchor_bottom = 1
+	under.margin_left = -2000
+	under.margin_top = -2000
+	under.margin_right = 2000
+	under.margin_bottom = 2000
+	add_child(under)
 	cam = Node2D.new()
 	cam.set_as_toplevel(true)
 	add_child(cam)
@@ -175,6 +188,7 @@ func _process(delta):
 		var hub = menu.get_node_or_null("SSHub")
 		if hub == null or not hub.hub_open:
 			Sfx.play(self, "swoosh")
+			slide(1.0, 0.0, 0.34, false)
 	_was_visible = visible
 	cam.visible = visible
 	if not visible:
@@ -190,6 +204,8 @@ func _process(delta):
 	stage.rect_scale = Vector2(k, k)
 	stage.rect_position = ((vp - STAGE * k) / 2.0).floor()
 	_loading_step(delta)
+	cam.transform = load("res://scripts/ui/menu/SSHub.gd").screen_xf(vp, t_screen)
+	stage.modulate.a = 1.0 - abs(t_screen)
 
 func _gui_input(e):
 	if e is InputEventMouseButton and e.pressed and (e.button_index == BUTTON_WHEEL_DOWN or e.button_index == BUTTON_WHEEL_UP) and song_view == null:
@@ -350,6 +366,17 @@ func _refresh(dir: int = 0, pop: bool = false):
 		t.setup(it.get("text", ""))
 		t.connect("clicked", self, "_on_tile", [it])
 
+
+# slide this screen in or out (menu switching, see SSHub.gd)
+func slide(from: float, to: float, time: float, ease_in: bool):
+	t_screen = from
+	var tw := create_tween()
+	tw.tween_property(self, "t_screen", to, time).set_trans(Tween.TRANS_CUBIC if ease_in else Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
+	if to != 0.0:
+		tw.tween_callback(self, "_slid_out")
+
+func _slid_out():
+	t_screen = 0.0 # it's covered by the menu by now
 
 func _resharpen(k: float):
 	ui_k = k
