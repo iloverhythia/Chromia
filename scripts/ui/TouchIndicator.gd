@@ -43,6 +43,9 @@ var _ripples := []        # [{pos, t, hue}]
 var _canvas: Control
 var _custom: Texture = null
 var _time := 0.0
+var _st := {}             # style() for this frame (it's read a lot)
+const TRAIL_MAX := 48     # trail points kept per finger
+const TRAIL_STEP := 3.0   # px a finger has to move for a new trail point
 
 static func style() -> Dictionary:
 	var s := DEFAULTS.duplicate()
@@ -80,7 +83,9 @@ func _shown(st: Dictionary) -> bool:
 	return bool(st.in_songs) if Rhythia.in_map else bool(st.in_menus)
 
 func _input(event):
-	var st := style()
+	if _st.empty():
+		_st = style()
+	var st: Dictionary = _st
 	if not _shown(st):
 		if not _touches.empty() or not _ripples.empty():
 			_touches.clear()
@@ -95,21 +100,25 @@ func _input(event):
 		elif _touches.has(event.index):
 			_touches[event.index].pos = event.position
 			_touches[event.index].down = false
-		_canvas.update()
 	elif event is InputEventScreenDrag:
 		if not _touches.has(event.index):
 			_touches[event.index] = {pos = event.position, alpha = 1.0, down = true, t0 = _time, trail = []}
 		var t: Dictionary = _touches[event.index]
 		t.pos = event.position
 		if st.trail:
-			t.trail.append([event.position, _time])
-		_canvas.update()
+			# a point only when the finger really moved (phones send many
+			# drag events per frame), and not too many of them
+			if t.trail.empty() or event.position.distance_to(t.trail[-1][0]) >= TRAIL_STEP:
+				t.trail.append([event.position, _time])
+				if t.trail.size() > TRAIL_MAX:
+					t.trail.pop_front()
 
 func _process(delta):
 	_time += delta
+	_st = style()
 	if _touches.empty() and _ripples.empty():
 		return
-	var st := style()
+	var st: Dictionary = _st
 	var gone := []
 	for i in _touches:
 		var t: Dictionary = _touches[i]
@@ -130,7 +139,7 @@ func _hue(index: int, st: Dictionary) -> float:
 	return fmod(_time * float(st.rainbow_speed) + index * 0.17, 1.0)
 
 func _draw_touches():
-	var st := style()
+	var st: Dictionary = _st if not _st.empty() else style()
 	for r in _ripples:
 		draw_ripple(_canvas, r.pos, (_time - r.t) / 0.5, st, r.hue)
 	for i in _touches:
@@ -213,16 +222,39 @@ static func draw_trail(ci: CanvasItem, pts: Array, now: float, st: Dictionary, a
 	var base := _tint(color_of(st.color, Color(1, 0.86, 0.97)), st, hue, a)
 	var width: float = float(st.size) * float(st.trail_width)
 	var life: float = max(float(st.trail_time), 0.01)
-	# round dots along the path (no gaps or square ends at any width)
-	for i in range(1, pts.size()):
+	var n := pts.size()
+	if n < 2:
+		return
+	# A tapered ribbon in one continuous strip: each point gets a side
+	# direction averaged from the segments around it, and neighbouring quads
+	# share their edges (a few dozen quads, where it used to be hundreds of
+	# overlapping circles).
+	var side := []
+	var wid := []
+	var col := []
+	for i in range(n):
+		var p: Vector2 = pts[i][0]
+		var a_dir := Vector2.ZERO
+		if i > 0:
+			a_dir += (p - pts[i - 1][0]).normalized()
+		if i < n - 1:
+			a_dir += (pts[i + 1][0] - p).normalized()
+		if a_dir.length_squared() < 0.0001:
+			a_dir = Vector2.RIGHT if side.empty() else Vector2(side[-1].y, -side[-1].x)
+		a_dir = a_dir.normalized()
+		side.append(Vector2(-a_dir.y, a_dir.x))
 		var k: float = clamp(1.0 - (now - pts[i][1]) / life, 0.0, 1.0)
-		if k <= 0.0:
-			continue
+		wid.append(max(width * k * 0.5, 0.75))
 		var c := base
 		c.a *= k * 0.6
-		var rad: float = max(width * k * 0.5, 0.75)
-		var from: Vector2 = pts[i - 1][0]
-		var to: Vector2 = pts[i][0]
-		var steps := int(clamp(from.distance_to(to) / max(rad * 0.6, 1.0), 1, 24))
-		for j in range(steps):
-			ci.draw_circle(from.linear_interpolate(to, float(j + 1) / steps), rad, c)
+		col.append(c)
+	for i in range(1, n):
+		if col[i].a <= 0.0 and col[i - 1].a <= 0.0:
+			continue
+		var p0: Vector2 = pts[i - 1][0]
+		var p1: Vector2 = pts[i][0]
+		ci.draw_primitive(PoolVector2Array([p0 + side[i - 1] * wid[i - 1], p1 + side[i] * wid[i], p1 - side[i] * wid[i], p0 - side[i - 1] * wid[i - 1]]),
+			PoolColorArray([col[i - 1], col[i], col[i], col[i - 1]]), PoolVector2Array())
+	# round end at the finger
+	if col[n - 1].a > 0.0:
+		ci.draw_circle(pts[n - 1][0], wid[n - 1], col[n - 1])

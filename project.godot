@@ -329,7 +329,7 @@ config/save_dir.Android="user://"
 config/show_trail_debug=false
 config/use_custom_user_dir=true
 config/use_custom_user_dir.Android=false
-config/version="oct22-2026-m"
+config/version="oct22-2026-n"
 config/windows_native_icon="res://icon.ico"
 networking/enabled=true
 networking/github_repo="iloverhythia/Chromia"
@@ -543,6 +543,10 @@ warning_test={
 "deadzone": 0.5,
 "events": [ Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":0,"alt":true,"shift":true,"control":false,"meta":false,"command":false,"pressed":false,"scancode":87,"physical_scancode":0,"unicode":0,"echo":false,"script":null) ]
 }
+
+[input_devices]
+
+pointing/ios/touch_delay=0.0
 
 [locale]
 

@@ -35,8 +35,10 @@ func respawn(t_override=null,rot=0):
 		global_transform.origin = t_override
 		$Mesh.rotation_degrees.x = rot
 	else:
-		visible = (cursor.global_transform.origin - Vector3(0,0,0.001)) != last_origin
-		global_transform.origin = cursor.global_transform.origin - Vector3(0,0,0.001)
+		var here: Vector3 = cursor.global_transform.origin - Vector3(0,0,0.001)
+		visible = here != last_origin # nothing piles up where the cursor stands still
+		last_origin = here
+		global_transform.origin = here
 		if Input.is_key_pressed(KEY_V):
 			global_transform.origin = Vector3((offset*3)-1.5,(offset*3)-1.5,-0.2)
 	
@@ -87,6 +89,11 @@ func init():
 	if init_done: return
 	init_done = true
 	var mat:SpatialMaterial = $Mesh.get("material/0").duplicate()
+	# Drawn over the grid like the cursor is (no depth test), just under it.
+	# With the depth test, phones (less depth precision) hid the trail
+	# behind the grid it sits on, and the grid frame was drawn over it.
+	mat.flags_no_depth_test = true
+	mat.render_priority = 98
 	$Mesh.scale = Vector3(0,1,0)
 	if not Rhythia.trail_mode_scale:
 		$Mesh.scale = Vector3(Rhythia.cursor_scale,1,Rhythia.cursor_scale)

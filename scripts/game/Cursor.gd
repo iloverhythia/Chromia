@@ -92,9 +92,43 @@ func move_cursor_abs(mdel: Vector2):
 
 
 onready var absCamera = get_node("../../../AbsCamera")
+
+# Touch prediction (phones, Settings > No Touch Delay): what's on screen is a
+# frame or so behind your finger, so the cursor is put one frame ahead of it
+# along the way it's moving (like phones do for pens). When the finger stops,
+# it's back on the real spot the next frame.
+var _pred := false
+var _pred_vel := Vector2.ZERO # px/s, smoothed
+var _pred_last := Vector2.ZERO
+var _pred_t := 0
+var _pred_ahead := false
+func _predict_input(p: Vector2):
+	var now := OS.get_ticks_usec()
+	var dt := float(now - _pred_t) / 1000000.0
+	if _pred_t > 0 and dt > 0.0005 and dt < 0.1:
+		var v := (p - _pred_last) / dt
+		_pred_vel = _pred_vel.linear_interpolate(v, 0.6)
+	else:
+		_pred_vel = Vector2.ZERO
+	_pred_last = p
+	_pred_t = now
+
+func _predicted_mouse() -> Vector2:
+	var m := get_viewport().get_mouse_position()
+	if not _pred:
+		return m
+	var fps: float = max(Engine.get_frames_per_second(), 30.0)
+	var lead: float = clamp(1.0 / fps, 0.004, 0.017) # one frame
+	var ahead := _pred_vel * lead
+	var cap: float = get_viewport().get_visible_rect().size.y * 0.04 # never far off
+	if ahead.length() > cap:
+		ahead = ahead.normalized() * cap
+	_pred_ahead = ahead.length_squared() > 0.25
+	return m + ahead
+
 func get_absolute_position():
 	absCamera.fov = Rhythia.get("fov")
-	var pos = absCamera.project_position(get_viewport().get_mouse_position(), 3.75) * Rhythia.absolute_scale
+	var pos = absCamera.project_position(_predicted_mouse(), 3.75) * Rhythia.absolute_scale
 	return Vector2(pos.x, -pos.y) + Vector2(1, 1)
 
 func _input(event: InputEvent):
@@ -118,6 +152,8 @@ func _input(event: InputEvent):
 			visible = true
 			if (event is InputEventMouseMotion):
 				_face_accum += event.relative
+				if _pred:
+					_predict_input(event.position)
 				if Rhythia.invert_mouse:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position() * -1)
@@ -177,6 +213,11 @@ func check_debug_mouse_toggle():
 			mt = 0
 
 func _process(delta):
+	# touch prediction: finger stopped -> back on the real spot
+	if _pred and _pred_ahead and Rhythia.absolute_mode and not Rhythia.replaying:
+		if float(OS.get_ticks_usec() - _pred_t) / 1000000.0 > 1.5 / max(Engine.get_frames_per_second(), 30.0):
+			_pred_vel = Vector2.ZERO
+			move_cursor_abs(get_absolute_position() * (-1 if Rhythia.invert_mouse else 1))
 	check_debug_mouse_toggle()
 	frame = Engine.get_frames_drawn()
 	if Rhythia.cursor_spin != 0 and not Rhythia.cursor_face_velocity:
@@ -249,6 +290,7 @@ func _process(delta):
 
 func _ready():
 	if not Rhythia.show_cursor: visible = false
+	_pred = Rhythia.device("mobile") and bool(Rhythia.get("mobile_no_delay")) and Rhythia.absolute_mode and not Rhythia.replaying
 
 	if not Rhythia.replaying:
 		if not Rhythia.absolute_mode:
