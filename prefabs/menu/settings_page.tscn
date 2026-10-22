@@ -6271,6 +6271,27 @@ flat = true
 script = ExtResource( 54 )
 target = "sound_space_mode"
 
+[node name="SoundSpaceScorePopups" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_top = 173.0
+margin_right = 955.0
+margin_bottom = 201.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "Sound Space Mode: the points of each hit pop up under the grid, like in Sound Space."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Sound Space Mode: score popups"
+flat = true
+script = ExtResource( 54 )
+target = "ss_score_popups"
+
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Replays & Misc"]
 margin_top = 501.0
 margin_right = 1280.0

@@ -51,7 +51,7 @@ var time_label: Label
 var progress_fill: ColorRect
 var health_fill: ColorRect
 var popups: CanvasLayer
-var _last_score := 0
+var _pops := [] # [label, world position, age]
 var _saved := {}
 
 # Classic Sound Space's look, for the length of a song. Your camera (half-lock,
@@ -63,7 +63,7 @@ const LOOK := {
 	"show_hit_effect": false, "show_miss_effect": false, "note_spawn_effect": false,
 	"note_visual_approach": false, "note_spin_x": 0.0, "note_spin_y": 0.0, "note_spin_z": 0.0,
 	"glow": 0.0, "bloom": 0.0, "vhs_shader": false,
-	"show_config": false, "simple_hud": false, "rainbow_hud": false,
+	"score_popup": false, "show_config": false, "simple_hud": false, "rainbow_hud": false,
 	"attach_hp_to_grid": false, "attach_timer_to_grid": false, "expand_hud_onhr": false,
 	"enable_grid": false, "enable_border": true, "show_left_panel": true,
 	"show_right_panel": true, "show_timer": true, "show_hp_bar": true, "show_stats": false,
@@ -191,7 +191,7 @@ func _build():
 	pause_mode = PAUSE_MODE_PROCESS
 	game = hud.Game
 	_font_data = load(FONT)
-	_popup_font = load("res://assets/font/Lato/Lato-Bold.ttf")
+	_popup_font = load("res://assets/font/Roboto/Bold.ttf")
 
 	# left: multiplier box, COMBO, accuracy
 	var left := _panel_root(hud.get_node("LeftVP/Control"))
@@ -226,25 +226,25 @@ func _build():
 	progress_fill.rect_size = Vector2(0, 11)
 	top.add_child(progress_fill)
 
-	# bottom (on the bottom bracket line): green health line
+	# bottom (on the bottom bracket line, like the video): green health line
 	var show_hp: bool = hud.energybar.visible
 	var bottom := _bar_root(hud.get_node("EnergyVP/Control"), "SoundSpace")
 	# the skin's health_background: red behind the green line
 	var health_bg := ColorRect.new()
 	health_bg.color = Color(1, 0, 0)
-	health_bg.rect_position = Vector2(450 - HEALTH_W / 2, 145)
+	health_bg.rect_position = Vector2(450 - HEALTH_W / 2, 192)
 	health_bg.rect_size = Vector2(HEALTH_W, 10)
 	health_bg.visible = show_hp
 	bottom.add_child(health_bg)
 	health_fill = ColorRect.new()
 	health_fill.color = GREEN
-	health_fill.rect_position = Vector2(450 - HEALTH_W / 2, 145)
+	health_fill.rect_position = Vector2(450 - HEALTH_W / 2, 192)
 	health_fill.rect_size = Vector2(HEALTH_W, 10)
 	health_fill.visible = show_hp
 	bottom.add_child(health_fill)
 	var mods = hud.get_node_or_null("EnergyVP/Control/Modifiers")
 	if mods:
-		mods.rect_position.y += 150
+		mods.rect_position.y += 200
 
 	var combo = hud.get_node_or_null("ComboHud")
 	if combo:
@@ -254,8 +254,6 @@ func _build():
 	popups = CanvasLayer.new()
 	popups.layer = 1
 	add_child(popups)
-	_last_score = game.score
-	game.connect("hit", self, "_on_hit")
 
 	_place_hud()
 
@@ -303,42 +301,75 @@ func _apply_3d():
 		mat.albedo_texture = tex("cursor")
 		mat.albedo_color = Color(1, 1, 1, 1)
 
-func _on_hit(_col = null):
-	var gained: int = game.score - _last_score
-	_last_score = game.score
-	if gained <= 0:
+# Score popups, measured from the video: the points of each hit show for a
+# moment under the grid, at the note's x (nudged up or down a little with the
+# note's height), in light grey, then fade quickly. They sit in the 3D space,
+# so they move with the camera. NoteManager calls this on every hit.
+const POP_HOLD := 0.18
+const POP_FADE := 0.1
+const POP_Y := -0.819       # of the bracket's half-size, below the centre
+const POP_FOLLOW := 0.1     # how much of the note's height carries over
+const POP_HEIGHT := 0.0714  # digit height, of the bracket's half-size
+const POP_COLOR := Color(1, 1, 1, 0.74)
+
+func score_popup(note_pos: Vector3, gained: int):
+	if gained <= 0 or not bool(Rhythia.get("ss_score_popups")):
 		return
-	var cam := get_viewport().get_camera()
-	var cursor = hud.Spawn.get_node_or_null("Cursor")
-	if cam == null or cursor == null:
+	var outer = hud.Spawn.get_node_or_null("Outer")
+	if outer == null:
 		return
-	var local: Vector3 = hud.to_local(cursor.global_transform.origin)
-	var at: Vector3 = hud.to_global(Vector3(local.x, -1.25, 0))
-	if cam.is_position_behind(at):
-		return
-	var p := cam.unproject_position(at)
-	var vh := get_viewport().get_visible_rect().size.y
+	var box: AABB = outer.get_transformed_aabb()
+	var half: float = box.size.x * 0.5 * 0.765 # the corner brackets sit inside the texture
+	var c: Vector3 = box.position + box.size * 0.5
+	var world := Vector3(note_pos.x, c.y + POP_Y * half + POP_FOLLOW * (note_pos.y - c.y), c.z)
 	var l := Label.new()
-	var pf := DynamicFont.new()
-	pf.font_data = _popup_font
-	pf.size = int(max(10.0, vh / 720.0 * 17.0))
-	l.add_font_override("font", pf)
-	l.add_color_override("font_color", Color(0.62, 0.62, 0.66, 0.9))
 	l.text = str(gained)
-	l.rect_size = Vector2(200, 40)
 	l.align = Label.ALIGN_CENTER
-	l.rect_position = p - Vector2(100, 10)
+	l.valign = Label.VALIGN_CENTER
+	l.add_color_override("font_color", POP_COLOR)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.set_meta("half", half)
 	popups.add_child(l)
-	var tw := Tween.new()
-	l.add_child(tw)
-	tw.interpolate_property(l, "rect_position:y", l.rect_position.y, l.rect_position.y - vh * 0.012, 0.6)
-	tw.interpolate_property(l, "modulate:a", 1.0, 0.0, 0.6, Tween.TRANS_QUAD, Tween.EASE_IN)
-	tw.connect("tween_all_completed", l, "queue_free")
-	tw.start()
+	_pops.append([l, world, 0.0])
+	_move_pop(_pops[-1])
+
+func _move_pop(p: Array) -> bool:
+	var l: Label = p[0]
+	var cam := get_viewport().get_camera()
+	if cam == null or cam.is_position_behind(p[1]):
+		l.visible = false
+		return true
+	var at: Vector2 = cam.unproject_position(p[1])
+	var ppu: float = at.distance_to(cam.unproject_position(p[1] + Vector3(1, 0, 0)))
+	var size := int(round(POP_HEIGHT * float(l.get_meta("half")) * ppu / 0.711)) # Roboto's digits are 0.711 of the size
+	size = int(max(size, 6))
+	var f = l.get_font("font")
+	if not (f is DynamicFont) or f.size != size:
+		var nf := DynamicFont.new()
+		nf.font_data = _popup_font
+		nf.size = size
+		l.add_font_override("font", nf)
+		l.rect_size = Vector2(size * 4, size * 1.6)
+	l.rect_position = at - l.rect_size / 2.0
+	var age: float = p[2]
+	l.modulate.a = 1.0 if age < POP_HOLD else clamp(1.0 - (age - POP_HOLD) / POP_FADE, 0.0, 1.0)
+	l.visible = true
+	return age < POP_HOLD + POP_FADE
+
+func _update_pops(delta: float):
+	var keep := []
+	for p in _pops:
+		p[2] += delta
+		if is_instance_valid(p[0]) and _move_pop(p):
+			keep.append(p)
+		elif is_instance_valid(p[0]):
+			p[0].queue_free()
+	_pops = keep
 
 func _process(delta):
 	if not is_instance_valid(hud) or game == null:
 		return
+	_update_pops(delta)
 	mult_label.text = "x%d" % game.combo_level
 	mult_box.progress = 1.0 if game.combo_level >= 8 else float(game.lvl_progress) / 10.0
 	if game.combo_level >= 8:
@@ -369,8 +400,9 @@ func _process(delta):
 	var hp := 0.0
 	if eb.max_value > 0:
 		hp = clamp(eb.value / eb.max_value, 0.0, 1.0)
+	# drains from the right, showing the red behind it (like the video)
 	health_fill.rect_size.x = HEALTH_W * hp
-	health_fill.rect_position.x = 450 - HEALTH_W * hp / 2.0
+	health_fill.rect_position.x = 450 - HEALTH_W / 2.0
 
 func _exit_tree():
 	end_song()

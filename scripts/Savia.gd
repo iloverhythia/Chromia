@@ -774,7 +774,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c"
 ]
 
 
@@ -845,6 +845,7 @@ const VERSION_NOTES = {
 	"oct21-2026-p": "- Modifiers are Sound Space style tiles now: rounded tiles with an icon and a name in a magenta frame, 2 pages with arrows and a 1/2 counter, glowing cyan when on. Page 1: No-Fail, Ghost, Sudden Death, Extra Energy and every speed (new ---- and ++++ tiles too); page 2: No Regen, Hard Mode, Hard Rock, Strobe, Mirror X/Y, Earthquake, Chaos, Visual Mode, Invert Mouse, 360 and Flashlight. Tap the speed that's on to go back to normal speed. Custom speed, HP model, grade system and 360 speed are under the tiles",
 	"oct22-2026-a": "- The Sound Space style modifier tiles only show with Sound Space Mode on. With it off the modifiers are the normal checkboxes and speed buttons again",
 	"oct22-2026-b": "- While you're in the menu the game checks for a new version every few minutes and pops up an Update box by itself (Later skips that version until you restart)\n- Sound Space Mode's background matches the video: floor and ceiling fade into the fog, same grid size, line brightness and colours\n- Sound Space Mode: see-through side panels like the video, red health background and the skin's grey progress bar",
+	"oct22-2026-c": "- Sound Space Mode score popups look like the video: the points show under the grid at the note's spot in light grey for a moment, then fade. Turn them on or off in Settings > Replays & Misc > Experimental (Sound Space Mode: score popups)\n- Sound Space Mode: the health bar sits on the bottom bracket line and drains from the right, showing red, like the video\n- The Grid background is now the Sound Space room from the video",
 	"oct21-2026-o": "- Sound Space Mode no longer changes your camera (half-lock / spin, camera, HUD and grid parallax, faraway HUD)",
 	"oct21-2026-n": "- Sound Space Mode also sets your display settings to classic Sound Space's while a song plays, and puts yours back after: its camera (Half-lock faraway, camera parallax 10, measured from a recording), FOV 75, no cursor trail, buffer cursor, spin, hit/miss/spawn effects, approach squares, note spin, glow, bloom or VHS, and all HUD parts on in their normal places. Your notes keep your own mesh and colors, and your settings are never saved with Sound Space's (even if the game closes during a song)",
 	"oct21-2026-m": "- Sound Space Mode matches classic Sound Space more closely (measured from a recording): floor and ceiling grid fading into the dark, the time on the top bracket line with the progress line under it, the health line on the bottom bracket line, wider side panels with bigger text, the multiplier box filling clockwise from the top-right corner and flashing orange when you reach x8, the grey square cursor with a thin white edge, and grey hit points in a normal font. It no longer changes your note mesh (or your colors)",
@@ -2507,6 +2508,7 @@ var menu_lyric_volume: float = 1.0
 var show_touch_indicator: bool = true
 # Phones: Settings > "No Touch Delay" and "120 Hz" (apply_mobile_tuning)
 var sound_space_mode: bool = false # Experimental: songs look like the original Sound Space
+var ss_score_popups: bool = true # Sound Space Mode: points pop up under the grid on each hit
 var mobile_no_delay: bool = false setget _set_mobile_no_delay
 var mobile_high_hz: bool = false setget _set_mobile_high_hz
 # its look (shape, colours, trail...), only the changed keys of TouchIndicator.DEFAULTS
@@ -3278,6 +3280,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			show_touch_indicator = bool(data.show_touch_indicator)
 		if data.has("sound_space_mode"):
 			sound_space_mode = bool(data.sound_space_mode)
+		if data.has("ss_score_popups"):
+			ss_score_popups = bool(data.ss_score_popups)
 		if data.has("mobile_no_delay"):
 			mobile_no_delay = bool(data.mobile_no_delay)
 		if data.has("mobile_high_hz"):
@@ -3736,6 +3740,7 @@ func _write_settings_file(saveFile: String):
 			menu_lyric_volume = menu_lyric_volume,
 			show_touch_indicator = show_touch_indicator,
 			sound_space_mode = sound_space_mode,
+			ss_score_popups = ss_score_popups,
 			mobile_no_delay = mobile_no_delay,
 			mobile_high_hz = mobile_high_hz,
 			touch_style = touch_style,
@@ -3930,7 +3935,7 @@ func register_worlds():
 	))
 	registry_world.add_item(BackgroundWorld.new(
 		"ssp_grid", "The Grid",
-		"res://assets/worlds/grid/grid.tscn", "hi",
+		"res://assets/worlds/soundspace/tunnel.tscn", "hi", # the Sound Space room (same as Sound Space Mode)
 		"res://assets/worlds/grid/grid.png"
 	))
 	# Backgrounds recreated from Rhythia's (Godot 4 C#) spaces

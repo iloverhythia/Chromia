@@ -383,6 +383,10 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				if not spectating_now:
 					emit_signal("hit", notes[i][3])
 					var score: int = get_parent().hit(notes[i][3])
+					if Rhythia.sound_space_mode:
+						var ssm = get_parent().get_node_or_null("HUD/SoundSpaceMode")
+						if ssm != null:
+							ssm.score_popup(global_transform.xform(_note_fx_pos(i)), score)
 					if Rhythia.score_popup:
 						scoreEffect.duplicate().spawn(get_parent(), pos, notes[i][3], score)
 
