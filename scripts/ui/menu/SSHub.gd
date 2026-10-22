@@ -29,6 +29,10 @@ var _built_for := []
 # Text is made at the screen's real size (fonts * ui_k, labels scaled back by
 # 1/ui_k) so it stays sharp instead of being stretched up from 720p.
 var ui_k := 1.0
+var logo: TextureRect
+var _closing := false
+var _last_page = null
+const Sfx = preload("res://scripts/ui/menu/SSSfx.gd")
 
 static func install(menu_node: Node):
 	if menu_node == null or menu_node.has_node("SSHub"):
@@ -111,7 +115,7 @@ func _build():
 	stage.add_child(bg)
 	# the logo, in Sound Space's two colours
 	# the game's logo
-	var logo := TextureRect.new()
+	logo = TextureRect.new()
 	logo.texture = load("res://assets/images/branding/logo.png")
 	logo.expand = true
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -182,12 +186,49 @@ func _side_back() -> Control:
 	b.visible = false
 	b.lab = label(b, "BACK", font(PIXEL, 34, 3, Color(0.35, 0.05, 0.05), false), RED, Vector2.ZERO, b.rect_size, Label.ALIGN_CENTER)
 	b.base_color = RED
-	b.connect("clicked", self, "open")
+	b.connect("clicked", self, "_on_back_btn")
 	return b
 
 func open():
+	var was := hub_open
 	hub_open = true
+	_closing = false
 	_rebuild_items()
+	if not was:
+		_animate_in()
+
+# Like Sound Space: the menu fades in, the logo pops and the words come in
+# one after another, each with a tick.
+func _animate_in():
+	Sfx.play(self, "swoosh")
+	stage.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(stage, "modulate:a", 1.0, 0.22)
+	if logo:
+		logo.rect_pivot_offset = logo.rect_size / 2.0
+		logo.rect_scale = Vector2(0.8, 0.8)
+		var lt := create_tween()
+		lt.tween_property(logo, "rect_scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var i := 0
+	for it in items_box.get_children():
+		if it.is_queued_for_deletion():
+			continue
+		var home: Vector2 = it.rect_position
+		it.rect_position = home - Vector2(90, 0)
+		it.modulate.a = 0.0
+		var t := create_tween()
+		t.tween_interval(0.12 + i * 0.055)
+		t.tween_callback(self, "_tick")
+		t.parallel().tween_property(it, "rect_position", home, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		t.parallel().tween_property(it, "modulate:a", 1.0, 0.2)
+		i += 1
+
+func _on_back_btn():
+	Sfx.play(self, "select")
+	open()
+
+func _tick():
+	Sfx.play(self, "tick")
 
 func _resharpen(k: float):
 	ui_k = k
@@ -197,9 +238,21 @@ func _resharpen(k: float):
 	_rebuild_items()
 
 func close():
+	if not hub_open:
+		return
 	hub_open = false
+	# fades out while the page comes in underneath
+	_closing = true
+	var tw := create_tween()
+	tw.tween_property(stage, "modulate:a", 0.0, 0.18)
+	tw.tween_callback(self, "_closed")
+
+func _closed():
+	_closing = false
+	stage.modulate.a = 1.0
 
 func _on_item(btn):
+	Sfx.play(self, "select")
 	close()
 	if is_instance_valid(btn):
 		btn.emit_signal("pressed")
@@ -219,7 +272,7 @@ func _process(_d):
 			sc.visible = false
 	if on:
 		Engine.set_meta(META_SEEN, true)
-	visible = on and hub_open
+	visible = on and (hub_open or _closing)
 	backdrop.visible = on
 	if visible:
 		# the sidebar's buttons can change (VR found, single map mode)
@@ -241,10 +294,43 @@ func _process(_d):
 	if is_instance_valid(back_btn):
 		var maps = menu.get_node_or_null("Main/Maps")
 		back_btn.visible = on and not hub_open and maps != null and not maps.visible
+		_page_anim(on)
 		if back_btn.visible:
 			var s: float = clamp(vp.y / 720.0, 0.6, 2.0)
 			back_btn.rect_scale = Vector2(s, s)
 			back_btn.rect_global_position = Vector2(30 * s - back_btn.rect_size.x / 2.0, vp.y / 2.0 - back_btn.rect_size.y / 2.0)
+
+# A page that comes up swings in (scales up from a bit smaller and fades in),
+# like Sound Space's camera turning to another panel.
+func _page_anim(on: bool):
+	var main = menu.get_node_or_null("Main")
+	if main == null:
+		return
+	var cur = null
+	for p in main.get_children():
+		if p is Control and p.visible and p != backdrop and p.name != "SSMenu" and p.name in _page_names():
+			cur = p
+			break
+	if cur == _last_page:
+		return
+	_last_page = cur
+	if not on or cur == null or cur.name == "Maps":
+		return
+	Sfx.play(self, "swoosh")
+	cur.rect_pivot_offset = cur.rect_size / 2.0
+	cur.rect_scale = Vector2(0.93, 0.93)
+	cur.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(cur, "rect_scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(cur, "modulate:a", 1.0, 0.22)
+
+func _page_names() -> Array:
+	var out := []
+	if sidebar and "pages" in sidebar:
+		for p in sidebar.pages:
+			if is_instance_valid(p):
+				out.append(p.name)
+	return out
 
 func _unhandled_key_input(e):
 	if not _on or not e.pressed or e.echo:
@@ -274,6 +360,11 @@ class Item extends Control:
 	func _h(v: bool):
 		if lab:
 			lab.add_color_override("font_color", hover_color if v else base_color)
+		rect_pivot_offset = rect_size / 2.0
+		var tw := create_tween()
+		tw.tween_property(self, "rect_scale", Vector2(1.08, 1.08) if v else Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		if v:
+			load("res://scripts/ui/menu/SSSfx.gd").play(self, "tick")
 	func _gui_input(e):
 		if e is InputEventMouseButton and e.button_index == BUTTON_LEFT:
 			accept_event()

@@ -4,9 +4,10 @@ extends Control
 #
 # - a 3x3 grid of tiles on black with a "1/29" page counter, arrows, a red
 #   BACK and a magenta REPLAY on the sides, and your player card and a search
-#   button on top. The first tiles are the difficulties (EASY, MEDIUM, HARD,
-#   LOGIC? and the white Tasukete one) which filter the maps; the rest are the
-#   maps, coloured by difficulty.
+#   button on top. The first tiles are the difficulties ({ } for maps without
+#   one in white, EASY, MEDIUM, HARD, LOGIC? and Tasukete in Chromia's dark
+#   colour) which filter the maps; the rest are the maps, coloured by
+#   difficulty.
 # - tapping a map opens its screen over the dimmed grid: the modifiers in a
 #   magenta frame, the map's info (mapper, difficulty, length, start from),
 #   Favorite? / Hide, your best, PLAY and VS, and your top runs on the right.
@@ -16,6 +17,7 @@ extends Control
 # menu2.gd installs it.
 
 const ScoreHistory = preload("res://scripts/ScoreHistory.gd")
+const Sfx = preload("res://scripts/ui/menu/SSSfx.gd")
 const PlayerLevel = preload("res://scripts/PlayerLevel.gd")
 const PIXEL := "res://assets/font/PressStart2P/PressStart2P-Regular.ttf"
 const BOLD := "res://assets/font/Lato/Lato-Black.ttf"
@@ -28,10 +30,13 @@ const DIFF_COLORS := {
 	Globals.DIFF_MEDIUM: [Color8(245, 180, 63), Color8(98, 60, 16)],
 	Globals.DIFF_HARD: [Color8(235, 50, 37), Color8(108, 18, 10)],
 	Globals.DIFF_LOGIC: [Color8(238, 51, 248), Color8(96, 15, 109)],
-	Globals.DIFF_AMOGUS: [Color8(239, 238, 229), Color8(100, 101, 96)],
-	Globals.DIFF_UNKNOWN: [Color8(101, 216, 250), Color8(27, 72, 100)],
+	# Tasukete: Chromia's own dark colour (#36304f)
+	Globals.DIFF_AMOGUS: [Color8(114, 110, 132), Color8(32, 29, 47)],
+	# no difficulty: white, like Chromia (Sound Space's white tile)
+	Globals.DIFF_UNKNOWN: [Color8(239, 238, 229), Color8(100, 101, 96)],
 }
 const CATEGORIES := [
+	[Globals.DIFF_UNKNOWN, "{ }"],
 	[Globals.DIFF_EASY, "EASY"], [Globals.DIFF_MEDIUM, "MEDIUM"], [Globals.DIFF_HARD, "HARD"],
 	[Globals.DIFF_LOGIC, "LOGIC?"], [Globals.DIFF_AMOGUS, "包"],
 ]
@@ -114,8 +119,11 @@ func font(path: String, size: int, outline: int = 0, outline_color: Color = Colo
 	_fonts[key] = f
 	return f
 
-func label(parent: Node, text: String, f: Font, col: Color, pos: Vector2, size: Vector2, align: int = Label.ALIGN_LEFT) -> Label:
+func label(parent: Node, text: String, f: Font, col: Color, pos: Vector2, size: Vector2, align: int = Label.ALIGN_LEFT, wrap: bool = false) -> Label:
 	var l := Label.new()
+	# wrapping set before the text, so the label doesn't grow to the text's width
+	l.autowrap = wrap
+	l.clip_text = wrap
 	l.text = text
 	l.add_font_override("font", f)
 	l.add_color_override("font_color", col)
@@ -153,7 +161,7 @@ func _process(_d):
 	if want != visible:
 		visible = want
 	if visible and not _was_visible:
-		_refresh()
+		_refresh(0, true)
 	_was_visible = visible
 	if not visible:
 		return
@@ -292,7 +300,9 @@ func _active_filter() -> int:
 		return int(f[0])
 	return -99
 
-func _refresh():
+# dir: the page turned that way (tiles slide in from that side); pop: the
+# screen just came up (tiles pop in one after another)
+func _refresh(dir: int = 0, pop: bool = false):
 	if tile_box == null:
 		return
 	var items := _items()
@@ -325,6 +335,28 @@ func _refresh():
 		tile_box.add_child(t)
 		t.setup(it.get("text", ""))
 		t.connect("clicked", self, "_on_tile", [it])
+		if dir != 0 or pop:
+			_animate_tile(t, i, dir)
+	if pop:
+		Sfx.play(self, "swoosh")
+
+func _animate_tile(t: Control, i: int, dir: int):
+	var home: Vector2 = t.rect_position
+	var alpha: float = t.modulate.a
+	t.modulate.a = 0.0
+	t.rect_pivot_offset = t.rect_size / 2.0
+	var tw := create_tween()
+	if dir != 0:
+		# slide in from the side the page turned to
+		t.rect_position = home + Vector2(140 * dir, 0)
+		tw.tween_interval((i % 3) * 0.03 + (i / 3) * 0.015)
+		tw.tween_property(t, "rect_position", home, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	else:
+		# pop in, one after another
+		t.rect_scale = Vector2(0.6, 0.6)
+		tw.tween_interval(0.05 + i * 0.035)
+		tw.tween_property(t, "rect_scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(t, "modulate:a", alpha, 0.18)
 
 func _resharpen(k: float):
 	ui_k = k
@@ -338,8 +370,11 @@ func _resharpen(k: float):
 		_build_song_view()
 
 func _turn(d: int):
+	var before := page
 	page += d
-	_refresh()
+	_refresh(d)
+	if page != before:
+		Sfx.play(self, "swoosh")
 
 func _next():
 	_turn(1)
@@ -416,11 +451,29 @@ func _open_song(s):
 	if s != Rhythia.selected_song:
 		Rhythia.select_song(s)
 	_build_song_view()
+	# swings in like Sound Space's camera turning to it
+	Sfx.play(self, "swoosh")
+	song_view.rect_pivot_offset = STAGE / 2.0
+	song_view.rect_scale = Vector2(1.06, 1.06)
+	song_view.modulate.a = 0.0
+	var home: Vector2 = song_view.rect_position
+	song_view.rect_position = home + Vector2(70, 0)
+	var tw := create_tween()
+	tw.tween_property(song_view, "modulate:a", 1.0, 0.2)
+	tw.parallel().tween_property(song_view, "rect_scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(song_view, "rect_position", home, 0.32).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 func _close_song():
 	if song_view != null:
-		song_view.queue_free()
+		# fades out and drops away a little
+		var sv := song_view
 		song_view = null
+		sv.mouse_filter = MOUSE_FILTER_IGNORE
+		Sfx.play(self, "swoosh")
+		var tw := create_tween()
+		tw.tween_property(sv, "modulate:a", 0.0, 0.16)
+		tw.parallel().tween_property(sv, "rect_scale", Vector2(0.96, 0.96), 0.16)
+		tw.tween_callback(sv, "queue_free")
 	_song = null
 
 func _build_song_view():
@@ -696,12 +749,21 @@ class Clickable extends RoundedBox:
 		connect("mouse_exited", self, "_h", [false])
 	func _h(v):
 		hover = v
-		modulate = Color(1.15, 1.15, 1.15) if v else Color(1, 1, 1)
+		self_modulate = Color(1.15, 1.15, 1.15) if v else Color(1, 1, 1)
+		_grow(v)
 		update()
+	# hover: a little bigger, with a tick (like Sound Space's buttons)
+	func _grow(v: bool):
+		rect_pivot_offset = rect_size / 2.0
+		var tw := create_tween()
+		tw.tween_property(self, "rect_scale", Vector2(1.06, 1.06) if v else Vector2.ONE, 0.12).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		if v:
+			load("res://scripts/ui/menu/SSSfx.gd").play(self, "tick")
 	func _gui_input(e):
 		if e is InputEventMouseButton and e.button_index == BUTTON_LEFT and not e.pressed:
 			if Rect2(Vector2.ZERO, rect_size).has_point(e.position):
 				accept_event()
+				load("res://scripts/ui/menu/SSSfx.gd").play(self, "select")
 				emit_signal("clicked")
 		elif e is InputEventMouseButton and e.button_index == BUTTON_LEFT and e.pressed:
 			accept_event()
@@ -744,6 +806,8 @@ class Tile extends Clickable:
 			while size > 16 and ui.sw(f, text) + 8 > rect_size.x - 26:
 				size -= 2
 				f = ui.font(ui.BOLD, size, 4, Color(0.12, 0.12, 0.12))
+			if text == "{ }":
+				f = ui.font(ui.BOLD, 72, 5, Color(0.15, 0.15, 0.15))
 			if text == "包":
 				f = ui.font(ui.BOLD, 84, 5, Color(0.15, 0.15, 0.15))
 			ui.label(self, text, f, Color(0.95, 0.95, 0.95), Vector2(6, 6), rect_size - Vector2(12, 12), Label.ALIGN_CENTER)
@@ -755,14 +819,22 @@ class Tile extends Clickable:
 			if cut > 0:
 				artist = full.substr(0, cut)
 				title = full.substr(cut + 3)
-			var tl = ui.label(self, title, ui.font(ui.BOLD, 15, 2, Color(0.1, 0.05, 0.05)), Color(0.97, 0.97, 0.95), Vector2(12, 16), Vector2(rect_size.x - 24, 54), Label.ALIGN_CENTER)
-			tl.autowrap = true
-			tl.clip_text = true
+			# long names get a smaller font so they stay inside the tile
+			var tw: float = rect_size.x - 24
+			var ts := 15
+			var tf = ui.font(ui.BOLD, ts, 2, Color(0.1, 0.05, 0.05))
+			while ts > 9 and ui.sw(tf, title) > tw * 1.85:
+				ts -= 1
+				tf = ui.font(ui.BOLD, ts, 2, Color(0.1, 0.05, 0.05))
+			ui.label(self, title, tf, Color(0.97, 0.97, 0.95), Vector2(12, 14), Vector2(tw, 56), Label.ALIGN_CENTER, true)
 			if artist != "":
-				var size := 26 if artist.length() <= 9 else (21 if artist.length() <= 14 else 17)
-				var al = ui.label(self, artist, ui.font(ui.BOLD, size, 2, Color8(235, 228, 215)), Color(0.06, 0.05, 0.05), Vector2(10, 70), Vector2(rect_size.x - 20, 46), Label.ALIGN_CENTER)
-				al.autowrap = true
-				al.clip_text = true
+				var aw: float = rect_size.x - 20
+				var size := 26
+				var af = ui.font(ui.BOLD, size, 2, Color8(235, 228, 215))
+				while size > 12 and ui.sw(af, artist) > aw:
+					size -= 1
+					af = ui.font(ui.BOLD, size, 2, Color8(235, 228, 215))
+				ui.label(self, artist, af, Color(0.06, 0.05, 0.05), Vector2(10, 70), Vector2(aw, 46), Label.ALIGN_CENTER, true)
 			var stars: float = song.star_rating_cached()
 			if stars >= 0:
 				ui.label(self, str(int(round(stars))), ui.font(ui.BOLD, 18, 2, Color(0.3, 0.15, 0)), Color8(255, 210, 60), Vector2(30, rect_size.y - 36), Vector2(60, 26))
@@ -772,6 +844,7 @@ class Tile extends Clickable:
 			modulate = Color(1, 1, 1, 0.35)
 	func _h(v):
 		hover = v
+		_grow(v)
 		update()
 	func _draw():
 		var cols: Array = ui.DIFF_COLORS[diff]
@@ -912,9 +985,7 @@ class Cover extends Control:
 	func _ready():
 		mouse_filter = MOUSE_FILTER_IGNORE
 		if not song.has_cover or song.is_online:
-			var l = ui.label(self, song.name, ui.font(ui.BOLD, 18, 2, Color(0.95, 0.95, 0.95)), Color(0.1, 0.1, 0.1), Vector2(10, 10), rect_size - Vector2(20, 20), Label.ALIGN_CENTER)
-			l.autowrap = true
-			l.clip_text = true
+			ui.label(self, song.name, ui.font(ui.BOLD, 18, 2, Color(0.95, 0.95, 0.95)), Color(0.1, 0.1, 0.1), Vector2(10, 10), rect_size - Vector2(20, 20), Label.ALIGN_CENTER, true)
 		var stars: float = song.star_rating_cached()
 		if stars >= 0:
 			ui.label(self, "★%d" % int(round(stars)), ui.font(ui.BOLD, 20, 2, Color(0.3, 0.15, 0)), Color8(255, 200, 40), Vector2(-8, rect_size.y - 22), Vector2(80, 28))
