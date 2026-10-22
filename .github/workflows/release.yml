@@ -246,6 +246,58 @@ jobs:
           cp "$q/out/chromia-quest.apk" "$q/out/chromia-quest.pck" "$GITHUB_WORKSPACE/"
           cp "$GITHUB_WORKSPACE/pack_compat.txt" "$GITHUB_WORKSPACE/chromia-quest-compat.txt"
 
+      # Meta Horizon Store version (chromia-quest-store.apk): no self-updates (the
+      # store updates it), Android 10+, its own package name. Signed like the
+      # Android build, or with the QUEST_STORE_KEYSTORE_BASE64 / _PASSWORD /
+      # _ALIAS secrets if they exist. The store only takes builds signed with the
+      # key of the first one uploaded, so don't change keys after that.
+      # With META_APP_ID and META_APP_SECRET secrets (developers.meta.com >
+      # your app > API) every release is uploaded to the store's release channel
+      # META_CHANNEL (repository variable, default ALPHA: private testers).
+      - name: Meta Horizon Store build and upload
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          KS_B64: ${{ secrets.QUEST_STORE_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.QUEST_STORE_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.QUEST_STORE_KEY_ALIAS }}
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
+          META_CHANNEL: ${{ vars.META_CHANNEL }}
+        run: |
+          q="$RUNNER_TEMP/quest"
+          test -f "$q/android/.build_version" # made by the Quest step
+          cd "$q"
+          if [ -n "$KS_B64" ]; then
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/store.keystore"
+          KS="$RUNNER_TEMP/store.keystore" python3 - <<'PY'
+          import os, re
+          p = "export_presets.cfg"
+          s = open(p).read()
+          i = s.index("[preset.7.options]")
+          head, opts = s[:i], s[i:]
+          for k, v in (("keystore/release", os.environ["KS"]), ("keystore/release_user", os.environ["KS_ALIAS"]), ("keystore/release_password", os.environ["KS_PASS"])):
+              opts = re.sub(r'^%s=".*"$' % re.escape(k), '%s="%s"' % (k, v.replace("\\", "\\\\").replace('"', '\\"')), opts, count=1, flags=re.M)
+          open(p, "w").write(head + opts)
+          PY
+          fi
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          export JAVA_HOME="${JAVA_HOME_11_X64}" PATH="${JAVA_HOME_11_X64}/bin:$PATH" ANDROID_SDK_ROOT="$sdk"
+          mkdir -p "$q/out-store"
+          "$GODOT" --no-window --path . --export "QuestStore" "$q/out-store/chromia-quest-store.apk"
+          test -f "$q/out-store/chromia-quest-store.apk"
+          cp "$q/out-store/chromia-quest-store.apk" "$GITHUB_WORKSPACE/"
+          if [ -z "$META_APP_ID" ] || [ -z "$META_APP_SECRET" ]; then
+            echo "::notice::No META_APP_ID / META_APP_SECRET secrets: not uploaded to the store"
+            exit 0
+          fi
+          curl -sSL -o "$RUNNER_TEMP/ovr-platform-util" -L "https://www.oculus.com/download_app/?id=5159709737372459"
+          chmod +x "$RUNNER_TEMP/ovr-platform-util"
+          "$RUNNER_TEMP/ovr-platform-util" upload-quest-build --app-id "$META_APP_ID" --app-secret "$META_APP_SECRET" \
+            --apk "$q/out-store/chromia-quest-store.apk" --channel "${META_CHANNEL:-ALPHA}" \
+            --age-group TEENS_AND_ADULTS --notes "Chromia $TAG" --disable-progress-bar
+
       # The browser version on GitHub Pages (Settings > Pages > branch gh-pages):
       # replaced on every release, so the branch never grows.
       - name: Publish web build to gh-pages
@@ -284,7 +336,7 @@ jobs:
           fi
           files=("chromia-windows.zip" "chromia-web.zip" dist/Chromia.pck legacy/Furria.pck legacy/Savia.pck)
           # the other platforms are attached when their export worked
-          for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk" "chromia-ios.ipa" "chromia-ios.pck" "chromia-ios-compat.txt" "chromia-quest.apk" "chromia-quest.pck" "chromia-quest-compat.txt"; do
+          for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk" "chromia-ios.ipa" "chromia-ios.pck" "chromia-ios-compat.txt" "chromia-quest.apk" "chromia-quest.pck" "chromia-quest-compat.txt" "chromia-quest-store.apk"; do
             [ -f "$f" ] && files+=("$f")
           done
           gh release create "$TAG" "${files[@]}" \

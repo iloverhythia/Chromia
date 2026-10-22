@@ -39,6 +39,8 @@ s = re.sub(r'^singletons=\[.*\]$', 'singletons=[ "res://addons/godot-openxr/conf
 s = s.replace(', "res://addons/godot-openvr/plugin.cfg"', '').replace('"res://addons/godot-openvr/plugin.cfg", ', '')
 # Quest renders with GLES3 (OpenXR on Quest has no GLES2 path here)
 s = s.replace("quality/driver/fallback_to_gles2=true", "quality/driver/fallback_to_gles2=false")
+# the store wants plain landscape (phones use sensor_landscape)
+s = s.replace('window/handheld/orientation="sensor_landscape"', 'window/handheld/orientation="landscape"')
 open(p, "w").write(s)
 PY
 rm -rf addons/godot-openvr
@@ -69,6 +71,8 @@ assert "<application" in s
 s = s.replace("<application", queries.strip("\n") + "\n\n    <application", 1)
 i = s.index(">", s.index("<application")) + 1
 s = s[:i] + add + s[i:]
+# the headsets it runs on (the store wants them listed)
+s = s.replace('android:name="com.oculus.supportedDevices"\n            android:value="all"', 'android:name="com.oculus.supportedDevices"\n            android:value="quest2|questpro|quest3|quest3s"')
 open(p, "w").write(s)
 PY
 # no release lint (slow, and it downloads extra tools)

@@ -22,7 +22,8 @@ var loaded_version: String = "" # the pack's version when one was loaded
 var discarded_version: String = "" # an update that failed to start and was removed this start
 
 static func supported() -> bool:
-	return OS.has_feature("iOS") or OS.has_feature("quest")
+	# (the Meta Horizon Store version is updated by the store)
+	return OS.has_feature("iOS") or (OS.has_feature("quest") and not OS.has_feature("store"))
 
 func _init():
 	if not supported():
