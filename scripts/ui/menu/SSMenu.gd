@@ -535,11 +535,13 @@ func _build_song_view():
 	var y := 138.0
 	_kv(Vector2(x, y), "Mapper: ", s.creator if s.creator != "" else "?", PINK)
 	y += 34
-	label(song_view, "Difficulty: ", font(BOLD, 22, 2, Color(0, 0.1, 0.2)), BLUE, Vector2(x, y), Vector2(140, 30))
-	var dx := x + 136
+	var df := font(BOLD, 22, 2, Color(0, 0.1, 0.2))
+	label(song_view, "Difficulty:", df, BLUE, Vector2(x, y), Vector2(140, 30))
+	var dx: float = x + sw(df, "Difficulty:") + 10 # right after the word
 	for c in CATEGORIES:
 		var sq := DiffSquare.new()
 		sq.color = DIFF_COLORS[c[0]][0]
+		sq.dark = c[0] == Globals.DIFF_AMOGUS
 		sq.on = s.difficulty == c[0]
 		sq.rect_position = Vector2(dx, y + 3)
 		sq.rect_size = Vector2(24, 24)
@@ -983,7 +985,9 @@ class Cover extends Control:
 			ui.label(self, "★%d" % int(round(stars)), ui.font(ui.BOLD, 20, 2, Color(0.3, 0.15, 0)), Color8(255, 200, 40), Vector2(-8, rect_size.y - 22), Vector2(80, 28))
 	func _draw():
 		var r := Rect2(Vector2.ZERO, rect_size)
-		draw_rect(r.grow(3), Color8(240, 240, 240))
+		# Tasukete maps get a black frame (Chromia's colour for them)
+		var frame := Color8(0, 0, 0) if song.difficulty == Globals.DIFF_AMOGUS else Color8(240, 240, 240)
+		draw_rect(r.grow(3), frame)
 		draw_rect(r.grow(-6), Color8(120, 125, 130))
 		if song.has_cover and not song.is_online:
 			var tex = song.cover
@@ -993,10 +997,15 @@ class Cover extends Control:
 class DiffSquare extends Control:
 	var color := Color(1, 1, 1)
 	var on := false
+	var dark := false # Tasukete: black, like Chromia's
 	func _ready():
 		mouse_filter = MOUSE_FILTER_IGNORE
 	func _draw():
 		var r := Rect2(Vector2.ZERO, rect_size)
+		if dark:
+			draw_rect(r.grow(2 if on else -2), Color8(0, 0, 0))
+			draw_rect(r.grow(-2), Color8(54, 48, 79), false, 3.0 if on else 2.0)
+			return
 		if on:
 			draw_rect(r.grow(2), Color(1, 1, 1))
 			draw_rect(r.grow(-2), color)
