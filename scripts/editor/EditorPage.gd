@@ -624,7 +624,7 @@ func playtest(from_start: bool):
 	Rhythia.select_song(song)
 	Rhythia.start_offset = 0.0 if from_start else max(0.0, ed.current_time() - 1000.0)
 	Rhythia.replaying = false
-	var menu = get_tree().root.get_node_or_null("Menu")
+	var menu = Rhythia.menu_node()
 	if menu:
 		menu.black_fade_target = true
 	yield(get_tree().create_timer(0.35), "timeout")

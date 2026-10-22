@@ -7,16 +7,6 @@ var last_screen_pos: Vector2 = Vector2(0, 0)
 var active: bool = false
 
 func _input(event: InputEvent):
-	if event is InputEventJoypadButton:
-		var e: InputEventJoypadButton = event as InputEventJoypadButton
-		print("JoypadButton index=", e.button_index, " pressed=", e.is_pressed())
-	if event is InputEventMouseButton:
-		var e: InputEventMouseButton = event as InputEventMouseButton
-		print("MouseButton index=", e.button_index, " pressed=", e.is_pressed())
-	if event is InputEventKey:
-		var e: InputEventKey = event as InputEventKey
-		print("Key scancode=", e.scancode, " pressed=", e.is_pressed())
-
 	if active:
 		if event is InputEventKey:
 			viewport.input(event)
@@ -66,7 +56,7 @@ func _process(delta):
 			viewport.input(ev)
 			last_screen_pos = screen_pos
 
-		$Pointer.global_transform.origin = p + Vector3(24, 0, 0.001)
+		$Pointer.global_transform.origin = p + global_transform.basis.z.normalized() * 0.002 # just in front of the screen
 		$PointerTrail.global_transform = $Pointer.global_transform
 		$Pointer.visible = true
 		$PointerTrail.emitting = Rhythia.cursor_trail
@@ -90,6 +80,10 @@ func _process(delta):
 		$PointerTrail.emitting = false
 
 func _ready():
+	# the menu screen keeps its own "input handled" state: with the main
+	# window's, a click or pointer move was dropped whenever something on the
+	# window had used the last event
+	viewport.handle_input_locally = true
 	var img = Globals.imageLoader.load_if_exists("user://cursor")
 	if img: $Pointer.mesh.material.albedo_texture = img
 

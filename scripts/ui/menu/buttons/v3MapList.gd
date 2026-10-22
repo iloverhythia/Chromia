@@ -138,7 +138,7 @@ var was_maximized = OS.window_maximized
 var was_fullscreen = OS.window_fullscreen
 func _process(delta):
 	if check_drag or dragged:
-		drag_offset = get_global_mouse_position()
+		drag_offset = Rhythia.menu_mouse(self)
 		var diff = drag_offset - drag_start
 		if abs(diff.y) > 40:
 			check_drag = false
@@ -185,14 +185,14 @@ func check_drag_on():
 	momentum = 0
 	dragged = false
 	check_drag = true
-	drag_start = get_global_mouse_position()
+	drag_start = Rhythia.menu_mouse(self)
 	drag_offset = drag_start
 	drag_cur_map = cur_map
 
 func check_drag_off():
 	check_drag = false
 	dragged = false
-	momentum = (drag_offset - get_global_mouse_position()).y
+	momentum = (drag_offset - Rhythia.menu_mouse(self)).y
 
 func select_random():
 	if disp.size() == 0: return
@@ -558,7 +558,7 @@ func tween_length():
 func _input(ev: InputEvent):
 	if is_visible_in_tree() and ev is InputEventMouseButton and ev.is_pressed():
 		if (ev.button_index == BUTTON_WHEEL_UP or ev.button_index == BUTTON_WHEEL_DOWN) \
-			and (Input.is_key_pressed(KEY_ALT) or not get_global_rect().has_point(get_global_mouse_position())):
+			and (Input.is_key_pressed(KEY_ALT) or not get_global_rect().has_point(Rhythia.menu_mouse(self))):
 			return
 		if ev.button_index == BUTTON_WHEEL_UP:
 			scrolling_to = false

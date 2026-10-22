@@ -110,8 +110,8 @@ func files_dropped(files: PoolStringArray, _screen: int):
 					Globals.notify(Globals.NOTIFY_SUCCEED, "Skin imported.", "Skin Import")
 				else:
 					Globals.notify(Globals.NOTIFY_WARN, "Nothing found to import.", "Skin Import")
-		var list = $"/root/Menu/Main/Maps/MapRegistry/S/VBoxContainer"
-		list.refresh_songs()
+		var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
+		if list: list.refresh_songs()
 		if song:
 			Rhythia.select_song(song)
 			list.switch_to_play_screen()

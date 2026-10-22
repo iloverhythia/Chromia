@@ -331,6 +331,7 @@ func _ready():
 	if Rhythia.cursor_trail:
 		if Rhythia.smart_trail:
 			yield(get_tree(), "idle_frame")
+			Rhythia.trail("song start: making the cursor trail")
 			for i in range(Rhythia.trail_detail * 3.5):
 				var trail = trail_base.duplicate()
 				get_node("../..").add_child(trail)

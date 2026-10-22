@@ -298,6 +298,8 @@ func _process(_delta):
 	var k: float = min(vp.x / STAGE.x, vp.y / STAGE.y)
 	# phones stretch the whole UI to the screen: count that in too
 	var stretch: float = max(0.25, min(OS.window_size.x / max(vp.x, 1.0), OS.window_size.y / max(vp.y, 1.0)))
+	if get_viewport() != get_tree().root:
+		stretch = 1.0 # VR: drawn on the menu screen's own viewport, not the window
 	var want: float = k * stretch
 	if visible and abs(want - ui_k) > ui_k * 0.03:
 		_resharpen(want)

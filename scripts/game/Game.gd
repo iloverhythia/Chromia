@@ -174,7 +174,12 @@ func end(end_type: int):
 		- helmeto
 		"""
 
-		get_tree().change_scene("res://scenes/song.tscn")
+		# Through the song loader, like starting the song from the menu. Going
+		# straight from this song scene to a new one (while paused) crashed
+		# phones on every retry; the loader path never did.
+		Rhythia.trail("auto retry after fail")
+		get_tree().paused = false
+		get_tree().change_scene("res://scenes/loaders/songload.tscn")
 	else:
 		black_fade_target = true
 		yield(get_tree().create_timer(0.35), "timeout")

@@ -41,7 +41,7 @@ func _on_map_files_selected(files: PoolStringArray):
 		if added:
 			imported += 1
 
-	var map_list = get_node_or_null("/root/Menu/Main/Maps/MapRegistry/S/VBoxContainer")
+	var map_list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
 	if map_list:
 		map_list.refresh_songs()
 	if imported > 0:

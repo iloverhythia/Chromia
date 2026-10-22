@@ -622,7 +622,7 @@ var _last_scrolled_song_id: String = ""
 func _try_scroll_map_list(song_id: String):
 	if is_host or song_id == "" or song_id == _last_scrolled_song_id:
 		return
-	var map_list = get_tree().get_root().get_node_or_null("Menu/Main/Maps/MapRegistry/S/VBoxContainer")
+	var map_list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
 	if map_list == null or not map_list.has_method("scroll_to_song"):
 		return
 

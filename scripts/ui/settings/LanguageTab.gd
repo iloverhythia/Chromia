@@ -44,6 +44,6 @@ func _on_selected(index: int):
 	Rhythia.language = index
 	Globals.apply_language_locale(index)
 	Rhythia.save_settings()
-	var sidebar = get_tree().root.get_node_or_null("Menu/Sidebar")
+	var sidebar = Rhythia.menu_node("Sidebar")
 	if sidebar != null and sidebar.has_method("refresh_language_labels"):
 		sidebar.refresh_language_labels()

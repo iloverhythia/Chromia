@@ -23,8 +23,9 @@ func _ready():
 
 func _setup_nodes():
 	var root_path = "/root/Menu/Main/Maps/"
-	if Rhythia.vr:
-		root_path = "/root/VRMenuHolder/PointerScreen/Viewport/Menu/Main/Maps/"
+	var menu = Rhythia.menu_node()
+	if menu:
+		root_path = String(menu.get_path()) + "/Main/Maps/"
 
 	var paths = [
 		root_path + "MapRegistry/T/AuthorSearch",

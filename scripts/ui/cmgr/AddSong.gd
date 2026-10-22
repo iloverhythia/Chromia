@@ -840,9 +840,10 @@ func finish_map():
 			$Finish/Error.text = result
 			$Finish/Error.visible = true
 		$Finish/ok.visible = true
-	var list = $"/root/Menu/Main/Maps/MapRegistry/S/VBoxContainer"
-	list.prepare_songs()
-	list.reload_to_current_page()
+	var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
+	if list:
+		list.prepare_songs()
+		list.reload_to_current_page()
 
 func back_to_menu():
 	get_parent().black_fade_target = true

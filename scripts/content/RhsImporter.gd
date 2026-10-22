@@ -104,7 +104,7 @@ const SETTINGS_ROOT := "Menu/Main/Settings/S/F/TabContainer"
 func _sync_range_control(ui_path: String, value):
 	if ui_path == "":
 		return
-	var node = get_tree().get_root().get_node_or_null(ui_path)
+	var node = Rhythia.menu_node(ui_path.trim_prefix("Menu/"))
 	if node != null and node is Range:
 		node.value = value
 
@@ -283,7 +283,7 @@ func import_rhs(path: String) -> Dictionary:
 	if cfg.has("InvertMouse") and typeof(cfg.InvertMouse) == TYPE_DICTIONARY and cfg.InvertMouse.has("Value"):
 		var invert_val = bool(cfg.InvertMouse.Value)
 		Rhythia.invert_mouse = invert_val
-		var invert_node = get_tree().get_root().get_node_or_null("Menu/Main/Maps/Results/Results/RS/H2/Mods/InvertMouse")
+		var invert_node = Rhythia.menu_node("Main/Maps/Results/Results/RS/H2/Mods/InvertMouse")
 		if invert_node != null and invert_node is CheckBox:
 			invert_node.pressed = invert_val
 		result.imported.append("Invert mouse")

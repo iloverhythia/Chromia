@@ -606,6 +606,7 @@ func _ready():
 
 
 	yield(get_tree(), "idle_frame")
+	Rhythia.trail("song start: warming note effects")
 	_warm_note_effects()
 	_n_notes.multimesh.set_instance_color(0, Color(0, 0, 0, 0))
 	_n_notes.multimesh.set_instance_transform(0, Transform())

@@ -192,7 +192,7 @@ func _ready():
 	call_deferred("_transition_to_list")
 
 func _transition_to_list():
-	var list = get_node_or_null("/root/Menu/Main/Maps/MapRegistry/S/VBoxContainer")
+	var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
 	if list:
 		list.switch_to_play_screen()
 

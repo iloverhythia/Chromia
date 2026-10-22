@@ -116,8 +116,8 @@ func copy_item_selected(idx: int):
 
 # Opens the selected map in the in-game Map Editor (sidebar page).
 func _open_in_editor():
-	var ed = get_tree().root.get_node_or_null("Menu/Main/MapEditor")
-	var sidebar = get_tree().root.get_node_or_null("Menu/Sidebar")
+	var ed = Rhythia.menu_node("Main/MapEditor")
+	var sidebar = Rhythia.menu_node("Sidebar")
 	if ed == null or Rhythia.selected_song == null:
 		return
 	if sidebar and sidebar.has_method("press_page"):

@@ -223,16 +223,13 @@ func _ready():
 			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it." % Rhythia._pending_update_notice,
 			"Update ready")
 		Rhythia._pending_update_notice = ""
-	if Rhythia.last_session_crashed and not Rhythia.crash_report_shown:
+	if (Rhythia.last_session_crashed or (Rhythia.always_show_crash_log and Rhythia.last_session_trail.strip_edges() != "")) and not Rhythia.crash_report_shown:
 		Rhythia.crash_report_shown = true
 		call_deferred("_show_crash_report")
 	for i in range(buttons.size()):
 		buttons[i].connect("pressed", self, "press", [i])
 
 	press(0, true)
-	if Rhythia.vr:
-		$Click.connect("vr_click", self, "_on_Sidebar", [true])
-		$L.connect("vr_click", self, "_on_Sidebar", [true])
 	$Click.connect("mouse_entered", self, "_on_Sidebar", [true])
 	if Rhythia.device("mobile"):
 		$Click.visible = false # touch: a tap on an icon opens that page right away
@@ -259,7 +256,7 @@ func _ready():
 	refresh_language_labels()
 
 func _process(delta: float):
-	if open and not Rect2(get_global_rect()).has_point(get_global_mouse_position()):
+	if open and not Rect2(get_global_rect()).has_point(Rhythia.menu_mouse(self)):
 		_on_Sidebar(false)
 
 	if open == true and open_amt != 1:
@@ -314,9 +311,11 @@ func _show_crash_report():
 		var l := String(last[i])
 		var cut := l.find("] ")
 		shown.append(l.substr(cut + 2) if cut != -1 else l)
+	var crashed: bool = Rhythia.last_session_crashed
 	Globals.confirm_prompt.open(
-		"Chromia closed unexpectedly last time. The last things it did:\n\n%s\n\nTap Copy report and send it to the developer." % PoolStringArray(shown).join("\n"),
-		"Chromia crashed",
+		("Chromia closed unexpectedly last time. The last things it did:\n\n%s\n\nTap Copy report and send it to the developer." if crashed else
+		"Last session's log (Settings > Replays & Misc > Experimental shows this every start). The last things it did:\n\n%s") % PoolStringArray(shown).join("\n"),
+		"Chromia crashed" if crashed else "Last session",
 		[{text = "OK"}, {text = "Copy report"}]
 	)
 	var picked = yield(Globals.confirm_prompt, "option_selected")

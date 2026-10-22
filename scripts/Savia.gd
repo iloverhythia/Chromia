@@ -774,7 +774,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o"
 ]
 
 
@@ -857,6 +857,7 @@ const VERSION_NOTES = {
 	"oct22-2026-l": "- New experimental setting \"Sound Space Mode: gameplay only\" (Settings > Replays & Misc > Experimental): Sound Space Mode only changes the songs, and the menus (sidebar, map list, modifiers, pages) stay Chromia's",
 	"oct22-2026-m": "- NEW: Settings Generator (Settings > Generator). Chromia now keeps track of how you play every map (on this device only, turn it off with Track my plays): every note you hit or miss, how early your cursor gets there, whether you miss by being late, overshooting, being just off or aiming elsewhere, which jump speeds and parts of the grid you miss most, and the settings you had on. Generate my settings shows what it found and suggests settings that fit you, each with the reason and how sure it is: from your own history (plays compared on maps of the same difficulty, allowing for you improving) and from how you miss (e.g. overshooting -> lower sensitivity, late on fast jumps -> earlier notes). Apply one or all, Undo puts your old settings back. It only changes how the game feels (sensitivity, approach, parallax, FOV, fade, cursor scale, spin), never hitbox, hit window or mods",
 	"oct22-2026-n": "- Touch indicator trail: smooth and much lighter (one tapered ribbon instead of hundreds of circles; only new points when your finger moves), so it no longer lags the game\n- Cursor trail on phones: drawn over the grid like the cursor (phones hid it behind the grid), and it no longer piles up while the cursor stands still\n- No Touch Delay: less delay. The cursor is put one frame ahead of your finger along the way it moves (back on the exact spot as soon as you stop), and iOS no longer holds the first touch back (also without the native helper)",
+	"oct22-2026-o": "- Fixed: the game could crash on phones right after failing with auto retry on. Retrying now goes through the song loader like starting a song from the menu (the crash log also shows more of the song start now)\n- Crash logs only show after a crash: closing the app from the phone's app switcher no longer counts as one. New experimental setting (Settings > Replays & Misc > Experimental, off by default): Always show crash logs, which shows the last session's log at every start\n- Phones: Load Replay button next to Map Folders in the map list, to watch a replay (.sspre) from your replays folder or anywhere on the phone\n- VR fixed (it couldn't start: the menu and songs failed to load in VR). The menu screen, the controller pointer and clicking work, the pointer dot sits where you point (it was drawn off to the side), the sidebar stays open while you point at it, the map list scrolls with the controller, songs play with the controller ray as the cursor, and Sound Space Mode works in VR. If SteamVR isn't running, Start VR tells you instead of breaking the menu",
 	"oct21-2026-o": "- Sound Space Mode no longer changes your camera (half-lock / spin, camera, HUD and grid parallax, faraway HUD)",
 	"oct21-2026-n": "- Sound Space Mode also sets your display settings to classic Sound Space's while a song plays, and puts yours back after: its camera (Half-lock faraway, camera parallax 10, measured from a recording), FOV 75, no cursor trail, buffer cursor, spin, hit/miss/spawn effects, approach squares, note spin, glow, bloom or VHS, and all HUD parts on in their normal places. Your notes keep your own mesh and colors, and your settings are never saved with Sound Space's (even if the game closes during a song)",
 	"oct21-2026-m": "- Sound Space Mode matches classic Sound Space more closely (measured from a recording): floor and ceiling grid fading into the dark, the time on the top bracket line with the progress line under it, the health line on the bottom bracket line, wider side panels with bigger text, the multiplier box filling clockwise from the top-right corner and flashing orange when you reach x8, the grey square cursor with a thin white edge, and grey hit points in a normal font. It no longer changes your note mesh (or your colors)",
@@ -1256,6 +1257,12 @@ func _notification(what):
 	elif what == MainLoop.NOTIFICATION_APP_RESUMED:
 		_set_session_state("running")
 		trail("app resumed")
+	elif dev == "mobile" and what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		# phones: the app switcher / swiping the app away. It can be closed
+		# from there without going to the background first: not a crash
+		_set_session_state("paused")
+	elif dev == "mobile" and what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		_set_session_state("running")
 
 # --- Crash trail ----------------------------------------------------------------
 # A short record of what the game is doing (screens, songs starting and ending,
@@ -1694,6 +1701,8 @@ var vr_interface: ARVRInterface
 var vr_left_handed: bool = false
 var vr_controller_type: int = Globals.VR_GENERIC
 var _vr_check_thread: Thread = null
+var vr_player = null # VRPlayer (vr/VRPlayer.tscn), made by start_vr
+var vr_menu = null   # the menu screen in VR (vrmenu.tscn PointerScreen)
 
 
 var queue_active: bool = false
@@ -1768,16 +1777,7 @@ func start_vr():
 		return
 
 	print("VR START")
-	vr = true
-
-
-
 	var viewport = get_viewport()
-	viewport.hdr = false
-	OS.vsync_enabled = false
-	Engine.target_fps = 720
-
-
 	if Input.is_key_pressed(KEY_SHIFT):
 		print("Enabling fake VR")
 		OS.window_maximized = true
@@ -1793,15 +1793,18 @@ func start_vr():
 		InputMap.action_add_event("vr_click", ev)
 	else:
 
-		if not vr_interface.initialize():
+		if vr_interface == null or not vr_interface.initialize():
 			print("Failed to initialize VR!")
+			Globals.notify(Globals.NOTIFY_ERROR, "Couldn't start VR. Make sure SteamVR is running and your headset is on, then try again.", "VR")
 			return
 
 		viewport.arvr = true
 
 		setup_controller_bindings()
-	var vr_player: VRPlayer
-
+	vr = true
+	viewport.hdr = false
+	OS.vsync_enabled = false
+	Engine.target_fps = 720
 	var vr_av = load("res://vr/VRPlayer.tscn").instance()
 	rootg.add_child(vr_av)
 	vr_av.name = "VRPlayer"
@@ -1809,6 +1812,24 @@ func start_vr():
 
 	menu_target = "res://vr/vrmenu.tscn"
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
+# The menu (menu2.tscn): at /root/Menu, or in VR on the floating screen
+# (vrmenu.tscn). path is inside it ("Main/Maps/..."); "" gives the menu.
+func menu_node(path: String = "") -> Node:
+	var r = get_tree().root
+	var m = r.get_node_or_null("Menu")
+	if m == null:
+		m = r.get_node_or_null("VRMenuHolder/PointerScreen/Viewport/Menu")
+	if m == null or path == "":
+		return m
+	return m.get_node_or_null(path)
+
+# Mouse position for menu code. In VR the menu is on its own screen and the
+# window's mouse means nothing there: use where the controller points.
+func menu_mouse(ci: CanvasItem) -> Vector2:
+	if vr and is_instance_valid(vr_menu) and ci.get_viewport() != get_tree().root:
+		return vr_menu.last_screen_pos
+	return ci.get_global_mouse_position()
 
 func setup_controller_bindings():
 
@@ -2521,6 +2542,7 @@ var show_touch_indicator: bool = true
 var sound_space_mode: bool = false # Experimental: songs look like the original Sound Space
 var track_plays: bool = true # PlayTracker: how you play, for the Settings Generator (stays on this device)
 var ss_gameplay_only: bool = false # Sound Space Mode only for songs: the menus stay Chromia's
+var always_show_crash_log: bool = false # Experimental: show the last session's log at every start, not only after a crash
 # the Sound Space Mode menus (main menu, map grid, page look, modifier tiles)
 func ss_menus_on() -> bool:
 	return sound_space_mode and not ss_gameplay_only
@@ -3304,6 +3326,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			track_plays = bool(data.track_plays)
 		if data.has("ss_gameplay_only"):
 			ss_gameplay_only = bool(data.ss_gameplay_only)
+		if data.has("always_show_crash_log"):
+			always_show_crash_log = bool(data.always_show_crash_log)
 		if data.has("ss_score_popups"):
 			ss_score_popups = bool(data.ss_score_popups)
 		for k in ["ss_health_y", "ss_health_w", "ss_progress_y", "ss_progress_w"]:
@@ -3768,6 +3792,7 @@ func _write_settings_file(saveFile: String):
 			show_touch_indicator = show_touch_indicator,
 			sound_space_mode = sound_space_mode,
 			ss_gameplay_only = ss_gameplay_only,
+			always_show_crash_log = always_show_crash_log,
 			track_plays = track_plays,
 			ss_score_popups = ss_score_popups,
 			ss_health_y = ss_health_y,
