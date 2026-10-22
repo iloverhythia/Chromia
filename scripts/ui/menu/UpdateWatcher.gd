@@ -50,7 +50,7 @@ func _can_show() -> bool:
 	if Globals.string_prompt != null and Globals.string_prompt.is_open:
 		return false
 	var scene = get_tree().current_scene
-	return scene != null and scene.name == "Menu"
+	return scene != null and (scene.name == "Menu" or scene.name == "VRMenuHolder") # VR: the box shows on the menu screen
 
 func _check():
 	_busy = true
@@ -89,7 +89,7 @@ func _check():
 		# iOS can't restart itself
 		_skip = latest
 		Globals.confirm_prompt.open(
-			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it." % latest,
+			"Version %s is downloaded. %s" % [latest, Online.restart_hint()],
 			"Update Downloaded",
 			[{text = "OK", wait = 0}]
 		)

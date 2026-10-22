@@ -47,7 +47,7 @@ func _pressed():
 	if Online.updates_by_pack():
 		# iOS: the app can't restart itself
 		Globals.confirm_prompt.open(
-			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it." % latest,
+			"Version %s is downloaded. %s" % [latest, Online.restart_hint()],
 			"Update Downloaded",
 			[{text = "OK", wait = 0}]
 		)

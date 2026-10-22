@@ -62,7 +62,9 @@ func set_client_id():
 	detect_device()
 
 func detect_device():
-	if OS.has_feature("Android") or OS.has_feature("iOS") or is_touch_web():
+	if OS.has_feature("quest"):
+		dev = "pc" # Meta Quest app: the menus are used with the controller pointer, like a mouse
+	elif OS.has_feature("Android") or OS.has_feature("iOS") or is_touch_web():
 		dev = "mobile" # phones and tablets: tap controls, pause buttons
 	else:
 		dev = "pc"
@@ -860,6 +862,7 @@ const VERSION_NOTES = {
 	"oct22-2026-o": "- Fixed: the game could crash on phones right after failing with auto retry on. Retrying now goes through the song loader like starting a song from the menu (the crash log also shows more of the song start now)\n- Crash logs only show after a crash: closing the app from the phone's app switcher no longer counts as one. New experimental setting (Settings > Replays & Misc > Experimental, off by default): Always show crash logs, which shows the last session's log at every start\n- Phones: Load Replay button next to Map Folders in the map list, to watch a replay (.sspre) from your replays folder or anywhere on the phone\n- VR fixed (it couldn't start: the menu and songs failed to load in VR). The menu screen, the controller pointer and clicking work, the pointer dot sits where you point (it was drawn off to the side), the sidebar stays open while you point at it, the map list scrolls with the controller, songs play with the controller ray as the cursor, and Sound Space Mode works in VR. If SteamVR isn't running, Start VR tells you instead of breaking the menu",
 	"oct22-2026-p": "- VR: the game recenters to you. Resetting the boundary / Reset view on a Meta Quest (or SteamVR's reset) now puts the game at your eye height and in front of where you're facing: the menu screen straight ahead, the grid straight ahead in songs, whatever your real height. It also does this once when VR starts (it used to sit too low for most people)\n- VR: the crash log now shows each click and each map you open, to find the crash when clicking a map (send the crash log if it happens again)",
 	"oct22-2026-q": "- VR recentering follows where you look: look down when you reset the boundary / view and the menu screen (or the grid in a song) moves down in front of you and tilts to face you; look up and it goes up. It stays that way between the menu and songs\n- VR: recenter any time with A / X, and smaller view resets are noticed too\n- Crash reports now include the game engine's own error messages from the session that crashed (send them when it happens: they show what broke)\n- The engine log is now also kept on phones",
+	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct21-2026-o": "- Sound Space Mode no longer changes your camera (half-lock / spin, camera, HUD and grid parallax, faraway HUD)",
 	"oct21-2026-n": "- Sound Space Mode also sets your display settings to classic Sound Space's while a song plays, and puts yours back after: its camera (Half-lock faraway, camera parallax 10, measured from a recording), FOV 75, no cursor trail, buffer cursor, spin, hit/miss/spawn effects, approach squares, note spin, glow, bloom or VHS, and all HUD parts on in their normal places. Your notes keep your own mesh and colors, and your settings are never saved with Sound Space's (even if the game closes during a song)",
 	"oct21-2026-m": "- Sound Space Mode matches classic Sound Space more closely (measured from a recording): floor and ceiling grid fading into the dark, the time on the top bracket line with the progress line under it, the health line on the bottom bracket line, wider side panels with bigger text, the multiplier box filling clockwise from the top-right corner and flashing orange when you reach x8, the grey square cursor with a thin white edge, and grey hit points in a normal font. It no longer changes your note mesh (or your colors)",
@@ -1818,7 +1821,9 @@ func start_vr():
 
 	print("VR START")
 	var viewport = get_viewport()
-	if Input.is_key_pressed(KEY_SHIFT):
+	if OS.has_feature("quest"):
+		vr_interface = ARVRServer.find_interface("OpenXR")
+	if Input.is_key_pressed(KEY_SHIFT) and not OS.has_feature("quest"):
 		print("Enabling fake VR")
 		OS.window_maximized = true
 		fake_vr = true
@@ -1839,12 +1844,21 @@ func start_vr():
 			return
 
 		viewport.arvr = true
+		if OS.has_feature("quest"):
+			# the headset's colour space (the plugin's own config tells it)
+			var cfg_path := "res://addons/godot-openxr/config/OpenXRConfig.gdns"
+			if ResourceLoader.exists(cfg_path):
+				var cfg = load(cfg_path).new()
+				if cfg and cfg.has_method("keep_3d_linear"):
+					viewport.keep_3d_linear = cfg.keep_3d_linear()
 
 		setup_controller_bindings()
 	vr = true
+	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
 	viewport.hdr = false
 	OS.vsync_enabled = false
-	Engine.target_fps = 720
+	# the headset paces the frames (a cap would only hold it back)
+	Engine.target_fps = 0 if OS.has_feature("quest") else 720
 	var vr_av = load("res://vr/VRPlayer.tscn").instance()
 	rootg.add_child(vr_av)
 	vr_av.name = "VRPlayer"
@@ -1874,45 +1888,55 @@ func menu_mouse(ci: CanvasItem) -> Vector2:
 func setup_controller_bindings():
 
 	var ev = InputEventJoypadButton.new()
+	ev.device = -1 # any controller
 	ev.button_index = JOY_OCULUS_MENU
 	InputMap.action_add_event("vr_switch_hands", ev)
 
 	ev = InputEventJoypadButton.new()
+	ev.device = -1 # any controller
 	ev.button_index = JOY_OPENVR_MENU
 	InputMap.action_add_event("vr_switch_hands", ev)
 
 
 	ev = InputEventJoypadButton.new()
+	ev.device = -1 # any controller
 	ev.button_index = JOY_VR_GRIP
 	InputMap.action_add_event("give_up", ev)
 
 	ev = InputEventJoypadMotion.new()
+	ev.device = -1
 	ev.axis = JOY_VR_ANALOG_GRIP
 	InputMap.action_add_event("give_up", ev)
 
 
 	ev = InputEventJoypadButton.new()
+	ev.device = -1 # any controller
 	ev.button_index = JOY_VR_PAD
 	InputMap.action_add_event("pause", ev)
 
 	ev = InputEventJoypadButton.new()
+	ev.device = -1 # any controller
 	ev.button_index = JOY_OCULUS_BY
 	InputMap.action_add_event("pause", ev)
 
 	# A / X: put the game where you're looking (VRPlayer.recenter_to_head)
 	ev = InputEventJoypadButton.new()
+	ev.device = -1 # any controller
 	ev.button_index = JOY_OCULUS_AX
 	InputMap.action_add_event("vr_recenter", ev)
 
 	ev = InputEventJoypadMotion.new()
+	ev.device = -1
 	ev.axis = 2
 	InputMap.action_add_event("vr_click", ev)
 	ev = InputEventJoypadMotion.new()
+	ev.device = -1
 	ev.axis = 4
 	InputMap.action_add_event("vr_click", ev)
 	print(JOY_VR_ANALOG_TRIGGER)
 
 	ev = InputEventJoypadButton.new()
+	ev.device = -1 # any controller
 	ev.button_index = 15
 	InputMap.action_add_event("vr_click", ev)
 
@@ -4728,7 +4752,7 @@ func do_init(_ud = null):
 		var latest_version = yield(Online, "latest_version")
 		if ProjectSettings.get_setting("application/config/version") != latest_version:
 			var sel = 1
-			if not String(Online.latest_version_data.get("body", "")).begins_with("-a"):
+			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest"):
 
 				Globals.confirm_prompt.open("loud sound = gone\nYou are on an outdated version of the game! Would you like to automatically update?", "Outdated", [{text = "Ignore", wait = 0}, {text = "Update", wait = 1}])
 				sel = yield(Globals.confirm_prompt, "option_selected")

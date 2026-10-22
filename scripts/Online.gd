@@ -503,6 +503,18 @@ const IOS_PCK_NAME := "chromia-ios.pck"
 static func updates_by_pack() -> bool:
 	return PackUpdate.supported()
 
+# The release files a pack update uses on this platform (iOS / Meta Quest).
+static func pack_asset() -> String:
+	return "chromia-quest.pck" if OS.has_feature("quest") else IOS_PCK_NAME
+static func pack_compat_asset() -> String:
+	return "chromia-quest-compat.txt" if OS.has_feature("quest") else "chromia-ios-compat.txt"
+static func restart_hint() -> String:
+	if OS.has_feature("quest"):
+		return "Quit Chromia (Meta button, then Quit) and open it again to use it."
+	return "Close Chromia completely (swipe it away in the app switcher) and open it again to use it."
+static func app_asset() -> String:
+	return "chromia-quest.apk" if OS.has_feature("quest") else "chromia-ios.ipa"
+
 func check_latest_version():
 	if not can_self_update() or not ProjectSettings.get_setting("application/networking/enabled"):
 		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
@@ -554,7 +566,7 @@ func attempt_update():
 			emit_signal("update_finished")
 			return
 	var download_url = ""
-	var wanted_names: Array = [IOS_PCK_NAME] if updates_by_pack() else UPDATE_PCK_NAMES
+	var wanted_names: Array = [pack_asset()] if updates_by_pack() else UPDATE_PCK_NAMES
 	for wanted in wanted_names:
 		for asset in latest_version_data.assets:
 			if asset.name == wanted:
@@ -589,7 +601,7 @@ func _pack_compatible():
 	update_blocked_reason = ""
 	var url := ""
 	for asset in latest_version_data.get("assets", []):
-		if asset.name == "chromia-ios-compat.txt":
+		if asset.name == pack_compat_asset():
 			url = asset.browser_download_url
 	var f := File.new()
 	var mine := ""
@@ -597,7 +609,7 @@ func _pack_compatible():
 		mine = f.get_as_text().strip_edges()
 		f.close()
 	if url == "" or mine == "":
-		return "This update can't be installed from inside the app. Install the new chromia-ios.ipa instead."
+		return "This update can't be installed from inside the app. Install the new %s instead." % app_asset()
 	var hr := HTTPRequest.new()
 	hr.use_threads = OS.can_use_threads()
 	hr.timeout = 20
@@ -610,7 +622,7 @@ func _pack_compatible():
 	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200:
 		return "Couldn't check the update."
 	if res[3].get_string_from_utf8().strip_edges() != mine:
-		return "This update changes parts of the app that can only be updated by installing the new chromia-ios.ipa."
+		return "This update changes parts of the app that can only be updated by installing the new %s." % app_asset()
 	return ""
 
 func _on_update_request_completed(result, response_code, headers, body):

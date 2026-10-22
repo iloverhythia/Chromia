@@ -59,7 +59,7 @@ jobs:
           tpl="$HOME/.local/share/godot/templates/${GODOT_VERSION}.stable"
           mkdir -p "$tpl"
           unzip -q -j templates.tpz templates/windows_64_release.exe templates/windows_64_debug.exe templates/webassembly_release.zip templates/webassembly_debug.zip \
-            templates/linux_x11_64_release templates/linux_x11_64_debug templates/osx.zip templates/android_release.apk templates/android_debug.apk templates/iphone.zip \
+            templates/linux_x11_64_release templates/linux_x11_64_debug templates/osx.zip templates/android_release.apk templates/android_debug.apk templates/android_source.zip templates/iphone.zip \
             templates/version.txt -d "$tpl"
           rm godot.zip templates.tpz
 
@@ -215,6 +215,37 @@ jobs:
           python3 ../.github/scripts/ipa_icons.py "$app" .. "$GITHUB_RUN_NUMBER"
           zip -q -r -y ../chromia-ios.ipa Payload
 
+      # Meta Quest (standalone VR): an Android app that starts in VR with OpenXR
+      # (GodotVR/godot_openxr). Made on a copy of the project, turned into the
+      # Quest project by .github/scripts/prepare_quest.sh, with Godot's Android
+      # gradle build (OpenXR needs it, and it runs on Java 11). Signed like the
+      # Android build (the Android step sets the keystore and version code).
+      # chromia-quest.pck + chromia-quest-compat.txt are its in-app updates
+      # (scripts/PackUpdate.gd), like the iPhone's.
+      - name: Export Meta Quest build
+        if: steps.version.outputs.exists == 'false'
+        continue-on-error: true
+        run: |
+          sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$sdk/cmdline-tools/latest/bin/sdkmanager" "platforms;android-33" "build-tools;33.0.2" > /dev/null
+          curl -sSL -o "$RUNNER_TEMP/godot-openxr.zip" -L "https://github.com/GodotVR/godot_openxr/releases/download/1.3.0/godot-openxr.zip"
+          tpl="$HOME/.local/share/godot/templates/${GODOT_VERSION}.stable"
+          q="$RUNNER_TEMP/quest"
+          mkdir -p "$q"
+          tar cf - --exclude=./.git --exclude=./dist --exclude=./web-dist --exclude=./ios-dist --exclude=./ipa-work --exclude=./base-ipa --exclude='./*.zip' --exclude='./*.apk' --exclude='./*.ipa' --exclude='./*.pck' . | (cd "$q" && tar xf -)
+          cd "$q"
+          git -C "$GITHUB_WORKSPACE" show HEAD:project.godot > project.godot # (the iOS step changed it)
+          bash .github/scripts/prepare_quest.sh "$tpl/android_source.zip" "$RUNNER_TEMP/godot-openxr.zip"
+          mkdir -p "$q/out"
+          export JAVA_HOME="${JAVA_HOME_11_X64}" PATH="${JAVA_HOME_11_X64}/bin:$PATH" ANDROID_SDK_ROOT="$sdk"
+          "$GODOT" --no-window --path . --export "Quest" "$q/out/chromia-quest.apk"
+          test -f "$q/out/chromia-quest.apk"
+          "$GODOT" --no-window --path . --export-pack "Quest" "$q/out/chromia-quest.pck"
+          test -f "$q/out/chromia-quest.pck"
+          cp "$q/out/chromia-quest.apk" "$q/out/chromia-quest.pck" "$GITHUB_WORKSPACE/"
+          cp "$GITHUB_WORKSPACE/pack_compat.txt" "$GITHUB_WORKSPACE/chromia-quest-compat.txt"
+
       # The browser version on GitHub Pages (Settings > Pages > branch gh-pages):
       # replaced on every release, so the branch never grows.
       - name: Publish web build to gh-pages
@@ -246,13 +277,14 @@ jobs:
           - Linux: unzip chromia-linux.zip and run Chromia.x86_64 (updates automatically too).
           - macOS: unzip chromia-macos.zip and open Chromia.app (first time: right-click > Open).
           - Android: install chromia-android.apk (allow installing from your browser/files app).
+          - Meta Quest: sideload chromia-quest.apk (SideQuest, or adb install). It starts in VR and updates itself.
           - iOS: chromia-ios.ipa, install with a sideloading app such as AltStore or Sideloadly (or use the browser version).
           - Browser: https://iloverhythia.github.io/Chromia/ or chromia-web.zip on any web server."
             notes=$(printf '%s' "$notes" | sed 's/^          //')
           fi
           files=("chromia-windows.zip" "chromia-web.zip" dist/Chromia.pck legacy/Furria.pck legacy/Savia.pck)
           # the other platforms are attached when their export worked
-          for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk" "chromia-ios.ipa" "chromia-ios.pck" "chromia-ios-compat.txt"; do
+          for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk" "chromia-ios.ipa" "chromia-ios.pck" "chromia-ios-compat.txt" "chromia-quest.apk" "chromia-quest.pck" "chromia-quest-compat.txt"; do
             [ -f "$f" ] && files+=("$f")
           done
           gh release create "$TAG" "${files[@]}" \

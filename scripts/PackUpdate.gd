@@ -22,7 +22,7 @@ var loaded_version: String = "" # the pack's version when one was loaded
 var discarded_version: String = "" # an update that failed to start and was removed this start
 
 static func supported() -> bool:
-	return OS.has_feature("iOS")
+	return OS.has_feature("iOS") or OS.has_feature("quest")
 
 func _init():
 	if not supported():

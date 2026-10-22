@@ -220,10 +220,12 @@ func _ready():
 			"Update removed")
 	if Rhythia._pending_update_notice != "":
 		Globals.call_deferred("notify", Globals.NOTIFY_SUCCEED,
-			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it." % Rhythia._pending_update_notice,
+			("Version %s is downloaded. Quit Chromia (Meta button, then Quit) and open it again to use it." if OS.has_feature("quest") else
+			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it.") % Rhythia._pending_update_notice,
 			"Update ready")
 		Rhythia._pending_update_notice = ""
-	if (Rhythia.last_session_crashed or (Rhythia.always_show_crash_log and Rhythia.last_session_trail.strip_edges() != "")) and not Rhythia.crash_report_shown:
+	# (Quest: shown once the VR menu is up; the first, flat menu isn't visible)
+	if (Rhythia.last_session_crashed or (Rhythia.always_show_crash_log and Rhythia.last_session_trail.strip_edges() != "")) and not Rhythia.crash_report_shown and (Rhythia.vr or not OS.has_feature("quest")):
 		Rhythia.crash_report_shown = true
 		call_deferred("_show_crash_report")
 	for i in range(buttons.size()):
@@ -254,6 +256,9 @@ func _ready():
 	$L/Language.visible = false
 
 	refresh_language_labels()
+	# Meta Quest app: straight into VR (there's no flat screen to see)
+	if OS.has_feature("quest") and not Rhythia.vr:
+		Rhythia.call_deferred("start_vr")
 
 func _process(delta: float):
 	if open and not Rect2(get_global_rect()).has_point(Rhythia.menu_mouse(self)):
