@@ -131,6 +131,7 @@ static func space_path(default_path: String) -> String:
 static func apply_hud(h):
 	if not enabled() or h.has_node("SoundSpaceMode"):
 		return
+	begin_song() # already on for this song unless something put yours back
 	var n = load("res://scripts/game/SoundSpaceMode.gd").new()
 	n.name = "SoundSpaceMode"
 	n.hud = h
@@ -413,7 +414,9 @@ func _process(delta):
 	health_fill.rect_position.x = 450 - _hw / 2.0
 
 func _exit_tree():
-	end_song()
+	# Your own display settings come back when you leave the song (menu
+	# loader, quitting), not here: a retry reloads the song scene directly and
+	# would otherwise play the next attempt with your settings.
 	if _saved.has("hit"):
 		Rhythia.hit_snd = _saved.hit
 		Rhythia.miss_snd = _saved.miss

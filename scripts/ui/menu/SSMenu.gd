@@ -61,6 +61,9 @@ var page := 0
 var _song = null
 var _built_online := false
 var _fonts := {}
+# Text is made at the screen's real size (fonts * ui_k, labels scaled back by
+# 1/ui_k) so it stays sharp on big and phone screens.
+var ui_k := 1.0
 var _was_visible := false
 
 static func install(menu_node: Node):
@@ -92,14 +95,16 @@ func _ready():
 	add_child(stage)
 	_build_grid_view()
 
-func font(path: String, size: int, outline: int = 0, outline_color: Color = Color(0, 0, 0)) -> DynamicFont:
-	var key := "%s|%d|%d|%s" % [path, size, outline, outline_color.to_html()]
+func font(path: String, size: int, outline: int = 0, outline_color: Color = Color(0, 0, 0), sharp: bool = true) -> DynamicFont:
+	var k: float = ui_k if sharp else 1.0
+	var key := "%s|%d|%d|%s|%f" % [path, size, outline, outline_color.to_html(), k]
 	if _fonts.has(key):
 		return _fonts[key]
 	var f := DynamicFont.new()
 	f.font_data = load(path)
-	f.size = size
-	f.outline_size = outline
+	f.size = int(round(size * k))
+	f.outline_size = int(round(outline * k))
+	f.set_meta("k", k) # labels using it are scaled back by this
 	f.outline_color = outline_color
 	if path == BOLD:
 		# the Tasukete tile's 包 isn't in Lato
@@ -117,19 +122,29 @@ func label(parent: Node, text: String, f: Font, col: Color, pos: Vector2, size: 
 	l.add_color_override("font_outline_modulate", Color(1, 1, 1)) # use the font's own outline colour
 	l.add_color_override("font_color_shadow", Color(0, 0, 0, 0))
 	l.rect_position = pos
-	l.rect_size = size
+	var k: float = fk(f)
+	l.rect_size = size * k
+	l.rect_scale = Vector2.ONE / k
 	l.align = align
 	l.valign = Label.VALIGN_CENTER
 	l.mouse_filter = MOUSE_FILTER_IGNORE
 	parent.add_child(l)
 	return l
 
+# how much bigger than its stage size a font was made
+static func fk(f: Font) -> float:
+	return float(f.get_meta("k")) if f != null and f.has_meta("k") else 1.0
+
+# a string's width in stage units
+static func sw(f: Font, t: String) -> float:
+	return f.get_string_size(t).x / fk(f)
+
 # shortens text with "..." to fit a width (like Sound Space's long titles)
 func fit(text: String, f: Font, w: float) -> String:
-	if f.get_string_size(text).x <= w:
+	if sw(f, text) <= w:
 		return text
 	var t := text
-	while t.length() > 1 and f.get_string_size(t + "...").x > w:
+	while t.length() > 1 and sw(f, t + "...") > w:
 		t = t.substr(0, t.length() - 1)
 	return t.strip_edges() + "..."
 
@@ -145,6 +160,11 @@ func _process(_d):
 	# centred on the whole window (not just the part right of the sidebar)
 	var vp: Vector2 = get_viewport_rect().size
 	var k: float = min(vp.x / STAGE.x, vp.y / STAGE.y)
+	# phones stretch the whole UI to the screen: count that in too
+	var stretch: float = max(0.25, min(OS.window_size.x / max(vp.x, 1.0), OS.window_size.y / max(vp.y, 1.0)))
+	var sharp: float = k * stretch
+	if abs(sharp - ui_k) > ui_k * 0.03:
+		_resharpen(sharp)
 	var ps: float = max(get_global_transform().get_scale().x, 0.001)
 	stage.rect_scale = Vector2(k, k) / ps
 	stage.rect_global_position = ((vp - STAGE * k) / 2.0).floor()
@@ -195,7 +215,7 @@ func _build_grid_view():
 	search_edit.rect_position = Vector2(460, 118)
 	search_edit.rect_size = Vector2(360, 34)
 	search_edit.placeholder_text = "Search maps"
-	search_edit.add_font_override("font", font(BOLD, 18))
+	search_edit.add_font_override("font", font(BOLD, 18, 0, Color(0, 0, 0), false))
 	search_edit.visible = false
 	search_edit.connect("text_changed", self, "_on_search_text")
 	grid_view.add_child(search_edit)
@@ -244,7 +264,7 @@ func _text_button(parent: Node, text: String, f: Font, col: Color, pos: Vector2,
 
 func _side_word(text: String, col: Color, center: Vector2, deg: float, method: String) -> Control:
 	var f := font(PIXEL, 50, 3, col.darkened(0.55))
-	var w: float = f.get_string_size(text).x + 20
+	var w: float = sw(f, text) + 20
 	var b := Clickable.new()
 	b.rect_size = Vector2(w, 70)
 	b.rect_pivot_offset = b.rect_size / 2
@@ -305,6 +325,17 @@ func _refresh():
 		tile_box.add_child(t)
 		t.setup(it.get("text", ""))
 		t.connect("clicked", self, "_on_tile", [it])
+
+func _resharpen(k: float):
+	ui_k = k
+	_fonts.clear()
+	for c in stage.get_children():
+		c.queue_free()
+	song_view = null
+	_build_grid_view()
+	_refresh()
+	if _song != null:
+		_build_song_view()
 
 func _turn(d: int):
 	page += d
@@ -475,7 +506,7 @@ func _build_song_view():
 	so.rect_size = Vector2(100, 38)
 	so.text = _time(Rhythia.start_offset)
 	so.align = LineEdit.ALIGN_CENTER
-	so.add_font_override("font", font(BOLD, 22))
+	so.add_font_override("font", font(BOLD, 22, 0, Color(0, 0, 0), false))
 	so.add_color_override("font_color", MAGENTA)
 	var sbx := StyleBoxFlat.new()
 	sbx.bg_color = Color(0, 0, 0, 0.6)
@@ -558,7 +589,7 @@ func _build_song_view():
 func _kv(pos: Vector2, k: String, v: String, vcol: Color, kcol: Color = BLUE):
 	var kf := font(BOLD, 22, 2, Color(0, 0.1, 0.2))
 	var kl := label(song_view, k, kf, kcol, pos, Vector2(200, 30))
-	var w: float = kf.get_string_size(k).x
+	var w: float = sw(kf, k)
 	var vf := font(BOLD, 22, 2, Color(0.15, 0, 0.1))
 	label(song_view, fit(v, vf, 420 - w), vf, vcol, pos + Vector2(w, 0), Vector2(420 - w, 30))
 	return kl
@@ -710,7 +741,7 @@ class Tile extends Clickable:
 		if song == null:
 			var size := 44
 			var f = ui.font(ui.BOLD, size, 4, Color(0.12, 0.12, 0.12))
-			while size > 16 and f.get_string_size(text).x + 8 > rect_size.x - 26:
+			while size > 16 and ui.sw(f, text) + 8 > rect_size.x - 26:
 				size -= 2
 				f = ui.font(ui.BOLD, size, 4, Color(0.12, 0.12, 0.12))
 			if text == "包":
@@ -924,11 +955,15 @@ class Pill extends Clickable:
 		_rounded(r, rad, color)
 		_rounded(r.grow(-4), max(0.0, rad - 4), fill)
 		if font:
+			var k: float = float(font.get_meta("k")) if font.has_meta("k") else 1.0
 			var t := text
-			while t.length() > 3 and font.get_string_size(t).x > rect_size.x - 30:
+			while t.length() > 3 and font.get_string_size(t).x / k > rect_size.x - 30:
 				t = t.substr(0, t.length() - 4) + "…"
 			var w: float = font.get_string_size(t).x
-			draw_string(font, Vector2((rect_size.x - w) / 2.0, rect_size.y / 2.0 + font.get_ascent() / 2.0 - 3), t, text_color)
+			# drawn at the font's real size so it stays sharp
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE / k)
+			draw_string(font, Vector2((rect_size.x * k - w) / 2.0, rect_size.y * k / 2.0 + font.get_ascent() / 2.0 - 3 * k), t, text_color)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 # the big green PLAY / VS buttons
 class BigButton extends Pill:

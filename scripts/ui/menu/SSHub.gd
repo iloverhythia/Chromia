@@ -26,6 +26,9 @@ var hub_open := false
 var _on := false
 var _fonts := {}
 var _built_for := []
+# Text is made at the screen's real size (fonts * ui_k, labels scaled back by
+# 1/ui_k) so it stays sharp instead of being stretched up from 720p.
+var ui_k := 1.0
 
 static func install(menu_node: Node):
 	if menu_node == null or menu_node.has_node("SSHub"):
@@ -69,13 +72,15 @@ func _ready():
 	back_btn = _side_back()
 	menu.call_deferred("add_child", back_btn)
 
-func font(path: String, size: int, outline: int = 0, oc: Color = Color(0, 0, 0)) -> DynamicFont:
-	var key := "%s|%d|%d|%s" % [path, size, outline, oc.to_html()]
+func font(path: String, size: int, outline: int = 0, oc: Color = Color(0, 0, 0), sharp: bool = true) -> DynamicFont:
+	var k: float = ui_k if sharp else 1.0
+	var key := "%s|%d|%d|%s|%f" % [path, size, outline, oc.to_html(), k]
 	if not _fonts.has(key):
 		var f := DynamicFont.new()
 		f.font_data = load(path)
-		f.size = size
-		f.outline_size = outline
+		f.size = int(round(size * k))
+		f.outline_size = int(round(outline * k))
+		f.set_meta("k", k) # labels using it are scaled back by this
 		f.outline_color = oc
 		_fonts[key] = f
 	return _fonts[key]
@@ -88,7 +93,9 @@ func label(parent: Node, text: String, f: Font, col: Color, pos: Vector2, size: 
 	l.add_color_override("font_outline_modulate", Color(1, 1, 1))
 	l.add_color_override("font_color_shadow", Color(0, 0, 0, 0))
 	l.rect_position = pos
-	l.rect_size = size
+	var k: float = float(f.get_meta("k")) if f.has_meta("k") else 1.0
+	l.rect_size = size * k
+	l.rect_scale = Vector2.ONE / k
 	l.align = align
 	l.valign = Label.VALIGN_CENTER
 	l.mouse_filter = MOUSE_FILTER_IGNORE
@@ -103,11 +110,15 @@ func _build():
 	bg.mouse_filter = MOUSE_FILTER_IGNORE
 	stage.add_child(bg)
 	# the logo, in Sound Space's two colours
-	# "Chro" on top, "mia" under it and to the right, like Sound Space's logo
-	var top := label(stage, "Chro", font(BOLD, 84, 6, Color8(40, 0, 90)), Color8(120, 60, 255), Vector2(430, 8), Vector2(260, 104), Label.ALIGN_RIGHT)
-	top.rect_rotation = -4
-	var bottom := label(stage, "mia", font(BOLD, 84, 6, Color8(90, 30, 0)), Color8(255, 140, 40), Vector2(600, 82), Vector2(260, 104))
-	bottom.rect_rotation = -4
+	# the game's logo
+	var logo := TextureRect.new()
+	logo.texture = load("res://assets/images/branding/logo.png")
+	logo.expand = true
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.rect_position = Vector2(380, 18)
+	logo.rect_size = Vector2(520, 176)
+	logo.mouse_filter = MOUSE_FILTER_IGNORE
+	stage.add_child(logo)
 	items_box = Control.new()
 	items_box.rect_position = Vector2(340, 210)
 	items_box.rect_size = Vector2(600, 440)
@@ -150,7 +161,7 @@ func _rebuild_items():
 		var e: Array = es[i]
 		var last: bool = i == es.size() - 1
 		var f := font(PIXEL, size + (8 if last or i == 0 else 0), 3, Color(0, 0, 0))
-		var w: float = f.get_string_size(e[1]).x + 24
+		var w: float = f.get_string_size(e[1]).x / ui_k + 24
 		var it := Item.new()
 		it.hub = self
 		it.hover_color = HOVER_COLORS[i % HOVER_COLORS.size()]
@@ -169,13 +180,20 @@ func _side_back() -> Control:
 	b.rect_pivot_offset = b.rect_size / 2
 	b.rect_rotation = -90
 	b.visible = false
-	b.lab = label(b, "BACK", font(PIXEL, 34, 3, Color(0.35, 0.05, 0.05)), RED, Vector2.ZERO, b.rect_size, Label.ALIGN_CENTER)
+	b.lab = label(b, "BACK", font(PIXEL, 34, 3, Color(0.35, 0.05, 0.05), false), RED, Vector2.ZERO, b.rect_size, Label.ALIGN_CENTER)
 	b.base_color = RED
 	b.connect("clicked", self, "open")
 	return b
 
 func open():
 	hub_open = true
+	_rebuild_items()
+
+func _resharpen(k: float):
+	ui_k = k
+	for c in stage.get_children():
+		c.queue_free()
+	_build()
 	_rebuild_items()
 
 func close():
@@ -212,6 +230,11 @@ func _process(_d):
 			_rebuild_items()
 	var vp: Vector2 = get_viewport_rect().size
 	var k: float = min(vp.x / STAGE.x, vp.y / STAGE.y)
+	# phones stretch the whole UI to the screen: count that in too
+	var stretch: float = max(0.25, min(OS.window_size.x / max(vp.x, 1.0), OS.window_size.y / max(vp.y, 1.0)))
+	var want: float = k * stretch
+	if visible and abs(want - ui_k) > ui_k * 0.03:
+		_resharpen(want)
 	stage.rect_scale = Vector2(k, k)
 	stage.rect_global_position = ((vp - STAGE * k) / 2.0).floor()
 	# BACK on the pages other than the maps (those have their own)
