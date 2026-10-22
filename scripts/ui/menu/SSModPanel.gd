@@ -226,7 +226,7 @@ func _process(_d):
 		_sync()
 
 func _sync():
-	var on: bool = bool(Rhythia.get("sound_space_mode"))
+	var on: bool = bool(Rhythia.call("ss_menus_on"))
 	if on == _on:
 		return
 	_on = on

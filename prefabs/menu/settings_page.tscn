@@ -6293,6 +6293,27 @@ flat = true
 script = ExtResource( 54 )
 target = "ss_score_popups"
 
+[node name="SoundSpaceGameplayOnly" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_top = 173.0
+margin_right = 955.0
+margin_bottom = 201.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "Sound Space Mode only changes the songs; the menus (sidebar, map list, modifiers) stay Chromia's."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Sound Space Mode: gameplay only"
+flat = true
+script = ExtResource( 54 )
+target = "ss_gameplay_only"
+
 [node name="SSHealthY" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
 margin_right = 500.0
 margin_bottom = 32.0

@@ -60,7 +60,7 @@ func _ready():
 	get_tree().connect("node_added", self, "_on_node_added")
 
 func _process(_d):
-	var want: bool = bool(Rhythia.get("sound_space_mode"))
+	var want: bool = bool(Rhythia.call("ss_menus_on"))
 	if want == _on:
 		return
 	_on = want

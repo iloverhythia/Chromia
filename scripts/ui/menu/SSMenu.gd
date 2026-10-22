@@ -180,7 +180,7 @@ func fit(text: String, f: Font, w: float) -> String:
 	return t.strip_edges() + "..."
 
 func _process(delta):
-	var want: bool = bool(Rhythia.get("sound_space_mode")) and maps != null and maps.visible
+	var want: bool = bool(Rhythia.call("ss_menus_on")) and maps != null and maps.visible
 	if want != visible:
 		visible = want
 	if visible and not _was_visible:

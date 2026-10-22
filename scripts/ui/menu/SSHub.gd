@@ -271,7 +271,7 @@ func _on_item(btn):
 		btn.emit_signal("pressed")
 
 func _process(_delta):
-	var on: bool = bool(Rhythia.get("sound_space_mode"))
+	var on: bool = bool(Rhythia.call("ss_menus_on"))
 	if on != _on:
 		_on = on
 		if on and not Engine.has_meta(META_SEEN):
