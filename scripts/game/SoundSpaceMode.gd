@@ -251,9 +251,18 @@ func _build():
 	health_fill.rect_size = Vector2(_hw, 10)
 	health_fill.visible = show_hp
 	bottom.add_child(health_fill)
+	# the modifiers row (speed icons, NOFAIL...) right under the health bar,
+	# icons first and a bit smaller so they fit on the HUD, with the speed
+	# icons as Sound Space's modifier tiles
 	var mods = hud.get_node_or_null("EnergyVP/Control/Modifiers")
 	if mods:
-		mods.rect_position.y += 200
+		var icons = mods.get_node_or_null("Icons")
+		if icons:
+			mods.move_child(icons, 0)
+			_ss_speed_icons(icons.get_node_or_null("H"))
+		mods.rect_pivot_offset = Vector2(mods.rect_size.x / 2.0, 0)
+		mods.rect_scale = Vector2(0.85, 0.85)
+		mods.rect_position.y = hy + 16
 
 	var combo = hud.get_node_or_null("ComboHud")
 	if combo:
@@ -320,6 +329,39 @@ const POP_Y := -0.819       # of the bracket's half-size, below the centre
 const POP_FOLLOW := 0.1     # how much of the note's height carries over
 const POP_HEIGHT := 0.0714  # digit height, of the bracket's half-size
 const POP_COLOR := Color(1, 1, 1, 0.74)
+
+# The HUD's speed icons (SpeedM ... SpeedPPPP) drawn as the Sound Space
+# modifier tiles from the song screen (scripts/ui/menu/SSModPanel.gd), lit.
+# The HUD still decides which one shows.
+const SPEED_TILES := {
+	"SpeedM": ["minus1", Color(0.72, 0.45, 0.85)], "SpeedMM": ["minus2", Color(0.72, 0.45, 0.85)],
+	"SpeedMMM": ["minus3", Color(0.72, 0.45, 0.85)], "SpeedMMMM": ["minus4", Color(0.72, 0.45, 0.85)],
+	"SpeedP": ["plus1", Color(0.2, 0.8, 0.95)], "SpeedPP": ["plus2", Color(0.45, 0.6, 0.95)],
+	"SpeedPPP": ["plus3", Color(0.45, 0.6, 0.95)], "SpeedPPPP": ["plus4", Color(0.45, 0.6, 0.95)],
+}
+func _ss_speed_icons(row: Node):
+	if row == null:
+		return
+	var panel = load("res://scripts/ui/menu/SSModPanel.gd")
+	for n in SPEED_TILES:
+		var tr = row.get_node_or_null(n)
+		if not (tr is TextureRect) or tr.has_node("SSTile"):
+			continue
+		tr.self_modulate = Color(1, 1, 1, 0) # the normal icon, hidden
+		var t = panel.Tile.new()
+		t.name = "SSTile"
+		t.icon = SPEED_TILES[n][0]
+		t.color = SPEED_TILES[n][1]
+		var on := Button.new() # keeps the tile lit
+		on.toggle_mode = true
+		on.pressed = true
+		on.visible = false
+		t.add_child(on)
+		t.target = on
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.anchor_right = 1
+		t.anchor_bottom = 1
+		tr.add_child(t)
 
 func score_popup(note_pos: Vector3, gained: int):
 	if gained <= 0 or not bool(Rhythia.get("ss_score_popups")):
