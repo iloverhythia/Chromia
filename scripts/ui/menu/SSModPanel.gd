@@ -7,6 +7,8 @@ extends Control
 # a tap flips that button, and the tile lights up while it's on.
 #
 # menu2.gd builds it (SSModPanel.install) after the modifiers are set up.
+# It only shows while Sound Space Mode is on; with it off the normal
+# modifier checkboxes and speed buttons are back where they were.
 
 const MAGENTA := Color(1.0, 0.0, 0.95)
 const PAGE_GREEN := Color(0.1, 0.95, 0.2)
@@ -54,6 +56,9 @@ var page_label: Label
 var prev_btn: Button
 var next_btn: Button
 var _pixel: DynamicFontData
+var _normal_state := {}
+var _ss_state := {}
+var _on = null
 var _label_font: DynamicFont
 
 # Replaces the modifier rows under Mods with the panel.
@@ -71,6 +76,7 @@ func _build():
 	_label_font = DynamicFont.new()
 	_label_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	_label_font.size = 11
+	_normal_state = _snapshot()
 	var speed: Control = mods.get_node_or_null("SpeedMod")
 	var width: float = mods.rect_size.x if mods.rect_size.x > 0 else 334.0
 	# where the speed row and the checkboxes were
@@ -170,6 +176,45 @@ func _build():
 			bottom = max(bottom, n.rect_position.y + n.rect_size.y)
 	mods.rect_min_size.y = bottom + 8
 	_show_page()
+	_ss_state = _snapshot()
+	_sync()
+
+# Visibility and height of everything under Mods (and the speed buttons), so
+# switching Sound Space Mode can put either layout back.
+func _snapshot() -> Dictionary:
+	var nodes := {}
+	for n in mods.get_children():
+		if n != self and n is Control:
+			nodes[n] = [n.visible, n.rect_position.y]
+	var c = mods.get_node_or_null("SpeedMod/C")
+	if c:
+		for b in c.get_children():
+			if b is Control:
+				nodes[b] = [b.visible, null]
+	return {"nodes": nodes, "min_y": mods.rect_min_size.y}
+
+func _restore(st: Dictionary):
+	for n in st.nodes:
+		if is_instance_valid(n):
+			n.visible = st.nodes[n][0]
+			if st.nodes[n][1] != null:
+				n.rect_position.y = st.nodes[n][1]
+	mods.rect_min_size.y = st.min_y
+
+func _process(_d):
+	_sync()
+
+func _sync():
+	var on: bool = bool(Rhythia.get("sound_space_mode"))
+	if on == _on:
+		return
+	_on = on
+	visible = on
+	_restore(_ss_state if on else _normal_state)
+	# let the menu centre whichever layout is showing
+	var menu = get_tree().current_scene if is_inside_tree() else null
+	if menu != null and menu.has_method("_relayout_mods_soon"):
+		menu.call_deferred("_relayout_mods_soon")
 
 func _by_y(a, b) -> bool:
 	return a.rect_position.y < b.rect_position.y
