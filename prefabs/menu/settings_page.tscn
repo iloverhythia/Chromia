@@ -1,4 +1,4 @@
-[gd_scene load_steps=99 format=2]
+[gd_scene load_steps=100 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -72,6 +72,7 @@
 [ext_resource path="res://scripts/ui/settings/ColorsetMaker.gd" type="Script" id=78]
 [ext_resource path="res://scripts/ui/settings/MaxFPSMode.gd" type="Script" id=79]
 [ext_resource path="res://scripts/ui/settings/CheckUpdates.gd" type="Script" id=80]
+[ext_resource path="res://scripts/ui/settings/SSBarSetting.gd" type="Script" id=81]
 
 [sub_resource type="StyleBoxLine" id=55]
 color = Color( 0.690196, 0.690196, 0.690196, 0.588235 )
@@ -6291,6 +6292,134 @@ text = "Sound Space Mode: score popups"
 flat = true
 script = ExtResource( 54 )
 target = "ss_score_popups"
+
+[node name="SSHealthY" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 0] moves Sound Space Mode's health bar up (+) or down (-)"
+
+[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthY"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 0] moves Sound Space Mode's health bar up (+) or down (-)"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = -190.0
+max_value = 95.0
+step = 2.0
+allow_greater = false
+allow_lesser = false
+suffix = ""
+script = ExtResource( 81 )
+target = "ss_health_y"
+
+[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthY"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: health bar height"
+valign = 1
+
+[node name="SSHealthW" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's health bar is"
+
+[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthW"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's health bar is"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = 10.0
+max_value = 145.0
+step = 5.0
+allow_greater = false
+allow_lesser = false
+suffix = "%"
+script = ExtResource( 81 )
+target = "ss_health_w"
+
+[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthW"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: health bar width"
+valign = 1
+
+[node name="SSProgressY" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 0] moves Sound Space Mode's song progress bar up (+) or down (-)"
+
+[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressY"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 0] moves Sound Space Mode's song progress bar up (+) or down (-)"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = -115.0
+max_value = 165.0
+step = 2.0
+allow_greater = false
+allow_lesser = false
+suffix = ""
+script = ExtResource( 81 )
+target = "ss_progress_y"
+
+[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressY"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: progress bar height"
+valign = 1
+
+[node name="SSProgressW" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's song progress bar is"
+
+[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressW"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's song progress bar is"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = 10.0
+max_value = 130.0
+step = 5.0
+allow_greater = false
+allow_lesser = false
+suffix = "%"
+script = ExtResource( 81 )
+target = "ss_progress_w"
+
+[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressW"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: progress bar width"
+valign = 1
 
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Replays & Misc"]
 margin_top = 501.0

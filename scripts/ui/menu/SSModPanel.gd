@@ -13,8 +13,6 @@ extends Control
 const MAGENTA := Color(1.0, 0.0, 0.95)
 const PAGE_GREEN := Color(0.1, 0.95, 0.2)
 const ARROW_CYAN := Color(0.0, 0.85, 1.0)
-const COLS := 4
-const ROWS := 3
 const TILE_GAP := 6.0
 const FRAME_W := 4.0
 const PAD := 10.0
@@ -49,6 +47,10 @@ const TILES := [
 ]
 
 var mods: Control
+var cols := 4
+var rows := 3
+var standalone := false # a second copy (Sound Space song screen): only tiles, nothing moved or hidden
+var fixed_width := 0.0
 var tiles := []
 var page := 0
 var pages := 1
@@ -71,20 +73,35 @@ static func install(mods_node: Control):
 	mods_node.add_child(p)
 	p._build()
 
+# A copy of the tiles for another screen: they flip the same buttons under
+# mods_node, which stay where they are.
+static func make_standalone(mods_node: Control, n_cols: int, n_rows: int, width: float) -> Control:
+	var p = load("res://scripts/ui/menu/SSModPanel.gd").new()
+	p.mods = mods_node
+	p.cols = n_cols
+	p.rows = n_rows
+	p.standalone = true
+	p.fixed_width = width
+	p._build()
+	return p
+
 func _build():
 	_pixel = load("res://assets/font/PressStart2P/PressStart2P-Regular.ttf")
 	_label_font = DynamicFont.new()
 	_label_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	_label_font.size = 11
-	_normal_state = _snapshot()
+	if not standalone:
+		_normal_state = _snapshot()
 	var speed: Control = mods.get_node_or_null("SpeedMod")
-	var width: float = mods.rect_size.x if mods.rect_size.x > 0 else 334.0
+	var width: float = fixed_width if fixed_width > 0 else (mods.rect_size.x if mods.rect_size.x > 0 else 334.0)
 	# where the speed row and the checkboxes were
-	var top_y: float = speed.rect_position.y if speed else 60.0
+	var top_y: float = 0.0 if standalone else (speed.rect_position.y if speed else 60.0)
 	var arrows := 24.0
 	var inner_w := width - arrows * 2 - FRAME_W * 2 - PAD * 2
-	var tile := floor((inner_w - TILE_GAP * (COLS - 1)) / COLS)
-	var frame_h := TOP + ROWS * tile + (ROWS - 1) * TILE_GAP + PAD + FRAME_W * 2
+	var tile := floor((inner_w - TILE_GAP * (cols - 1)) / cols)
+	if standalone:
+		_label_font.size = int(clamp(tile * 0.13, 11, 20))
+	var frame_h := TOP + rows * tile + (rows - 1) * TILE_GAP + PAD + FRAME_W * 2
 	rect_position = Vector2(0, top_y)
 	rect_size = Vector2(width, frame_h)
 	mouse_filter = MOUSE_FILTER_PASS
@@ -98,7 +115,7 @@ func _build():
 	page_label = Label.new()
 	var pf := DynamicFont.new()
 	pf.font_data = _pixel
-	pf.size = 14
+	pf.size = 22 if standalone else 14
 	page_label.add_font_override("font", pf)
 	page_label.add_color_override("font_color", PAGE_GREEN)
 	page_label.align = Label.ALIGN_CENTER
@@ -129,15 +146,18 @@ func _build():
 		tiles.append(tl)
 		if not t[1].begins_with("SpeedMod"):
 			hidden[target] = true
-	pages = int(ceil(tiles.size() / float(COLS * ROWS)))
+	pages = int(ceil(tiles.size() / float(cols * rows)))
 	for i in range(tiles.size()):
-		var on_page := i % (COLS * ROWS)
-		var col := on_page % COLS
-		var row := on_page / COLS
+		var on_page := i % (cols * rows)
+		var col := on_page % cols
+		var row := on_page / cols
 		tiles[i].rect_position = Vector2(
 			arrows + FRAME_W + PAD + col * (tile + TILE_GAP),
 			FRAME_W + TOP + row * (tile + TILE_GAP))
 
+	if standalone:
+		_show_page()
+		return
 	# the old rows: checkboxes hidden; the speed row keeps only "Custom"
 	for n in hidden:
 		n.visible = false
@@ -202,7 +222,8 @@ func _restore(st: Dictionary):
 	mods.rect_min_size.y = st.min_y
 
 func _process(_d):
-	_sync()
+	if not standalone:
+		_sync()
 
 func _sync():
 	var on: bool = bool(Rhythia.get("sound_space_mode"))
@@ -247,7 +268,7 @@ func _next():
 
 func _show_page():
 	for i in range(tiles.size()):
-		tiles[i].visible = i / (COLS * ROWS) == page
+		tiles[i].visible = i / (cols * rows) == page
 	page_label.text = "%d/%d" % [page + 1, pages]
 	prev_btn.visible = pages > 1
 	next_btn.visible = pages > 1

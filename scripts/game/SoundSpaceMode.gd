@@ -50,6 +50,8 @@ var notes_label: Label
 var time_label: Label
 var progress_fill: ColorRect
 var health_fill: ColorRect
+var _pw := PROGRESS_W # bar widths after the player's settings
+var _hw := HEALTH_W
 var popups: CanvasLayer
 var _pops := [] # [label, world position, age]
 var _saved := {}
@@ -215,14 +217,17 @@ func _build():
 	# top (on the top bracket line): time, and a thin progress line under it
 	var top := _bar_root(hud.get_node("TimerVP/Control"), "SoundSpace")
 	time_label = _label(top, "0:00", 52, TIME_GREY, 127, 900)
+	# height and width can be adjusted in Settings (Sound Space Mode: progress bar ...)
+	_pw = clamp(PROGRESS_W * float(Rhythia.get("ss_progress_w")) / 100.0, 60.0, 890.0)
+	var py: float = clamp(-float(Rhythia.get("ss_progress_y")), -165.0, 115.0)
 	var line_bg := ColorRect.new()
 	line_bg.color = Color8(40, 40, 40) # the skin's progress_background
-	line_bg.rect_position = Vector2(450 - PROGRESS_W / 2, 172)
-	line_bg.rect_size = Vector2(PROGRESS_W, 5)
+	line_bg.rect_position = Vector2(450 - _pw / 2, 172 + py)
+	line_bg.rect_size = Vector2(_pw, 5)
 	top.add_child(line_bg)
 	progress_fill = ColorRect.new()
 	progress_fill.color = Color(1, 1, 1)
-	progress_fill.rect_position = Vector2(450 - PROGRESS_W / 2, 169)
+	progress_fill.rect_position = Vector2(450 - _pw / 2, 169 + py)
 	progress_fill.rect_size = Vector2(0, 11)
 	top.add_child(progress_fill)
 
@@ -230,16 +235,19 @@ func _build():
 	var show_hp: bool = hud.energybar.visible
 	var bottom := _bar_root(hud.get_node("EnergyVP/Control"), "SoundSpace")
 	# the skin's health_background: red behind the green line
+	# height and width can be adjusted in Settings (Sound Space Mode: health bar ...)
+	_hw = clamp(HEALTH_W * float(Rhythia.get("ss_health_w")) / 100.0, 60.0, 890.0)
+	var hy: float = clamp(192.0 - float(Rhythia.get("ss_health_y")), 2.0, 288.0)
 	var health_bg := ColorRect.new()
 	health_bg.color = Color(1, 0, 0)
-	health_bg.rect_position = Vector2(450 - HEALTH_W / 2, 192)
-	health_bg.rect_size = Vector2(HEALTH_W, 10)
+	health_bg.rect_position = Vector2(450 - _hw / 2, hy)
+	health_bg.rect_size = Vector2(_hw, 10)
 	health_bg.visible = show_hp
 	bottom.add_child(health_bg)
 	health_fill = ColorRect.new()
 	health_fill.color = GREEN
-	health_fill.rect_position = Vector2(450 - HEALTH_W / 2, 192)
-	health_fill.rect_size = Vector2(HEALTH_W, 10)
+	health_fill.rect_position = Vector2(450 - _hw / 2, hy)
+	health_fill.rect_size = Vector2(_hw, 10)
 	health_fill.visible = show_hp
 	bottom.add_child(health_fill)
 	var mods = hud.get_node_or_null("EnergyVP/Control/Modifiers")
@@ -395,14 +403,14 @@ func _process(delta):
 	var prog := 0.0
 	if tb.max_value > tb.min_value:
 		prog = clamp((tb.value - tb.min_value) / (tb.max_value - tb.min_value), 0.0, 1.0)
-	progress_fill.rect_size.x = PROGRESS_W * prog
+	progress_fill.rect_size.x = _pw * prog
 	var eb: ProgressBar = hud.energybar
 	var hp := 0.0
 	if eb.max_value > 0:
 		hp = clamp(eb.value / eb.max_value, 0.0, 1.0)
 	# drains from the right, showing the red behind it (like the video)
-	health_fill.rect_size.x = HEALTH_W * hp
-	health_fill.rect_position.x = 450 - HEALTH_W / 2.0
+	health_fill.rect_size.x = _hw * hp
+	health_fill.rect_position.x = 450 - _hw / 2.0
 
 func _exit_tree():
 	end_song()

@@ -2403,6 +2403,9 @@ func _ready():
 	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
 	_center_mods()
 	load("res://scripts/ui/menu/UpdateWatcher.gd").install(get_tree().root) # pops up new releases while you're in the menu
+	load("res://scripts/ui/menu/SSMenu.gd").install(self) # Sound Space Mode's map grid and map screen
+	load("res://scripts/ui/menu/SSHub.gd").install(self) # Sound Space Mode's main menu (in place of the sidebar)
+	load("res://scripts/ui/menu/SSSkin.gd").install(self) # Sound Space Mode's look for the other pages
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
 		settings_tab_container.move_child(settings_tab_container.get_node("Online"), settings_tab_container.get_node("Keybinds").get_index() + 1)
