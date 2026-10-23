@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=2]
+[gd_scene load_steps=11 format=2]
 
 [ext_resource path="res://assets/worlds/custom/custombg.gd" type="Script" id=1]
 [ext_resource path="res://assets/worlds/void/void.png" type="Texture" id=2]
@@ -19,8 +19,12 @@ code = "shader_type canvas_item;
 
 uniform sampler2D tex;
 uniform vec4 tint : hint_color = vec4(1.0);
+uniform bool raw = false; // baked into a normal sky image (custombg.gd): the sky converts the colors itself
 
 vec4 cc(vec4 v) {
+	if (raw) {
+		return v;
+	}
 	return vec4(
 		pow(v.r, 2.2),
 		pow(v.g, 2.2),
@@ -66,12 +70,8 @@ void fragment() {
 shader = SubResource( 3 )
 shader_param/tex = ExtResource( 2 )
 
-[sub_resource type="ViewportTexture" id=7]
-viewport_path = NodePath("V")
-
 [sub_resource type="PanoramaSky" id=1]
 resource_local_to_scene = true
-panorama = SubResource( 7 )
 
 [sub_resource type="Environment" id=2]
 resource_local_to_scene = true
@@ -110,7 +110,7 @@ size = Vector2( 4096, 2048 )
 world = SubResource( 6 )
 hdr = false
 usage = 0
-render_target_update_mode = 3
+render_target_update_mode = 1
 
 [node name="R" type="ColorRect" parent="V"]
 material = SubResource( 4 )
