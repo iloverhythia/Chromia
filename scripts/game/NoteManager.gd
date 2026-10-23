@@ -490,6 +490,7 @@ func _ready():
 	Rhythia.start_log("note spawner")
 	load("res://scripts/game/PlayTracker.gd").attach(self)
 	_tracker = get_node_or_null("PlayTracker")
+	load("res://scripts/ui/TouchIndicator.gd").for_replay() # shows the recorded fingers (also on computers)
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null:
 		lobby_manager.connect("skip_triggered", self, "_on_networked_skip")
@@ -527,6 +528,7 @@ func _ready():
 	if not Rhythia.replaying and Rhythia.record_replays:
 		Rhythia.replay = Replay.new()
 		Rhythia.replay.start_recording(Rhythia.selected_song)
+		load("res://scripts/game/TouchRecorder.gd").attach(self) # fingers, for the touch indicator in replays
 
 	chaos_rng.seed = hash(Rhythia.selected_song.id)
 	earthquake_rng.seed = hash(Rhythia.selected_song.id)

@@ -25,6 +25,17 @@ var end_ms: float = 0
 
 var read_start_offset: int = 0
 
+# Fingers on the screen (phones), for the touch indicator when watching:
+# [rms, kind, finger, x, y] with x/y in screen pixels of the recording
+# (touch_screen). Saved after RS_END, where other replay readers stop, so
+# replays with touches still open everywhere.
+const TOUCH_SIG := PoolByteArray([67, 84, 67, 72]) # "CTCH"
+const TOUCH_DOWN := 0
+const TOUCH_MOVE := 1
+const TOUCH_UP := 2
+var touches: Array = []
+var touch_screen: Vector2 = Vector2.ZERO
+
 func replay_error(txt: String):
 	Rhythia.get_tree().paused = true
 	Globals.confirm_prompt.s_alert.play()
@@ -236,6 +247,7 @@ func read_data(from_path: String = ""):
 				return
 
 			cursor_positions = cursor_unrev
+			_read_touches()
 			emit_signal("progress", 1.0)
 
 			debug_txt.noteres_amt = note_results.size()
@@ -459,12 +471,54 @@ func start_recording(with_song: Song):
 	if debug:
 		print("Recording startup took %s usec" % [Globals.comma_sep(OS.get_ticks_usec() - a)])
 
+func store_touch(ms: float, kind: int, finger: int, pos: Vector2, screen: Vector2):
+	if not recording: return
+	touch_screen = screen
+	touches.append([int(floor(ms)), kind, finger, pos.x, pos.y])
+
+func _write_touches():
+	if touches.empty() or touch_screen.x <= 0 or touch_screen.y <= 0:
+		return
+	file.store_buffer(TOUCH_SIG)
+	file.store_16(1) # version
+	file.store_float(touch_screen.x)
+	file.store_float(touch_screen.y)
+	file.store_32(touches.size())
+	for t in touches:
+		file.store_32(t[0])
+		file.store_8(t[1])
+		file.store_8(t[2])
+		file.store_16(int(clamp(round(t[3] / touch_screen.x * 65535.0), 0, 65535)))
+		file.store_16(int(clamp(round(t[4] / touch_screen.y * 65535.0), 0, 65535)))
+
+func _read_touches():
+	touches = []
+	if file.get_len() - file.get_position() < 18:
+		return
+	if file.get_buffer(4) != TOUCH_SIG:
+		return
+	if file.get_16() != 1:
+		return
+	touch_screen = Vector2(file.get_float(), file.get_float())
+	var n := int(file.get_32())
+	if n <= 0 or file.get_len() - file.get_position() < n * 10 or touch_screen.x <= 0 or touch_screen.y <= 0:
+		touches = []
+		return
+	for i in range(n):
+		var ms := int(file.get_32())
+		var kind := file.get_8()
+		var finger := file.get_8()
+		var x := float(file.get_16()) / 65535.0 * touch_screen.x
+		var y := float(file.get_16()) / 65535.0 * touch_screen.y
+		touches.append([ms, kind, finger, x, y])
+
 func end_recording():
 	var a = OS.get_ticks_usec()
 	recording = false
 	if not file.is_open(): return # the replay file couldn't be created
 	sig_count += 1
 	file.store_8(Globals.RS_END)
+	_write_touches()
 	file.seek(endms_offset)
 	file.store_32(last_ms)
 	file.store_32(sig_count)

@@ -5,6 +5,9 @@ extends CanvasLayer
 # > Customize (scripts/ui/TouchIndicatorEditor.gd) and kept in
 # Rhythia.touch_style. A picture saved as "touch" in the user folder can
 # replace the shape.
+#
+# Watching a replay that has fingers recorded (scripts/game/TouchRecorder.gd,
+# Replay.touches) shows those instead of your own, on computers too.
 
 const DEFAULTS := {
 	"shape": "ring",          # one of SHAPES
@@ -44,6 +47,11 @@ var _canvas: Control
 var _custom: Texture = null
 var _time := 0.0
 var _st := {}             # style() for this frame (it's read a lot)
+var replay_only := false  # made just to show a replay's fingers (computers): ignores your own touches
+var _rp_i := 0            # next Replay.touches entry to show
+var _rp_last := -1e12     # replay time shown last frame
+var _rp_on := false
+var _spawn = null         # the replay's note spawner (its rms is the replay clock)
 const TRAIL_MAX := 48     # trail points kept per finger
 const TRAIL_STEP := 3.0   # px a finger has to move for a new trail point
 
@@ -55,6 +63,17 @@ static func style() -> Dictionary:
 			if s.has(k):
 				s[k] = user[k]
 	return s
+
+# NoteManager: a replay with fingers is starting; make sure something shows them.
+static func for_replay():
+	if not Rhythia.replaying or Rhythia.replay == null or Rhythia.replay.get("touches") == null or Rhythia.replay.touches.empty():
+		return
+	if Rhythia.has_node("TouchIndicator"):
+		return
+	var t = load("res://scripts/ui/TouchIndicator.gd").new()
+	t.name = "TouchIndicator"
+	t.replay_only = true
+	Rhythia.call_deferred("add_child", t)
 
 static func color_of(v, fallback: Color) -> Color:
 	if typeof(v) == TYPE_STRING and String(v).is_valid_html_color():
@@ -92,30 +111,116 @@ func _input(event):
 			_ripples.clear()
 			_canvas.update()
 		return
+	if replay_only or _replay_active():
+		return # showing a replay's fingers
 	if event is InputEventScreenTouch:
 		if event.pressed:
-			_touches[event.index] = {pos = event.position, alpha = 1.0, down = true, t0 = _time, trail = [[event.position, _time]]}
-			if st.ripple:
-				_ripples.append({pos = event.position, t = _time, hue = _hue(event.index, st)})
-		elif _touches.has(event.index):
-			_touches[event.index].pos = event.position
-			_touches[event.index].down = false
+			_down(event.index, event.position, st, true)
+		else:
+			_up(event.index, event.position)
 	elif event is InputEventScreenDrag:
-		if not _touches.has(event.index):
-			_touches[event.index] = {pos = event.position, alpha = 1.0, down = true, t0 = _time, trail = []}
-		var t: Dictionary = _touches[event.index]
-		t.pos = event.position
-		if st.trail:
-			# a point only when the finger really moved (phones send many
-			# drag events per frame), and not too many of them
-			if t.trail.empty() or event.position.distance_to(t.trail[-1][0]) >= TRAIL_STEP:
-				t.trail.append([event.position, _time])
-				if t.trail.size() > TRAIL_MAX:
-					t.trail.pop_front()
+		_move(event.index, event.position, st, true)
+
+func _down(finger: int, pos: Vector2, st: Dictionary, effects: bool):
+	_touches[finger] = {pos = pos, alpha = 1.0, down = true, t0 = _time, trail = [[pos, _time]] if effects else []}
+	if effects and st.ripple:
+		_ripples.append({pos = pos, t = _time, hue = _hue(finger, st)})
+
+func _up(finger: int, pos: Vector2):
+	if _touches.has(finger):
+		_touches[finger].pos = pos
+		_touches[finger].down = false
+
+func _move(finger: int, pos: Vector2, st: Dictionary, effects: bool):
+	if not _touches.has(finger):
+		_touches[finger] = {pos = pos, alpha = 1.0, down = true, t0 = _time, trail = []}
+	var t: Dictionary = _touches[finger]
+	t.pos = pos
+	if effects and st.trail:
+		# a point only when the finger really moved (phones send many
+		# drag events per frame), and not too many of them
+		if t.trail.empty() or pos.distance_to(t.trail[-1][0]) >= TRAIL_STEP:
+			t.trail.append([pos, _time])
+			if t.trail.size() > TRAIL_MAX:
+				t.trail.pop_front()
+
+# --- Replays -------------------------------------------------------------------
+
+func _replay_active() -> bool:
+	if not Rhythia.replaying or not Rhythia.in_map or Rhythia.replay == null:
+		return false
+	var list = Rhythia.replay.get("touches")
+	return list != null and not list.empty()
+
+func _replay_clock():
+	if _spawn != null and is_instance_valid(_spawn) and _spawn.is_inside_tree():
+		return _spawn
+	_spawn = null
+	var cs = get_tree().current_scene
+	if cs != null:
+		_spawn = cs.find_node("Spawn", true, false)
+		if _spawn != null and _spawn.get("rms") == null:
+			_spawn = null
+	return _spawn
+
+# Where a recorded finger goes on this screen: the game keeps the height of
+# the view, so positions scale with the height around the middle (the finger
+# stays on the cursor on screens of another shape).
+func _replay_pos(e: Array) -> Vector2:
+	var rec: Vector2 = Rhythia.replay.touch_screen
+	var now: Vector2 = get_viewport().get_visible_rect().size
+	var p := Vector2(e[3], e[4])
+	if rec.y <= 0:
+		return p
+	return now / 2.0 + (p - rec / 2.0) * (now.y / rec.y)
+
+func _replay_apply(e: Array, st: Dictionary, effects: bool):
+	var pos := _replay_pos(e)
+	match int(e[1]):
+		0: # down
+			_down(int(e[2]), pos, st, effects)
+		1: # move
+			_move(int(e[2]), pos, st, effects)
+		_: # up
+			if effects:
+				_up(int(e[2]), pos)
+			else:
+				_touches.erase(int(e[2]))
+
+func _feed_replay(st: Dictionary):
+	var sp = _replay_clock()
+	if sp == null:
+		return
+	var ms: float = float(sp.rms)
+	var list: Array = Rhythia.replay.touches
+	if ms < _rp_last - 1.0 or ms > _rp_last + 400.0:
+		# started, or jumped somewhere else in the replay: the fingers as they
+		# were then, without trails or ripples for everything in between
+		_touches.clear()
+		_ripples.clear()
+		_rp_i = 0
+		while _rp_i < list.size() and float(list[_rp_i][0]) <= ms:
+			_replay_apply(list[_rp_i], st, false)
+			_rp_i += 1
+	else:
+		while _rp_i < list.size() and float(list[_rp_i][0]) <= ms:
+			_replay_apply(list[_rp_i], st, true)
+			_rp_i += 1
+	_rp_last = ms
 
 func _process(delta):
 	_time += delta
 	_st = style()
+	var rp := _replay_active()
+	if rp != _rp_on:
+		# a replay started or ended: nothing carries over
+		_rp_on = rp
+		_rp_last = -1e12
+		_touches.clear()
+		_ripples.clear()
+		_canvas.update()
+	if rp and _shown(_st):
+		_feed_replay(_st)
 	if _touches.empty() and _ripples.empty():
 		return
 	var st: Dictionary = _st
