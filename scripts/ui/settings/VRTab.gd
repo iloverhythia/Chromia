@@ -1,6 +1,8 @@
 extends VBoxContainer
 
 # Settings > VR (only while playing in VR / on the Meta Quest app):
+#  - Menu screen: how big and far the menu screen is, and whether it curves
+#    around you (vr/MenuPointer.gd rebuilds it).
 #  - Controller grip: the pointer's angle and offset on your hand, like the
 #    controller settings of other VR rhythm games. The beam moves as you change
 #    it. Set for the right hand; the left hand gets the mirror image.
@@ -31,6 +33,14 @@ var box: VBoxContainer
 var _sliders := [] # [slider, value label, row]
 var _pickers := {} # action -> [OptionButton, OptionButton]
 var _loading := false
+# [label, setting, min, max, step, unit]
+const SCREEN_ROWS := [
+	["Size", "vr_menu_size", 50.0, 150.0, 5.0, "°"],
+	["Distance", "vr_menu_distance", 1.0, 3.0, 0.1, " m"],
+]
+var _screen := [] # [slider, value label, row]
+var _curve_box: CheckBox
+var _screen_t: SceneTreeTimer = null
 
 static func wanted() -> bool:
 	return Rhythia.vr or OS.has_feature("quest")
@@ -68,6 +78,18 @@ func _ready():
 	box.add_constant_override("separation", 8)
 	m.add_child(box)
 
+	_label("Menu screen", f_title, ACCENT)
+	_label("How big the menu screen is (how much of your view it fills), how far away, and whether it curves around you so every part is just as far. Scroll lists with the thumbstick while you point at them.", f_body, DIM, true)
+	for row in SCREEN_ROWS:
+		_screen_row(row)
+	_curve_box = CheckBox.new()
+	_curve_box.text = "Curved around you"
+	_curve_box.theme = load("res://uitheme.tres")
+	_curve_box.add_font_override("font", f_bold)
+	_curve_box.connect("toggled", self, "_on_curve")
+	box.add_child(_curve_box)
+	_button(box, "Reset screen", "_reset_screen")
+	box.add_child(HSeparator.new())
 	_label("Controller grip", f_title, ACCENT)
 	_label("Changes the angle and position of the pointer on your hand, so it points where feels natural to you. Watch the beam move while you change it. This is for the right hand; the left hand gets the mirror image.", f_body, DIM, true)
 	for row in GRIP_ROWS:
@@ -126,6 +148,68 @@ func _grip_row(row: Array):
 	_sliders.append([s, val, row])
 	s.connect("value_changed", self, "_on_grip", [_sliders.size() - 1])
 
+func _screen_row(row: Array):
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 12)
+	box.add_child(h)
+	var name_l := _label(row[0], f_bold, TEXT, false, h)
+	name_l.rect_min_size = Vector2(230, 0)
+	name_l.size_flags_horizontal = 0
+	var sl := HSlider.new()
+	sl.min_value = row[2]
+	sl.max_value = row[3]
+	sl.step = row[4]
+	sl.size_flags_horizontal = SIZE_EXPAND_FILL
+	sl.size_flags_vertical = SIZE_SHRINK_CENTER
+	sl.rect_min_size = Vector2(300, 28)
+	sl.theme = load("res://uitheme.tres")
+	h.add_child(sl)
+	var val := _label("", f_body, TEXT, false, h)
+	val.rect_min_size = Vector2(80, 0)
+	val.size_flags_horizontal = 0
+	_screen.append([sl, val, row])
+	sl.connect("value_changed", self, "_on_screen", [_screen.size() - 1])
+
+static func _screen_fmt(v: float, row: Array) -> String:
+	return ("%.1f" % v if row[4] < 1.0 else str(int(round(v)))) + row[5]
+
+func _on_screen(v: float, i: int):
+	var e: Array = _screen[i]
+	e[1].text = _screen_fmt(v, e[2])
+	if _loading:
+		return
+	Rhythia.set(e[2][1], v)
+	_apply_screen_soon()
+
+func _on_curve(on: bool):
+	if _loading:
+		return
+	Rhythia.vr_menu_curve = on
+	_apply_screen_soon()
+
+func _reset_screen():
+	Rhythia.vr_menu_size = 100.0
+	Rhythia.vr_menu_distance = 1.6
+	Rhythia.vr_menu_curve = true
+	_load_values()
+	_apply_screen_soon()
+
+# The screen you're pointing at changes shape: only once you let go of the
+# slider for a moment.
+func _apply_screen_soon():
+	_screen_t = get_tree().create_timer(0.5)
+	_screen_t.connect("timeout", self, "_apply_screen", [_screen_t])
+	_save_soon()
+
+func _apply_screen(t):
+	if t != _screen_t:
+		return
+	if Input.is_mouse_button_pressed(BUTTON_LEFT) or Input.is_action_pressed("vr_click"):
+		_apply_screen_soon() # still holding the slider
+		return
+	if is_instance_valid(Rhythia.vr_menu) and Rhythia.vr_menu.has_method("rebuild"):
+		Rhythia.vr_menu.rebuild()
+
 func _bind_row(action: String, title: String):
 	var h := HBoxContainer.new()
 	h.add_constant_override("separation", 12)
@@ -149,6 +233,12 @@ func _bind_row(action: String, title: String):
 
 func _load_values():
 	_loading = true
+	for e in _screen:
+		var v: float = float(Rhythia.get(e[2][1]))
+		e[0].value = v
+		e[1].text = _screen_fmt(v, e[2])
+	if _curve_box:
+		_curve_box.pressed = bool(Rhythia.vr_menu_curve)
 	for e in _sliders:
 		var row: Array = e[2]
 		var v: Vector3 = Rhythia.vr_grip_rot if row[1] == "rot" else Rhythia.vr_grip_pos

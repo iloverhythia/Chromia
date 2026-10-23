@@ -776,7 +776,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h"
 ]
 
 
@@ -865,6 +865,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct23-2026-h": "- VR menu: a big screen curved around you (100 degrees of your view, 1.6 m away, every part just as far) instead of the small flat one, drawn sharper (1920x1080)\n- Scroll the map list and other lists with the thumbstick while you point at them\n- Settings > VR > Menu screen: size (50 to 150 degrees), distance (1 to 3 m) and curved or flat",
 	"oct23-2026-g": "- Settings Generator suggests more than sensitivity, from how you play with your settings now (no need to have tried other values first):\n  - Fade-in: late on notes that appeared late while a long fade-in hides them -> less fade-in (same speed and spacing)\n  - Camera / grid parallax (touch): hitting outer notes on their inner side because the view moves with the cursor -> less parallax\n  - Cursor size: missing notes by a hair with a big cursor -> smaller; losing a tiny cursor -> bigger\n  - FOV (mouse): missing by a hair -> a lower FOV for a bigger grid on screen\n- Sensitivity advice no longer counts near misses as overshoots, or late misses on notes that showed up too late (those are about distance)\n- Up to 5 suggestions, and the \"try this for a few maps\" ones never clash with a real suggestion",
 	"oct23-2026-f": "- Replays show the touch indicator: plays on phones now record your fingers (when you touch, lift and where you move), and watching the replay shows them with your touch indicator style, on computers too. Jumping around in the replay puts the fingers where they were then. Older replays have no finger data, and replays with it still open in older versions",
 	"oct23-2026-e": "- Fixed a crash at the start of songs on iPhone with the Custom Background (often after failing and auto retrying): the background is now made into a still sky image once when the song starts, instead of redrawing a 4096x2048 picture every frame. It looks the same and runs much faster",
@@ -1761,6 +1762,10 @@ var vr_player = null # VRPlayer (vr/VRPlayer.tscn), made by start_vr
 # hand is mirrored
 var vr_grip_rot := Vector3.ZERO
 var vr_grip_pos := Vector3.ZERO
+# the VR menu screen (vr/MenuPointer.gd, Settings > VR)
+var vr_menu_size: float = 100.0    # degrees of your view it spans
+var vr_menu_distance: float = 1.6  # metres away
+var vr_menu_curve: bool = true     # curved around you
 # VR controller buttons (Settings > VR): action -> up to two button numbers
 var vr_binds := {}
 const VR_BUTTONS := [["Trigger", 15], ["Grip", 2], ["A / X", 7], ["B / Y", 1], ["Thumbstick press", 14], ["Menu", 3]]
@@ -3410,6 +3415,12 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_grip_rot = Vector3(float(data.vr_grip_rot[0]), float(data.vr_grip_rot[1]), float(data.vr_grip_rot[2]))
 		if data.has("vr_grip_pos") and data.vr_grip_pos is Array and data.vr_grip_pos.size() == 3:
 			vr_grip_pos = Vector3(float(data.vr_grip_pos[0]), float(data.vr_grip_pos[1]), float(data.vr_grip_pos[2]))
+		if data.has("vr_menu_size"):
+			vr_menu_size = clamp(float(data.vr_menu_size), 40.0, 160.0)
+		if data.has("vr_menu_distance"):
+			vr_menu_distance = clamp(float(data.vr_menu_distance), 0.8, 4.0)
+		if data.has("vr_menu_curve"):
+			vr_menu_curve = bool(data.vr_menu_curve)
 		if data.has("vr_binds") and data.vr_binds is Dictionary:
 			vr_binds = data.vr_binds
 		if data.has("menu_lyric_volume"):
@@ -3877,6 +3888,9 @@ func _write_settings_file(saveFile: String):
 			touch_style = touch_style,
 			vr_grip_rot = [vr_grip_rot.x, vr_grip_rot.y, vr_grip_rot.z],
 			vr_grip_pos = [vr_grip_pos.x, vr_grip_pos.y, vr_grip_pos.z],
+			vr_menu_size = vr_menu_size,
+			vr_menu_distance = vr_menu_distance,
+			vr_menu_curve = vr_menu_curve,
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
