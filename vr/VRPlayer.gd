@@ -30,6 +30,7 @@ func _ready():
 		right_hand = $FakeOrigin/RightHand
 		right_ray = $FakeOrigin/RightHand/Ray
 	origin.visible = true
+	_ray_base = [left_ray.transform, right_ray.transform]
 	update_primary_ray()
 	set_process(true)
 	pause_mode = PAUSE_MODE_PROCESS
@@ -41,6 +42,7 @@ func _process(delta):
 	if Input.is_action_just_pressed("vr_recenter"):
 		recenter_to_head()
 	_watch_for_reset()
+	_apply_grip()
 	if not Rhythia.fake_vr:
 		_place_eye()
 	primary_ray.force_raycast_update()
@@ -112,6 +114,27 @@ func _content_point() -> Vector3:
 		var home: Transform = Rhythia.vr_menu.get_meta("home")
 		return Rhythia.vr_menu.get_parent().global_transform.xform(home.origin)
 	return Vector3.ZERO # songs: the grid is around the world's centre
+
+# Controller grip (Settings > VR): the pointer's angle and offset on the hand.
+# The left hand gets the mirror image of the right hand's setting.
+var _ray_base := []
+var _grip_applied = null
+func _apply_grip():
+	if _ray_base.size() != 2:
+		return
+	var key = [Rhythia.vr_grip_rot, Rhythia.vr_grip_pos]
+	if key == _grip_applied:
+		return
+	_grip_applied = key
+	var r: Vector3 = Rhythia.vr_grip_rot
+	var p: Vector3 = Rhythia.vr_grip_pos * 0.02 # cm -> game units (world scale 2)
+	for i in range(2):
+		var left := i == 0
+		var base: Transform = _ray_base[i]
+		var rot := Vector3(deg2rad(r.x), deg2rad(-r.y if left else r.y), deg2rad(-r.z if left else r.z))
+		var off := Vector3(-p.x if left else p.x, p.y, p.z)
+		var ray: Spatial = left_ray if left else right_ray
+		ray.transform = Transform(base.basis * Basis(rot), base.origin + off)
 
 func recenter_to_head():
 	if Rhythia.fake_vr:

@@ -22,7 +22,7 @@ func _input(event: InputEvent):
 			viewport.input(ev)
 		elif event is InputEventJoypadButton and (event as InputEventJoypadButton):
 			var e: InputEventJoypadButton = event
-			if e.button_index == 15:
+			if Rhythia.vr_bind("vr_click").has(e.button_index):
 				if e.pressed:
 					Rhythia.trail("VR trigger at %s" % last_screen_pos)
 				var ev: InputEventMouseButton = InputEventMouseButton.new()

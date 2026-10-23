@@ -1747,6 +1747,16 @@ var vr_left_handed: bool = false
 var vr_controller_type: int = Globals.VR_GENERIC
 var _vr_check_thread: Thread = null
 var vr_player = null # VRPlayer (vr/VRPlayer.tscn), made by start_vr
+# VR controller grip (Settings > VR): the pointer's angle in degrees (x tilt up /
+# down, y left / right, z roll) and offset in cm, for the right hand; the left
+# hand is mirrored
+var vr_grip_rot := Vector3.ZERO
+var vr_grip_pos := Vector3.ZERO
+# VR controller buttons (Settings > VR): action -> up to two button numbers
+var vr_binds := {}
+const VR_BUTTONS := [["Trigger", 15], ["Grip", 2], ["A / X", 7], ["B / Y", 1], ["Thumbstick press", 14], ["Menu", 3]]
+const VR_ACTIONS := [["vr_click", "Click / select"], ["pause", "Pause"], ["give_up", "Give up (hold)"], ["retry", "Retry"], ["vr_recenter", "Recenter"], ["vr_switch_hands", "Switch hands"]]
+const VR_DEFAULT_BINDS := {"vr_click": [15], "pause": [14, 1], "give_up": [2], "retry": [], "vr_recenter": [7], "vr_switch_hands": [3]}
 var vr_menu = null   # the menu screen in VR (vrmenu.tscn PointerScreen)
 
 
@@ -1888,61 +1898,38 @@ func menu_mouse(ci: CanvasItem) -> Vector2:
 	return ci.get_global_mouse_position()
 
 func setup_controller_bindings():
+	apply_vr_binds()
 
-	var ev = InputEventJoypadButton.new()
-	ev.device = -1 # any controller
-	ev.button_index = JOY_OCULUS_MENU
-	InputMap.action_add_event("vr_switch_hands", ev)
+func vr_bind(action: String) -> Array:
+	var out := []
+	for b in vr_binds.get(action, VR_DEFAULT_BINDS.get(action, [])):
+		if int(b) >= 0 and not out.has(int(b)):
+			out.append(int(b))
+	return out
 
-	ev = InputEventJoypadButton.new()
-	ev.device = -1 # any controller
-	ev.button_index = JOY_OPENVR_MENU
-	InputMap.action_add_event("vr_switch_hands", ev)
-
-
-	ev = InputEventJoypadButton.new()
-	ev.device = -1 # any controller
-	ev.button_index = JOY_VR_GRIP
-	InputMap.action_add_event("give_up", ev)
-
-	ev = InputEventJoypadMotion.new()
-	ev.device = -1
-	ev.axis = JOY_VR_ANALOG_GRIP
-	InputMap.action_add_event("give_up", ev)
-
-
-	ev = InputEventJoypadButton.new()
-	ev.device = -1 # any controller
-	ev.button_index = JOY_VR_PAD
-	InputMap.action_add_event("pause", ev)
-
-	ev = InputEventJoypadButton.new()
-	ev.device = -1 # any controller
-	ev.button_index = JOY_OCULUS_BY
-	InputMap.action_add_event("pause", ev)
-
-	# A / X: put the game where you're looking (VRPlayer.recenter_to_head)
-	ev = InputEventJoypadButton.new()
-	ev.device = -1 # any controller
-	ev.button_index = JOY_OCULUS_AX
-	InputMap.action_add_event("vr_recenter", ev)
-
-	ev = InputEventJoypadMotion.new()
-	ev.device = -1
-	ev.axis = 2
-	InputMap.action_add_event("vr_click", ev)
-	ev = InputEventJoypadMotion.new()
-	ev.device = -1
-	ev.axis = 4
-	InputMap.action_add_event("vr_click", ev)
-	print(JOY_VR_ANALOG_TRIGGER)
-
-	ev = InputEventJoypadButton.new()
-	ev.device = -1 # any controller
-	ev.button_index = 15
-	InputMap.action_add_event("vr_click", ev)
-
-
+# Puts the VR controller buttons (vr_binds) into the input actions. Only the
+# events added here (any controller, device -1) are replaced; keyboard, mouse
+# and normal gamepad bindings stay.
+func apply_vr_binds():
+	for a in VR_ACTIONS:
+		var action: String = a[0]
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		for ev in InputMap.get_action_list(action):
+			if (ev is InputEventJoypadButton or ev is InputEventJoypadMotion) and ev.device == -1:
+				InputMap.action_erase_event(action, ev)
+		for b in vr_bind(action):
+			var e := InputEventJoypadButton.new()
+			e.device = -1 # any controller
+			e.button_index = b
+			InputMap.action_add_event(action, e)
+			# trigger and grip also as their analog axes (a half pull counts)
+			if b == JOY_VR_TRIGGER or b == JOY_VR_GRIP:
+				var m := InputEventJoypadMotion.new()
+				m.device = -1
+				m.axis = JOY_VR_ANALOG_TRIGGER if b == JOY_VR_TRIGGER else JOY_VR_ANALOG_GRIP
+				m.axis_value = 1.0
+				InputMap.action_add_event(action, m)
 
 func prepare_queue():
 	record_replays = false
@@ -3410,6 +3397,12 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mobile_high_hz = bool(data.mobile_high_hz)
 		if data.has("touch_style") and data.touch_style is Dictionary:
 			touch_style = data.touch_style
+		if data.has("vr_grip_rot") and data.vr_grip_rot is Array and data.vr_grip_rot.size() == 3:
+			vr_grip_rot = Vector3(float(data.vr_grip_rot[0]), float(data.vr_grip_rot[1]), float(data.vr_grip_rot[2]))
+		if data.has("vr_grip_pos") and data.vr_grip_pos is Array and data.vr_grip_pos.size() == 3:
+			vr_grip_pos = Vector3(float(data.vr_grip_pos[0]), float(data.vr_grip_pos[1]), float(data.vr_grip_pos[2]))
+		if data.has("vr_binds") and data.vr_binds is Dictionary:
+			vr_binds = data.vr_binds
 		if data.has("menu_lyric_volume"):
 			menu_lyric_volume = clamp(float(data.menu_lyric_volume), 0.0, 1.0)
 		if data.has("last_search_incl_broken"):
@@ -3873,6 +3866,9 @@ func _write_settings_file(saveFile: String):
 			mobile_no_delay = mobile_no_delay,
 			mobile_high_hz = mobile_high_hz,
 			touch_style = touch_style,
+			vr_grip_rot = [vr_grip_rot.x, vr_grip_rot.y, vr_grip_rot.z],
+			vr_grip_pos = [vr_grip_pos.x, vr_grip_pos.y, vr_grip_pos.z],
+			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
 

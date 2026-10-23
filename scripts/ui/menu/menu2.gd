@@ -2389,6 +2389,7 @@ func _ready():
 	preload("res://scripts/ui/settings/BgEditor.gd").install(self)
 	load("res://scripts/ui/settings/MeshesTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # note meshes grid + Note Builder
 	load("res://scripts/ui/settings/GeneratorTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Settings Generator (learns from how you play)
+	load("res://scripts/ui/settings/VRTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # VR: controller grip and buttons (in VR only)
 	load("res://scripts/ui/settings/HitEffectSettings.gd").build(get_node_or_null("Main/Settings/S/F/TabContainer")) # hit/miss effect options (Notes tab)
 	var lang_tabs = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if lang_tabs != null and not lang_tabs.has_node("Language"):
