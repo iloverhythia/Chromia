@@ -87,6 +87,22 @@ jobs:
           wait "$pid" || true
           echo "imported $prev files"
 
+      - name: Check the game starts
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          # Start the game and require it to reach the menu (scripts/ui/menu/Sidebar.gd
+          # prints CHROMIA_BOOT_OK and quits), so a script error can't ship a build
+          # that closes as soon as it opens.
+          mkdir -p "$RUNNER_TEMP/boot-home"
+          HOME="$RUNNER_TEMP/boot-home" CHROMIA_BOOT_CHECK=1 timeout 240 "$GODOT" --path . > boot.log 2>&1 || true
+          grep "SCRIPT ERROR" -A1 boot.log | head -40 || true
+          if ! grep -q CHROMIA_BOOT_OK boot.log; then
+            echo "::error::The game did not reach the menu; not releasing."
+            tail -60 boot.log
+            exit 1
+          fi
+          echo "The game started and reached the menu."
+
       - name: Export Windows build
         if: steps.version.outputs.exists == 'false'
         env:
