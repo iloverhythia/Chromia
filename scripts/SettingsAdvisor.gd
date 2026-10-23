@@ -31,6 +31,17 @@ extends Reference
 #      approach     leaving a note early for the next one / skipping notes in
 #                   quick runs -> a higher approach rate with the same time
 #                   on screen (notes further apart)
+#      fade in      the same late misses while a long fade-in eats into the
+#                   time notes are readable -> less fade first
+#      parallax     touch (absolute) players: the camera and grid move with the
+#                   cursor, so outer notes show up a bit off from where the
+#                   finger has to go. Hitting outer notes on their inner side
+#                   (measured from where in the hitbox each hit lands) -> less
+#                   camera / grid parallax
+#      FOV, cursor  missing notes by a hair (just outside the hitbox) -> a
+#                   smaller cursor if it's big (it covers the note's edge), or
+#                   a lower FOV (a bigger grid on screen) with a mouse;
+#                   losing the cursor with a tiny one -> a bigger cursor
 #
 # Only "feel" settings are ever changed (never hitbox, hit window or mods).
 
@@ -62,6 +73,7 @@ const TUNABLE := {
 const HISTORY_KEYS := ["sensitivity", "absolute_scale", "parallax", "ui_parallax", "grid_parallax", "fov", "fade_length", "cursor_scale", "cam_unlock"]
 const READ_MODS := ["mod_ghost", "mod_nearsighted", "mod_flashlight", "mod_strobe"]
 const MOVE_MODS := ["mod_chaos", "mod_earthquake", "mod_360", "mod_hardrock"]
+const LOOK_NOTES := 1500  # notes with the current camera/cursor settings to judge them
 const SPEED_EDGES := [1.0, 2.0, 3.5, 5.0, 7.0, 10.0] # cells per second
 const GAP_EDGES := [100.0, 200.0, 350.0]             # ms
 
@@ -122,14 +134,26 @@ static func analyze(cur: Dictionary) -> Dictionary:
 				recs.append(r)
 			elif r.has("note"):
 				notes_txt.append(r.note)
-	if recs.empty():
-		var e = _experiment(mine, cur, hist, plays)
-		if e != null:
+	# camera, grid, FOV and cursor (each only if your history didn't already
+	# decide it)
+	for r in _look(plays, cur, hist):
+		if r.has("changes"):
+			recs.append(r)
+		elif r.has("note"):
+			notes_txt.append(r.note)
+	if recs.size() < 2:
+		var taken := {}
+		for r in recs:
+			for k in r.changes:
+				taken[k] = true
+		for e in _experiments(mine, cur, hist, plays, taken):
+			if recs.size() >= 3:
+				break
 			recs.append(e)
 
 	recs.sort_custom(Sorter, "by_strength")
-	if recs.size() > 4:
-		recs.resize(4)
+	if recs.size() > 5:
+		recs.resize(5)
 	out.recs = recs
 	out.profiles = _profiles(plays, model, cur)
 	out.summary = _summary(plays, mine, cur)
@@ -849,8 +873,13 @@ static func _motor(sel: Dictionary, cur: Dictionary):
 	var big_late := 0
 	var big_n := 0
 	for p in plays:
+		var vis_ms: float = float(p.get("vis", -1.0)) * 1000.0
 		for f in p.f:
 			if f.jump < 0.8 or f.gap < 90.0:
+				continue
+			# a note that only showed up after the one before: being late on
+			# it is reading (distance), not aiming
+			if vis_ms > 0.0 and vis_ms < f.gap - 30.0:
 				continue
 			n += 1
 			var big: bool = f.jump >= 1.8
@@ -878,7 +907,8 @@ static func _motor(sel: Dictionary, cur: Dictionary):
 	over_amt.sort()
 	var lead_med: float = leads[leads.size() / 2] if not leads.empty() else -1.0
 	var over_med: float = over_amt[over_amt.size() / 2] if not over_amt.empty() else 0.0
-	var ov: float = over + 0.5 * near
+	# (missing by a hair is neither: FOV / cursor size look at those)
+	var ov: float = over
 	var share_over: float = ov / max(ov + late, 1.0)
 	var curv: float = float(cur.get(key, 1.0))
 	var miss: float = over + late + near
@@ -975,10 +1005,29 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 		want = clamp(want, vis * 1.1, vis * 1.5)
 		var nd: float = dist * want / vis
 		var conf := "medium" if late_m[0] >= 15 and rate_late - rate_ok >= 0.05 else "try"
-		var why := "Notes are on screen for %.2f s with your settings. On notes that only showed up after you'd finished the one before, you were late %d%% of the time, against %d%% on notes you could see coming%s. More distance (same approach rate, so the same speed and spacing) shows notes sooner: about %.2f s." % [
+		var why := "Notes are readable for %.2f s with your settings. On notes that only showed up after you'd finished the one before, you were late %d%% of the time, against %d%% on notes you could see coming%s." % [
 			vis / 1000.0, int(round(rate_late * 100.0)), int(round(rate_ok * 100.0)),
-			(" (your reaction time to a new note is about %d ms)" % int(react)) if react > 0 else "", want / 1000.0]
-		out.append(_rec({"spawn_distance": nd}, cur, conf, why, "now", (rate_late - rate_ok) * float(late_n[0]) / max(n, 1)))
+			(" (your reaction time to a new note is about %d ms)" % int(react)) if react > 0 else ""]
+		var fade: float = clamp(float(cur.get("fade_length", 0.0)), 0.0, 1.0)
+		var gain_r: float = (rate_late - rate_ok) * float(late_n[0]) / max(n, 1)
+		if fade >= 0.25:
+			# the fade-in hides notes for part of their way in: less of it
+			# gives the time back without changing anything else
+			var full: float = dist / ar * 1000.0
+			var nf: float = (1.0 - want / full) / FADE_SEEN
+			if nf >= 0.0:
+				nf = min(nf, fade - 0.1)
+				why += " Your fade-in (%s) keeps notes invisible for part of their way in; with less of it (%s) they're readable for about %.2f s, with the same speed and spacing." % [
+					_fmt("fade_length", fade), _fmt("fade_length", nf), _vis_time(dist, ar, nf)]
+				out.append(_rec({"fade_length": nf}, cur, conf, why, "now", gain_r))
+			else:
+				var nd0: float = want / 1000.0 * ar
+				why += " Your fade-in (%s) keeps notes invisible for part of their way in: with no fade-in and a bit more distance (same approach rate, so the same speed and spacing) they're readable for about %.2f s." % [
+					_fmt("fade_length", fade), want / 1000.0]
+				out.append(_rec({"fade_length": 0.0, "spawn_distance": nd0}, cur, conf, why, "now", gain_r))
+			return out
+		why += " More distance (same approach rate, so the same speed and spacing) shows notes sooner: about %.2f s." % (want / 1000.0)
+		out.append(_rec({"spawn_distance": nd}, cur, conf, why, "now", gain_r))
 		return out
 	# 2. approach rate: leaving notes early / skipping them in quick runs
 	var es: float = early + skip
@@ -1013,14 +1062,15 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 # Nothing to change yet: one thing to try, so your history can compare next
 # time. Only for a setting you've only ever played one value of (so it can't
 # keep nudging the same setting), in the direction your misses lean.
-static func _experiment(mine: Dictionary, cur: Dictionary, hist: Dictionary, plays: Array):
+static func _experiments(mine: Dictionary, cur: Dictionary, hist: Dictionary, plays: Array, taken: Dictionary) -> Array:
+	var out := []
 	# not while a change you just made is still being tried out (it would mix
 	# the two up)
 	if not mine.motor.current or not mine.reading.current:
-		return null
+		return out
 	var abs_mode: bool = bool(cur.get("absolute_mode", false))
 	var key: String = "absolute_scale" if abs_mode else "sensitivity"
-	if not hist.has(key) and _tried(plays, key) < 2:
+	if not hist.has(key) and not taken.has(key) and _tried(plays, key) < 2:
 		var over := 0
 		var late := 0
 		for p in mine.motor.plays:
@@ -1031,15 +1081,192 @@ static func _experiment(mine: Dictionary, cur: Dictionary, hist: Dictionary, pla
 					late += 1
 		var down: bool = over >= late
 		var v: float = float(cur.get(key, 1.0))
-		return _rec({key: v * (0.93 if down else 1.07)}, cur, "try",
+		out.append(_rec({key: v * (0.93 if down else 1.07)}, cur, "try",
 			"Nothing in how you play points one way yet, and you've only played with this %s. Play about 5 maps with it %d%% %s (your misses lean slightly toward %s); when you Generate again, your history can compare the two on equal terms." % [
-				TUNABLE[key][0].to_lower(), 7, "lower" if down else "higher", "overshooting" if down else "arriving late"], "test", 0.0)
-	if not hist.has("approach") and _tried(plays, "approach_rate") < 2:
+				TUNABLE[key][0].to_lower(), 7, "lower" if down else "higher", "overshooting" if down else "arriving late"], "test", 0.0))
+	if not hist.has("approach") and _tried(plays, "approach_rate") < 2 and not taken.has("approach_rate") and not taken.has("spawn_distance") and not taken.has("fade_length"):
 		var ar: float = float(cur.approach_rate)
 		var dist: float = float(cur.spawn_distance)
-		return _rec({"approach_rate": ar * 1.15, "spawn_distance": dist * 1.15}, cur, "try",
-			"Nothing in how you read notes points one way yet, and you've only played with this approach rate. Play about 5 maps with it 15% higher (distance up as much, so notes stay on screen as long); then Generate again and your history can compare.", "test", 0.0)
-	return null
+		out.append(_rec({"approach_rate": ar * 1.15, "spawn_distance": dist * 1.15}, cur, "try",
+			"Nothing in how you read notes points one way yet, and you've only played with this approach rate. Play about 5 maps with it 15% higher (distance up as much, so notes stay on screen as long); then Generate again and your history can compare.", "test", 0.0))
+	return out
+
+# ------------------------------------------------------------------ camera, grid, FOV, cursor
+
+static func _look(plays: Array, cur: Dictionary, hist: Dictionary) -> Array:
+	var out := []
+	var abs_mode: bool = bool(cur.get("absolute_mode", false))
+	# camera / grid movement: touch players (the finger has to go where the
+	# note is on the screen, which the camera moving shifts)
+	if abs_mode and not bool(cur.get("cam_unlock", false)) and not hist.has("parallax") and not hist.has("grid_parallax"):
+		var mv := _pick(plays, cur, ["parallax", "grid_parallax", "absolute_scale"], abs_mode, "move_ok")
+		if mv.current:
+			var r = _parallax(mv, cur)
+			if r != null:
+				out.append(r)
+	# FOV and cursor size (Sound Space Mode uses its own during songs)
+	if not bool(cur.get("sound_space_mode", false)) and not hist.has("fov") and not hist.has("cursor_scale"):
+		var vw := _pick(plays, cur, ["fov", "cursor_scale"], abs_mode, "move_ok")
+		if vw.current:
+			var r2 = _precision(vw, cur, abs_mode)
+			if r2 != null:
+				out.append(r2)
+	return out
+
+static func _cell_xy(cell: String) -> Vector2:
+	var p := cell.split(",")
+	return Vector2(int(p[0]), int(p[1])) if p.size() == 2 else Vector2(1, 1)
+
+static func _mean_se(a: Array) -> Array:
+	var n := a.size()
+	if n == 0:
+		return [0.0, 1e9]
+	var m := 0.0
+	for v in a:
+		m += v
+	m /= n
+	var v2 := 0.0
+	for v in a:
+		v2 += (v - m) * (v - m)
+	return [m, sqrt(v2 / max(n - 1, 1) / n)]
+
+# Outer squares against the middle ones, on jumps of the same speed:
+# [hit rate difference (middle - outer), outer notes]
+static func _outer_gap(plays: Array) -> Array:
+	var b := {}
+	for p in plays:
+		for f in p.f:
+			var c := _cell_xy(f.cell)
+			if c.x < 0 or c.x > 2 or c.y < 0 or c.y > 2:
+				continue
+			var outer: bool = c.x != 1 and c.y != 1 # corners
+			var k := _sbin(f.cps)
+			if not b.has(k):
+				b[k] = [0, 0, 0, 0] # outer n, outer hits, middle n, middle hits
+			var e: Array = b[k]
+			var hit: bool = f.kind == PT.KIND_HIT
+			if outer:
+				e[0] += 1
+				e[1] += 1 if hit else 0
+			else:
+				e[2] += 1
+				e[3] += 1 if hit else 0
+	var num := 0.0
+	var w := 0.0
+	var on := 0
+	for k in b:
+		var e: Array = b[k]
+		if e[0] < 20 or e[2] < 20:
+			continue
+		var d: float = float(e[3]) / e[2] - float(e[1]) / e[0]
+		num += d * e[0]
+		w += e[0]
+		on += e[0]
+	return [num / w if w > 0 else 0.0, on]
+
+static func _parallax(sel: Dictionary, cur: Dictionary):
+	var plays: Array = sel.plays
+	var par: float = float(cur.get("parallax", 0.0))
+	var gpar: float = float(cur.get("grid_parallax", 0.0))
+	var move: float = (abs(par) + abs(gpar)) * 0.025 # grid units the view shifts at an outer square
+	var notes := 0
+	var inward := []
+	var hbs := 0.57
+	for p in plays:
+		hbs = float(p.get("hbs", hbs))
+		for f in p.f:
+			notes += 1
+			if f.kind != PT.KIND_HIT:
+				continue
+			var c := _cell_xy(f.cell)
+			# where in the hitbox you hit (-1..1): towards the middle is +
+			if c.x == 0:
+				inward.append(f.offx)
+			elif c.x == 2:
+				inward.append(-f.offx)
+			if c.y == 0:
+				inward.append(-f.offy)
+			elif c.y == 2:
+				inward.append(f.offy)
+	if notes < LOOK_NOTES or inward.size() < 200:
+		return null
+	var ms := _mean_se(inward)
+	var bias: float = ms[0]
+	var z: float = bias / max(ms[1], 1e-6)
+	var og := _outer_gap(plays)
+	var shift_pct: int = int(round(move / max(hbs * 2.0, 0.1) * 100.0)) # of a note's width
+	if move <= 0.0:
+		if bias >= 0.12 and z >= 3.0:
+			return {"note": "Camera: you hit outer notes on their inner side (%d%% of the way to the hitbox edge on average), but your camera and grid don't move, so it isn't parallax; it's how you reach for them." % int(round(bias * 100.0))}
+		return null
+	if bias >= 0.1 and z >= 3.0:
+		var changes := {}
+		var to_par: float = par * 0.5
+		var txt := ""
+		if gpar > 0.0:
+			changes["grid_parallax"] = 0.0
+			txt = "Grid parallax moves the notes themselves with your cursor; without it they stay where your finger expects them"
+			if par >= 4.0:
+				changes["parallax"] = to_par
+				txt += ", and half the camera parallax (%s) moves the view half as much" % _fmt("parallax", to_par)
+		else:
+			changes["parallax"] = to_par
+			txt = "Half the camera parallax (%s) moves the view half as much, so outer notes show up closer to where your finger has to go" % _fmt("parallax", to_par)
+		var conf := "medium" if bias >= 0.15 and z >= 4.0 and inward.size() >= 400 else "try"
+		var why := "On touch, the camera%s moves with your cursor, so notes on the outer squares show up about %d%% of a note's width away from where your finger has to go. Your hits on outer notes land on their inner side (%d%% of the way to the hitbox edge on average, from %d hits)%s. %s." % [
+			" and grid" if gpar > 0.0 else "", shift_pct, int(round(bias * 100.0)), inward.size(),
+			(", and you hit %.1f%% fewer corner notes than middle ones on jumps of the same speed" % (og[0] * 100.0)) if og[1] >= 150 and og[0] >= 0.015 else "",
+			txt]
+		return _rec(changes, cur, conf, why, "now", max(og[0], 0.0) * 0.3 + bias * 0.01)
+	return {"note": "Camera: with camera parallax %s%s the view moves a bit with your cursor, and your hits on outer notes are centred (%+d%% towards the middle), so it doesn't throw your finger off." % [
+		_fmt("parallax", par), (" and grid parallax %s" % _fmt("grid_parallax", gpar)) if gpar > 0.0 else "", int(round(bias * 100.0))]}
+
+static func _precision(sel: Dictionary, cur: Dictionary, abs_mode: bool):
+	var plays: Array = sel.plays
+	var n := 0
+	var miss := 0
+	var near := 0
+	var off := 0
+	var hits := 0
+	var graze := 0
+	for p in plays:
+		for f in p.f:
+			n += 1
+			match f.kind:
+				PT.KIND_HIT:
+					hits += 1
+					if max(abs(f.offx), abs(f.offy)) >= 0.85:
+						graze += 1
+				PT.KIND_NEAR:
+					near += 1
+					miss += 1
+				PT.KIND_OFF:
+					off += 1
+					miss += 1
+				_:
+					miss += 1
+	if n < LOOK_NOTES or miss < 40:
+		return null
+	var cs: float = float(cur.get("cursor_scale", 1.0))
+	var fov: float = float(cur.get("fov", 70.0))
+	var near_share: float = float(near) / miss
+	var graze_share: float = float(graze) / max(hits, 1)
+	if near_share >= 0.35 and float(near) / n >= 0.012:
+		var conf := "medium" if near_share >= 0.45 and near >= 60 else "try"
+		var base := "%d%% of your misses are by a hair: the cursor gets to the note and stays just outside its hitbox%s." % [
+			int(round(near_share * 100.0)), (", and %d%% of your hits are right on its edge" % int(round(graze_share * 100.0))) if graze_share >= 0.1 else ""]
+		if cs >= 1.25:
+			var to_cs: float = max(1.0, cs * 0.8)
+			return _rec({"cursor_scale": to_cs}, cur, conf, base + " Your cursor is big (%s): it covers the edge of the note, so you can't see how close you are. A smaller one (%s) shows it." % [_fmt("cursor_scale", cs), _fmt("cursor_scale", to_cs)], "now", float(near) / n * 0.4)
+		if not abs_mode and fov >= 62.0:
+			var to_fov: float = max(50.0, fov * 0.9)
+			return _rec({"fov": to_fov}, cur, conf, base + " A lower FOV (%s) makes the grid bigger on screen, so being a little off is easier to see and fix (your sensitivity stays the same)." % _fmt("fov", to_fov), "now", float(near) / n * 0.3)
+	if cs <= 0.7 and float(off) / miss >= 0.35 and float(off) / n >= 0.02:
+		var to_cs2: float = min(1.0, cs * 1.3)
+		return _rec({"cursor_scale": to_cs2}, cur, "try", "%d%% of your misses are with the cursor nowhere near the note, and your cursor is small (%s). A bigger one (%s) is easier to keep track of." % [
+			int(round(float(off) / miss * 100.0)), _fmt("cursor_scale", cs), _fmt("cursor_scale", to_cs2)], "now", float(off) / n * 0.2)
+	return {"note": "FOV and cursor: only %d%% of your misses are by a hair (just outside the hitbox), so FOV %s and cursor size %s let you see where you are." % [
+		int(round(near_share * 100.0)), _fmt("fov", fov), _fmt("cursor_scale", cs)]}
 
 # How many values of a setting you've really played with (2+ plays each).
 static func _tried(plays: Array, key: String) -> int:

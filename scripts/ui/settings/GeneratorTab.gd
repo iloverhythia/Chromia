@@ -80,7 +80,7 @@ func _ready():
 	m.add_child(box)
 
 	_label("Settings Generator", f_title, ACCENT)
-	_label("Chromia keeps track of how you play every map, note by note, together with the settings and mods that play was played with: which notes you hit, when your cursor sets off toward each note and how early it gets there, whether you miss by being late, sliding off, leaving early for the next note or skipping it, and which jumps and parts of the grid give you trouble. Generate compares your plays on equal terms (each note's difficulty, the map and you improving are taken into account) and suggests settings that fit you, with the reason for each and how sure it is. It only touches how the game feels (sensitivity, approach rate and distance, parallax, FOV...), never your hitbox, hit window or mods. Everything stays on this device.", f_body, DIM, true)
+	_label("Chromia keeps track of how you play every map, note by note, together with the settings and mods that play was played with: which notes you hit, when your cursor sets off toward each note and how early it gets there, whether you miss by being late, sliding off, leaving early for the next note or skipping it, and which jumps and parts of the grid give you trouble. Generate compares your plays on equal terms (each note's difficulty, the map and you improving are taken into account) and suggests settings that fit you, with the reason for each and how sure it is: sensitivity or absolute scale, approach rate, distance and fade-in, camera and grid parallax (on touch), FOV and cursor size. It only touches how the game feels, never your hitbox, hit window or mods. Everything stays on this device.", f_body, DIM, true)
 
 	var track := CheckBox.new()
 	track.text = "Track my plays"
@@ -137,6 +137,7 @@ func _current_settings() -> Dictionary:
 	for k in Advisor.TUNABLE:
 		d[k] = Rhythia.get(k)
 	d["absolute_mode"] = Rhythia.get("absolute_mode")
+	d["sound_space_mode"] = Rhythia.get("sound_space_mode") # it uses its own FOV and cursor in songs
 	return d
 
 # The analysis can take a few seconds with many plays: it runs on its own
