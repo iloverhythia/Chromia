@@ -23,6 +23,7 @@ const CONF_NAMES := {"high": "sure", "medium": "likely", "try": "worth a try"}
 # have to show the new value too, or they'd put the old one back
 const CONTROLS := {
 	"res://scripts/ui/settings/Sensitivity.gd": ["sensitivity", 1.0],
+	"res://scripts/ui/settings/LockMouseResize.gd": ["absolute_scale", 1.0],
 	"res://scripts/ui/settings/ApproachRate.gd": ["approach_rate", 1.0],
 	"res://scripts/ui/settings/SpawnDist.gd": ["spawn_distance", 1.0],
 	"res://scripts/ui/settings/Parallax.gd": ["parallax", 1.0],
@@ -44,6 +45,8 @@ var undo_btn: Button
 var gen_btn: Button
 var _recs := []
 var _rec_buttons := []
+var profiles_box: VBoxContainer
+var _thread: Thread = null
 
 static func add_tab(tab_container) -> void:
 	if tab_container == null or not is_instance_valid(tab_container) or tab_container.has_node("Generator"):
@@ -77,7 +80,7 @@ func _ready():
 	m.add_child(box)
 
 	_label("Settings Generator", f_title, ACCENT)
-	_label("Chromia keeps track of how you play every map: which notes you hit, how early your cursor gets to them, whether you miss by being late or by overshooting, which jumps and parts of the grid give you trouble, and which settings you had on. Generate looks at all of it and suggests settings that fit you, with the reason for each. It only touches how the game feels (sensitivity, approach, parallax, FOV...), never your hitbox, hit window or mods. Everything stays on this device.", f_body, DIM, true)
+	_label("Chromia keeps track of how you play every map, note by note, together with the settings and mods that play was played with: which notes you hit, when your cursor sets off toward each note and how early it gets there, whether you miss by being late, sliding off, leaving early for the next note or skipping it, and which jumps and parts of the grid give you trouble. Generate compares your plays on equal terms (each note's difficulty, the map and you improving are taken into account) and suggests settings that fit you, with the reason for each and how sure it is. It only touches how the game feels (sensitivity, approach rate and distance, parallax, FOV...), never your hitbox, hit window or mods. Everything stays on this device.", f_body, DIM, true)
 
 	var track := CheckBox.new()
 	track.text = "Track my plays"
@@ -101,6 +104,8 @@ func _ready():
 	recs_box = VBoxContainer.new()
 	recs_box.add_constant_override("separation", 8)
 	box.add_child(recs_box)
+	profiles_box = VBoxContainer.new()
+	box.add_child(profiles_box)
 	summary.text = "%d plays tracked so far. Press Generate to see what fits you." % PT.list_files().size()
 
 func _label(text: String, f: Font, col: Color, wrap: bool = false, parent: Node = null) -> Label:
@@ -127,12 +132,46 @@ func _on_track(on: bool):
 	Rhythia.track_plays = on
 	Rhythia.save_settings()
 
+func _current_settings() -> Dictionary:
+	var d := {}
+	for k in Advisor.TUNABLE:
+		d[k] = Rhythia.get(k)
+	d["absolute_mode"] = Rhythia.get("absolute_mode")
+	return d
+
+# The analysis can take a few seconds with many plays: it runs on its own
+# thread so the game keeps going.
 func _generate():
+	if _thread != null:
+		return
 	gen_btn.disabled = true
 	gen_btn.text = "Looking at your plays..."
+	var cur := _current_settings()
+	if OS.can_use_threads():
+		_thread = Thread.new()
+		if _thread.start(self, "_work", cur) == OK:
+			return
+		_thread = null
 	yield(get_tree(), "idle_frame")
-	yield(get_tree(), "idle_frame")
-	var res: Dictionary = Advisor.analyze()
+	_show(Advisor.analyze(cur))
+
+func _work(cur):
+	var res: Dictionary = Advisor.analyze(cur)
+	call_deferred("_work_done", res)
+
+func _work_done(res: Dictionary):
+	if _thread != null:
+		_thread.wait_to_finish()
+		_thread = null
+	if is_inside_tree():
+		_show(res)
+
+func _exit_tree():
+	if _thread != null:
+		_thread.wait_to_finish()
+		_thread = null
+
+func _show(res: Dictionary):
 	gen_btn.disabled = false
 	gen_btn.text = "Generate my settings"
 	summary.text = res.summary
@@ -140,12 +179,15 @@ func _generate():
 		c.queue_free()
 	for c in recs_box.get_children():
 		c.queue_free()
+	for c in profiles_box.get_children():
+		c.queue_free()
 	for t in res.insights:
 		_label("• " + t, f_body, TEXT, true, insights)
 	_recs = res.recs
 	_rec_buttons = []
 	if not res.ok:
 		return
+	_show_profiles(res.get("profiles", []))
 	if _recs.empty():
 		_label("Your settings already fit how you play - nothing to change. Keep playing; Generate again later.", f_bold, CONF_COLORS.high, true, recs_box)
 		return
@@ -154,6 +196,19 @@ func _generate():
 		_rec_card(_recs[i], i)
 	if _recs.size() > 1:
 		_button(recs_box, "Apply all", "_apply_all")
+
+# The settings your plays were played with (newest first) and how they went.
+func _show_profiles(list: Array):
+	if list.empty():
+		return
+	_label("Your plays by settings (newest first):", f_bold, ACCENT, false, profiles_box)
+	for e in list:
+		var vs: float = float(e.get("vs", 0.0)) * 100.0
+		var t := "%s%s:  %d play%s, %d notes, %.1f%% hit%s" % [
+			e.label, "  (now)" if e.current else "", e.plays, "" if e.plays == 1 else "s", e.notes,
+			float(e.rate) * 100.0,
+			(",  %+.1f%% vs what the maps would expect" % vs) if abs(vs) >= 0.05 else ""]
+		_label(t, f_body, TEXT if e.current else DIM, true, profiles_box)
 
 func _rec_card(r: Dictionary, i: int):
 	var card := PanelContainer.new()
@@ -174,10 +229,16 @@ func _rec_card(r: Dictionary, i: int):
 	h.add_child(v)
 	var top := HBoxContainer.new()
 	v.add_child(top)
-	var t := _label("%s:  %s  to  %s" % [r.label, Advisor.fmt(r.key, r.from), Advisor.fmt(r.key, r.to)], f_bold, TEXT, false, top)
-	t.size_flags_horizontal = 0
+	var parts := []
+	var ch: Dictionary = r.get("changes", {r.key: r.to})
+	var fr: Dictionary = r.get("from_all", {r.key: r.from})
+	for k in ch:
+		parts.append("%s: %s to %s" % [Advisor.TUNABLE[k][0], Advisor.fmt(k, fr.get(k)), Advisor.fmt(k, ch[k])])
+	var t := _label(PoolStringArray(parts).join(",  "), f_bold, TEXT, true, top)
+	t.size_flags_horizontal = SIZE_EXPAND_FILL
 	var conf: String = r.get("conf", "try")
-	_label("   (" + CONF_NAMES.get(conf, conf) + ")", f_body, CONF_COLORS.get(conf, TEXT), false, top)
+	var cl := _label("(" + CONF_NAMES.get(conf, conf) + ")", f_body, CONF_COLORS.get(conf, TEXT), false, top)
+	cl.size_flags_horizontal = 0
 	_label(r.why, f_body, DIM, true, v)
 	var b := _button(h, "Apply", "_apply_one", [i])
 	b.rect_min_size = Vector2(100, 36)
@@ -201,13 +262,18 @@ func _apply_all():
 
 func _apply(list: Array):
 	var undo := {}
+	var n := 0
 	for r in list:
-		undo[r.key] = Rhythia.get(r.key)
-		Rhythia.set(r.key, r.to)
+		var ch: Dictionary = r.get("changes", {r.key: r.to})
+		for k in ch:
+			if not undo.has(k):
+				undo[k] = Rhythia.get(k)
+			Rhythia.set(k, ch[k])
+			n += 1
 	_save_undo(undo)
 	_sync_controls()
 	Rhythia.save_settings()
-	Globals.notify(Globals.NOTIFY_SUCCEED, "Applied %d setting%s. Play a few maps with them, then Generate again." % [list.size(), "" if list.size() == 1 else "s"], "Settings Generator")
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Applied %d setting%s. Play a few maps with them, then Generate again." % [n, "" if n == 1 else "s"], "Settings Generator")
 
 func _save_undo(undo: Dictionary):
 	var f := File.new()
