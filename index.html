@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0a10">
+<title>Chromia</title>
+<style>
+	html, body { margin: 0; padding: 0; height: 100%; background: #0b0a10; overflow: hidden; touch-action: none; }
+	#canvas { display: block; margin: 0; }
+	#canvas:focus { outline: none; }
+	#loader {
+		position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+		gap: 18px; background: radial-gradient(ellipse at center, #1a1724 0%, #0b0a10 70%);
+		font-family: 'Lato', 'Segoe UI', Arial, sans-serif; color: #e5f2ff; transition: opacity .4s;
+	}
+	#loader img { width: 112px; height: 112px; filter: drop-shadow(0 0 18px rgba(255,193,245,.35)); }
+	#loader .name { font-size: 30px; font-weight: 700; letter-spacing: .5px; }
+	#loader .bar { width: min(380px, 70vw); height: 8px; background: #221f2c; border-radius: 6px; overflow: hidden; }
+	#loader .fill { height: 100%; width: 0; background: linear-gradient(90deg, #c3a6cc, #ffc1f5); border-radius: 6px; transition: width .3s; }
+	#loader .note { font-size: 14px; color: #9e99ad; min-height: 18px; text-align: center; max-width: 80vw; }
+	#loader.error .note { color: #ff9aa8; }
+	#rotate {
+		position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+		background: #0b0a10; color: #e5f2ff; font-family: 'Lato', 'Segoe UI', Arial, sans-serif; text-align: center; z-index: 10; padding: 24px;
+	}
+	#rotate .phone { width: 46px; height: 78px; border: 3px solid #ffc1f5; border-radius: 9px; animation: chromia-turn 1.8s ease-in-out infinite; }
+	#rotate .t { font-size: 20px; font-weight: 700; }
+	#rotate .s { font-size: 14px; color: #9e99ad; }
+	@keyframes chromia-turn { 0%, 25% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+	@media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+</style>
+<link id='-gd-engine-icon' rel='icon' type='image/png' href='index.icon.png' />
+<link rel='apple-touch-icon' href='index.apple-touch-icon.png'/>
+
+</head>
+<body>
+<canvas id="canvas">Your browser can't show this game (no HTML5 canvas).</canvas>
+<div id="rotate"><div class="phone"></div><div class="t">Turn your phone sideways</div><div class="s">Chromia plays in landscape.</div></div>
+<div id="loader">
+	<img src="index.icon.png" alt="">
+	<div class="name">Chromia</div>
+	<div class="bar"><div class="fill" id="fill"></div></div>
+	<div class="note" id="note">Loading...</div>
+</div>
+<script>
+// Phones: no long-press menu or pinch zoom on the game, and the first tap
+// goes fullscreen and locks landscape where the browser allows it.
+(function () {
+	var canvas = document.getElementById('canvas');
+	canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+	document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+	var touch = window.matchMedia && matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0;
+	if (!touch) return;
+	var asked = false;
+	function goFull() {
+		if (asked) return;
+		asked = true;
+		var el = document.documentElement;
+		var req = el.requestFullscreen || el.webkitRequestFullscreen;
+		if (!req || document.fullscreenElement) return;
+		try {
+			var p = req.call(el, { navigationUI: 'hide' });
+			if (p && p.then) p.then(function () {
+				if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {});
+			}).catch(function () {});
+		} catch (e) {}
+	}
+	window.addEventListener('pointerup', goFull, true);
+})();
+</script>
+<script>
+// The game pack can be served in parts (window.CHROMIA_PCK_PARTS = [urls],
+// window.CHROMIA_PCK_SIZE = total bytes) for hosts with a per-file size limit:
+// they're streamed back together here as the engine fetches the .pck.
+(function () {
+	var origFetch = window.fetch.bind(window);
+	window.fetch = function (input, init) {
+		var url = typeof input === 'string' ? input : (input && input.url) || '';
+		var path = url.split('?')[0];
+		if (window.CHROMIA_PCK_PARTS && /\.pck$/.test(path)) {
+			var parts = window.CHROMIA_PCK_PARTS.slice();
+			var stream = new ReadableStream({
+				async pull(controller) {
+					if (!this.reader) {
+						if (!parts.length) { controller.close(); return; }
+						var r = await origFetch(parts.shift());
+						if (!r.ok) { controller.error(new Error('Missing game data (' + r.status + ')')); return; }
+						this.reader = r.body.getReader();
+					}
+					var chunk = await this.reader.read();
+					if (chunk.done) { this.reader = null; return this.pull(controller); }
+					controller.enqueue(chunk.value);
+				}
+			});
+			return Promise.resolve(new Response(stream, { status: 200, headers: { 'Content-Length': String(window.CHROMIA_PCK_SIZE || 0) } }));
+		}
+		if (/\.wasm$/.test(path)) {
+			// some hosts don't label .wasm files; the engine needs application/wasm
+			return origFetch(input, init).then(function (r) {
+				if ((r.headers.get('Content-Type') || '').indexOf('application/wasm') === 0) return r;
+				var h = { 'Content-Type': 'application/wasm' };
+				if (r.headers.get('Content-Length')) h['Content-Length'] = r.headers.get('Content-Length');
+				return new Response(r.body, { status: r.status, headers: h });
+			});
+		}
+		return origFetch(input, init);
+	};
+})();
+</script>
+<script src="index.js"></script>
+<script>
+	const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"executable":"index","experimentalVK":true,"fileSizes":{"index.pck":42384464,"index.wasm":13790961},"focusCanvas":true,"gdnativeLibs":[]};
+	var engine = new Engine(GODOT_CONFIG);
+	(function () {
+		var loader = document.getElementById('loader');
+		var fill = document.getElementById('fill');
+		var note = document.getElementById('note');
+		function fail(err) {
+			var msg = (err && err.message) || String(err);
+			console.error(msg);
+			loader.classList.add('error');
+			note.textContent = msg;
+		}
+		if (!Engine.isWebGLAvailable()) {
+			fail('WebGL isn\'t available in this browser, so the game can\'t run here.');
+			return;
+		}
+		engine.startGame({
+			onProgress: function (current, total) {
+				if (total > 0) {
+					fill.style.width = (current / total * 100).toFixed(1) + '%';
+					note.textContent = 'Downloading the game... ' + Math.round(current / 1048576) + ' / ' + Math.round(total / 1048576) + ' MB';
+				} else {
+					note.textContent = 'Downloading the game... ' + Math.round(current / 1048576) + ' MB';
+				}
+			},
+		}).then(function () {
+			loader.style.opacity = '0';
+			setTimeout(function () { loader.style.display = 'none'; }, 450);
+		}, fail);
+	})();
+</script>
+</body>
+</html>
+
