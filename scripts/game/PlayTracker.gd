@@ -17,7 +17,7 @@ extends Node
 # Kinds of miss:
 #   late      your cursor was still on its way when the note's time was up
 #   overshoot your cursor was on the note but slid off it before it came
-#   near      you were just off it (precision)
+#   near      you went for it and stopped just off it (precision)
 #   off       you were somewhere else
 #   early     you were on it, then left for the next note too soon
 #   skip      you went to the next note without touching this one
@@ -28,7 +28,7 @@ extends Node
 const DIR := "user://play_tracking"
 const MAX_PLAYS := 300
 const LOOK_AHEAD := 1500.0 # map ms before a note that the cursor starts being watched
-const VERSION := 2
+const VERSION := 3 # 3: "near" only after going for the note, R_START, settings.input
 
 const KIND_HIT := 0
 const KIND_LATE := 1
@@ -52,6 +52,7 @@ const R_OFFY := 9
 const R_REACT := 10   # map ms after the note before that the cursor set off toward it (-1 unknown)
 const R_OVER := 11    # furthest it went from the note after first getting on it (hitboxes)
 const R_AT := 12      # distance when the note was judged (hitboxes, -1 unknown)
+const R_START := 13   # distance when you could set off for it (the note before came; hitboxes)
 
 # the settings saved with each play (what the generator compares)
 const SETTINGS := [
@@ -111,6 +112,8 @@ func _ready():
 	for m in MODS:
 		if Rhythia.get(m) == true:
 			_mods.append(m)
+	# how you aimed: settings like sensitivity or FOV mean nothing in VR
+	_settings["input"] = "vr" if Rhythia.vr else ("touch" if Rhythia.absolute_mode and Rhythia.device("mobile") else "mouse")
 
 func _cursor() -> Vector2:
 	var c: Vector3 = nm._n_notes.to_local(nm._n_cursor.global_transform.origin)
@@ -153,10 +156,12 @@ func _watch(i: int, ms: float, c: Vector2):
 	var r = _recs.get(i)
 	if r == null:
 		r = {"enter": null, "out": false, "left": false, "min": 1e9, "tmin": 0.0, "dlast": 1e9, "dprev": 1e9,
-			"react": -1.0, "over": 0.0, "at": -1.0}
+			"react": -1.0, "over": 0.0, "at": -1.0, "dstart": -1.0}
 		_recs[i] = r
 	var p := _note_pos(i)
 	var d := _hb_dist(c, p)
+	if r.dstart < 0:
+		r.dstart = d
 	# reaction: how long after the note before the cursor had covered a good
 	# part of the jump from there to here
 	if r.react < 0 and ms < t and i > 0:
@@ -220,6 +225,10 @@ func note_miss(i: int):
 	elif float(r.get("dlast", 1e9)) < float(r.get("dprev", 1e9)) - 0.02 and float(r.get("tmin", -1e9)) >= float(r.get("tlast", 0.0)) - 0.5:
 		# still on its way (getting closer) when the note's time was up: too late
 		kind = KIND_LATE
+	elif float(r.get("dstart", -1.0)) >= 0.0 and mn > float(r.dstart) - 0.4:
+		# never set off for it (still where it was when you could have): late,
+		# not "just off" (the note before may simply be next to it)
+		kind = KIND_LATE
 	elif mn <= 1.8:
 		kind = KIND_NEAR
 	_add_row(i, kind, r, Vector2.ZERO)
@@ -241,6 +250,7 @@ func _add_row(i: int, kind: int, r: Dictionary, off: Vector2):
 		int(r.get("react", -1.0)) if r.get("react", -1.0) >= 0 else -1,
 		stepify(min(float(r.get("over", 0.0)), 99.0), 0.01),
 		stepify(min(float(r.get("at", -1.0)), 99.0), 0.01) if r.get("at", -1.0) >= 0 else -1,
+		stepify(min(float(r.get("dstart", -1.0)), 99.0), 0.01) if r.get("dstart", -1.0) >= 0 else -1,
 	])
 	_recs.erase(i)
 

@@ -44,7 +44,7 @@ var recs_box: VBoxContainer
 var undo_btn: Button
 var gen_btn: Button
 var _recs := []
-var _rec_buttons := []
+var _rec_buttons := {} # suggestion index -> its Apply button
 var profiles_box: VBoxContainer
 var _thread: Thread = null
 
@@ -138,6 +138,8 @@ func _current_settings() -> Dictionary:
 		d[k] = Rhythia.get(k)
 	d["absolute_mode"] = Rhythia.get("absolute_mode")
 	d["sound_space_mode"] = Rhythia.get("sound_space_mode") # it uses its own FOV and cursor in songs
+	# how you aim now (only plays aimed the same way are compared)
+	d["input"] = "vr" if Rhythia.vr else ("touch" if Rhythia.absolute_mode and Rhythia.device("mobile") else "mouse")
 	return d
 
 # The analysis can take a few seconds with many plays: it runs on its own
@@ -185,18 +187,30 @@ func _show(res: Dictionary):
 	for t in res.insights:
 		_label("• " + t, f_body, TEXT, true, insights)
 	_recs = res.recs
-	_rec_buttons = []
+	_rec_buttons = {}
 	if not res.ok:
 		return
 	_show_profiles(res.get("profiles", []))
-	if _recs.empty():
-		_label("Your settings already fit how you play - nothing to change. Keep playing; Generate again later.", f_bold, CONF_COLORS.high, true, recs_box)
-		return
-	_label("Suggested for you:", f_bold, ACCENT, false, recs_box)
+	var status: String = String(res.get("status", ""))
+	var better := []
+	var tries := []
 	for i in range(_recs.size()):
-		_rec_card(_recs[i], i)
-	if _recs.size() > 1:
-		_button(recs_box, "Apply all", "_apply_all")
+		(tries if String(_recs[i].get("src", "")) == "test" else better).append(i)
+	if better.empty():
+		var txt: String = String(res.get("status_text", ""))
+		if txt == "":
+			txt = "Nothing to suggest yet. Keep playing; Generate again later."
+		_label(txt, f_bold, CONF_COLORS.high if status == "fits" else DIM, true, recs_box)
+	else:
+		_label("Suggested for you:", f_bold, ACCENT, false, recs_box)
+		for i in better:
+			_rec_card(_recs[i], i)
+		if better.size() > 1:
+			_button(recs_box, "Apply all", "_apply_all")
+	if not tries.empty():
+		_label("To find out more (not shown to be better yet: play a few maps with it, then Generate again):", f_bold, DIM, true, recs_box)
+		for i in tries:
+			_rec_card(_recs[i], i)
 
 # The settings your plays were played with (newest first) and how they went.
 func _show_profiles(list: Array):
@@ -244,22 +258,26 @@ func _rec_card(r: Dictionary, i: int):
 	var b := _button(h, "Apply", "_apply_one", [i])
 	b.rect_min_size = Vector2(100, 36)
 	b.size_flags_vertical = SIZE_SHRINK_CENTER
-	_rec_buttons.append(b)
+	_rec_buttons[i] = b
 
 func _apply_one(i: int):
 	if i < 0 or i >= _recs.size():
 		return
 	_apply([_recs[i]])
-	if i < _rec_buttons.size() and is_instance_valid(_rec_buttons[i]):
+	if _rec_buttons.has(i) and is_instance_valid(_rec_buttons[i]):
 		_rec_buttons[i].text = "Applied"
 		_rec_buttons[i].disabled = true
 
+# (the "to find out more" ones are left out: they aren't shown to be better)
 func _apply_all():
-	_apply(_recs)
-	for b in _rec_buttons:
-		if is_instance_valid(b):
-			b.text = "Applied"
-			b.disabled = true
+	var list := []
+	for i in range(_recs.size()):
+		if String(_recs[i].get("src", "")) != "test":
+			list.append(_recs[i])
+			if _rec_buttons.has(i) and is_instance_valid(_rec_buttons[i]):
+				_rec_buttons[i].text = "Applied"
+				_rec_buttons[i].disabled = true
+	_apply(list)
 
 func _apply(list: Array):
 	var undo := {}

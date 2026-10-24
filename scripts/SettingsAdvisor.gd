@@ -71,6 +71,8 @@ const TUNABLE := {
 }
 # compared one at a time from your history (approach and distance together)
 const HISTORY_KEYS := ["sensitivity", "absolute_scale", "parallax", "ui_parallax", "grid_parallax", "fov", "fade_length", "cursor_scale", "cam_unlock"]
+# what matters in VR (you aim with the controller and the headset is the camera)
+const VR_KEYS := ["fade_length"]
 const READ_MODS := ["mod_ghost", "mod_nearsighted", "mod_flashlight", "mod_strobe"]
 const MOVE_MODS := ["mod_chaos", "mod_earthquake", "mod_360", "mod_hardrock"]
 const LOOK_NOTES := 1500  # notes with the current camera/cursor settings to judge them
@@ -81,15 +83,29 @@ const GAP_EDGES := [100.0, 200.0, 350.0]             # ms
 
 # cur: your settings now (read on the main thread, see GeneratorTab).
 static func analyze(cur: Dictionary) -> Dictionary:
-	var out := {"ok": false, "summary": "", "insights": [], "recs": [], "profiles": [], "plays": 0, "notes": 0}
+	var out := {"ok": false, "summary": "", "insights": [], "recs": [], "profiles": [], "plays": 0, "notes": 0, "status": "need_data", "status_text": ""}
 	var plays := _prepare(PT.load_plays())
+	# only plays aimed the same way as you aim now (mouse, touch or VR): the
+	# others say nothing about these settings
+	var input: String = String(cur.get("input", ""))
+	if input != "":
+		var same := []
+		for p in plays:
+			if p.input == input:
+				same.append(p)
+		plays = same
+		for i in range(plays.size()):
+			plays[i].idx = i
+			plays[i].practice = float(i) / max(plays.size() - 1, 1)
 	out.plays = plays.size()
 	var total := 0
 	for p in plays:
 		total += p.rows.size()
 	out.notes = total
 	if plays.size() < MIN_PLAYS or total < MIN_NOTES:
-		out.summary = "Not enough plays yet: %d / %d plays and %d / %d notes tracked. Play a few more maps (any result counts) and come back." % [plays.size(), MIN_PLAYS, total, MIN_NOTES]
+		out.summary = "Not enough plays yet%s: %d / %d plays and %d / %d notes tracked. Play a few more maps (any result counts) and come back." % [
+			(" with %s" % _input_name(input)) if input != "" else "", plays.size(), MIN_PLAYS, total, MIN_NOTES]
+		out.status_text = out.summary
 		return out
 	out.ok = true
 	cur = cur.duplicate()
@@ -103,6 +119,8 @@ static func analyze(cur: Dictionary) -> Dictionary:
 	var hist := {}
 	if model != null:
 		for key in HISTORY_KEYS:
+			if input == "vr" and not VR_KEYS.has(key):
+				continue
 			if key == "sensitivity" and bool(cur.get("absolute_mode", false)):
 				continue
 			if key == "absolute_scale" and not bool(cur.get("absolute_mode", false)):
@@ -121,32 +139,40 @@ static func analyze(cur: Dictionary) -> Dictionary:
 
 	# 2. how you play with the settings you have now
 	var mine := _current_plays(plays, cur)
-	if not hist.has("sensitivity") and not hist.has("absolute_scale"):
+	var checked := 0 # checks that had enough plays with your settings to say something
+	if input != "vr" and not hist.has("sensitivity") and not hist.has("absolute_scale"):
 		var rs = _motor(mine.motor, cur)
+		if rs != null:
+			checked += 1
 		if rs != null:
 			if rs.has("changes"):
 				recs.append(rs)
 			elif rs.has("note"):
 				notes_txt.append(rs.note)
 	if not hist.has("approach"):
-		for r in _reading(mine.reading, cur):
+		var rd := _reading(mine.reading, cur)
+		if not rd.empty() and mine.reading.current:
+			checked += 1
+		for r in rd:
 			if r.has("changes"):
 				recs.append(r)
 			elif r.has("note"):
 				notes_txt.append(r.note)
 	# camera, grid, FOV and cursor (each only if your history didn't already
 	# decide it)
-	for r in _look(plays, cur, hist):
+	for r in (_look(plays, cur, hist) if input != "vr" else []):
+		checked += 1
 		if r.has("changes"):
 			recs.append(r)
 		elif r.has("note"):
 			notes_txt.append(r.note)
+	var real_recs := recs.size()
 	if recs.size() < 2:
 		var taken := {}
 		for r in recs:
 			for k in r.changes:
 				taken[k] = true
-		for e in _experiments(mine, cur, hist, plays, taken):
+		for e in _experiments(mine, cur, hist, plays, taken, input):
 			if recs.size() >= 3:
 				break
 			recs.append(e)
@@ -158,7 +184,24 @@ static func analyze(cur: Dictionary) -> Dictionary:
 	out.profiles = _profiles(plays, model, cur)
 	out.summary = _summary(plays, mine, cur)
 	out.insights = _insights(mine, cur) + notes_txt
+	# What the screen says when there's nothing to change: only "they fit"
+	# when your settings now were really checked (enough plays with them).
+	if real_recs > 0:
+		out.status = "changes"
+	elif mine.reading.current and (input == "vr" or mine.motor.current) and checked >= 2:
+		out.status = "fits"
+		out.status_text = "Nothing in how you play with your settings now points to a better value (it checked %d things, see above). Keep playing; Generate again after a few more maps." % checked
+	else:
+		out.status = "need_data"
+		var sel_nc: Dictionary = mine.reading if not mine.reading.current else mine.motor
+		var have: int = int(sel_nc.get("have", 0))
+		out.status_text = "Not enough plays with your settings now to judge them yet (%d notes; it needs about %d over %d plays). Play a few more maps with them and Generate again." % [have, CUR_NOTES, CUR_PLAYS]
+	if not recs.empty() and real_recs == 0:
+		out.status_text = "Nothing clearly better yet. The suggestions below are things to try, so your history can compare them next time."
 	return out
+
+static func _input_name(input: String) -> String:
+	return {"vr": "VR", "touch": "touch", "mouse": "a mouse"}.get(input, input)
 
 class Sorter:
 	static func by_strength(a, b) -> bool:
@@ -218,6 +261,7 @@ static func _prepare(raw: Array) -> Array:
 		if p.vis <= 0:
 			p.read_ok = false
 		p["v"] = int(p.get("v", 1))
+		p["input"] = String(s.get("input", "touch" if bool(s.get("absolute_mode", false)) else "mouse"))
 		# per note, in real time
 		var rows: Array = p.rows
 		var times := []
@@ -249,6 +293,10 @@ static func _prepare(raw: Array) -> Array:
 				"react": float(row[10]) / spd if row.size() > 10 and int(row[10]) >= 0 else -1.0,
 				"over": float(row[11]) if row.size() > 11 else -1.0,
 				"cell": "%d,%d" % [int(clamp(cx, -1, 3)), int(clamp(-cy, -1, 3))],
+				"start": float(row[13]) if row.size() > 13 else -1.0,
+				# "just off" is only reliable from v3 on (before, a cursor that
+				# never left the note next door counted too)
+				"near_ok": p.v >= 3,
 			})
 		p["f"] = feats
 	return out
@@ -881,6 +929,13 @@ static func _motor(sel: Dictionary, cur: Dictionary):
 			# it is reading (distance), not aiming
 			if vis_ms > 0.0 and vis_ms < f.gap - 30.0:
 				continue
+			# only jumps you set off for with time to spare: being late after
+			# setting off late is reading or reaction, not aiming (the same
+			# rule for every note, so overshoots and lates stay comparable)
+			if f.react >= 0.0 and f.gap - f.react < 180.0:
+				continue
+			if f.react < 0.0 and f.kind == PT.KIND_LATE:
+				continue # never set off for it
 			n += 1
 			var big: bool = f.jump >= 1.8
 			if big:
@@ -1062,7 +1117,7 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 # Nothing to change yet: one thing to try, so your history can compare next
 # time. Only for a setting you've only ever played one value of (so it can't
 # keep nudging the same setting), in the direction your misses lean.
-static func _experiments(mine: Dictionary, cur: Dictionary, hist: Dictionary, plays: Array, taken: Dictionary) -> Array:
+static func _experiments(mine: Dictionary, cur: Dictionary, hist: Dictionary, plays: Array, taken: Dictionary, input: String) -> Array:
 	var out := []
 	# not while a change you just made is still being tried out (it would mix
 	# the two up)
@@ -1070,7 +1125,7 @@ static func _experiments(mine: Dictionary, cur: Dictionary, hist: Dictionary, pl
 		return out
 	var abs_mode: bool = bool(cur.get("absolute_mode", false))
 	var key: String = "absolute_scale" if abs_mode else "sensitivity"
-	if not hist.has(key) and not taken.has(key) and _tried(plays, key) < 2:
+	if input != "vr" and not hist.has(key) and not taken.has(key) and _tried(plays, key) < 2:
 		var over := 0
 		var late := 0
 		for p in mine.motor.plays:
@@ -1238,7 +1293,8 @@ static func _precision(sel: Dictionary, cur: Dictionary, abs_mode: bool):
 					if max(abs(f.offx), abs(f.offy)) >= 0.85:
 						graze += 1
 				PT.KIND_NEAR:
-					near += 1
+					if f.near_ok:
+						near += 1
 					miss += 1
 				PT.KIND_OFF:
 					off += 1
@@ -1247,6 +1303,12 @@ static func _precision(sel: Dictionary, cur: Dictionary, abs_mode: bool):
 					miss += 1
 	if n < LOOK_NOTES or miss < 40:
 		return null
+	var v3 := 0
+	for p in plays:
+		if p.v >= 3:
+			v3 += p.rows.size()
+	if v3 < LOOK_NOTES:
+		return null # (older plays can't tell "just off" apart)
 	var cs: float = float(cur.get("cursor_scale", 1.0))
 	var fov: float = float(cur.get("fov", 70.0))
 	var near_share: float = float(near) / miss
