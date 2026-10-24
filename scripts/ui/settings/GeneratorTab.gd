@@ -290,9 +290,28 @@ func _apply(list: Array):
 			Rhythia.set(k, ch[k])
 			n += 1
 	_save_undo(undo)
+	_remember_applied(list)
 	_sync_controls()
 	Rhythia.save_settings()
 	Globals.notify(Globals.NOTIFY_SUCCEED, "Applied %d setting%s. Play a few maps with them, then Generate again." % [n, "" if n == 1 else "s"], "Settings Generator")
+
+# The generator waits for a few plays with what you applied before it
+# changes those settings again (SettingsAdvisor._pending).
+func _remember_applied(list: Array):
+	var applied: Dictionary = Advisor.load_applied()
+	var now := OS.get_unix_time()
+	for r in list:
+		var ch: Dictionary = r.get("changes", {r.key: r.to})
+		for k in ch:
+			applied[k] = {"to": ch[k], "t": now}
+	_write_applied(applied)
+
+func _write_applied(applied: Dictionary):
+	var f := File.new()
+	var path: String = Globals.p(Advisor.APPLIED_FILE)
+	if f.open(path, File.WRITE) == OK:
+		f.store_string(to_json(applied))
+		f.close()
 
 func _save_undo(undo: Dictionary):
 	var f := File.new()
@@ -316,8 +335,11 @@ func _undo():
 	undo_btn.disabled = true
 	if typeof(undo) != TYPE_DICTIONARY:
 		return
+	var applied: Dictionary = Advisor.load_applied()
 	for k in undo:
 		Rhythia.set(k, undo[k])
+		applied.erase(k)
+	_write_applied(applied)
 	_sync_controls()
 	Rhythia.save_settings()
 	Globals.notify(Globals.NOTIFY_SUCCEED, "Your previous settings are back.", "Settings Generator")
@@ -328,6 +350,7 @@ func _clear():
 	Globals.confirm_prompt.close()
 	if sel == 1:
 		PT.clear_all()
+		Directory.new().remove(Globals.p(Advisor.APPLIED_FILE))
 		summary.text = "Tracked plays deleted."
 		for c in insights.get_children():
 			c.queue_free()

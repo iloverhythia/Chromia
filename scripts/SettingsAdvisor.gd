@@ -168,15 +168,53 @@ static func analyze(cur: Dictionary) -> Dictionary:
 			recs.append(r)
 		elif r.has("note"):
 			notes_txt.append(r.note)
+	# 3. your history has the last word on anything from how you play now:
+	# no pushing a setting into values that already went worse for you
+	var kept := []
+	for r in recs:
+		if r.src == "now":
+			var hc := _history_check(plays, model, r.changes, cur)
+			if not hc.ok:
+				notes_txt.append(hc.note)
+				continue
+		kept.append(r)
+	recs = kept
+	# 4. a change you applied with the generator waits for plays with it
+	# (else pressing Generate again would keep pushing the same way)
+	var pending := _pending(plays, cur)
+	if not pending.empty():
+		var kept2 := []
+		for r in recs:
+			var blocked := false
+			for k in r.changes:
+				if pending.has(k) or (APPROACH_KEYS.has(k) and pending.has("approach")):
+					blocked = true
+			if not blocked:
+				kept2.append(r)
+		recs = kept2
+		for k in pending:
+			notes_txt.push_front(pending[k].note)
 	var real_recs := recs.size()
 	if recs.size() < 2:
 		var taken := {}
 		for r in recs:
 			for k in r.changes:
 				taken[k] = true
+		for k in pending:
+			if k == "approach":
+				for ak in APPROACH_KEYS:
+					taken[ak] = true
+			else:
+				taken[k] = true
 		for e in _experiments(mine, cur, hist_rec, plays, taken, input):
 			if recs.size() >= 3:
 				break
+			# (the same history check: no "try going further" after the last
+			# step that way didn't help)
+			var hc2 := _history_check(plays, model, e.changes, cur, 2.0) # (just a try: needs more)
+			if not hc2.ok:
+				notes_txt.append(hc2.note)
+				continue
 			recs.append(e)
 
 	recs.sort_custom(Sorter, "by_strength")
@@ -191,6 +229,12 @@ static func analyze(cur: Dictionary) -> Dictionary:
 	var aim_ready: bool = input == "vr" or mine.motor.current
 	if real_recs > 0:
 		out.status = "changes"
+	elif not pending.empty():
+		out.status = "need_data"
+		var parts := []
+		for k in pending:
+			parts.append(pending[k].note)
+		out.status_text = PoolStringArray(parts).join(" ")
 	elif mine.reading.current and aim_ready:
 		out.status = "fits"
 		out.status_text = "Nothing in your %d recent plays with these settings points to a better value. Keep playing; Generate again after a few more maps." % mine.reading.plays.size()
@@ -833,6 +877,206 @@ static func _history_approach(plays: Array, model: Dictionary, cur: Dictionary):
 	var why := "On your usual notes, %s hit %.1f%% more notes, from %d plays with different approach settings compared like with like." % [
 		what, gain * 100.0, plays.size()]
 	return _rec(changes, cur, conf, why, "history", gain)
+
+# Does your history back a change? Before suggesting {setting: value} from how
+# you play now, look at how you did with your older settings:
+#  - ahead:  you've played about as far in that direction before -> only if
+#            that went better (on equal terms: notes, maps, practice)
+#  - behind: you came from the other side (e.g. the last step) -> only keep
+#            going if where you are now went better than where you came from
+# Approach rate / distance / fade-in are looked at as time on screen and
+# approach rate. Returns {"ok": bool, "note": String}.
+const APPROACH_KEYS := ["approach_rate", "spawn_distance", "fade_length"]
+static func _history_check(plays: Array, model, changes: Dictionary, cur: Dictionary, z_need: float = 1.64) -> Dictionary:
+	var ok := {"ok": true, "note": ""}
+	if model == null:
+		return ok
+	# columns: [name, value now, proposed value, per-play getter]
+	var cols := []
+	var approach := false
+	for k in changes:
+		if APPROACH_KEYS.has(k):
+			approach = true
+		elif TUNABLE.has(k) and TUNABLE[k][5] != "bool":
+			cols.append([k, _tx(k, cur.get(k)), _tx(k, changes[k])])
+	if approach:
+		var nv: Dictionary = cur.duplicate()
+		for k in changes:
+			nv[k] = changes[k]
+		var v0: float = _vis_time(float(cur.spawn_distance), float(cur.approach_rate), float(cur.get("fade_length", 0.0)))
+		var v1: float = _vis_time(float(nv.spawn_distance), float(nv.approach_rate), float(nv.get("fade_length", 0.0)))
+		if v0 > 0 and v1 > 0:
+			cols.append(["vis", log(v0), log(v1)])
+		cols.append(["ar", log(max(float(cur.approach_rate), 0.1)), log(max(float(nv.approach_rate), 0.1))])
+	var moving := []
+	for c in cols:
+		# (a pair that keeps the time on screen moves it by a rounding hair:
+		# that's not a change to look up)
+		var tiny: float = 0.5 * TUNABLE[c[0]][1] if TUNABLE.has(c[0]) and TUNABLE[c[0]][5] == "lin" else 0.03
+		if abs(c[2] - c[1]) > tiny:
+			moving.append(c)
+	if moving.empty():
+		return ok
+	# per play values of each column
+	var vals := []
+	for c in moving:
+		var row := []
+		for p in plays:
+			var x = null
+			if c[0] == "vis":
+				x = log(p.vis) if p.read_ok and p.vis > 0 else null
+			elif c[0] == "ar":
+				x = log(p.ar) if p.read_ok and p.ar > 0 else null
+			else:
+				var v = p.settings.get(c[0])
+				x = _tx(c[0], v) if v != null else null
+			row.append(x)
+		vals.append(row)
+	# support ahead / behind
+	var ahead := []
+	var behind := []
+	for ci in range(moving.size()):
+		var c: Array = moving[ci]
+		var d: float = c[2] - c[1]
+		var sgn: float = sign(d)
+		var a_n := 0
+		var a_notes := 0
+		var b_n := 0
+		var b_notes := 0
+		var b_sum := 0.0
+		for pi in range(plays.size()):
+			var x = vals[ci][pi]
+			if x == null:
+				continue
+			var off: float = (float(x) - c[1]) * sgn
+			if off >= 0.6 * abs(d):
+				a_n += 1
+				a_notes += plays[pi].rows.size()
+			elif -off >= 0.4 * abs(d) and -off <= 1.6 * abs(d) + 0.02: # (the step you came from, not further back)
+				b_n += 1
+				b_notes += plays[pi].rows.size()
+				b_sum += float(x) * plays[pi].rows.size()
+		ahead.append(a_n >= 2 and a_notes >= 300)
+		behind.append([b_n >= 2 and b_notes >= 300, b_sum / max(b_notes, 1)])
+	var any_ahead := false
+	var any_behind := false
+	for ci in range(moving.size()):
+		any_ahead = any_ahead or ahead[ci]
+		any_behind = any_behind or behind[ci][0]
+	if not any_ahead and not any_behind:
+		return ok # never played around there: nothing in your history to go by
+	# one fit with a column (and a curve) for each moving setting
+	var lo := []
+	var hi := []
+	var mean := []
+	for ci in range(moving.size()):
+		var l := 1e9
+		var h := -1e9
+		var s_ := 0.0
+		var n_ := 0
+		for x in vals[ci]:
+			if x != null:
+				l = min(l, float(x))
+				h = max(h, float(x))
+				s_ += float(x)
+				n_ += 1
+		lo.append(l)
+		hi.append(h)
+		mean.append(s_ / max(n_, 1))
+	var extra := []
+	for g in model.groups:
+		var row := []
+		for ci in range(moving.size()):
+			var x = vals[ci][g.play]
+			var xv: float = float(x) if x != null else mean[ci]
+			row.append(xv)
+			row.append(xv * xv)
+		extra.append(row)
+	var fit = _fit(model, extra)
+	if fit == null:
+		return ok
+	var ref := _reference(model, plays)
+	var at_now := []
+	var at_new := []
+	var at_back := []
+	for ci in range(moving.size()):
+		var c: Array = moving[ci]
+		var xn: float = clamp(c[1], lo[ci], hi[ci])
+		var xp: float = clamp(c[2], lo[ci], hi[ci]) if ahead[ci] else xn
+		var xb: float = float(behind[ci][1]) if behind[ci][0] else xn
+		for pair in [[at_now, xn], [at_new, xp], [at_back, xb]]:
+			pair[0].append(pair[1])
+			pair[0].append(pair[1] * pair[1])
+	var r_now := _hit_rate(fit, ref, at_now)
+	var label: String = _changes_label(changes)
+	# going on needs clear evidence that it pays (not noise): the same bar as
+	# a "worth a try" from your history
+	if any_ahead:
+		var r_new := _hit_rate(fit, ref, at_new)
+		var z_new: float = _diff_eta(fit, model.base_k, at_new, at_now) / max(_diff_se(fit, model.base_k, at_new, at_now), 1e-6)
+		if r_new - r_now < 0.002 or z_new < z_need:
+			return {"ok": false, "note": "%s: how you play now points toward %s, but you've played around there before and hit %s, so it stays." % [
+				label, _changes_text(changes), ("%.1f%% fewer notes" % ((r_now - r_new) * 100.0)) if r_now - r_new >= 0.001 else "no clearly more notes"]}
+	if any_behind:
+		var r_back := _hit_rate(fit, ref, at_back)
+		var z_back: float = _diff_eta(fit, model.base_k, at_now, at_back) / max(_diff_se(fit, model.base_k, at_now, at_back), 1e-6)
+		if r_now - r_back < 0.002 or z_back < z_need:
+			return {"ok": false, "note": "%s: how you play now points toward %s, but your plays on the other side of your setting went %s, so it doesn't push further that way." % [
+				label, _changes_text(changes), ("%.1f%% better" % ((r_back - r_now) * 100.0)) if r_back - r_now >= 0.001 else "about as well"]}
+	return ok
+
+# What you applied with the generator (GeneratorTab writes it): {setting:
+# {"to": value, "t": unix time}}. A setting still at that value waits for
+# CUR_PLAYS plays with it before the generator changes it again.
+const APPLIED_FILE := "user://settings_generator_applied.json"
+static func load_applied() -> Dictionary:
+	var f := File.new()
+	var path: String = Globals.p(APPLIED_FILE)
+	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+		return {}
+	var j = JSON.parse(f.get_as_text())
+	f.close()
+	return j.result if j.error == OK and typeof(j.result) == TYPE_DICTIONARY else {}
+
+static func _exact(key: String, a, b) -> bool:
+	if a == null or b == null:
+		return false
+	if TUNABLE.has(key) and TUNABLE[key][5] == "log":
+		return abs(log(max(float(a), 1e-4)) - log(max(float(b), 1e-4))) <= 0.02
+	if typeof(a) == TYPE_BOOL or typeof(b) == TYPE_BOOL:
+		return bool(a) == bool(b)
+	return abs(float(a) - float(b)) <= 0.011
+
+static func _pending(plays: Array, cur: Dictionary) -> Dictionary:
+	var out := {}
+	var applied := load_applied()
+	for k in applied:
+		var e = applied[k]
+		if typeof(e) != TYPE_DICTIONARY or not TUNABLE.has(k) or not _exact(k, cur.get(k), e.get("to")):
+			continue # (changed again since, by hand)
+		var n := 0
+		for p in plays:
+			if int(p.get("t", 0)) >= int(e.get("t", 0)) and _exact(k, p.settings.get(k), e.to):
+				n += 1
+		if n >= CUR_PLAYS:
+			continue
+		var group: String = "approach" if APPROACH_KEYS.has(k) else k
+		var left: int = CUR_PLAYS - n
+		out[group] = {"note": "%s: you set it to %s with the generator. Play %d more map%s with it and Generate again: then it compares it with what you had before." % [
+			"Approach" if group == "approach" else TUNABLE[k][0], _fmt(k, e.to), left, "" if left == 1 else "s"]}
+	return out
+
+static func _changes_label(changes: Dictionary) -> String:
+	var labels := []
+	for k in changes:
+		labels.append(TUNABLE[k][0])
+	return PoolStringArray(labels).join(" + ")
+
+static func _changes_text(changes: Dictionary) -> String:
+	var parts := []
+	for k in changes:
+		parts.append("%s %s" % [TUNABLE[k][0].to_lower(), _fmt(k, changes[k])])
+	return PoolStringArray(parts).join(", ")
 
 static func _ap_cols(xv: float, xa: float, use_v: bool, use_a: bool, qv: bool, qa: bool) -> Array:
 	var c := []
