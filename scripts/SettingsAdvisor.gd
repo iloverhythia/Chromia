@@ -73,8 +73,6 @@ const TUNABLE := {
 const HISTORY_KEYS := ["sensitivity", "absolute_scale", "parallax", "ui_parallax", "grid_parallax", "fov", "fade_length", "cursor_scale", "cam_unlock"]
 # what matters in VR (you aim with the controller and the headset is the camera)
 const VR_KEYS := ["fade_length"]
-const READ_MODS := ["mod_ghost", "mod_nearsighted", "mod_flashlight", "mod_strobe"]
-const MOVE_MODS := ["mod_chaos", "mod_earthquake", "mod_360", "mod_hardrock"]
 const LOOK_NOTES := 1500  # notes with the current camera/cursor settings to judge them
 const SPEED_EDGES := [1.0, 2.0, 3.5, 5.0, 7.0, 10.0] # cells per second
 const GAP_EDGES := [100.0, 200.0, 350.0]             # ms
@@ -91,7 +89,7 @@ static func analyze(cur: Dictionary) -> Dictionary:
 	if input != "":
 		var same := []
 		for p in plays:
-			if p.input == input:
+			if p.input == input or p.input == "":
 				same.append(p)
 		plays = same
 		for i in range(plays.size()):
@@ -112,6 +110,7 @@ static func analyze(cur: Dictionary) -> Dictionary:
 	if cur.get("approach_rate") != null and cur.get("spawn_distance") != null:
 		cur["vis"] = _vis_time(float(cur.spawn_distance), float(cur.approach_rate), float(cur.get("fade_length", 0.0)))
 
+	_match_mods(plays, cur)
 	var model = _fit_base(plays)
 	var recs := []
 	var notes_txt := []
@@ -195,7 +194,10 @@ static func analyze(cur: Dictionary) -> Dictionary:
 		out.status = "need_data"
 		var sel_nc: Dictionary = mine.reading if not mine.reading.current else mine.motor
 		var have: int = int(sel_nc.get("have", 0))
-		out.status_text = "Not enough plays with your settings now to judge them yet (%d notes; it needs about %d over %d plays). Play a few more maps with them and Generate again." % [have, CUR_NOTES, CUR_PLAYS]
+		var have_p: int = int(sel_nc.get("have_plays", 0))
+		out.status_text = "Not enough plays with your settings now to judge them yet: %d play%s and %d notes so far, it needs %d plays and %d notes. Play %s with them and Generate again." % [
+			have_p, "" if have_p == 1 else "s", have, CUR_PLAYS, CUR_NOTES,
+			("%d more map%s" % [CUR_PLAYS - have_p, "" if CUR_PLAYS - have_p == 1 else "s"]) if have_p < CUR_PLAYS else "a few more maps"]
 	if not recs.empty() and real_recs == 0:
 		out.status_text = "Nothing clearly better yet. The suggestions below are things to try, so your history can compare them next time."
 	return out
@@ -246,14 +248,8 @@ static func _prepare(raw: Array) -> Array:
 		p["practice"] = float(i) / max(n - 1, 1)
 		var st: float = float(p.get("stars", -1.0))
 		p["diff"] = (st if st >= 0 else fill) * spd
-		var mods: Array = p.get("mods", []) if p.get("mods") is Array else []
-		p["read_ok"] = not bool(s.get("half_ghost", false)) and not bool(s.get("note_visual_approach", false))
+		p["read_ok"] = true
 		p["move_ok"] = true
-		for m in mods:
-			if READ_MODS.has(m):
-				p.read_ok = false
-			if MOVE_MODS.has(m):
-				p.move_ok = false
 		var ar: float = float(s.get("approach_rate", -1.0))
 		var dist: float = float(s.get("spawn_distance", -1.0))
 		p["ar"] = ar
@@ -261,7 +257,7 @@ static func _prepare(raw: Array) -> Array:
 		if p.vis <= 0:
 			p.read_ok = false
 		p["v"] = int(p.get("v", 1))
-		p["input"] = String(s.get("input", "touch" if bool(s.get("absolute_mode", false)) else "mouse"))
+		p["input"] = String(s.get("input", "")) # (older plays don't say: they count for any)
 		# per note, in real time
 		var rows: Array = p.rows
 		var times := []
@@ -300,6 +296,14 @@ static func _prepare(raw: Array) -> Array:
 			})
 		p["f"] = feats
 	return out
+
+# Every play counts: mods (and half ghost / visual approach) are ignored, as if
+# they were off. Only the speed matters, and that's already in each note's
+# timing and the map's difficulty.
+static func _match_mods(plays: Array, _cur: Dictionary):
+	for p in plays:
+		p.read_ok = p.vis > 0
+		p.move_ok = true
 
 static func _sbin(cps: float) -> int:
 	var b := 0
@@ -879,7 +883,7 @@ static func _pick(plays: Array, cur: Dictionary, keys: Array, abs_mode: bool, ok
 	var vals := {}
 	if not sel.empty():
 		vals = _values(sel[-1].settings, keys)
-	return {"plays": sel, "notes": top_n, "values": vals, "current": false, "have": notes}
+	return {"plays": sel, "notes": top_n, "values": vals, "current": false, "have": notes, "have_plays": picked.size()}
 
 static func _sig(s: Dictionary, keys: Array) -> String:
 	var parts := []
@@ -934,8 +938,8 @@ static func _motor(sel: Dictionary, cur: Dictionary):
 			# rule for every note, so overshoots and lates stay comparable)
 			if f.react >= 0.0 and f.gap - f.react < 180.0:
 				continue
-			if f.react < 0.0 and f.kind == PT.KIND_LATE:
-				continue # never set off for it
+			if f.kind == PT.KIND_LATE and f.start >= 0.0 and f.min > f.start - 0.4:
+				continue # never set off for it (only newer plays can tell)
 			n += 1
 			var big: bool = f.jump >= 1.8
 			if big:
@@ -1012,6 +1016,7 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 	var miss := 0
 	var early := 0
 	var skip := 0
+	var late_all := 0
 	var early_gaps := []
 	var quick_n := 0
 	var quick_es := 0
@@ -1020,6 +1025,8 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 			n += 1
 			if f.kind != PT.KIND_HIT:
 				miss += 1
+			if f.kind == PT.KIND_LATE:
+				late_all += 1
 			if f.kind == PT.KIND_EARLY:
 				early += 1
 				early_gaps.append(f.gap)
@@ -1083,6 +1090,27 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 			return out
 		why += " More distance (same approach rate, so the same speed and spacing) shows notes sooner: about %.2f s." % (want / 1000.0)
 		out.append(_rec({"spawn_distance": nd}, cur, conf, why, "now", gain_r))
+		return out
+	# 1b. almost every miss is being late (or never getting there) and notes
+	# are readable only briefly: you can't read them in time. (This catches
+	# it when you're too late to measure a reaction time at all.)
+	var late_share: float = float(late_all + skip) / max(miss, 1)
+	if miss >= 30 and late_share >= 0.6 and float(miss) / n >= 0.08 and vis < 650.0:
+		var want3: float = clamp(max(vis * 1.4, 500.0), vis * 1.2, vis * 1.7)
+		var conf3 := "medium" if late_share >= 0.75 and float(miss) / n >= 0.15 else "try"
+		var why4 := "%d%% of your misses are being late or never getting to the note, and notes are readable for only %.2f s with your settings: you don't get to see them in time." % [
+			int(round(late_share * 100.0)), vis / 1000.0]
+		var fade3: float = clamp(float(cur.get("fade_length", 0.0)), 0.0, 1.0)
+		if fade3 >= 0.25:
+			var full3: float = dist / ar * 1000.0
+			var nf3: float = (1.0 - want3 / full3) / FADE_SEEN
+			if nf3 >= 0.0:
+				nf3 = min(nf3, fade3 - 0.1)
+				why4 += " Less fade-in (%s instead of %s) makes them readable for about %.2f s, with the same speed and spacing." % [_fmt("fade_length", nf3), _fmt("fade_length", fade3), _vis_time(dist, ar, nf3)]
+				out.append(_rec({"fade_length": nf3}, cur, conf3, why4, "now", late_share * float(miss) / n * 0.5))
+				return out
+		why4 += " More distance (same approach rate, so the same speed and spacing) makes them readable for about %.2f s." % (want3 / 1000.0)
+		out.append(_rec({"spawn_distance": dist * want3 / vis}, cur, conf3, why4, "now", late_share * float(miss) / n * 0.5))
 		return out
 	# 2. approach rate: leaving notes early / skipping them in quick runs
 	var es: float = early + skip
