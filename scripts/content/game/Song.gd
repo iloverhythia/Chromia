@@ -1118,6 +1118,13 @@ func convert_to_sspm_v1():
 	converted = true
 	return "Converted!"
 
+# A difficulty the game knows (others hid the map from the list): else unknown.
+static func _known_difficulty(d) -> int:
+	if d == null:
+		return Globals.DIFF_UNKNOWN
+	var v := int(d)
+	return v if v >= Globals.DIFF_UNKNOWN and v <= Globals.DIFF_AMOGUS else Globals.DIFF_UNKNOWN
+
 func check_if_modded():
 
 	return false
@@ -1718,7 +1725,7 @@ func load_from_sspm(path: String):
 
 		last_ms = file.get_32()
 		note_count = file.get_32()
-		difficulty = file.get_8() - 1
+		difficulty = _known_difficulty(file.get_8() - 1)
 
 
 		cover_offset = file.get_position()
@@ -1781,7 +1788,7 @@ func load_from_sspm(path: String):
 		marker_count = file.get_32()
 
 
-		difficulty = file.get_8() - 1
+		difficulty = _known_difficulty(file.get_8() - 1)
 
 
 		rating = file.get_16()
@@ -1797,7 +1804,8 @@ func load_from_sspm(path: String):
 
 		var mods_required = file.get_8()
 		if mods_required and not check_if_modded():
-			return "Map requires mods"
+			# (it used to be left out of the map list entirely)
+			warning = "This map asks for mods, which Chromia doesn't have: it may not play exactly as its maker meant."
 
 
 
@@ -2038,7 +2046,7 @@ func load_from_cache(cache: Dictionary):
 	name = cache.get("name")
 	song = cache.get("song")
 	creator = cache.get("creator")
-	difficulty = cache.get("difficulty")
+	difficulty = _known_difficulty(cache.get("difficulty"))
 	var raw_cd = _cache_restore_value(cache.get("custom_data", {}))
 	custom_data = _sanitize_custom_data(raw_cd)
 	if raw_cd is Dictionary and raw_cd.size() != custom_data.size():

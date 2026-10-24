@@ -597,7 +597,7 @@ func get_files_recursive(
 						if dir.current_is_dir():
 							if folders_with == "": folders.append(p)
 							subfolders2.append(p)
-						elif filter_ext == "" or p.get_extension() == filter_ext:
+						elif filter_ext == "" or p.get_extension().to_lower() == filter_ext.to_lower(): # (MAP.SSPM too)
 							files.append(p)
 
 						n = dir.get_next()

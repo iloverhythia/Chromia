@@ -136,7 +136,16 @@ func _add_item_nolock(item, subregistry: bool = false, replaceSongs: bool = fals
 		return true
 	elif item is Song:
 		if replaceSongs: _check_and_remove_id_nolock(item.id)
-		elif fast_idc.has(item.id): return false
+		elif fast_idc.has(item.id):
+			# Another map file with the same id: a different map (another
+			# difficulty, a conversion...) gets its own id so both show; only a
+			# real copy of the same map is left out.
+			var other = items[fast_idc[item.id]]
+			if not (other is Song) or other.is_online or item.is_online or other.filePath == item.filePath or item.filePath == "" or _same_map(other, item):
+				if item.filePath != "" and other is Song and other.filePath != item.filePath:
+					skipped.append([item.filePath, "a copy of %s" % other.filePath.get_file()])
+				return false
+			item.id = _free_id(item.id, item.filePath)
 		items.append(item)
 		idx_id.append(item.id)
 		idx_name.append(item.name)
@@ -151,11 +160,31 @@ func _add_item_nolock(item, subregistry: bool = false, replaceSongs: bool = fals
 func load_png(file: String):
 	return Globals.imageLoader.load_file(file)
 
+# Map files that aren't in the list, and why: [path, reason] (for the
+# map loading report, Savia.gd).
+var skipped := []
+
+static func _same_map(a, b) -> bool:
+	return a.name == b.name and a.creator == b.creator and int(a.note_count) == int(b.note_count) and int(a.last_ms) == int(b.last_ms)
+
+# A stable id for a second map file with a taken id (the same each launch).
+func _free_id(id: String, path: String) -> String:
+	var base := "%s~%s" % [id, path.get_file().get_basename()]
+	var out := base
+	var n := 2
+	while fast_idc.has(out):
+		out = "%s%d" % [base, n]
+		n += 1
+	return out
+
 func add_sspm_map(path: String):
 	var song: Song = Song.new()
 	var res = song.load_from_sspm(path)
 	if res is String:
 		print(path + ": " + res)
+		_mutex.lock()
+		skipped.append([path, res])
+		_mutex.unlock()
 		return
 	add_item(song)
 	return song

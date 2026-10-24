@@ -776,7 +776,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e"
 ]
 
 
@@ -865,6 +865,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct24-2026-e": "- Maps that were left out of your map list now load:\n  - maps with the same map id as another map (e.g. another difficulty or a conversion) get their own id, so both show; only an exact copy of a map you already have is left out\n  - maps marked as needing mods (they load with a warning)\n  - maps in folders more than 5 levels deep (now 12)\n  - .SSPM files with a capitalised extension\n  - maps with a difficulty value Chromia did not know (they show as unknown instead of being hidden)\n  - files that could not be read once are tried again after each update\n- Any map file that still cannot be loaded gets a message, with the list and why in logs/map_report.txt (Settings > Open User Folder)",
 	"oct24-2026-d": "- Settings Generator no longer pushes a setting higher and higher (or lower and lower) each time you press Generate\n- After you apply a suggestion it leaves that setting alone until you have played 3 maps with it, then compares it with what you had before\n- It looks at how your older settings went before suggesting anything: no going further in a direction where you already did worse, and it only keeps going if your last step there really helped (it tells you why when it holds back)\n- \"Try this\" ideas follow the same rule, with an even higher bar",
 	"oct24-2026-c": "- Settings Generator: fixed \"Not enough plays with your settings now (0 plays and 0 notes)\" showing when it had plenty of plays\n- Small tweaks no longer reset it: plays within about 10% of your settings count as the same settings\n- A history note (\"no clear difference yet\") no longer switches off the checks on how you play now, so it gives more real suggestions\n- New: skipping or leaving notes in quick runs more than elsewhere -> a higher approach rate (notes further apart)\n- Distance advice needs to see that you are really late on notes that showed up late\n- \"Try this\" ideas only for values you have not really played yet (tiny tweaks do not count), in the direction your misses point, then fade-in once those are tried\n- Faster Generate with lots of plays (it looks at your newest 150,000 notes)",
 	"oct24-2026-b": "- Settings Generator fixed: it said \"0 notes\" and never suggested anything when you play with mods or half ghost on (those plays were left out). Mods are now ignored (only the speed counts), so all your plays count\n- New check: when almost all your misses are being late and notes are readable only briefly, it suggests more distance (or less fade-in)\n- Older plays count however you aimed, and the sensitivity check no longer reads them as all overshoots\n- The waiting message says how many plays and notes it has with your settings and how many more maps it needs",
@@ -1675,15 +1676,59 @@ var _sspm_import_done: bool = false
 # whole cache rewritten) on every launch.
 var _loaded_from_file: Dictionary = {}
 var map_cache_dirty: bool = false
+const MAP_SEARCH_DEPTH := 12 # folders deep in the maps folder(s)
+const MAP_REPORT_FILE := "user://logs/map_report.txt"
 
 func _make_full_sspm_cache(v: int) -> Dictionary:
 	var cache_dict = registry_song.make_sspm_cache(v)
 	for path in _loaded_from_file.keys():
 		if not cache_dict.has(path):
 			var ls = _loaded_from_file[path]
-			cache_dict[path] = ls.make_cache() if ls != null else {"invalid": true, "mtime": File.new().get_modified_time(path)}
+			cache_dict[path] = ls.make_cache() if ls != null else {"invalid": true, "mtime": File.new().get_modified_time(path),
+				"ver": String(ProjectSettings.get_setting("application/config/version")), "why": _skip_reason(path)}
 	_loaded_from_file.clear()
 	return cache_dict
+# A file that couldn't be read last time, unchanged, with this game version
+# (an update may read it now, so it's tried again then).
+func _known_unreadable(cached, path: String) -> bool:
+	return cached is Dictionary and cached.get("invalid", false) \
+		and int(cached.get("mtime", 0)) == File.new().get_modified_time(path) \
+		and String(cached.get("ver", "")) == String(ProjectSettings.get_setting("application/config/version"))
+
+func _skip_reason(path: String) -> String:
+	for e in registry_song.skipped:
+		if e[0] == path:
+			return e[1]
+	return "couldn't be read"
+
+# Map files that aren't in your map list, and why: written to
+# logs/map_report.txt, with a message if there are any.
+func _report_skipped_maps():
+	var list: Array = registry_song.skipped
+	if list.empty():
+		Directory.new().remove(Globals.p(MAP_REPORT_FILE))
+		return
+	var f := File.new()
+	if f.open(Globals.p(MAP_REPORT_FILE), File.WRITE) == OK:
+		f.store_line("Map files Chromia didn't add to your map list (%d):" % list.size())
+		for e in list:
+			f.store_line("%s\n    %s" % [e[0], e[1]])
+		f.close()
+	var copies := 0
+	for e in list:
+		if String(e[1]).begins_with("a copy of"):
+			copies += 1
+	var unreadable: int = list.size() - copies
+	var parts := []
+	if unreadable > 0:
+		parts.append("%d map file%s couldn't be read" % [unreadable, "" if unreadable == 1 else "s"])
+	if copies > 0:
+		parts.append("%d %s copies of maps you already have" % [copies, "is a" if copies == 1 else "are"])
+	var msg: String = PoolStringArray(parts).join(", and ")
+	msg = msg.substr(0, 1).to_upper() + msg.substr(1)
+	Globals.call_deferred("notify", Globals.NOTIFY_WARN if unreadable > 0 else Globals.NOTIFY_INFO,
+		"%s. The list is in logs/map_report.txt in your user folder (Settings > Open User Folder)." % msg, "Maps")
+
 func _import_sspm_worker(args: Array) -> Array:
 	var smaps: Array = args[0]
 	var caches: Dictionary = args[1]
@@ -1695,8 +1740,9 @@ func _import_sspm_worker(args: Array) -> Array:
 		_sspm_import_progress = i + 1
 		var single_map_start = OS.get_ticks_usec()
 		var cached = caches.get(smaps[i])
-		if cached is Dictionary and cached.get("invalid", false) and int(cached.get("mtime", 0)) == File.new().get_modified_time(smaps[i]):
-			from_cache += 1 # known unreadable file, skip it
+		if _known_unreadable(cached, smaps[i]):
+			from_cache += 1 # known unreadable file (this version), skip it
+			registry_song.skipped.append([smaps[i], String(cached.get("why", "couldn't be read"))])
 		elif cached != null and not (cached is Dictionary and cached.get("invalid", false)):
 			if registry_song.add_sspm_cached_map(smaps[i], cached):
 				from_cache += 1
@@ -4608,11 +4654,13 @@ func populate_map_registry_deferred(args: Array):
 		var list = txt.split("\n", false)
 		map_search_folders.append_array(list)
 
-	var smaps: Array = Globals.get_files_recursive(map_search_folders, 5, "sspm", "", -1).files
+	var smaps: Array = Globals.get_files_recursive(map_search_folders, MAP_SEARCH_DEPTH, "sspm", "", -1).files
+	smaps.sort()
 
 	var load_start = OS.get_ticks_usec()
 	var from_file = 0
 	var from_cache = 0
+	registry_song.skipped = []
 	var debug_map_load_times = OS.has_feature("debug")
 
 	call_deferred("emit_signal", "init_stage_reached", "Register content 1/5\nImport Rhythia maps\n0 / %s" % smaps.size())
@@ -4622,8 +4670,9 @@ func populate_map_registry_deferred(args: Array):
 		var map_load_start_usec = OS.get_ticks_usec() if debug_map_load_times else 0
 
 		var cached = caches.get(smaps[i])
-		if cached is Dictionary and cached.get("invalid", false) and int(cached.get("mtime", 0)) == File.new().get_modified_time(smaps[i]):
-			from_cache += 1 # known unreadable file, skip it
+		if _known_unreadable(cached, smaps[i]):
+			from_cache += 1 # known unreadable file (this version), skip it
+			registry_song.skipped.append([smaps[i], String(cached.get("why", "couldn't be read"))])
 		elif cached != null and not (cached is Dictionary and cached.get("invalid", false)):
 			if registry_song.add_sspm_cached_map(smaps[i], cached):
 				from_cache += 1
@@ -4649,6 +4698,7 @@ func populate_map_registry_deferred(args: Array):
 	var load_time = load_end - load_start
 	print("Loaded %s/%s maps from cache of %s" % [from_cache, from_cache + from_file, caches.size()])
 	print("Took %s usec" % Globals.comma_sep(load_time))
+	call_deferred("_report_skipped_maps")
 
 	call_deferred("emit_signal", "init_stage_reached", "Register content 2/5\nCache Rhythia maps")
 	err = file.open(Globals.p(CACHE_FILE_PATH), File.WRITE)
@@ -4982,14 +5032,16 @@ func do_init(_ud = null):
 			map_search_folders.append_array(list)
 
 		var scan_start = OS.get_ticks_usec()
-		Globals.get_files_recursive(map_search_folders, 5, "sspm", "", 90)
+		Globals.get_files_recursive(map_search_folders, MAP_SEARCH_DEPTH, "sspm", "", 90)
 		smaps = yield(Globals, "recurse_result").files
+		smaps.sort() # (the same order every launch: a map with a taken id always gets the same new one)
 		print("Locating files took %s usec (%s files)" % [Globals.comma_sep(OS.get_ticks_usec() - scan_start), smaps.size()])
 		emit_signal("init_stage_num", 2)
 
 		var load_start = OS.get_ticks_usec()
 		var from_file = 0
 		var from_cache = 0
+		registry_song.skipped = []
 		# Import on a worker thread so the loading screen stays smooth.
 		_sspm_import_progress = 0
 		_sspm_import_done = false
@@ -5009,6 +5061,7 @@ func do_init(_ud = null):
 
 		print("Loaded %s/%s maps from cache of %s" % [from_cache, from_cache + from_file, caches.size()])
 		print("Took %s usec" % Globals.comma_sep(load_time))
+		_report_skipped_maps()
 
 
 		# Only rewrite the map cache when maps were added, changed or removed.
