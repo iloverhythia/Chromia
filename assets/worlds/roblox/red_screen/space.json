@@ -1,0 +1,1 @@
+{"name":"Red Screen","num":22,"script":"RedScreenScript","lighting":{"FogColor":[1.0,0.0,0.0],"FogStart":0.0,"FogEnd":160.0,"Brightness":50.0},"water":{},"root":{"n":"22","c":"Folder","id":9571,"mm":[[0,0,780]]},"mats":[{"shade":"neon","blend":"opaque","cull":"back"}],"groups":{},"geoms":[0]}

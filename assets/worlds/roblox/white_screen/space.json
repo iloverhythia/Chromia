@@ -1,0 +1,1 @@
+{"name":"White Screen","num":44,"script":"WhiteScript","lighting":{"FogColor":[0.7843,0.7843,0.7843],"FogStart":0.0,"FogEnd":320.0,"Brightness":50.0},"water":{},"root":{"n":"44","c":"Folder","id":21751,"mm":[[0,0,780]]},"mats":[{"shade":"lit","blend":"opaque","cull":"back"}],"groups":{},"geoms":[0]}

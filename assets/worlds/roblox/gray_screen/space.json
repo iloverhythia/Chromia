@@ -1,0 +1,1 @@
+{"name":"Gray Screen","num":25,"script":"GrayScript","lighting":{"FogColor":[0.2078,0.2078,0.2078],"FogStart":0.0,"FogEnd":160.0,"Brightness":50.0},"water":{},"root":{"n":"25","c":"Folder","id":9586,"mm":[[0,0,780]]},"mats":[{"shade":"neon","blend":"opaque","cull":"back"}],"groups":{},"geoms":[0]}

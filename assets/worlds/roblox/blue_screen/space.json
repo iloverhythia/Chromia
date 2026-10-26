@@ -1,0 +1,1 @@
+{"name":"Blue Screen","num":24,"script":"BlueScreenScript","lighting":{"FogColor":[0.0,0.0,1.0],"FogStart":0.0,"FogEnd":160.0,"Brightness":50.0},"water":{},"root":{"n":"24","c":"Folder","id":9541,"mm":[[0,0,780]]},"mats":[{"shade":"neon","blend":"opaque","cull":"back"}],"groups":{},"geoms":[0]}

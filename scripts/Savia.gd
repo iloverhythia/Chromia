@@ -776,7 +776,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a"
 ]
 
 
@@ -865,6 +865,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct25-2026-a": "- NEW: 44 backgrounds from Roblox Rhythia (the 'Spaces' pack), under Rhythia (Roblox) in the background list:\n  Default, Halloween, Holo Dream, Vaporwave, Conspiracy, Inverted Conspiracy, Christmas, The Speaker, Valentines, Easter, Palm Trees, Skull, Pumpkin Kingdom, Tronic, Tri Tunnel, The Flower, Squircle, Squircle Vortex, Cubic, Rift, Beyond Reality, Phantom Seas, World Cracks, Unity Tower, Summer, Hell, Cat Shades, Legacy, Shooting Stars, Torii, Calm Night, Arcade, Sound Invaders, Dojo, Heartscape, Admin Panel, Lucky, Cosmic Pyramid, and the Red / Green / Blue / Gray / Black / White screens\n- Each one has its original models, textures, skies, lighting, fog, water, particles and lights\n- Their animations work like in Roblox: things react to your hits in the note colour (ghosts and bats, lightning on the ghost ship, flashing lamps, waves, shooting stars, invaders being shot down...), and some pulse with the music\n- The biggest ones (Phantom Seas, Easter, Rift, Christmas) are detailed scenes and need a decent graphics card",
 	"oct24-2026-e": "- Maps that were left out of your map list now load:\n  - maps with the same map id as another map (e.g. another difficulty or a conversion) get their own id, so both show; only an exact copy of a map you already have is left out\n  - maps marked as needing mods (they load with a warning)\n  - maps in folders more than 5 levels deep (now 12)\n  - .SSPM files with a capitalised extension\n  - maps with a difficulty value Chromia did not know (they show as unknown instead of being hidden)\n  - files that could not be read once are tried again after each update\n- Any map file that still cannot be loaded gets a message, with the list and why in logs/map_report.txt (Settings > Open User Folder)",
 	"oct24-2026-d": "- Settings Generator no longer pushes a setting higher and higher (or lower and lower) each time you press Generate\n- After you apply a suggestion it leaves that setting alone until you have played 3 maps with it, then compares it with what you had before\n- It looks at how your older settings went before suggesting anything: no going further in a direction where you already did worse, and it only keeps going if your last step there really helped (it tells you why when it holds back)\n- \"Try this\" ideas follow the same rule, with an even higher bar",
 	"oct24-2026-c": "- Settings Generator: fixed \"Not enough plays with your settings now (0 plays and 0 notes)\" showing when it had plenty of plays\n- Small tweaks no longer reset it: plays within about 10% of your settings count as the same settings\n- A history note (\"no clear difference yet\") no longer switches off the checks on how you play now, so it gives more real suggestions\n- New: skipping or leaving notes in quick runs more than elsewhere -> a higher approach rate (notes further apart)\n- Distance advice needs to see that you are really late on notes that showed up late\n- \"Try this\" ideas only for values you have not really played yet (tiny tweaks do not count), in the direction your misses point, then fade-in once those are tried\n- Faster Generate with lots of plays (it looks at your newest 150,000 notes)",
@@ -4202,6 +4203,227 @@ func register_worlds():
 		"furria_space_relic", "Relic (Rhythia)",
 		"res://assets/worlds/rhythia_spaces/relic.tscn", "Rhythia",
 		"res://assets/worlds/rhythia_spaces/relic.png"
+	))
+	# Backgrounds converted from Roblox Rhythia's spaces
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_default", "Default",
+		"res://assets/worlds/roblox/default/default.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/default/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_halloween", "Halloween",
+		"res://assets/worlds/roblox/halloween/halloween.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/halloween/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_holo_dream", "Holo Dream",
+		"res://assets/worlds/roblox/holo_dream/holo_dream.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/holo_dream/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_vaporwave", "Vaporwave",
+		"res://assets/worlds/roblox/vaporwave/vaporwave.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/vaporwave/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_conspiracy", "Conspiracy",
+		"res://assets/worlds/roblox/conspiracy/conspiracy.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/conspiracy/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_christmas", "Christmas",
+		"res://assets/worlds/roblox/christmas/christmas.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/christmas/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_the_speaker", "The Speaker",
+		"res://assets/worlds/roblox/the_speaker/the_speaker.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/the_speaker/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_valentines", "Valentines",
+		"res://assets/worlds/roblox/valentines/valentines.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/valentines/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_easter", "Easter",
+		"res://assets/worlds/roblox/easter/easter.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/easter/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_palm_trees", "Palm Trees",
+		"res://assets/worlds/roblox/palm_trees/palm_trees.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/palm_trees/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_skull", "Skull",
+		"res://assets/worlds/roblox/skull/skull.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/skull/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_pumpkin_kingdom", "Pumpkin Kingdom",
+		"res://assets/worlds/roblox/pumpkin_kingdom/pumpkin_kingdom.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/pumpkin_kingdom/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_tronic", "Tronic",
+		"res://assets/worlds/roblox/tronic/tronic.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/tronic/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_tri_tunnel", "Tri Tunnel",
+		"res://assets/worlds/roblox/tri_tunnel/tri_tunnel.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/tri_tunnel/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_the_flower", "The Flower",
+		"res://assets/worlds/roblox/the_flower/the_flower.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/the_flower/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_squircle", "Squircle",
+		"res://assets/worlds/roblox/squircle/squircle.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/squircle/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_cubic", "Cubic",
+		"res://assets/worlds/roblox/cubic/cubic.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/cubic/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_rift", "Rift",
+		"res://assets/worlds/roblox/rift/rift.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/rift/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_beyond_reality", "Beyond Reality",
+		"res://assets/worlds/roblox/beyond_reality/beyond_reality.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/beyond_reality/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_phantom_seas", "Phantom Seas",
+		"res://assets/worlds/roblox/phantom_seas/phantom_seas.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/phantom_seas/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_inverted_conspiracy", "Inverted Conspiracy",
+		"res://assets/worlds/roblox/inverted_conspiracy/inverted_conspiracy.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/inverted_conspiracy/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_red_screen", "Red Screen",
+		"res://assets/worlds/roblox/red_screen/red_screen.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/red_screen/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_green_screen", "Green Screen",
+		"res://assets/worlds/roblox/green_screen/green_screen.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/green_screen/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_blue_screen", "Blue Screen",
+		"res://assets/worlds/roblox/blue_screen/blue_screen.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/blue_screen/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_gray_screen", "Gray Screen",
+		"res://assets/worlds/roblox/gray_screen/gray_screen.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/gray_screen/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_world_cracks", "World Cracks",
+		"res://assets/worlds/roblox/world_cracks/world_cracks.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/world_cracks/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_unity_tower", "Unity Tower",
+		"res://assets/worlds/roblox/unity_tower/unity_tower.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/unity_tower/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_summer", "Summer",
+		"res://assets/worlds/roblox/summer/summer.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/summer/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_hell", "Hell",
+		"res://assets/worlds/roblox/hell/hell.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/hell/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_cat_shades", "Cat Shades",
+		"res://assets/worlds/roblox/cat_shades/cat_shades.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/cat_shades/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_squircle_vortex", "Squircle Vortex",
+		"res://assets/worlds/roblox/squircle_vortex/squircle_vortex.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/squircle_vortex/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_legacy", "Legacy",
+		"res://assets/worlds/roblox/legacy/legacy.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/legacy/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_shooting_stars", "Shooting Stars",
+		"res://assets/worlds/roblox/shooting_stars/shooting_stars.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/shooting_stars/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_torii", "Torii",
+		"res://assets/worlds/roblox/torii/torii.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/torii/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_calm_night", "Calm Night",
+		"res://assets/worlds/roblox/calm_night/calm_night.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/calm_night/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_arcade", "Arcade",
+		"res://assets/worlds/roblox/arcade/arcade.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/arcade/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_sound_invaders", "Sound Invaders",
+		"res://assets/worlds/roblox/sound_invaders/sound_invaders.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/sound_invaders/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_dojo", "Dojo",
+		"res://assets/worlds/roblox/dojo/dojo.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/dojo/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_heartscape", "Heartscape",
+		"res://assets/worlds/roblox/heartscape/heartscape.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/heartscape/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_admin_panel", "Admin Panel",
+		"res://assets/worlds/roblox/admin_panel/admin_panel.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/admin_panel/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_lucky", "Lucky",
+		"res://assets/worlds/roblox/lucky/lucky.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/lucky/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_cosmic_pyramid", "Cosmic Pyramid",
+		"res://assets/worlds/roblox/cosmic_pyramid/cosmic_pyramid.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/cosmic_pyramid/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_black_screen", "Black Screen",
+		"res://assets/worlds/roblox/black_screen/black_screen.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/black_screen/cover.png"
+	))
+	registry_world.add_item(BackgroundWorld.new(
+		"roblox_white_screen", "White Screen",
+		"res://assets/worlds/roblox/white_screen/white_screen.tscn", "Rhythia (Roblox)",
+		"res://assets/worlds/roblox/white_screen/cover.png"
 	))
 	registry_world.add_item(BackgroundWorld.new(
 		"ssp_custombg", "Custom Background",
