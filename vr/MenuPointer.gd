@@ -360,4 +360,3 @@ func _ready():
 	var img2 = Globals.imageLoader.load_if_exists("user://trail")
 	if img2: $PointerTrail.draw_pass_1.material.albedo_texture = img2
 	elif img: $PointerTrail.draw_pass_1.material.albedo_texture = img
-	get_node("Viewport/Menu/Main/Maps/Filters").visible = false
