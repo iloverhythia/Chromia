@@ -19,7 +19,7 @@ func _ready():
 		Rhythia.send_analytics_event("map_play", {"map_name": Rhythia.selected_song.name, "client_id": Rhythia.cid}, Rhythia.cid)
 	get_tree().paused = false
 	if Rhythia.vr:
-		Rhythia.vr_player.transform.origin = Vector3(0, -2.5, 4.5)
+		Rhythia.vr_player.transform.origin = Vector3(0, -2.5, Rhythia.vr_grid_distance * 2.0) # Settings > VR: grid distance (2 game units a metre)
 	$BlackFade.visible = true
 	black_fade = 1
 	$BlackFade.color = Color(0, 0, 0, black_fade)

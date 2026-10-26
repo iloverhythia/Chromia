@@ -39,9 +39,8 @@ func _process(delta):
 	if Input.is_action_just_pressed("vr_switch_hands"):
 		Rhythia.vr_left_handed = not Rhythia.vr_left_handed
 		update_primary_ray()
-	if Input.is_action_just_pressed("vr_recenter"):
-		recenter_to_head()
-	_watch_for_reset()
+	_hold_recenter(delta)
+	_watch_for_reset(delta)
 	_apply_grip()
 	if not Rhythia.fake_vr:
 		_place_eye()
@@ -55,7 +54,11 @@ func _process(delta):
 #
 # It happens when the headset's view jumps all at once (resetting the boundary
 # / "Reset view" on a Meta Quest, SteamVR's reset), once when VR starts, and
-# on the recenter button (A / X).
+# when you hold the recenter button (A / X) for a second.
+#
+# Loading a song or the menu (failing, restarting) can stall the game for a
+# moment, and your head moves on meanwhile: that is not a reset. So the jump
+# check pauses while a scene changes and for slow frames.
 const EYE_HEIGHT := 2.0          # game units (the fake VR head sits there too)
 const JUMP_MOVE := 0.25          # game units in one frame (12 cm at world scale 2)
 const JUMP_TURN := deg2rad(15.0) # in one frame (heads don't turn that fast)
@@ -67,6 +70,62 @@ var _last_head = null # Transform
 var _recenter_in := 45 # first recenter shortly after VR starts
 var _ignore := 0
 var _pitch := 0.0 # how far down (-) / up (+) you looked at the last recenter
+const HOLD_TIME := 1.0 # seconds the recenter button has to be held
+const SLOW_FRAME := 0.05 # seconds: a stall, not a reset
+const SCENE_QUIET := 60 # frames after a scene change without the jump check
+var _held := 0.0
+var _hold_done := false
+var _hold_label = null # Label3D in front of you while holding
+var _scene_id := 0
+
+func _hold_recenter(delta: float):
+	if not Input.is_action_pressed("vr_recenter"):
+		_held = 0.0
+		_hold_done = false
+		_show_hold("")
+		return
+	if _hold_done:
+		return
+	_held += delta
+	if _held >= HOLD_TIME:
+		_hold_done = true
+		recenter_to_head()
+		_show_hold("Recentered", 0.8)
+	elif _held > 0.15:
+		var n := int(_held / HOLD_TIME * 10.0)
+		_show_hold("Hold to recenter  " + "|".repeat(n) + ".".repeat(10 - n))
+
+func _show_hold(text: String, keep: float = 0.0):
+	if Rhythia.fake_vr:
+		return
+	if _hold_label == null or not is_instance_valid(_hold_label):
+		if text == "":
+			return
+		_hold_label = Label3D.new()
+		_hold_label.pixel_size = 0.0025
+		_hold_label.font = DynamicFont.new()
+		_hold_label.font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+		_hold_label.font.size = 48
+		_hold_label.modulate = Color(1, 0.86, 0.98)
+		_hold_label.outline_modulate = Color(0, 0, 0, 0.8)
+		_hold_label.no_depth_test = true
+		_hold_label.fixed_size = false
+		_hold_label.transform.origin = Vector3(0, -0.25, -1.6)
+		head.add_child(_hold_label)
+	if keep > 0.0:
+		_hold_label.text = text
+		_hold_label.visible = true
+		get_tree().create_timer(keep).connect("timeout", self, "_hide_hold", [text])
+		return
+	if text == "" and _hold_label.text == "Recentered":
+		return # the "Recentered" note stays a moment
+	_hold_label.text = text
+	_hold_label.visible = text != ""
+
+func _hide_hold(text: String):
+	if _hold_label != null and is_instance_valid(_hold_label) and _hold_label.text == text:
+		_hold_label.text = ""
+		_hold_label.visible = false
 
 # Eye height so the content sits along your gaze: looking down puts it lower
 # in front of you, looking up higher. Kept when the scene changes (menu <->
@@ -86,12 +145,19 @@ func _place_eye():
 	if abs(origin.transform.origin.y - eye) > 0.001 or origin.transform.origin.x != 0 or origin.transform.origin.z != 0:
 		origin.transform.origin = Vector3(0, eye, 0)
 
-func _watch_for_reset():
+func _watch_for_reset(delta: float):
 	if Rhythia.fake_vr:
 		return
 	var t: Transform = head.transform
 	if t.origin == Vector3.ZERO and t.basis == Basis():
 		return # no pose from the headset yet
+	var sc = get_tree().current_scene
+	var sid: int = sc.get_instance_id() if sc != null else 0
+	if sid != _scene_id:
+		_scene_id = sid
+		_ignore = max(_ignore, SCENE_QUIET) # a song or the menu is loading
+	if delta > SLOW_FRAME:
+		_ignore = max(_ignore, 2) # a stall: the head kept moving meanwhile
 	if _ignore > 0:
 		_ignore -= 1
 	elif _last_head != null:

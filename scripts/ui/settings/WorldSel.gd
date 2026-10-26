@@ -28,7 +28,14 @@ func _open_picker():
 	_picker.selected = Rhythia.selected_space
 	_picker.connect("picked", self, "_on_picked")
 	# same viewport as the button (the VR menu draws the settings in its own one)
-	get_viewport().add_child(_picker)
+	var vp = get_viewport()
+	if vp == get_tree().root:
+		var holder := CanvasLayer.new()
+		holder.layer = 110
+		holder.add_child(_picker)
+		vp.add_child(holder)
+	else:
+		vp.add_child(_picker) # VR menu screen: on top of everything there
 
 func _on_picked(w):
 	Rhythia.select_world(w)

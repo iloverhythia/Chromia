@@ -1,7 +1,9 @@
-extends CanvasLayer
+extends Control
 # Background picker: every background as a tile (thumbnail + name) in a grid
 # that fits the screen and scrolls, so the whole list is reachable on phones
-# (the old dropdown ran off the bottom of the screen). Opened by WorldSel.gd.
+# (the old dropdown ran off the bottom of the screen). Opened by WorldSel.gd,
+# which puts it in a CanvasLayer on the window, or straight on the VR menu
+# screen (a CanvasLayer there gets the pointer at the wrong spot).
 
 signal picked(world)
 
@@ -25,7 +27,9 @@ var _last_drag_ms := -1000
 var _tiles := []
 
 func _ready():
-	layer = 110
+	anchor_right = 1.0
+	anchor_bottom = 1.0
+	mouse_filter = MOUSE_FILTER_IGNORE
 	_font = DynamicFont.new()
 	_font.font_data = load("res://assets/font/Lato/Lato-Regular.ttf")
 	_font.size = 17
@@ -244,4 +248,8 @@ func _unhandled_input(e: InputEvent):
 		close()
 
 func close():
-	queue_free()
+	var p = get_parent()
+	if p is CanvasLayer and p.get_child_count() == 1:
+		p.queue_free() # the holder WorldSel made
+	else:
+		queue_free()

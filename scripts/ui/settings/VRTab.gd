@@ -37,7 +37,10 @@ var _loading := false
 const SCREEN_ROWS := [
 	["Size", "vr_menu_size", 50.0, 150.0, 5.0, "°"],
 	["Distance", "vr_menu_distance", 1.0, 3.0, 0.1, " m"],
+	["Text and buttons", "vr_menu_ui", 60.0, 140.0, 10.0, " %"],
 ]
+# how far the note grid (where the notes come from) is in songs
+const GRID_ROW := ["Grid distance", "vr_grid_distance", 0.75, 5.0, 0.05, " m"]
 var _screen := [] # [slider, value label, row]
 var _curve_box: CheckBox
 var _screen_t: SceneTreeTimer = null
@@ -79,7 +82,7 @@ func _ready():
 	m.add_child(box)
 
 	_label("Menu screen", f_title, ACCENT)
-	_label("How big the menu screen is (how much of your view it fills), how far away, and whether it curves around you so every part is just as far. Scroll lists with the thumbstick while you point at them.", f_body, DIM, true)
+	_label("How big the menu screen is (how much of your view it fills), how far away, how big its text and buttons are (smaller fits more on it), and whether it curves around you so every part is just as far. You can also drag the icon in the screen's bottom right corner to resize it, or tap it for size buttons. Scroll lists and settings with the thumbstick while you point at them.", f_body, DIM, true)
 	for row in SCREEN_ROWS:
 		_screen_row(row)
 	_curve_box = CheckBox.new()
@@ -89,6 +92,11 @@ func _ready():
 	_curve_box.connect("toggled", self, "_on_curve")
 	box.add_child(_curve_box)
 	_button(box, "Reset screen", "_reset_screen")
+	box.add_child(HSeparator.new())
+	_label("In songs", f_title, ACCENT)
+	_label("How far away the grid is (where the notes come from and where you hit them). Closer fills more of your view, like a wider FOV; further fits it all in view. Changes from the next song you play. Default 2.25 m.", f_body, DIM, true)
+	_screen_row(GRID_ROW)
+	_button(box, "Reset grid distance", "_reset_grid")
 	box.add_child(HSeparator.new())
 	_label("Controller grip", f_title, ACCENT)
 	_label("Changes the angle and position of the pointer on your hand, so it points where feels natural to you. Watch the beam move while you change it. This is for the right hand; the left hand gets the mirror image.", f_body, DIM, true)
@@ -104,6 +112,12 @@ func _ready():
 		_bind_row(a[0], a[1])
 	_button(box, "Reset buttons", "_reset_binds")
 	_load_values()
+	# the corner icon on the screen changes the size too
+	connect("visibility_changed", self, "_on_shown")
+
+func _on_shown():
+	if is_visible_in_tree():
+		_load_values()
 
 func _label(text: String, f: Font, col: Color, wrap: bool = false, parent: Node = null) -> Label:
 	var l := Label.new()
@@ -171,6 +185,8 @@ func _screen_row(row: Array):
 	sl.connect("value_changed", self, "_on_screen", [_screen.size() - 1])
 
 static func _screen_fmt(v: float, row: Array) -> String:
+	if row[4] < 0.1:
+		return ("%.2f" % v) + row[5]
 	return ("%.1f" % v if row[4] < 1.0 else str(int(round(v)))) + row[5]
 
 func _on_screen(v: float, i: int):
@@ -187,10 +203,16 @@ func _on_curve(on: bool):
 	Rhythia.vr_menu_curve = on
 	_apply_screen_soon()
 
+func _reset_grid():
+	Rhythia.vr_grid_distance = 2.25
+	_load_values()
+	_save_soon()
+
 func _reset_screen():
 	Rhythia.vr_menu_size = 100.0
 	Rhythia.vr_menu_distance = 1.6
 	Rhythia.vr_menu_curve = true
+	Rhythia.vr_menu_ui = 100.0
 	_load_values()
 	_apply_screen_soon()
 
