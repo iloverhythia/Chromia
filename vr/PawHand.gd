@@ -1,86 +1,71 @@
 extends Reference
 
-# The built-in "Furry paws" VR hand (Settings > VR > Hands): a soft plush paw
-# mitten, like the fluffy paw gloves: one rounded shape with four toe bumps
-# blended into the palm, a fluffy cuff, short soft fur, and big pink toe beans
-# and a main pad on the palm, each on a peach seam ring.
+# The built-in "Furry paws" VR hand (Settings > VR > Hands): a cartoon paw
+# mitten: one rounded shape with four round toe bumps blended into the palm
+# and a cuff, cel shaded in a few clean tones with a bold outline, and glossy
+# pink toe beans and main pad on the palm, each with a darker rim.
 #
 # Made in code (no files). The shape is a smooth blend of rounded parts (a
 # signed distance field) turned into one mesh, so the toes melt into the paw
-# with soft creases instead of looking like separate balls. Fur: a fur shader
-# plus a few "shells" (the surface pushed out a little, fewer strands each
-# time) for a fuzzy edge. Lit from a fixed direction in the world (with a soft
-# fill), so it looks the same in every background.
+# with soft creases. Lit from a fixed direction in the world (with a soft
+# fill), so it looks the same in every background. 4 draws per hand.
 #
 # build() gives the right hand, in metres with the controller at the origin,
 # -Z forward (VRPlayer.gd scales it and mirrors it for the left hand).
 
-const FUR_DARK := Color(0.60, 0.53, 0.50)
-const FUR_LIGHT := Color(0.97, 0.94, 0.90)
-const FUR_TIP := Color(1.0, 0.99, 0.97)
-const PAD_DARK := Color(0.86, 0.50, 0.53)
-const PAD_LIGHT := Color(1.0, 0.76, 0.76)
-const SEAM := Color(0.90, 0.68, 0.50)
-const SHELLS := [0.33, 0.66, 1.0]
-const FUR_LEN := 0.0045
+const BODY_LIGHT := Color(1.0, 0.975, 0.945)
+const BODY_MID := Color(0.90, 0.84, 0.84)
+const BODY_DARK := Color(0.74, 0.66, 0.72)
+const LINE := Color(0.27, 0.17, 0.22)
+const LINE_WIDTH := 0.0021
+const PAD_DARK := Color(0.93, 0.52, 0.60)
+const PAD_LIGHT := Color(1.0, 0.70, 0.75)
+const PAD_RIM := Color(0.62, 0.26, 0.36)
 
 # paw frame: palm faces -Y, toes toward -Z (forward), +X to the right
 # [centre, radii]
 const PARTS := [
-	[Vector3(0, 0.0, 0.008), Vector3(0.048, 0.027, 0.040)],          # palm
-	[Vector3(0, 0.001, 0.050), Vector3(0.044, 0.032, 0.021)],        # cuff
-	[Vector3(-0.042, 0.008, -0.020), Vector3(0.0185, 0.021, 0.0195)], # toes
-	[Vector3(-0.0148, 0.010, -0.031), Vector3(0.0195, 0.022, 0.0205)],
-	[Vector3(0.0148, 0.010, -0.031), Vector3(0.0195, 0.022, 0.0205)],
-	[Vector3(0.042, 0.008, -0.020), Vector3(0.0185, 0.021, 0.0195)],
+	[Vector3(0, 0.0, 0.008), Vector3(0.048, 0.028, 0.040)],          # palm
+	[Vector3(0, 0.001, 0.050), Vector3(0.043, 0.032, 0.020)],        # cuff
+	[Vector3(-0.043, 0.008, -0.020), Vector3(0.019, 0.021, 0.019)],  # toes
+	[Vector3(-0.015, 0.010, -0.032), Vector3(0.020, 0.022, 0.020)],
+	[Vector3(0.015, 0.010, -0.032), Vector3(0.020, 0.022, 0.020)],
+	[Vector3(0.043, 0.008, -0.020), Vector3(0.019, 0.021, 0.019)],
 ]
-const BLEND := 0.0045 # how softly the parts melt together (small: clear creases)
+const BLEND := 0.0035 # how softly the parts melt together (small: clear creases)
 # how far in front of the controller the toes reach (the beam starts there)
 const TIP := 0.052
 const CENTRE := Vector3(0, 0.0, 0.006)
 
-const FUR_SHADER := """
+const TOON_SHADER := """
 shader_type spatial;
-render_mode unshaded, cull_back, depth_draw_opaque;
-uniform vec4 fur_dark : hint_color;
-uniform vec4 fur_light : hint_color;
-uniform vec4 fur_tip : hint_color;
-uniform float shell = 0.0;
-uniform float fur_len = 0.0045;
-uniform float density = 520.0;
-varying vec3 opos;
-void vertex() {
-	opos = VERTEX;
-	VERTEX += NORMAL * shell * fur_len;
-}
-float hash13(vec3 p) {
-	p = fract(p * 0.1031);
-	p += dot(p, p.zyx + 31.32);
-	return fract((p.x + p.y) * p.z);
-}
+render_mode unshaded, cull_back;
+uniform vec4 col_light : hint_color;
+uniform vec4 col_mid : hint_color;
+uniform vec4 col_dark : hint_color;
 void fragment() {
 	vec3 n = normalize(NORMAL);
 	vec3 v = normalize(VIEW);
 	vec3 l = normalize((INV_CAMERA_MATRIX * vec4(0.35, 0.9, 0.45, 0.0)).xyz);
 	vec3 l2 = normalize((INV_CAMERA_MATRIX * vec4(-0.45, -0.55, 0.6, 0.0)).xyz);
-	float ndl = max(dot(n, l) * 0.5 + 0.5, (dot(n, l2) * 0.5 + 0.5) * 0.75);
-	float ao = COLOR.r;
-	ndl *= mix(0.42, 1.0, ao);
-	float rim = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 2.0);
-	vec3 cell = floor(opos * density);
-	float h = hash13(cell);
-	float h2 = hash13(cell + vec3(17.0, 3.0, 9.0));
-	vec3 c = mix(fur_dark.rgb, fur_light.rgb, smoothstep(0.1, 0.95, ndl));
-	c *= 0.94 + 0.08 * h2;
-	c = mix(c, fur_tip.rgb, clamp(rim * 0.5 + shell * 0.25, 0.0, 1.0) * ao);
-	if (shell > 0.0) {
-		// soft fuzz: fewer, thinner strands the further out
-		vec3 f = fract(opos * density) - 0.5;
-		if (h < shell * 0.6 || length(f) > 0.75 - shell * 0.4) {
-			discard;
-		}
-	}
+	float d = max(dot(n, l), dot(n, l2) * 0.55);
+	d -= (1.0 - COLOR.r) * 0.75; // the creases between the toes and at the cuff
+	vec3 c = mix(col_mid.rgb, col_light.rgb, smoothstep(0.12, 0.2, d));
+	c = mix(col_dark.rgb, c, smoothstep(-0.38, -0.3, d));
 	ALBEDO = c;
+}
+"""
+
+const LINE_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_front;
+uniform vec4 line : hint_color;
+uniform float width = 0.0021;
+void vertex() {
+	VERTEX += NORMAL * width;
+}
+void fragment() {
+	ALBEDO = line.rgb;
 }
 """
 
@@ -89,17 +74,18 @@ shader_type spatial;
 render_mode unshaded, cull_back;
 uniform vec4 pad_dark : hint_color;
 uniform vec4 pad_light : hint_color;
-uniform float shine = 0.35;
+uniform float shine = 1.0;
 void fragment() {
 	vec3 n = normalize(NORMAL);
 	vec3 v = normalize(VIEW);
 	vec3 l = normalize((INV_CAMERA_MATRIX * vec4(0.35, 0.9, 0.45, 0.0)).xyz);
 	vec3 l2 = normalize((INV_CAMERA_MATRIX * vec4(-0.45, -0.55, 0.6, 0.0)).xyz);
-	float ndl = max(dot(n, l) * 0.5 + 0.5, (dot(n, l2) * 0.5 + 0.5) * 0.85);
-	vec3 c = mix(pad_dark.rgb, pad_light.rgb, smoothstep(0.0, 1.0, ndl));
-	float spec = (pow(max(dot(n, normalize(l2 + v)), 0.0), 30.0) + pow(max(dot(n, normalize(l + v)), 0.0), 30.0)) * shine;
-	float rim = pow(1.0 - clamp(dot(n, v), 0.0, 1.0), 2.5) * 0.2;
-	ALBEDO = c + vec3(spec) + vec3(1.0, 0.92, 0.92) * rim;
+	float d = max(dot(n, l), dot(n, l2) * 0.8);
+	vec3 c = mix(pad_dark.rgb, pad_light.rgb, smoothstep(0.05, 0.13, d));
+	// a cartoon shine spot
+	float s1 = max(dot(n, normalize(l + v)), dot(n, normalize(l2 + v)));
+	c = mix(c, vec3(1.0, 0.96, 0.97), smoothstep(0.955, 0.965, s1) * shine);
+	ALBEDO = c;
 }
 """
 
@@ -159,8 +145,8 @@ static func build() -> ArrayMesh:
 	var place := Transform(Basis(Vector3(0, 0, 1), deg2rad(-18.0)) * Basis(Vector3(1, 0, 0), deg2rad(10.0)), Vector3(0.0, -0.006, 0.026))
 
 	# fur: one closed surface around the centre
-	var seg := 40
-	var rings := 26
+	var seg := 72
+	var rings := 44
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for j in range(rings + 1):
@@ -172,7 +158,7 @@ static func build() -> ArrayMesh:
 			var p := _surface(d)
 			var nn := _grad(p)
 			# darker in the creases (between the toes, at the cuff)
-			var ao: float = clamp(sdf(p + nn * 0.008) / 0.008, 0.0, 1.0)
+			var ao: float = clamp(sdf(p + nn * 0.011) / 0.011, 0.0, 1.0)
 			st.add_color(Color(ao, 1, 1))
 			st.add_normal(place.basis.xform(nn).normalized())
 			st.add_vertex(place.xform(p))
@@ -185,38 +171,44 @@ static func build() -> ArrayMesh:
 			var dd: int = (j + 1) * seg + i
 			for k in [a, b, c, a, c, dd]:
 				st.add_index(k)
-	var fur_arrays: Array = st.commit_to_arrays()
+	var body_arrays: Array = st.commit_to_arrays()
 
 	var mesh := ArrayMesh.new()
-	var fur_shader := Shader.new()
-	fur_shader.code = FUR_SHADER
-	for s in [0.0] + SHELLS:
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, fur_arrays)
-		var m := ShaderMaterial.new()
-		m.shader = fur_shader
-		m.set_shader_param("fur_dark", FUR_DARK)
-		m.set_shader_param("fur_light", FUR_LIGHT)
-		m.set_shader_param("fur_tip", FUR_TIP)
-		m.set_shader_param("shell", s)
-		m.set_shader_param("fur_len", FUR_LEN)
-		m.render_priority = int(s * 3)
-		mesh.surface_set_material(mesh.get_surface_count() - 1, m)
+	# the bold outline: the same surface pushed out, drawn from behind
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, body_arrays)
+	var lsh := Shader.new()
+	lsh.code = LINE_SHADER
+	var lm := ShaderMaterial.new()
+	lm.shader = lsh
+	lm.set_shader_param("line", LINE)
+	lm.set_shader_param("width", LINE_WIDTH)
+	mesh.surface_set_material(0, lm)
+	# the body, cel shaded
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, body_arrays)
+	var tsh := Shader.new()
+	tsh.code = TOON_SHADER
+	var tm := ShaderMaterial.new()
+	tm.shader = tsh
+	tm.set_shader_param("col_light", BODY_LIGHT)
+	tm.set_shader_param("col_mid", BODY_MID)
+	tm.set_shader_param("col_dark", BODY_DARK)
+	mesh.surface_set_material(1, tm)
 
 	# pads: [x, z, x radius, z radius, puff, shape (0 oval, 1 main pad)]
-	var pads := [[0.0, 0.012, 0.026, 0.021, 0.008, 1]]
+	var pads := [[0.0, 0.013, 0.027, 0.022, 0.0075, 1]]
 	for t in PARTS.slice(2, 5):
 		var tc: Vector3 = t[0]
-		pads.append([tc.x, tc.z - 0.002, 0.0115, 0.0125, 0.006, 0])
+		pads.append([tc.x, tc.z - 0.002, 0.0125, 0.0135, 0.0055, 0])
 	var pad_shader := Shader.new()
 	pad_shader.code = PAD_SHADER
-	for part in [[false, PAD_DARK, PAD_LIGHT, 0.3], [true, SEAM.darkened(0.15), SEAM, 0.1]]:
+	for part in [[false, PAD_DARK, PAD_LIGHT, 1.0], [true, PAD_RIM, PAD_RIM, 0.0]]:
 		var ps := SurfaceTool.new()
 		ps.begin(Mesh.PRIMITIVE_TRIANGLES)
 		for e in pads:
 			var base := _palm_point(e[0], e[1])
 			var nrm := _grad(base)
 			if part[0]:
-				_pillow(ps, place, base + nrm * 0.0028, nrm, e[2] * 1.22, e[3] * 1.22, e[4] * 0.35, e[5])
+				_pillow(ps, place, base + nrm * 0.0024, nrm, e[2] * 1.14, e[3] * 1.14, e[4] * 0.3, e[5])
 			else:
 				_pillow(ps, place, base + nrm * 0.0032, nrm, e[2], e[3], e[4], e[5])
 		ps.index()
