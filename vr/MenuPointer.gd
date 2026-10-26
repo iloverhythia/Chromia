@@ -37,6 +37,24 @@ var _scroll_target_ms := 0
 var _resize = null # [start width, start pointer width, start time] while dragging the corner icon
 var _resize_moved := false
 var _resize_icon = null
+# Performance: the menu is redrawn every frame only while you use it (pointer
+# moving on it, clicking, scrolling, typing) and for a second after; otherwise
+# every other frame (its animations at half rate; the screen itself, your
+# head and the pointer dot stay at full rate)
+const BUSY_MS := 1200
+var _busy_until := 0
+var _frame := 0
+
+func busy():
+	_busy_until = OS.get_ticks_msec() + BUSY_MS
+
+func _pace_redraw():
+	_frame += 1
+	if OS.get_ticks_msec() < _busy_until or _resize != null:
+		if viewport.render_target_update_mode != Viewport.UPDATE_ALWAYS:
+			viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
+		return
+	viewport.render_target_update_mode = Viewport.UPDATE_ONCE if _frame % 2 == 0 else Viewport.UPDATE_DISABLED
 
 # Lays the menu out for the text size setting (and draws it at least 1920x1080).
 func apply_layout():
@@ -138,6 +156,8 @@ func _scroll(delta: float):
 	scroll_by(y, delta)
 
 func scroll_by(y: float, delta: float):
+	if abs(y) >= 0.25:
+		busy()
 	if abs(y) < 0.25:
 		_scroll_left = 0.0
 		_scroll_carry = 0.0
@@ -268,6 +288,8 @@ func _input(event: InputEvent):
 	# while dragging), or what was held would stay pressed
 	var release: bool = (event is InputEventMouseButton or event is InputEventJoypadButton) and not event.is_pressed()
 	if active or release:
+		if event is InputEventKey or event is InputEventMouseButton or event is InputEventJoypadButton:
+			busy()
 		if event is InputEventKey:
 			viewport.input(event)
 		elif event is InputEventMouseButton:
@@ -293,6 +315,7 @@ func _input(event: InputEvent):
 				viewport.input(ev)
 
 func _process(delta):
+	_pace_redraw()
 	_drag_resize()
 	active = (Rhythia.vr_player.primary_ray.is_colliding() and (Rhythia.vr_player.primary_ray.get_collider() == self))
 	if active:
@@ -313,6 +336,7 @@ func _process(delta):
 
 			viewport.input(ev)
 			last_screen_pos = screen_pos
+			busy()
 		_scroll(delta)
 
 		# the dot lies on the screen, facing you, just in front of it

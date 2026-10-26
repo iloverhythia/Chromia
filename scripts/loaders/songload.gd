@@ -3,7 +3,15 @@ extends Node
 var leaving: bool = false
 
 var target: String = "res://scenes/song.tscn"
-var target2: String = load("res://scripts/game/SoundSpaceMode.gd").space_path(Rhythia.selected_space.path)
+var target2: String = _world_path()
+
+# Settings > VR > Graphics > Simple background: VR songs use the plain VOID
+# background (the fastest) whatever background is picked
+static func _world_path() -> String:
+	var p: String = load("res://scripts/game/SoundSpaceMode.gd").space_path(Rhythia.selected_space.path)
+	if Rhythia.vr and Rhythia.vr_simple_bg and p == Rhythia.selected_space.path:
+		return "res://assets/worlds/void/void.tscn"
+	return p
 
 var black_fade_target: bool = false
 var black_fade: float = 0

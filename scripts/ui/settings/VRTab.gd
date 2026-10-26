@@ -97,6 +97,30 @@ func _ready():
 	_label("How far away the grid is (where the notes come from and where you hit them). Closer fills more of your view, like a wider FOV; further fits it all in view. Changes from the next song you play. Default 2.25 m.", f_body, DIM, true)
 	_screen_row(GRID_ROW)
 	_button(box, "Reset grid distance", "_reset_grid")
+	_label("Aim sensitivity: how far the cursor moves for how far you turn the controller. 1 = exactly where you point (like a laser); higher reaches the whole grid with smaller wrist turns, lower is steadier. The beam bends to end on the cursor.", f_body, DIM, true)
+	_value_row(["Aim sensitivity", "vr_sensitivity", 0.5, 3.0, 0.05, "x", 1.0])
+	box.add_child(HSeparator.new())
+	_label("Haptics", f_title, ACCENT)
+	_label("A short buzz in the pointing hand when you hit a note, a stronger one when you miss.", f_body, DIM, true)
+	_value_row(["Strength", "vr_haptics", 0.0, 1.0, 0.05, " %", 100.0])
+	_miss_box = _check("Buzz on misses", "vr_haptic_miss")
+	box.add_child(HSeparator.new())
+	_label("Hands", f_title, ACCENT)
+	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
+	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
+	box.add_child(HSeparator.new())
+	_label("Graphics", f_title, ACCENT)
+	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
+	if OS.has_feature("quest"):
+		_fov_pick = _option_row("Foveated rendering", [["Off", 0], ["Low", 1], ["Medium", 2], ["High", 3]], "_on_foveation")
+		var rates: Array = load("res://vr/VRPlayer.gd").refresh_rates()
+		var items := [["Headset default", 0.0]]
+		for r in rates:
+			items.append(["%d Hz" % int(round(r)), float(r)])
+		_rate_pick = _option_row("Refresh rate", items, "_on_rate")
+		_value_row(["Render resolution", "vr_render_scale", 0.6, 1.4, 0.05, " %", 100.0])
+	_glow_pick = _option_row("Glow", [["Auto (off on Quest)", -1], ["Off", 0], ["On", 1]], "_on_glow")
+	_simple_box = _check("Simple background in songs (fastest: the plain VOID background in VR, whatever background is picked)", "vr_simple_bg")
 	box.add_child(HSeparator.new())
 	_label("Controller grip", f_title, ACCENT)
 	_label("Changes the angle and position of the pointer on your hand, so it points where feels natural to you. Watch the beam move while you change it. This is for the right hand; the left hand gets the mirror image.", f_body, DIM, true)
@@ -203,6 +227,131 @@ func _on_curve(on: bool):
 	Rhythia.vr_menu_curve = on
 	_apply_screen_soon()
 
+# --- Aim, haptics, hands, graphics --------------------------------------------
+var _values := [] # [slider, value label, row [label, setting, min, max, step, unit, shown scale]]
+var _miss_box: CheckBox
+var _hand_pick: OptionButton
+var _fov_pick: OptionButton
+var _rate_pick: OptionButton
+var _glow_pick: OptionButton
+var _simple_box: CheckBox
+
+func _value_row(row: Array):
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 12)
+	box.add_child(h)
+	var name_l := _label(row[0], f_bold, TEXT, false, h)
+	name_l.rect_min_size = Vector2(230, 0)
+	name_l.size_flags_horizontal = 0
+	var sl := HSlider.new()
+	sl.min_value = row[2]
+	sl.max_value = row[3]
+	sl.step = row[4]
+	sl.size_flags_horizontal = SIZE_EXPAND_FILL
+	sl.size_flags_vertical = SIZE_SHRINK_CENTER
+	sl.rect_min_size = Vector2(300, 28)
+	sl.theme = load("res://uitheme.tres")
+	h.add_child(sl)
+	var val := _label("", f_body, TEXT, false, h)
+	val.rect_min_size = Vector2(80, 0)
+	val.size_flags_horizontal = 0
+	_values.append([sl, val, row])
+	sl.connect("value_changed", self, "_on_value", [_values.size() - 1])
+
+static func _value_fmt(v: float, row: Array) -> String:
+	var shown: float = v * float(row[6])
+	if row[6] == 1.0:
+		return "%.2f" % shown + row[5]
+	return str(int(round(shown))) + row[5]
+
+func _on_value(v: float, i: int):
+	var e: Array = _values[i]
+	e[1].text = _value_fmt(v, e[2])
+	if _loading:
+		return
+	Rhythia.set(e[2][1], v)
+	_save_soon()
+
+func _check(text: String, setting: String) -> CheckBox:
+	var c := CheckBox.new()
+	c.text = text
+	c.theme = load("res://uitheme.tres")
+	c.add_font_override("font", f_bold)
+	c.connect("toggled", self, "_on_check", [setting])
+	box.add_child(c)
+	return c
+
+func _on_check(on: bool, setting: String):
+	if _loading:
+		return
+	Rhythia.set(setting, on)
+	_save_soon()
+
+func _option_row(title: String, items: Array, method: String) -> OptionButton:
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 12)
+	box.add_child(h)
+	var name_l := _label(title, f_bold, TEXT, false, h)
+	name_l.rect_min_size = Vector2(230, 0)
+	name_l.size_flags_horizontal = 0
+	var o := OptionButton.new()
+	o.theme = load("res://uitheme.tres")
+	o.add_font_override("font", f_body)
+	o.rect_min_size = Vector2(260, 34)
+	for i in range(items.size()):
+		o.add_item(items[i][0], i)
+		o.set_item_metadata(i, items[i][1])
+	o.connect("item_selected", self, method)
+	h.add_child(o)
+	return o
+
+static func _select_meta(o: OptionButton, value):
+	if o == null:
+		return
+	for i in range(o.get_item_count()):
+		var m = o.get_item_metadata(i)
+		if (typeof(m) == TYPE_REAL or typeof(m) == TYPE_INT) and (typeof(value) == TYPE_REAL or typeof(value) == TYPE_INT):
+			if abs(float(m) - float(value)) < 0.5:
+				o.select(i)
+				return
+		elif m == value:
+			o.select(i)
+			return
+	o.select(0)
+
+func _on_hand(i: int):
+	if _loading:
+		return
+	Rhythia.vr_hand = str(_hand_pick.get_item_metadata(i))
+	if Rhythia.vr_player != null and Rhythia.vr_player.has_method("apply_hand"):
+		Rhythia.vr_player.apply_hand()
+		if Rhythia.vr_hand == "custom" and Rhythia.vr_player._hand_shown != "custom":
+			Globals.notify(Globals.NOTIFY_ERROR, "No vr_hand.obj in the user folder (or it couldn't be read).", "VR hands")
+	_save_soon()
+
+func _on_foveation(i: int):
+	if _loading:
+		return
+	Rhythia.vr_foveation = int(_fov_pick.get_item_metadata(i))
+	_apply_xr()
+
+func _on_rate(i: int):
+	if _loading:
+		return
+	Rhythia.vr_refresh = float(_rate_pick.get_item_metadata(i))
+	_apply_xr()
+
+func _on_glow(i: int):
+	if _loading:
+		return
+	Rhythia.vr_glow = int(_glow_pick.get_item_metadata(i))
+	_save_soon()
+
+func _apply_xr():
+	if Rhythia.vr_player != null and Rhythia.vr_player.has_method("apply_xr_settings"):
+		Rhythia.vr_player.apply_xr_settings()
+	_save_soon()
+
 func _reset_grid():
 	Rhythia.vr_grid_distance = 2.25
 	_load_values()
@@ -255,6 +404,18 @@ func _bind_row(action: String, title: String):
 
 func _load_values():
 	_loading = true
+	for e in _values:
+		var v: float = float(Rhythia.get(e[2][1]))
+		e[0].value = v
+		e[1].text = _value_fmt(v, e[2])
+	if _miss_box:
+		_miss_box.pressed = bool(Rhythia.vr_haptic_miss)
+	_select_meta(_hand_pick, Rhythia.vr_hand)
+	_select_meta(_fov_pick, Rhythia.vr_foveation)
+	_select_meta(_rate_pick, Rhythia.vr_refresh)
+	_select_meta(_glow_pick, Rhythia.vr_glow)
+	if _simple_box:
+		_simple_box.pressed = bool(Rhythia.vr_simple_bg)
 	for e in _screen:
 		var v: float = float(Rhythia.get(e[2][1]))
 		e[0].value = v

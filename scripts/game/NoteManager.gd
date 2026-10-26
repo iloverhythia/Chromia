@@ -684,29 +684,41 @@ func do_spin():
 		-(centeroff.x * hlm * grm) - 1, -(centeroff.y * hlm * grm) + 1, 0
 	)
 
+# VR: the cursor goes where the pointer beam meets the grid's plane, worked out
+# from the controller's pose this frame (not last frame's physics ray), and
+# moved like a PC cursor (move_cursor_abs: same edge limits, drift cursor,
+# replay position). The grid stays still: the PC parallax settings move the
+# grid and notes with the cursor for a flat camera, which in VR only made the
+# notes slide away from where you point.
+# Settings > VR > Aim sensitivity scales how far the cursor goes from the
+# grid's centre for how far you point from it (1 = exactly where you point);
+# the beam is bent to end on the cursor then.
 func do_vr_cursor():
-	var centeroff = Rhythia.vr_player.primary_ray.get_collision_point() + cursor_offset
-
-	var cx = centeroff.x
-	var cy = -centeroff.y
-	cx = clamp(cx, (0 + sh.x + edgec), (3 + sh.x - edgec))
-	cy = clamp(cy, (0 + sh.y + edgec), (3 + sh.y - edgec))
-	centeroff.x = cx - cursor_offset.x
-	centeroff.y = -cy - cursor_offset.y
-
-	var hlm = 0.25
-	var uim = Rhythia.get("ui_parallax") * 0.1
-	var grm = Rhythia.get("grid_parallax") * 0.1
-	cam.transform.origin = Vector3(
-		centeroff.x * hlpower, centeroff.y * hlpower, 3.735
-	)
-	Grid.transform.origin = Vector3(
-		-centeroff.x * hlm * uim, -centeroff.y * hlm * uim, Grid.transform.origin.z
-	)
-	transform.origin = Vector3(
-		-(centeroff.x * hlm * grm) - 1, -(centeroff.y * hlm * grm) + 1, 0
-	)
-	get_node("Cursor").transform.origin = centeroff + cursor_offset
+	transform.origin = Vector3(-1, 1, 0)
+	Grid.transform.origin = Vector3(0, 0, Grid.transform.origin.z)
+	if Rhythia.replaying:
+		return # the replay moves the cursor
+	var ray: RayCast = Rhythia.vr_player.primary_ray
+	var from: Vector3 = ray.global_transform.origin
+	var dir: Vector3 = ray.global_transform.basis.xform(ray.cast_to).normalized()
+	# the grid's plane (z = 0 here, facing you)
+	var plane_n: Vector3 = global_transform.basis.z.normalized()
+	var plane_p: Vector3 = global_transform.origin
+	var denom: float = dir.dot(plane_n)
+	if abs(denom) < 0.0001:
+		return
+	var t: float = (plane_p - from).dot(plane_n) / denom
+	if t < 0.0:
+		return # pointing away from the grid
+	var hit: Vector3 = from + dir * t
+	var local: Vector3 = to_local(hit)
+	var sens: float = Rhythia.vr_sensitivity
+	if abs(sens - 1.0) > 0.001:
+		var centre := Vector3(1, -1, 0)
+		local = centre + (local - centre) * sens
+	_n_cursor.move_cursor_abs(Vector2(local.x, -local.y))
+	if ray.has_method("set_target"):
+		ray.set_target(to_global(_n_cursor.transform.origin) if abs(sens - 1.0) > 0.001 else null)
 
 func comma_sep(number):
 	var string = str(number)

@@ -776,7 +776,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d"
 ]
 
 
@@ -865,6 +865,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct26-2026-d": "- VR performance: Meta Quest foveated rendering is on (Settings > VR > Graphics: Off / Low / Medium / High, Medium by default): the edges of each eye are drawn at lower resolution, where the lenses blur them anyway\n- VR performance: glow (bloom) is off on the Quest unless you turn it on (it is a full-screen effect drawn for each eye); on PC VR it stays, in its cheaper form. SSAO, screen reflections and depth of field are always off in VR\n- VR performance: the menu screen is redrawn every frame only while you use it, and every other frame otherwise; the menu pillars are plain meshes; the song HUD panels no longer use 4x multisampling or a 3D pass\n- NEW (VR): Settings > VR > Graphics: refresh rate (72 / 80 / 90 / 120 Hz on the Quest), render resolution (applies the next time VR starts), glow, and Simple background in songs (the plain VOID background, the fastest)\n- VR hitboxes work like on PC: the cursor goes exactly where the beam meets the grid, worked out from the controller each frame (it used to be a frame late), with the same edge limits as PC. The grid and notes no longer slide with the PC parallax settings. VR replays now record the cursor\n- NEW (VR): Aim sensitivity (Settings > VR > In songs): how far the cursor moves for how far you turn the controller; the beam bends to end on the cursor\n- NEW (VR): Haptics: a short buzz on each hit and a stronger one on a miss, with a strength slider and a switch for misses\n- NEW (VR): Hands: pick Default, Furry paws (fluffy cream paws with pink toe beans) or Custom (your own vr_hand.obj in the user folder: the right hand in metres, controller at the middle, pointing along -Z)",
 	"oct26-2026-c": "- VR: the map filters show on the menu screen again: broken / online / ranked, sorting (difficulty, name, stars, most played), the difficulty buttons and map folders. They were hidden in VR",
 	"oct26-2026-b": "- VR: clicks on the menu screen land where you point. Before, every click landed further right and lower than the pointer, so the right and bottom of the menu could not be clicked at all\n- VR: the menu is laid out bigger (like a 1600x900 window), so all of it fits on the screen: every settings tab, the whole map list and its buttons\n- VR: resize the menu screen from the icon in its bottom right corner: point at it, hold the trigger and drag to make the screen bigger or smaller, or tap it for size buttons (screen size, and text and button size: smaller fits more). Also in Settings > VR\n- VR: the thumbstick scrolls settings pages and other lists while you point at them (it used to change the number box or slider under the pointer instead). Either hand's thumbstick works\n- VR: failing or restarting a map no longer recenters you (loading made it look like a boundary reset)\n- VR: hold the recenter button (A / X) for a second to recenter; a short press does nothing. Resetting the view on the headset still recenters right away\n- NEW (VR): Settings > VR > In songs > Grid distance: how far away the grid is where the notes come from (default 2.25 m). Closer fills more of your view, like a wider FOV\n- NEW: Settings > Transfer: move your settings and custom content (colorsets, meshes, cursors, sounds, borders, backgrounds, profiles, keybinds, VR settings) to another device with a code. Generate a code on one device, enter it on the other (same Wi-Fi, both with the game open). Or save it all to a file and load that. Maps, replays and scores stay. Your old settings are kept as the profile 'before transfer'\n- The background picker also works on the VR menu screen",
 	"oct26-2026-a": "- The background picker (Settings) fits on every screen: it opens a scrollable grid with each background's picture and name, grouped into Chromia, Rhythia and Rhythia (Roblox). Before, the list ran off the bottom of the screen on phones\n- Drag to scroll; tap a background to pick it",
@@ -1823,6 +1824,23 @@ var vr_menu_curve: bool = true     # curved around you
 var vr_menu_ui: float = 100.0      # % size of the menu's text and buttons on the screen
 # how far the note grid (where the notes come from) is from you in songs, in metres
 var vr_grid_distance: float = 2.25
+# VR aim: how far the cursor moves for how far you turn the controller (1 =
+# exactly where you point)
+var vr_sensitivity: float = 1.0
+# controller rumble on hits (0..1) and on misses
+var vr_haptics: float = 0.5
+var vr_haptic_miss: bool = true
+# the hands: "default" (box), "paw" (built-in furry paw), "custom" (vr_hand.obj)
+var vr_hand: String = "default"
+# VR graphics (vr/VRPlayer.gd apply_xr_settings): Meta Quest foveated rendering
+# 0 off .. 3 high, display refresh rate (0 = the headset's own), render
+# resolution (applies when VR starts) and glow (-1 = off on Quest, on on PC)
+var vr_foveation: int = 2
+var vr_refresh: float = 0.0
+var vr_render_scale: float = 1.0
+var vr_glow: int = -1
+var vr_simple_bg: bool = false # VR songs on the plain VOID background
+var vr_xr_config = null # the OpenXR plugin's settings object (Quest)
 # VR controller buttons (Settings > VR): action -> up to two button numbers
 var vr_binds := {}
 const VR_BUTTONS := [["Trigger", 15], ["Grip", 2], ["A / X", 7], ["B / Y", 1], ["Thumbstick press", 14], ["Menu", 3]]
@@ -1921,6 +1939,14 @@ func start_vr():
 		InputMap.action_add_event("vr_click", ev)
 	else:
 
+		if OS.has_feature("quest"):
+			# the OpenXR plugin's settings: render resolution has to be set
+			# before it starts, the rest (foveation, refresh rate) after
+			var cfg_path0 := "res://addons/godot-openxr/config/OpenXRConfig.gdns"
+			if ResourceLoader.exists(cfg_path0):
+				vr_xr_config = load(cfg_path0).new()
+				if vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
+					vr_xr_config.set_render_target_size_multiplier(clamp(vr_render_scale, 0.5, 1.5))
 		if vr_interface == null or not vr_interface.initialize():
 			print("Failed to initialize VR!")
 			Globals.notify(Globals.NOTIFY_ERROR, "Couldn't start VR. Make sure SteamVR is running and your headset is on, then try again.", "VR")
@@ -1929,11 +1955,9 @@ func start_vr():
 		viewport.arvr = true
 		if OS.has_feature("quest"):
 			# the headset's colour space (the plugin's own config tells it)
-			var cfg_path := "res://addons/godot-openxr/config/OpenXRConfig.gdns"
-			if ResourceLoader.exists(cfg_path):
-				var cfg = load(cfg_path).new()
-				if cfg and cfg.has_method("keep_3d_linear"):
-					viewport.keep_3d_linear = cfg.keep_3d_linear()
+			var cfg = vr_xr_config
+			if cfg and cfg.has_method("keep_3d_linear"):
+				viewport.keep_3d_linear = cfg.keep_3d_linear()
 
 		setup_controller_bindings()
 	vr = true
@@ -3482,6 +3506,24 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_menu_ui = clamp(float(data.vr_menu_ui), 60.0, 140.0)
 		if data.has("vr_grid_distance"):
 			vr_grid_distance = clamp(float(data.vr_grid_distance), 0.75, 5.0)
+		if data.has("vr_sensitivity"):
+			vr_sensitivity = clamp(float(data.vr_sensitivity), 0.25, 4.0)
+		if data.has("vr_haptics"):
+			vr_haptics = clamp(float(data.vr_haptics), 0.0, 1.0)
+		if data.has("vr_haptic_miss"):
+			vr_haptic_miss = bool(data.vr_haptic_miss)
+		if data.has("vr_hand") and ["default", "paw", "custom"].has(str(data.vr_hand)):
+			vr_hand = str(data.vr_hand)
+		if data.has("vr_foveation"):
+			vr_foveation = int(clamp(int(data.vr_foveation), 0, 3))
+		if data.has("vr_refresh"):
+			vr_refresh = clamp(float(data.vr_refresh), 0.0, 144.0)
+		if data.has("vr_render_scale"):
+			vr_render_scale = clamp(float(data.vr_render_scale), 0.5, 1.5)
+		if data.has("vr_glow"):
+			vr_glow = int(clamp(int(data.vr_glow), -1, 1))
+		if data.has("vr_simple_bg"):
+			vr_simple_bg = bool(data.vr_simple_bg)
 		if data.has("vr_binds") and data.vr_binds is Dictionary:
 			vr_binds = data.vr_binds
 		if data.has("menu_lyric_volume"):
@@ -3954,6 +3996,15 @@ func _write_settings_file(saveFile: String):
 			vr_menu_curve = vr_menu_curve,
 			vr_menu_ui = vr_menu_ui,
 			vr_grid_distance = vr_grid_distance,
+			vr_sensitivity = vr_sensitivity,
+			vr_haptics = vr_haptics,
+			vr_haptic_miss = vr_haptic_miss,
+			vr_hand = vr_hand,
+			vr_foveation = vr_foveation,
+			vr_refresh = vr_refresh,
+			vr_render_scale = vr_render_scale,
+			vr_glow = vr_glow,
+			vr_simple_bg = vr_simple_bg,
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,

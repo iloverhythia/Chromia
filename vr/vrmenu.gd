@@ -12,6 +12,28 @@ func _ready():
 	Rhythia.vr_menu = $PointerScreen # VRPlayer.recenter_to_head puts it back in front of you
 	$PointerScreen.set_meta("home", $PointerScreen.transform)
 	call_deferred("_adopt_overlays")
+	call_deferred("_bake_csg")
+
+# Performance: the pillars are CSG boxes, which keep their CSG machinery (and a
+# draw each) around; once built they're turned into plain meshes.
+func _bake_csg():
+	for holder in [get_node_or_null("Pillers"), get_node_or_null("Pillers2")]:
+		if holder == null:
+			continue
+		for c in holder.get_children():
+			if not (c is CSGShape) or not c.is_root_shape():
+				continue
+			var m: Array = c.get_meshes()
+			if m.size() < 2 or m[1] == null:
+				continue
+			var mi := MeshInstance.new()
+			mi.mesh = m[1]
+			mi.transform = m[0] # (the CSG node's own transform)
+			mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+			mi.material_override = c.material_override
+			mi.material_overlay = c.material_overlay
+			holder.add_child(mi)
+			c.queue_free()
 
 func _overlays() -> Array:
 	var out := []

@@ -31,6 +31,13 @@ func _ready():
 		right_ray = $FakeOrigin/RightHand/Ray
 	origin.visible = true
 	_ray_base = [left_ray.transform, right_ray.transform]
+	for h in [left_hand, right_hand]:
+		var mi = h.get_node_or_null("Mesh")
+		if mi:
+			_hand_default.append([mi, mi.mesh, mi.transform, mi.get_surface_material(0)])
+	apply_hand()
+	apply_xr_settings()
+	get_tree().connect("node_added", self, "_on_node_added")
 	update_primary_ray()
 	set_process(true)
 	pause_mode = PAUSE_MODE_PROCESS
@@ -40,6 +47,7 @@ func _process(delta):
 		Rhythia.vr_left_handed = not Rhythia.vr_left_handed
 		update_primary_ray()
 	_hold_recenter(delta)
+	_haptics_tick(delta)
 	_watch_for_reset(delta)
 	_apply_grip()
 	if not Rhythia.fake_vr:
@@ -216,3 +224,197 @@ func recenter_to_head():
 	_last_head = null
 	_ignore = 3 # the recenter itself makes the pose jump
 	_recenter_in = 0
+
+# --- Hands -------------------------------------------------------------------
+# Settings > VR > Hands: "default" (the box), "paw" (PawHand.gd, built in) or
+# "custom": vr_hand.obj (and its .mtl / textures) in the user folder, the right
+# hand's model in metres with the controller at the origin, -Z forward (where
+# the pointer goes), +Y up. The left hand gets the mirror image, or its own
+# vr_hand_left.obj. Without an .mtl colour it takes the default hand look.
+# The default hand is in docs/vr_hand (same layout) to start from.
+var _hand_default := [] # [MeshInstance, mesh, transform, material] per hand
+var _hand_shown := ""
+
+func apply_hand():
+	var want: String = Rhythia.vr_hand
+	if want == _hand_shown:
+		return
+	var meshes = null # [left, right]
+	if want == "paw":
+		var right = load("res://vr/PawHand.gd").build()
+		meshes = [_mirrored(right), right]
+	elif want == "custom":
+		meshes = _custom_hand_meshes()
+		if meshes == null:
+			want = "default"
+	_hand_shown = want
+	for i in range(_hand_default.size()):
+		var d: Array = _hand_default[i]
+		var mi: MeshInstance = d[0]
+		var outline = mi.get_node_or_null("Outline")
+		var trail = mi.get_node_or_null("HandTrail")
+		if meshes == null:
+			mi.mesh = d[1]
+			mi.transform = d[2]
+			mi.set_surface_material(0, d[3])
+			if outline:
+				outline.visible = true
+			if trail:
+				trail.transform = Transform()
+			continue
+		var mesh: Mesh = meshes[i]
+		mi.mesh = mesh
+		mi.transform = Transform(Basis().scaled(Vector3(UNITS_PER_M, UNITS_PER_M, UNITS_PER_M)), Vector3.ZERO)
+		for k in range(mesh.get_surface_count()):
+			# its own material (paw, .mtl colour / texture), or the default hand look
+			mi.set_surface_material(k, null if mesh.surface_get_material(k) != null else d[3])
+		if outline:
+			outline.visible = false
+		if trail:
+			trail.transform = Transform(Basis().scaled(Vector3(0.02, 0.02, 0.06)), Vector3.ZERO)
+	Rhythia.trail("VR hands: " + want)
+
+func _custom_hand_meshes():
+	var right_path: String = Globals.p("user://vr_hand.obj")
+	var f := File.new()
+	if not f.file_exists(right_path):
+		return null
+	var ObjParse = load("res://scripts/content/resources/ObjParse.gd")
+	var right = ObjParse.load_obj(right_path)
+	if right == null or right.get_surface_count() == 0:
+		Rhythia.trail("VR hand: couldn't read vr_hand.obj")
+		return null
+	var left = null
+	var left_path: String = Globals.p("user://vr_hand_left.obj")
+	if f.file_exists(left_path):
+		left = ObjParse.load_obj(left_path)
+	if left == null or left.get_surface_count() == 0:
+		left = _mirrored(right)
+	return [left, right]
+
+# --- Graphics (Settings > VR > Graphics) --------------------------------------
+# Meta Quest (OpenXR plugin): foveated rendering (the edges of each eye drawn
+# at lower resolution, where the lenses blur them anyway) and the display
+# refresh rate. Glow: a full-screen blur per eye, costly on the headset, so off
+# there unless turned on.
+func apply_xr_settings():
+	var cfg = Rhythia.vr_xr_config
+	if cfg == null:
+		return
+	if cfg.has_method("set_foveation_level"):
+		cfg.set_foveation_level(int(Rhythia.vr_foveation))
+	if cfg.has_method("set_foveation_dynamic"):
+		cfg.set_foveation_dynamic(int(Rhythia.vr_foveation) > 0)
+	if Rhythia.vr_refresh > 0.0 and cfg.has_method("set_refresh_rate"):
+		var ok := true
+		if cfg.has_method("get_available_refresh_rates"):
+			ok = false
+			for r in cfg.get_available_refresh_rates():
+				if abs(float(r) - Rhythia.vr_refresh) < 0.5:
+					ok = true
+		if ok:
+			cfg.set_refresh_rate(Rhythia.vr_refresh)
+	Rhythia.trail("VR graphics: foveation %d, refresh %s" % [Rhythia.vr_foveation, str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default"])
+
+static func refresh_rates() -> Array:
+	var cfg = Rhythia.vr_xr_config
+	if cfg != null and cfg.has_method("get_available_refresh_rates"):
+		var out := []
+		for r in cfg.get_available_refresh_rates():
+			out.append(float(r))
+		out.sort()
+		return out
+	return []
+
+static func glow_on() -> bool:
+	if Rhythia.vr_glow >= 0:
+		return Rhythia.vr_glow == 1
+	return not OS.has_feature("quest")
+
+func _on_node_added(n: Node):
+	if n is WorldEnvironment:
+		call_deferred("_tune_env", n) # after its scene has set it up
+	elif n is Viewport and n.name.ends_with("VP") and n.get_parent() != null and n.get_parent().name == "HUD":
+		# the song HUD's panels are drawn into 2D-only viewports: no 3D pass
+		# and no multisampling (4x on each, redrawn as the numbers change)
+		n.disable_3d = true
+		n.msaa = Viewport.MSAA_DISABLED
+	elif n.name == "Game" and n.has_signal("hit") and not n.is_connected("hit", self, "_on_hit"):
+		n.connect("hit", self, "_on_hit")
+		n.connect("miss", self, "_on_miss")
+
+func _tune_env(we):
+	if not is_instance_valid(we) or we.environment == null:
+		return
+	var e: Environment = we.environment
+	# the effects that cost the most per eye; glow only if wanted, and cheaper
+	e.ssao_enabled = false
+	e.ss_reflections_enabled = false
+	e.dof_blur_far_enabled = false
+	e.dof_blur_near_enabled = false
+	if not glow_on():
+		e.glow_enabled = false
+	else:
+		e.glow_high_quality = false
+		e.glow_bicubic_upscale = false
+
+# --- Haptics (Settings > VR > Haptics) ----------------------------------------
+# A short buzz in the pointing hand on each hit, a stronger one on a miss.
+var _rumble_left := 0.0
+var _rumble_hand = null
+
+func _on_hit(_col = null):
+	_buzz(Rhythia.vr_haptics * 0.6, 0.035)
+
+func _on_miss(_col = null):
+	if Rhythia.vr_haptic_miss:
+		_buzz(Rhythia.vr_haptics, 0.09)
+
+func _buzz(strength: float, time: float):
+	if strength <= 0.0 or Rhythia.fake_vr:
+		return
+	var hand = left_hand if Rhythia.vr_left_handed else right_hand
+	if _rumble_hand != null and _rumble_hand != hand and is_instance_valid(_rumble_hand):
+		_rumble_hand.rumble = 0.0
+	_rumble_hand = hand
+	if "rumble" in hand:
+		hand.rumble = clamp(strength, 0.0, 1.0)
+	_rumble_left = max(_rumble_left, time)
+
+func _haptics_tick(delta: float):
+	if _rumble_left <= 0.0:
+		return
+	_rumble_left -= delta
+	if _rumble_left <= 0.0 and _rumble_hand != null and is_instance_valid(_rumble_hand) and "rumble" in _rumble_hand:
+		_rumble_hand.rumble = 0.0
+
+const UNITS_PER_M := 2.0
+
+# The mirror image (left from right): x flipped, triangles turned back around.
+static func _mirrored(m: Mesh) -> Mesh:
+	var out := ArrayMesh.new()
+	for i in range(m.get_surface_count()):
+		var a: Array = m.surface_get_arrays(i)
+		var v: PoolVector3Array = a[Mesh.ARRAY_VERTEX]
+		for k in range(v.size()):
+			v[k] = Vector3(-v[k].x, v[k].y, v[k].z)
+		a[Mesh.ARRAY_VERTEX] = v
+		if a[Mesh.ARRAY_NORMAL] != null:
+			var n: PoolVector3Array = a[Mesh.ARRAY_NORMAL]
+			for k in range(n.size()):
+				n[k] = Vector3(-n[k].x, n[k].y, n[k].z)
+			a[Mesh.ARRAY_NORMAL] = n
+		a[Mesh.ARRAY_TANGENT] = null
+		var idx = a[Mesh.ARRAY_INDEX]
+		if idx == null or idx.size() == 0:
+			idx = PoolIntArray()
+			for k in range(v.size()):
+				idx.append(k)
+		for k in range(0, idx.size() - 2, 3):
+			var t = idx[k + 1]
+			idx[k + 1] = idx[k + 2]
+			idx[k + 2] = t
+		a[Mesh.ARRAY_INDEX] = idx
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a)
+		out.surface_set_material(i, m.surface_get_material(i))
+	return out
