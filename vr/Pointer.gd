@@ -7,6 +7,7 @@ extends RayCast
 var _target = null
 var _target_frame := -10
 var _beam_base = null # the beam's own rotation (a cylinder along -Z)
+var start_gap := 0.0 # the beam starts this far along the ray (in front of a big hand)
 
 func set_target(p):
 	_target = p
@@ -26,14 +27,16 @@ func update_beam():
 			var r := Basis()
 			if axis.length() > 0.00001:
 				r = Basis(axis.normalized(), a.angle_to(b))
-			beam.mesh.height = dist
-			beam.transform = Transform(r * _beam_base, r.xform(Vector3(0, 0, -dist / 2.0)))
+			var g: float = min(start_gap, dist * 0.5)
+			beam.mesh.height = dist - g
+			beam.transform = Transform(r * _beam_base, r.xform(Vector3(0, 0, -(dist + g) / 2.0)))
 			return
 	var dist = -cast_to.z
 	if is_colliding():
 		dist = (get_collision_point() - global_transform.origin).length()
-	beam.mesh.height = dist
-	beam.transform = Transform(_beam_base, Vector3(0, 0, -dist / 2.0))
+	var g: float = min(start_gap, dist * 0.5)
+	beam.mesh.height = dist - g
+	beam.transform = Transform(_beam_base, Vector3(0, 0, -(dist + g) / 2.0))
 
 func _process(_delta):
 	$Beam.visible = enabled

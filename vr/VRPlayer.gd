@@ -36,7 +36,9 @@ func _ready():
 		if mi:
 			_hand_default.append([mi, mi.mesh, mi.transform, mi.get_surface_material(0)])
 	apply_hand()
-	apply_xr_settings()
+	# the headset's settings once VR is up and drawing (the plugin's foveation
+	# works on the eye images, which exist only then)
+	get_tree().create_timer(1.5).connect("timeout", self, "apply_xr_settings")
 	get_tree().connect("node_added", self, "_on_node_added")
 	update_primary_ray()
 	set_process(true)
@@ -248,6 +250,12 @@ func apply_hand():
 		if meshes == null:
 			want = "default"
 	_hand_shown = want
+	# the beam starts at the paw's toes (the ray itself is unchanged)
+	for ray in [left_ray, right_ray]:
+		if "start_gap" in ray:
+			ray.start_gap = 0.0
+			if want == "paw":
+				ray.start_gap = max(0.0, ray.transform.origin.z + load("res://vr/PawHand.gd").TIP * UNITS_PER_M)
 	for i in range(_hand_default.size()):
 		var d: Array = _hand_default[i]
 		var mi: MeshInstance = d[0]
@@ -301,10 +309,11 @@ func apply_xr_settings():
 	var cfg = Rhythia.vr_xr_config
 	if cfg == null:
 		return
+	# the plugin's set_foveation_level(level, dynamic) takes both: called
+	# with one, native code reads a missing argument and the app crashed
 	if cfg.has_method("set_foveation_level"):
-		cfg.set_foveation_level(int(Rhythia.vr_foveation))
-	if cfg.has_method("set_foveation_dynamic"):
-		cfg.set_foveation_dynamic(int(Rhythia.vr_foveation) > 0)
+		var lvl: int = int(clamp(Rhythia.vr_foveation, 0, 3))
+		cfg.set_foveation_level(lvl, lvl > 0)
 	if Rhythia.vr_refresh > 0.0 and cfg.has_method("set_refresh_rate"):
 		var ok := true
 		if cfg.has_method("get_available_refresh_rates"):
