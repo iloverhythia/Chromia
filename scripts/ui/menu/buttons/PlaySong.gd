@@ -11,16 +11,14 @@ func _pressed():
 			text = "Play Music"
 			return
 		$Song.volume_db = -55
-		$MenuSong.stop()
+		menu_pause()
 		$Song.play($Song.stream.get_length()*0.4)
 		$Song.pitch_scale = Globals.speed_multi[Rhythia.mod_speed_level]
 		text = "Stop Playing"
 	else:
 		$Song.stop()
 		text = "Play Music"
-		if Rhythia.play_menu_music and !$MenuSong.playing:
-			$MenuSong.volume_db = -45
-			$MenuSong.play()
+		menu_resume()
 
 var song = Rhythia.selected_song
 
@@ -28,22 +26,52 @@ func on_path_press():
 	has_auto_previewed = false
 	$Song.stop()
 	text = "Play Music"
+	menu_resume()
 	
 
 func _process(delta):
 	var trg = Rhythia.music_volume_db
-	if $MenuSong.playing and $MenuSong.volume_db != trg:
-		$MenuSong.volume_db = min($MenuSong.volume_db + (delta * 75),trg)
+	if $MenuSong.playing:
+		_menu_last_pos = $MenuSong.get_playback_position()
+		if $MenuSong.volume_db != trg:
+			$MenuSong.volume_db = min($MenuSong.volume_db + (delta * 75),trg)
+
+# --- The menu music -------------------------------------------------------------
+# A map preview pauses it and it carries on from the same spot afterwards;
+# turning it off (Settings) stops it until it's turned back on. The next song
+# of the playlist starts only when a song really reaches its end: Godot 3
+# also sends "finished" when a player is stopped, which used to start the next
+# song every time the music was paused or turned off.
+var _menu_pos := 0.0 # where it was paused
+var _menu_last_pos := 0.0 # where it was last frame
+
+func menu_pause():
+	if $MenuSong.playing:
+		_menu_pos = $MenuSong.get_playback_position()
+	$MenuSong.stop()
+
+func menu_resume():
+	if not Rhythia.play_menu_music or $Song.playing or $MenuSong.playing:
+		return
+	if $MenuSong.stream == null:
+		return
+	$MenuSong.volume_db = -45
+	$MenuSong.play(_menu_pos)
+	_menu_pos = 0.0
 
 func _menu_song_finished():
+	var length: float = $MenuSong.stream.get_length() if $MenuSong.stream else 0.0
+	if length > 0.0 and length - _menu_last_pos > 1.0:
+		return # stopped (paused / turned off), not the end of the song
+	_menu_last_pos = 0.0
+	_menu_pos = 0.0
 	$MenuSong.stream = Rhythia.next_menu_track()
-	$MenuSong.play()
+	if Rhythia.play_menu_music and not $Song.playing:
+		$MenuSong.play()
 
 func upd_mm():
-	if Rhythia.play_menu_music and !$Song.playing:
-		$MenuSong.volume_db = -45
-		$MenuSong.play()
-	else: $MenuSong.stop()
+	if Rhythia.play_menu_music: menu_resume()
+	else: menu_pause()
 
 # Selecting maps quickly (random map spam, scrolling) used to load and swap a
 # new song stream on every click. Now the preview waits until the selection
@@ -73,11 +101,12 @@ func _do_upd(t, s):
 		if was_playing or $Song.playing or (Rhythia.auto_preview_song and !has_auto_previewed):
 			if Rhythia.auto_preview_song: has_auto_previewed = true
 			$Song.stop()
-			$MenuSong.stop()
+			menu_pause()
 			$Song.volume_db = -55
 			$Song.stream = Rhythia.selected_song.stream()
 			if $Song.stream == Globals.error_sound:
 				has_auto_previewed = false
+				menu_resume()
 				return
 			if ($Song.stream is AudioStreamMP3 or $Song.stream is AudioStreamOGGVorbis):
 				$Song.stream.loop = true
@@ -88,11 +117,10 @@ func _do_upd(t, s):
 				text = "Stop Playing"
 			else:
 				text = "Play Music"
+				menu_resume()
 		else:
 			text = "Play Music"
-			if Rhythia.play_menu_music and !$MenuSong.playing:
-				$MenuSong.volume_db = -45
-				$MenuSong.play()
+			menu_resume()
 		song = Rhythia.selected_song
 
 func _ready():
@@ -111,6 +139,5 @@ func _ready():
 		$MenuSong.connect("finished", self, "_menu_song_finished")
 	if Rhythia.play_menu_music:
 		yield(get_tree().create_timer(0.5),"timeout")
-		if !$Song.playing:
-#			$MenuSong.volume_db = -45
+		if is_inside_tree() and !$Song.playing and !$MenuSong.playing and Rhythia.play_menu_music:
 			$MenuSong.play()
