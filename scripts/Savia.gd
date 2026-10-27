@@ -2,8 +2,7 @@ extends Node
 
 onready var rootg = get_tree().root
 
-const GA4_ID = "G-H6RLXT8E8D"
-const GA4_SECRET = "fxYeJ1F0SICwsncb0TBh1w"
+# (analytics go through the server, savia.nysr.host/ga-collect: no keys in the game)
 
 const BANNED_LIST_URL = "https://raw.githubusercontent.com/SavvyScripter-GH/SavvyAssets/main/banned_players.json"
 var banned_clients: Array = []
@@ -485,8 +484,27 @@ const DISCORD_LINK_URL = "https://savia.nysr.host/savia-discord-link"
 const DISCORD_UNLINK_URL = "https://savia.nysr.host/savia-discord-unlink"
 const DISCORD_LOGIN_POLL_INTERVAL_SEC = 2.0
 const DISCORD_LOGIN_TIMEOUT_SEC = 180.0
+# VR: you log in on your phone from a QR code (DiscordLoginPanel.gd), which
+# takes longer
+const DISCORD_LOGIN_TIMEOUT_VR_SEC = 600.0
 var _discord_login_timer: Timer = null
 var _discord_login_elapsed: float = 0.0
+var discord_login_url: String = ""
+
+func _discord_login_timeout() -> float:
+	return DISCORD_LOGIN_TIMEOUT_VR_SEC if (vr or OS.has_feature("quest")) else DISCORD_LOGIN_TIMEOUT_SEC
+
+# seconds left to finish logging in (0 if not logging in)
+func discord_login_left() -> float:
+	if _discord_login_timer == null or _discord_login_timer.is_stopped():
+		return 0.0
+	return max(0.0, _discord_login_timeout() - _discord_login_elapsed)
+
+func cancel_discord_login():
+	if _discord_login_timer != null:
+		_discord_login_timer.stop()
+	discord_login_error = ""
+	emit_signal("discord_login_changed")
 
 func check_discord_link():
 	if cid == "" or discord_user.has("id"):
@@ -568,7 +586,16 @@ func _on_discord_login_start_received(result, response_code, headers, body, http
 		discord_login_error = "Discord login isn't set up on the server yet."
 		emit_signal("discord_login_changed")
 		return
-	OS.shell_open(String(json_result.result.get("url", "")))
+	discord_login_url = String(json_result.result.get("url", ""))
+	if vr or OS.has_feature("quest"):
+		# in the headset: a QR code to log in on your phone (the Quest's own
+		# browser takes you out of the game, and is a button on the panel);
+		# PC VR opens the page on the computer too
+		load("res://scripts/ui/settings/DiscordLoginPanel.gd").show_for(discord_login_url)
+		if not OS.has_feature("quest"):
+			OS.shell_open(discord_login_url)
+	else:
+		OS.shell_open(discord_login_url)
 	_discord_login_elapsed = 0.0
 	if _discord_login_timer == null:
 		_discord_login_timer = Timer.new()
@@ -580,7 +607,7 @@ func _on_discord_login_start_received(result, response_code, headers, body, http
 
 func _poll_discord_login():
 	_discord_login_elapsed += DISCORD_LOGIN_POLL_INTERVAL_SEC
-	if _discord_login_elapsed > DISCORD_LOGIN_TIMEOUT_SEC:
+	if _discord_login_elapsed > _discord_login_timeout():
 		_discord_login_timer.stop()
 		discord_login_error = "Login timed out — try again."
 		emit_signal("discord_login_changed")
@@ -776,7 +803,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a"
 ]
 
 
@@ -865,6 +892,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct27-2026-a": "- FIX (VR): Connect Discord works in the headset: it shows a QR code on the menu screen, scan it with your phone and log in there, and the game links by itself (it waits up to 10 minutes). On the Meta Quest there is also a button to open the page in the headset browser, and the game checks again as soon as you come back; on PC VR / Link the page opens on the computer too\n- NEW (VR): Settings > VR > Pointer: beam thickness, colour (and see-through-ness), and a rainbow pointer\n- Crash reports are more useful: the background star rater no longer writes a line per map (it pushed out what happened before a crash)\n- Removed old unused analytics keys from the game code",
 	"oct26-2026-f": "- VR: the Furry paws are now cartoon paws: no fuzz, clean cel-shaded cream with a bold outline, round toe bumps, and glossy pink toe beans and main pad with darker rims. They are also much lighter for the headset to draw (4 draws per hand instead of 6)",
 	"oct26-2026-e": "- FIX (VR, Meta Quest): the game crashed as soon as VR started (in oct26-2026-d): the foveated rendering setting was handed to the headset the wrong way. It is set correctly now, a moment after VR starts\n- VR: the Furry paws are cuter and look like real paws: one soft plush mitten with four toe bumps melting into it (no more stuck-together balls), shorter softer fur, a slimmer cuff, bigger toe beans and main pad on the palm, the back of the paw up so you see the toes, and the beam starts at the toes",
 	"oct26-2026-d": "- VR performance: Meta Quest foveated rendering is on (Settings > VR > Graphics: Off / Low / Medium / High, Medium by default): the edges of each eye are drawn at lower resolution, where the lenses blur them anyway\n- VR performance: glow (bloom) is off on the Quest unless you turn it on (it is a full-screen effect drawn for each eye); on PC VR it stays, in its cheaper form. SSAO, screen reflections and depth of field are always off in VR\n- VR performance: the menu screen is redrawn every frame only while you use it, and every other frame otherwise; the menu pillars are plain meshes; the song HUD panels no longer use 4x multisampling or a 3D pass\n- NEW (VR): Settings > VR > Graphics: refresh rate (72 / 80 / 90 / 120 Hz on the Quest), render resolution (applies the next time VR starts), glow, and Simple background in songs (the plain VOID background, the fastest)\n- VR hitboxes work like on PC: the cursor goes exactly where the beam meets the grid, worked out from the controller each frame (it used to be a frame late), with the same edge limits as PC. The grid and notes no longer slide with the PC parallax settings. VR replays now record the cursor\n- NEW (VR): Aim sensitivity (Settings > VR > In songs): how far the cursor moves for how far you turn the controller; the beam bends to end on the cursor\n- NEW (VR): Haptics: a short buzz on each hit and a stronger one on a miss, with a strength slider and a switch for misses\n- NEW (VR): Hands: pick Default, Furry paws (fluffy cream paws with pink toe beans) or Custom (your own vr_hand.obj in the user folder: the right hand in metres, controller at the middle, pointing along -Z)",
@@ -1164,9 +1192,15 @@ func _star_rating_worker(songs: Array):
 		if f.open(Globals.p(STAR_CURRENT_FILE), File.WRITE) == OK:
 			f.store_string(id)
 			f.close()
-		trail("star rating %s" % id)
+		# (only maps that take a while are logged, and progress every 200 maps:
+		# a line per map filled the crash report and pushed out what happened)
+		var t0 := OS.get_ticks_msec()
 		_rate_one(song)
-		trail("star rated %s" % id)
+		var took: int = OS.get_ticks_msec() - t0
+		if took > 250:
+			trail("star rated %s (%d ms)" % [id, took])
+		if (i + 1) % 200 == 0:
+			trail("star rating: %d / %d maps" % [i + 1, songs.size()])
 		_star_cache[id] = [song._star_rating, _star_cache_key(song)]
 		_star_progress = i + 1
 		if _star_progress % 100 == 0:
@@ -1284,6 +1318,9 @@ func _notification(what):
 	elif what == MainLoop.NOTIFICATION_APP_RESUMED:
 		_set_session_state("running")
 		trail("app resumed")
+		# back from logging in to Discord in the browser: check right away
+		if _discord_login_timer != null and not _discord_login_timer.is_stopped():
+			call_deferred("_poll_discord_login")
 	elif dev == "mobile" and what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
 		# phones: the app switcher / swiping the app away. It can be closed
 		# from there without going to the background first: not a crash
@@ -1842,6 +1879,10 @@ var vr_refresh: float = 0.0
 var vr_render_scale: float = 1.0
 var vr_glow: int = -1
 var vr_simple_bg: bool = false # VR songs on the plain VOID background
+# the pointer beam (vr/Pointer.gd): thickness (x the default), colour, rainbow
+var vr_beam_width: float = 1.0
+var vr_beam_color: Color = Color(0, 1, 1, 0.63)
+var vr_beam_rainbow: bool = false
 var vr_xr_config = null # the OpenXR plugin's settings object (Quest)
 # VR controller buttons (Settings > VR): action -> up to two button numbers
 var vr_binds := {}
@@ -3526,6 +3567,12 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_glow = int(clamp(int(data.vr_glow), -1, 1))
 		if data.has("vr_simple_bg"):
 			vr_simple_bg = bool(data.vr_simple_bg)
+		if data.has("vr_beam_width"):
+			vr_beam_width = clamp(float(data.vr_beam_width), 0.2, 4.0)
+		if data.has("vr_beam_color") and data.vr_beam_color is String:
+			vr_beam_color = Color(data.vr_beam_color)
+		if data.has("vr_beam_rainbow"):
+			vr_beam_rainbow = bool(data.vr_beam_rainbow)
 		if data.has("vr_binds") and data.vr_binds is Dictionary:
 			vr_binds = data.vr_binds
 		if data.has("menu_lyric_volume"):
@@ -4007,6 +4054,9 @@ func _write_settings_file(saveFile: String):
 			vr_render_scale = vr_render_scale,
 			vr_glow = vr_glow,
 			vr_simple_bg = vr_simple_bg,
+			vr_beam_width = vr_beam_width,
+			vr_beam_color = vr_beam_color.to_html(true),
+			vr_beam_rainbow = vr_beam_rainbow,
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,

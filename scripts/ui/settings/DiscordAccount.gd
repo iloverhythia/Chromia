@@ -22,5 +22,5 @@ func _on_action_pressed():
 	if Rhythia.discord_user.has("username") and String(Rhythia.discord_user.username) != "":
 		Rhythia.unlink_discord()
 	else:
-		status_label.text = "Opening your browser…"
+		status_label.text = "Scan the code to log in…" if Rhythia.vr else "Opening your browser…"
 		Rhythia.start_discord_login()

@@ -105,6 +105,23 @@ func _ready():
 	_value_row(["Strength", "vr_haptics", 0.0, 1.0, 0.05, " %", 100.0])
 	_miss_box = _check("Buzz on misses", "vr_haptic_miss")
 	box.add_child(HSeparator.new())
+	_label("Pointer", f_title, ACCENT)
+	_label("The beam from your hand: how thick it is, its colour (and see-through-ness), or a rainbow.", f_body, DIM, true)
+	_value_row(["Thickness", "vr_beam_width", 0.25, 4.0, 0.05, "x", 1.0])
+	var ch := HBoxContainer.new()
+	ch.add_constant_override("separation", 12)
+	box.add_child(ch)
+	var cl := _label("Colour", f_bold, TEXT, false, ch)
+	cl.rect_min_size = Vector2(230, 0)
+	cl.size_flags_horizontal = 0
+	_beam_color = ColorPickerButton.new()
+	_beam_color.rect_min_size = Vector2(140, 34)
+	_beam_color.edit_alpha = true
+	_beam_color.connect("color_changed", self, "_on_beam_color")
+	ch.add_child(_beam_color)
+	_button(ch, "Reset", "_reset_beam")
+	_rainbow_box = _check("Rainbow pointer", "vr_beam_rainbow")
+	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
 	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
@@ -235,6 +252,21 @@ var _fov_pick: OptionButton
 var _rate_pick: OptionButton
 var _glow_pick: OptionButton
 var _simple_box: CheckBox
+var _beam_color: ColorPickerButton
+var _rainbow_box: CheckBox
+
+func _on_beam_color(c: Color):
+	if _loading:
+		return
+	Rhythia.vr_beam_color = c
+	_save_soon()
+
+func _reset_beam():
+	Rhythia.vr_beam_width = 1.0
+	Rhythia.vr_beam_color = Color(0, 1, 1, 0.63)
+	Rhythia.vr_beam_rainbow = false
+	_load_values()
+	_save_soon()
 
 func _value_row(row: Array):
 	var h := HBoxContainer.new()
@@ -416,6 +448,10 @@ func _load_values():
 	_select_meta(_glow_pick, Rhythia.vr_glow)
 	if _simple_box:
 		_simple_box.pressed = bool(Rhythia.vr_simple_bg)
+	if _beam_color:
+		_beam_color.color = Rhythia.vr_beam_color
+	if _rainbow_box:
+		_rainbow_box.pressed = bool(Rhythia.vr_beam_rainbow)
 	for e in _screen:
 		var v: float = float(Rhythia.get(e[2][1]))
 		e[0].value = v

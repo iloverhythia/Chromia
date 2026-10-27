@@ -2083,7 +2083,7 @@ func _on_discord_button_pressed():
 	if Rhythia.discord_user.has("username"):
 		return
 	discord_button.disabled = true
-	discord_status_label.text = "Opening your browser…"
+	discord_status_label.text = "Scan the code to log in…" if Rhythia.vr else "Opening your browser…"
 	Rhythia.start_discord_login()
 
 func _on_discord_login_changed():

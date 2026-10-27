@@ -33,6 +33,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Stops the release if a key / secret / token was committed into the
+      # code: those go in the repository's Actions secrets instead (like the
+      # keystore and Meta app secrets below). Everything in the game files is
+      # public: the source is public and the .pck can be unpacked.
+      - name: Check for committed secrets
+        run: |
+          pat='(const|var)[[:space:]]+[A-Za-z0-9_]*(SECRET|TOKEN|API_KEY|APIKEY|PASSWORD|PRIVATE_KEY)[A-Za-z0-9_]*[[:space:]]*:?=[[:space:]]*"[^"]{6,}"'
+          pat="$pat|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|xox[abpr]-[A-Za-z0-9-]{10,}"
+          pat="$pat|discord(app)?\.com/api/webhooks/[0-9]+/|-----BEGIN [A-Z ]*PRIVATE KEY-----|_\|WARNING:-DO-NOT-SHARE-THIS"
+          if git grep -nIE "$pat" -- . ':!.github/workflows/release.yml'; then
+            echo "::error::A secret-looking value is committed (above). Move it to the repository's Actions secrets."
+            exit 1
+          fi
+
       - name: Read version
         id: version
         env:
