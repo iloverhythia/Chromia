@@ -546,11 +546,14 @@ func unlink_discord():
 	var error = http_request.request(DISCORD_UNLINK_URL + "?client_id=" + cid.http_escape())
 	if error != OK:
 		http_request.queue_free()
+		Globals.notify(Globals.NOTIFY_ERROR, "Couldn't reach the server to sign out.", "Sign Out Failed")
+		emit_signal("discord_login_changed") # (the buttons wait for this)
 
 func _on_discord_unlink_received(_result, response_code, _headers, _body, http_request: HTTPRequest):
 	http_request.queue_free()
 	if response_code != 200:
-		Globals.notify(Globals.NOTIFY_ERROR, "Couldn't reach the server to unlink your Discord account.", "Unlink Failed")
+		Globals.notify(Globals.NOTIFY_ERROR, "Couldn't reach the server to sign out of Discord.", "Sign Out Failed")
+		emit_signal("discord_login_changed") # (the buttons wait for this)
 		return
 	discord_user = {}
 	var config = ConfigFile.new()
@@ -802,7 +805,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d"
 ]
 
 
@@ -891,6 +894,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct27-2026-d": "- NEW: Sign out of Discord: a Sign out button on the Profile page, in the multiplayer panel (where Connect Discord was) and in Settings (it was called Unlink Discord). If the server can not be reached it says so instead of getting stuck\n- NEW (VR): Settings > VR > Pointer > Lock the pointer to the grid in songs (off by default): the beam ends on the cursor and never goes past the edges of the grid",
 	"oct27-2026-c": "- Meta Quest: the release build retries the Android tools download (it failed once and oct27-2026-a came out without the Quest app; oct27-2026-b and later have it)",
 	"oct27-2026-b": "- VR: Connect Discord no longer shows a QR code (a phone cannot see inside the headset, sorry). On the Meta Quest it shows the steps and an Open Discord login button: the headset browser opens over the game, log in and press Authorize, then come back to Chromia and it links by itself. On PC VR / Link the page opens on your computer",
 	"oct27-2026-a": "- FIX (VR): Connect Discord works in the headset: it shows a QR code on the menu screen, scan it with your phone and log in there, and the game links by itself (it waits up to 10 minutes). On the Meta Quest there is also a button to open the page in the headset browser, and the game checks again as soon as you come back; on PC VR / Link the page opens on the computer too\n- NEW (VR): Settings > VR > Pointer: beam thickness, colour (and see-through-ness), and a rainbow pointer\n- Crash reports are more useful: the background star rater no longer writes a line per map (it pushed out what happened before a crash)\n- Removed old unused analytics keys from the game code",
@@ -1884,6 +1888,9 @@ var vr_simple_bg: bool = false # VR songs on the plain VOID background
 var vr_beam_width: float = 1.0
 var vr_beam_color: Color = Color(0, 1, 1, 0.63)
 var vr_beam_rainbow: bool = false
+# in songs the beam ends on the cursor (kept inside the grid) instead of
+# going on past the grid's edges
+var vr_lock_beam: bool = false
 var vr_xr_config = null # the OpenXR plugin's settings object (Quest)
 # VR controller buttons (Settings > VR): action -> up to two button numbers
 var vr_binds := {}
@@ -3574,6 +3581,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_beam_color = Color(data.vr_beam_color)
 		if data.has("vr_beam_rainbow"):
 			vr_beam_rainbow = bool(data.vr_beam_rainbow)
+		if data.has("vr_lock_beam"):
+			vr_lock_beam = bool(data.vr_lock_beam)
 		if data.has("vr_binds") and data.vr_binds is Dictionary:
 			vr_binds = data.vr_binds
 		if data.has("menu_lyric_volume"):
@@ -4058,6 +4067,7 @@ func _write_settings_file(saveFile: String):
 			vr_beam_width = vr_beam_width,
 			vr_beam_color = vr_beam_color.to_html(true),
 			vr_beam_rainbow = vr_beam_rainbow,
+			vr_lock_beam = vr_lock_beam,
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,

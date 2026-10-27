@@ -12,7 +12,7 @@ func _update():
 	action_button.disabled = false
 	if Rhythia.discord_user.has("username") and String(Rhythia.discord_user.username) != "":
 		status_label.text = "Linked as %s" % String(Rhythia.discord_user.username)
-		action_button.text = "Unlink Discord"
+		action_button.text = "Sign out"
 	else:
 		status_label.text = "Not linked" if Rhythia.discord_login_error == "" else Rhythia.discord_login_error
 		action_button.text = "Connect Discord"

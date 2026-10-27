@@ -107,6 +107,18 @@ func _ready():
 	refresh.connect("pressed", self, "load_profile")
 	head.add_child(refresh)
 
+	# signs out of Discord (unlinks it from this game); shown while signed in
+	signout_button = Button.new()
+	signout_button.text = "Sign out"
+	signout_button.theme = _theme
+	signout_button.rect_min_size = Vector2(90, 32)
+	signout_button.size_flags_vertical = SIZE_SHRINK_CENTER
+	signout_button.connect("pressed", self, "_on_sign_out")
+	head.add_child(signout_button)
+	if not Rhythia.is_connected("discord_login_changed", self, "_on_discord_changed"):
+		Rhythia.connect("discord_login_changed", self, "_on_discord_changed")
+	_on_discord_changed()
+
 	status_label = _label("", 0, Color(0.8, 0.8, 0.85))
 	v.add_child(status_label)
 	stats_label = _label("", 18)
@@ -395,3 +407,18 @@ func _show_scores(scores: Array):
 
 func _by_sp(a, b):
 	return float(a.get("sp_final", 0)) > float(b.get("sp_final", 0))
+
+var signout_button: Button
+
+func _on_discord_changed():
+	if signout_button == null or not is_instance_valid(signout_button):
+		return
+	var linked: bool = Rhythia.discord_user.has("username") and String(Rhythia.discord_user.username) != ""
+	signout_button.visible = linked
+	signout_button.disabled = false
+
+func _on_sign_out():
+	signout_button.disabled = true
+	Rhythia.unlink_discord()
+	yield(Rhythia, "discord_login_changed")
+	load_profile()

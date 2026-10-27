@@ -121,6 +121,7 @@ func _ready():
 	ch.add_child(_beam_color)
 	_button(ch, "Reset", "_reset_beam")
 	_rainbow_box = _check("Rainbow pointer", "vr_beam_rainbow")
+	_lock_box = _check("Lock the pointer to the grid in songs (the beam ends on the cursor and never goes past the grid's edges)", "vr_lock_beam")
 	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
@@ -254,6 +255,7 @@ var _glow_pick: OptionButton
 var _simple_box: CheckBox
 var _beam_color: ColorPickerButton
 var _rainbow_box: CheckBox
+var _lock_box: CheckBox
 
 func _on_beam_color(c: Color):
 	if _loading:
@@ -265,6 +267,7 @@ func _reset_beam():
 	Rhythia.vr_beam_width = 1.0
 	Rhythia.vr_beam_color = Color(0, 1, 1, 0.63)
 	Rhythia.vr_beam_rainbow = false
+	Rhythia.vr_lock_beam = false
 	_load_values()
 	_save_soon()
 
@@ -452,6 +455,8 @@ func _load_values():
 		_beam_color.color = Rhythia.vr_beam_color
 	if _rainbow_box:
 		_rainbow_box.pressed = bool(Rhythia.vr_beam_rainbow)
+	if _lock_box:
+		_lock_box.pressed = bool(Rhythia.vr_lock_beam)
 	for e in _screen:
 		var v: float = float(Rhythia.get(e[2][1]))
 		e[0].value = v

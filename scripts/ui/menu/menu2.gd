@@ -2080,7 +2080,11 @@ func _on_lobby_name_changed(new_text):
 	_update_lobby_ui()
 
 func _on_discord_button_pressed():
-	if Rhythia.discord_user.has("username"):
+	if Rhythia.discord_user.has("username") and String(Rhythia.discord_user.username) != "":
+		# signed in: the button signs out (unlinks the Discord account here)
+		discord_button.disabled = true
+		discord_status_label.text = "Signing out…"
+		Rhythia.unlink_discord()
 		return
 	discord_button.disabled = true
 	discord_status_label.text = "Log in from the panel…" if Rhythia.vr else "Opening your browser…"
@@ -2090,7 +2094,9 @@ func _on_discord_login_changed():
 	if discord_button == null or discord_status_label == null:
 		return
 	if Rhythia.discord_user.has("username") and String(Rhythia.discord_user.username) != "":
-		discord_button.visible = false
+		discord_button.visible = true
+		discord_button.text = "Sign out"
+		discord_button.disabled = false
 		discord_status_label.text = "✓ Discord: %s" % String(Rhythia.discord_user.username)
 
 		if lobby_name_input != null and lobby_name_input.text.strip_edges() in ["", "Player"]:
