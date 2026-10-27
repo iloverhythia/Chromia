@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/blame_it.ogg-aa0db054beb7aed73f58252f3ef0a244.oggstr"
+
+[deps]
+
+source_file="res://assets/sfx/music/menu/blame_it.ogg"
+dest_files=[ "res://.import/blame_it.ogg-aa0db054beb7aed73f58252f3ef0a244.oggstr" ]
+
+[params]
+
+loop=false
+loop_offset=0

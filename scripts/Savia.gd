@@ -805,7 +805,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e"
 ]
 
 
@@ -894,6 +894,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct27-2026-e": "- NEW: the menu music is now 7 Hodgy Beats songs played in a random order: Change It Up, Alright, April Fools, Blame It, Claustroflowbic, Cudda Been and Memorex Cds. When one ends the next starts, every song plays once before any repeats, and the same song never plays twice in a row. All of them are as loud as the old menu song\n- A custom menu song (menu.ogg / .mp3 / .wav in the game folder) still replaces them and loops",
 	"oct27-2026-d": "- NEW: Sign out of Discord: a Sign out button on the Profile page, in the multiplayer panel (where Connect Discord was) and in Settings (it was called Unlink Discord). If the server can not be reached it says so instead of getting stuck\n- NEW (VR): Settings > VR > Pointer > Lock the pointer to the grid in songs (off by default): the beam ends on the cursor and never goes past the edges of the grid",
 	"oct27-2026-c": "- Meta Quest: the release build retries the Android tools download (it failed once and oct27-2026-a came out without the Quest app; oct27-2026-b and later have it)",
 	"oct27-2026-b": "- VR: Connect Discord no longer shows a QR code (a phone cannot see inside the headset, sorry). On the Meta Quest it shows the steps and an Open Discord login button: the headset browser opens over the game, log in and press Authorize, then come back to Chromia and it links by itself. On PC VR / Link the page opens on your computer",
@@ -1929,6 +1930,40 @@ var def_hit_snd: AudioStream
 var def_fail_snd: AudioStream
 var def_pb_snd: AudioStream
 var def_menu_bgm: AudioStream
+
+# The menu music: these songs play one after another in a random order
+# (scripts/ui/menu/buttons/PlaySong.gd). Every song plays once before any
+# repeats, and a new round never starts with the song that just played. The
+# order carries on when you come back to the menu after a song. A custom menu
+# song (user://menu.ogg / .mp3 / .wav) replaces the list and loops, as before.
+const MENU_PLAYLIST = [
+	"res://assets/sfx/music/menu/change_it_up.ogg",
+	"res://assets/sfx/music/menu/alright.ogg",
+	"res://assets/sfx/music/menu/april_fools.ogg",
+	"res://assets/sfx/music/menu/blame_it.ogg",
+	"res://assets/sfx/music/menu/claustroflowbic.ogg",
+	"res://assets/sfx/music/menu/cudda_been.ogg",
+	"res://assets/sfx/music/menu/memorex_cds.ogg",
+]
+var _menu_bag: Array = []
+var _menu_last: String = ""
+var _menu_seeded: bool = false
+
+func next_menu_track() -> AudioStream:
+	if _menu_bag.empty():
+		if not _menu_seeded:
+			randomize()
+			_menu_seeded = true
+		_menu_bag = MENU_PLAYLIST.duplicate()
+		_menu_bag.shuffle()
+		if _menu_bag.size() > 1 and _menu_bag[0] == _menu_last:
+			_menu_bag.push_back(_menu_bag.pop_front())
+	var path: String = _menu_bag.pop_front()
+	_menu_last = path
+	var s = load(path)
+	if s is AudioStreamOGGVorbis or s is AudioStreamMP3:
+		s.loop = false # the next song follows instead
+	return s
 
 
 var fail_asp: AudioStreamPlayer = AudioStreamPlayer.new()
@@ -5577,7 +5612,7 @@ func do_init(_ud = null):
 
 	emit_signal("init_stage_reached", "Init default assets 6/6")
 	if lp: yield(get_tree(), "idle_frame")
-	def_menu_bgm = load("res://assets/sfx/music/menu_loop.ogg")
+	def_menu_bgm = load(MENU_PLAYLIST[0])
 
 	emit_signal("init_stage_reached", "Check Banned")
 	yield(get_tree(), "idle_frame")

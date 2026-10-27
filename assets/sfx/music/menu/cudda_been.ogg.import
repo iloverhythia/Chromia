@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/cudda_been.ogg-b63ea2090699557cfe96d0af8859aa06.oggstr"
+
+[deps]
+
+source_file="res://assets/sfx/music/menu/cudda_been.ogg"
+dest_files=[ "res://.import/cudda_been.ogg-b63ea2090699557cfe96d0af8859aa06.oggstr" ]
+
+[params]
+
+loop=false
+loop_offset=0

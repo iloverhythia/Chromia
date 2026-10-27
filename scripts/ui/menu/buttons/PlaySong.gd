@@ -35,6 +35,10 @@ func _process(delta):
 	if $MenuSong.playing and $MenuSong.volume_db != trg:
 		$MenuSong.volume_db = min($MenuSong.volume_db + (delta * 75),trg)
 
+func _menu_song_finished():
+	$MenuSong.stream = Rhythia.next_menu_track()
+	$MenuSong.play()
+
 func upd_mm():
 	if Rhythia.play_menu_music and !$Song.playing:
 		$MenuSong.volume_db = -45
@@ -95,9 +99,16 @@ func _ready():
 	Rhythia.connect("selected_song_changed",self,"upd")
 	Rhythia.connect("speed_mod_changed",self,"upd")
 	Rhythia.connect("menu_music_state_changed",self,"upd_mm")
-	$MenuSong.stream = Rhythia.get_stream_with_default("user://menu",load("res://assets/sfx/music/menu_loop.ogg"))
-	if $MenuSong.stream is AudioStreamSample: $MenuSong.stream.loop_mode = 1
-	else: $MenuSong.stream.loop = true
+	# a custom menu song loops; otherwise the built-in songs play in a random
+	# order, one after another (Savia.gd: next_menu_track)
+	var custom = Rhythia.get_stream_with_default("user://menu", null)
+	if custom:
+		$MenuSong.stream = custom
+		if custom is AudioStreamSample: custom.loop_mode = 1
+		else: custom.loop = true
+	else:
+		$MenuSong.stream = Rhythia.next_menu_track()
+		$MenuSong.connect("finished", self, "_menu_song_finished")
 	if Rhythia.play_menu_music:
 		yield(get_tree().create_timer(0.5),"timeout")
 		if !$Song.playing:

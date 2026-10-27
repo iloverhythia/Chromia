@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/claustroflowbic.ogg-4fc182850fa6b644ec109b320c7eee27.oggstr"
+
+[deps]
+
+source_file="res://assets/sfx/music/menu/claustroflowbic.ogg"
+dest_files=[ "res://.import/claustroflowbic.ogg-4fc182850fa6b644ec109b320c7eee27.oggstr" ]
+
+[params]
+
+loop=false
+loop_offset=0

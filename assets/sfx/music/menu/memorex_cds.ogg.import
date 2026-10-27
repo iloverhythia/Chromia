@@ -1,0 +1,15 @@
+[remap]
+
+importer="ogg_vorbis"
+type="AudioStreamOGGVorbis"
+path="res://.import/memorex_cds.ogg-2264e9c7332e904a9c818f1256f26936.oggstr"
+
+[deps]
+
+source_file="res://assets/sfx/music/menu/memorex_cds.ogg"
+dest_files=[ "res://.import/memorex_cds.ogg-2264e9c7332e904a9c818f1256f26936.oggstr" ]
+
+[params]
+
+loop=false
+loop_offset=0
