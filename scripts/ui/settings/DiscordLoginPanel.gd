@@ -1,11 +1,13 @@
 extends Control
 
-# Discord login in VR (Savia.gd start_discord_login): the login page as a QR
-# code to scan with your phone, so you never have to leave the headset or type
-# a password in it. The server links your Discord account to this game when
-# you finish on the phone, and the game notices by itself (it keeps checking).
-# On the Meta Quest app there's also a button to open the page in the
-# headset's browser; on PC VR the page opens on the computer as well.
+# Discord login in VR (Savia.gd start_discord_login). The server links your
+# Discord account to this game when you finish logging in on its page, and
+# the game notices by itself (it keeps checking, again right after you come
+# back to the game, and at every start).
+#  - Meta Quest app: a button opens the page in the headset's browser (over
+#    the game); log in there and come back.
+#  - PC VR / Link: the page opens on the computer; take the headset off and
+#    log in there.
 #
 # A plain Control on the VR menu screen (a CanvasLayer there gets the pointer
 # at the wrong spot), or in a CanvasLayer on the window.
@@ -82,35 +84,30 @@ func _ready():
 	panel.grow_horizontal = GROW_DIRECTION_BOTH
 	panel.grow_vertical = GROW_DIRECTION_BOTH
 	add_child(panel)
-	var row := HBoxContainer.new()
-	row.add_constant_override("separation", 24)
-	panel.add_child(row)
-	var qr := TextureRect.new()
-	qr.texture = load("res://scripts/QRCode.gd").texture(url, 6)
-	qr.expand = true
-	qr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	qr.rect_min_size = Vector2(330, 330)
-	row.add_child(qr)
 	var col := VBoxContainer.new()
-	col.add_constant_override("separation", 12)
-	col.rect_min_size = Vector2(420, 0)
-	row.add_child(col)
+	col.add_constant_override("separation", 14)
+	col.rect_min_size = Vector2(620, 0)
+	panel.add_child(col)
 	_label(col, "Connect Discord", _big, Color(0.62, 0.67, 1.0))
-	var how := "Scan the code with your phone's camera and log in with Discord there. The game links by itself when you're done: keep this open."
-	if not OS.has_feature("quest"):
-		how += "\n\nThe login page also opened on your computer's screen."
+	var how: String
+	if OS.has_feature("quest"):
+		how = "1. Press Open Discord login: the headset's browser opens over the game.\n2. Log in with Discord there and press Authorize.\n3. Come back to Chromia (the Meta button, then Chromia): it links by itself."
+	else:
+		how = "The Discord login page opened on your computer. Take the headset off, log in there and press Authorize: the game links by itself."
 	_label(col, how, _font, Color(0.85, 0.86, 0.92), true)
 	_status = _label(col, "Waiting for you to log in...", _bold, Color(1, 1, 1), true)
 	var buttons := HBoxContainer.new()
 	buttons.add_constant_override("separation", 10)
 	col.add_child(buttons)
-	if OS.has_feature("quest"):
-		_button(buttons, "Open in the headset's browser", "_open_here")
+	_button(buttons, "Open Discord login" if OS.has_feature("quest") else "Open it again", "_open_here")
 	_button(buttons, "Cancel", "_cancel")
 	Rhythia.connect("discord_login_changed", self, "_on_changed")
 	yield(get_tree(), "idle_frame")
-	panel.margin_left = -panel.rect_size.x / 2
-	panel.margin_top = -panel.rect_size.y / 2
+	var sz: Vector2 = panel.get_combined_minimum_size()
+	panel.margin_left = -sz.x / 2
+	panel.margin_right = sz.x / 2
+	panel.margin_top = -sz.y / 2
+	panel.margin_bottom = sz.y / 2
 
 func _label(parent: Node, text: String, f: Font, c: Color, wrap: bool = false) -> Label:
 	var l := Label.new()
