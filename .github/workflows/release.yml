@@ -255,12 +255,24 @@ jobs:
       # chromia-quest.pck + chromia-quest-compat.txt are its in-app updates
       # (scripts/PackUpdate.gd), like the iPhone's.
       - name: Export Meta Quest build
+        id: quest
         if: steps.version.outputs.exists == 'false'
         continue-on-error: true
         run: |
           sdk="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           yes | "$sdk/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$sdk/cmdline-tools/latest/bin/sdkmanager" "platforms;android-33" "build-tools;33.0.2" > /dev/null
+          # Google's SDK download sometimes comes back broken ("Error on
+          # ZipFile unknown archive"): try a few times (skipped when the
+          # runner already has them)
+          ok=0
+          for i in 1 2 3 4; do
+            if [ -d "$sdk/platforms/android-33" ] && [ -d "$sdk/build-tools/33.0.2" ]; then ok=1; break; fi
+            "$sdk/cmdline-tools/latest/bin/sdkmanager" "platforms;android-33" "build-tools;33.0.2" > /dev/null && ok=1 && break
+            echo "SDK download failed (try $i), retrying"
+            rm -rf "$sdk/platforms/android-33" "$sdk/build-tools/33.0.2"
+            sleep $((i * 10))
+          done
+          [ "$ok" = 1 ]
           curl -sSL -o "$RUNNER_TEMP/godot-openxr.zip" -L "https://github.com/GodotVR/godot_openxr/releases/download/1.3.0/godot-openxr.zip"
           tpl="$HOME/.local/share/godot/templates/${GODOT_VERSION}.stable"
           q="$RUNNER_TEMP/quest"
@@ -287,7 +299,7 @@ jobs:
       # your app > API) every release is uploaded to the store's release channel
       # META_CHANNEL (repository variable, default ALPHA: private testers).
       - name: Meta Horizon Store build and upload
-        if: steps.version.outputs.exists == 'false'
+        if: steps.version.outputs.exists == 'false' && steps.quest.outcome == 'success'
         continue-on-error: true
         env:
           TAG: ${{ steps.version.outputs.tag }}
@@ -373,3 +385,12 @@ jobs:
           done
           gh release create "$TAG" "${files[@]}" \
             --target "$GITHUB_SHA" --title "Chromia $TAG" --notes "$notes"
+
+      # The release is published without the Quest files when their build
+      # fails (so the other platforms still update), but the run turns red so
+      # it gets noticed: re-run it, or push the next version.
+      - name: Quest build made it
+        if: steps.version.outputs.exists == 'false' && steps.quest.outcome != 'success'
+        run: |
+          echo "::error::The Meta Quest build failed: this release has no chromia-quest.apk / .pck. See the 'Export Meta Quest build' step."
+          exit 1
