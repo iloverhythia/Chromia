@@ -121,7 +121,7 @@ func _ready():
 	ch.add_child(_beam_color)
 	_button(ch, "Reset", "_reset_beam")
 	_rainbow_box = _check("Rainbow pointer", "vr_beam_rainbow")
-	_lock_box = _check("Lock the pointer to the grid in songs (the beam ends on the cursor and never goes past the grid's edges)", "vr_lock_beam")
+	_lock_box = _check("Lock the pointer to the grid in songs (the beam ends on the cursor and never goes past the grid's edges; a thin blue beam still shows where you really point)", "vr_lock_beam")
 	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)

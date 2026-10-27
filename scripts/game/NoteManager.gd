@@ -721,8 +721,9 @@ func do_vr_cursor():
 		# the beam bends onto the cursor with an aim sensitivity, or when it's
 		# locked to the grid (Settings > VR > Pointer): then it never points
 		# past the grid's edges, it stops where the cursor stops
+		# (locked: a thin second beam still shows where you really point)
 		var bend: bool = abs(sens - 1.0) > 0.001 or Rhythia.vr_lock_beam
-		ray.set_target(to_global(_n_cursor.transform.origin) if bend else null)
+		ray.set_target(to_global(_n_cursor.transform.origin) if bend else null, Rhythia.vr_lock_beam)
 
 func comma_sep(number):
 	var string = str(number)
