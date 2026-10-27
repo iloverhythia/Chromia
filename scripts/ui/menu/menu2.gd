@@ -1036,7 +1036,19 @@ func _on_set_map_rank_pressed():
 	lobby_manager.set_map_rank(String(Rhythia.selected_song.id), _get_selected_song_name(), int(ranker_xp_input.value), Rhythia.selected_song.compute_chart_hash())
 	lobby_manager.publish_map_to_server(String(Rhythia.selected_song.id))
 
+# Asked again every 10 s until the server answers: when the server was down
+# (or restarting) as the menu opened, the one question used to get lost and
+# the Rank Map button never showed until the game was restarted.
+var _ranker_status_answered: bool = false
+func _ask_ranker_status():
+	var lobby_manager = _get_lobby_manager()
+	if _ranker_status_answered or lobby_manager == null or not is_inside_tree():
+		return
+	lobby_manager.check_ranker_status()
+	get_tree().create_timer(10.0).connect("timeout", self, "_ask_ranker_status")
+
 func _on_ranker_status_received(is_ranker: bool):
+	_ranker_status_answered = true
 	if not is_ranker:
 		return
 	_build_ranker_ui()
@@ -2434,7 +2446,7 @@ func _ready():
 	Rhythia.connect("leaderboard_sp_received", self, "_on_leaderboard_sp_received")
 	if lobby_manager != null:
 		lobby_manager.connect("ranker_status_received", self, "_on_ranker_status_received")
-		lobby_manager.check_ranker_status()
+		_ask_ranker_status()
 		lobby_manager.connect("lobby_created", self, "_on_lobby_created")
 		lobby_manager.connect("lobby_joined", self, "_update_lobby_ui")
 		lobby_manager.connect("lobby_closed", self, "_update_lobby_ui")

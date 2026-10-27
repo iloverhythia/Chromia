@@ -358,8 +358,39 @@ func _show_profile(p: Dictionary):
 	stats_label.text = "%s SP     %s XP\n%s passes on %s maps%s" % [
 		_fmt(p.get("sp", 0)), _fmt(p.get("xp", 0)),
 		_fmt(p.get("pass_count", 0)), _fmt(p.get("map_count", 0)),
-		"\nOnline now" if p.get("online", false) else ""
+		_last_online(p)
 	]
+
+# "Online now", or when they were last online (the server sends it rounded
+# to 5 minutes; nothing for players who had their activity data deleted)
+func _last_online(p: Dictionary) -> String:
+	if p.get("online", false):
+		return "\nOnline now"
+	var ls = p.get("last_seen")
+	if ls == null or float(ls) <= 0:
+		return ""
+	var sec = int(OS.get_unix_time() - float(ls) / 1000.0)
+	var t = "just now"
+	if sec >= 300:
+		var n = 0
+		var unit = ""
+		if sec < 3600:
+			n = sec / 60
+			unit = "minute"
+		elif sec < 86400:
+			n = sec / 3600
+			unit = "hour"
+		elif sec < 30 * 86400:
+			n = sec / 86400
+			unit = "day"
+		elif sec < 365 * 86400:
+			n = sec / (30 * 86400)
+			unit = "month"
+		else:
+			n = sec / (365 * 86400)
+			unit = "year"
+		t = "%d %s%s ago" % [n, unit, "" if n == 1 else "s"]
+	return "\nLast online " + t
 
 func _play_line(s: Dictionary) -> String:
 	var acc := float(s.get("accuracy", 0)) * 100.0
