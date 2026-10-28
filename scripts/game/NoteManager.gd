@@ -896,7 +896,7 @@ func _process(delta: float):
 	if lobby_manager != null and lobby_manager.lobby_active and active and not (Grid != null and Grid.spectating):
 		_live_send_timer += delta
 		if _live_send_timer >= lobby_manager.LIVE_STATE_SEND_INTERVAL:
-			_live_send_timer = 0.0
+			_live_send_timer = fmod(_live_send_timer, lobby_manager.LIVE_STATE_SEND_INTERVAL) # even spacing
 			var cursor_pos = _n_cursor.transform.origin
 			var energy_pct = (get_parent().energy / get_parent().max_energy) if get_parent().max_energy > 0 else 0.0
 			var lvl_progress_pct = get_parent().lvl_progress / 10.0

@@ -440,15 +440,24 @@ var _spectate_data: Dictionary = {
 }
 var ghost_cursor: MeshInstance = null
 
-# Playback: the watched player sends where they are about 30 times a second,
-# with their map time (ms). It is played back a little behind on that map
-# time (not on when the messages arrived), so the notes, cursor and music move
-# smoothly whatever the network does.
-const SPEC_DELAY_SEC := 0.35
+# Playback: the watched player sends where they are up to 60 times a second,
+# with their map time (ms). Playback runs on a steady clock: your own clock
+# plus a fixed offset to their map time, taken from the messages that arrived
+# quickest (late ones don't pull it around), a little behind so the next
+# position is usually already here. The cursor follows a smooth curve through
+# the positions. So notes and music move at an even speed whatever the network
+# does, and the cursor doesn't cut corners.
 const SPEC_KEEP_MS := 6000.0
+const SPEC_WINDOW_SEC := 3.0      # how far back the quickest arrival is looked for
+const SPEC_MIN_DELAY_SEC := 0.08
+const SPEC_MAX_DELAY_SEC := 0.4
 var _spec_samples: Array = []
 var _spec_ms: float = 0.0
 var _spec_clock_set: bool = false
+var _spec_offsets: Array = []     # [arrival time, their ms - your clock]
+var _spec_offset: float = 0.0
+var _spec_delay: float = 0.12     # follows how uneven the arrivals are
+var _spec_delay_target: float = 0.12
 var _spec_reloading: bool = false
 
 func _get_lobby_manager():
@@ -459,6 +468,7 @@ func _spec_settings():
 
 func enter_spectate_mode(peer_id: int):
 	spectating = true
+	process_priority = -10 # the watched time is set before the notes move this frame
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		if not lobby_manager.is_connected("live_state_received", self, "_on_spectate_live_state"):
@@ -480,8 +490,7 @@ func enter_spectate_mode(peer_id: int):
 # Watch peer_id (the server sends their settings back).
 func _set_spectate_target(peer_id: int):
 	spectate_peer_id = peer_id
-	_spec_samples.clear()
-	_spec_clock_set = false
+	_spec_reset_clock()
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		lobby_manager.report_spectate_target(peer_id)
@@ -535,8 +544,7 @@ func exit_spectate_mode():
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		lobby_manager.report_spectate_target(-1)
-	_spec_samples.clear()
-	_spec_clock_set = false
+	_spec_reset_clock()
 	if spectate_cursor != null:
 		spectate_cursor.queue_free()
 		spectate_cursor = null
@@ -570,54 +578,105 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 	if not _spec_samples.empty():
 		var last_ms: float = _spec_samples[_spec_samples.size() - 1].ms
 		if chart_ms < last_ms - 1000.0:
-			_spec_samples.clear() # their map time went back: start over
-			_spec_clock_set = false
+			_spec_reset_clock() # their map time went back: start over
 		elif chart_ms <= last_ms:
 			return # late or repeated
+	var now: float = OS.get_ticks_usec() / 1000000.0
 	_spec_samples.append({
-		"t": OS.get_ticks_usec() / 1000000.0, "ms": chart_ms, "x": x, "y": y,
+		"t": now, "ms": chart_ms, "x": x, "y": y,
 		"combo": combo, "combo_level": combo_level, "score": score,
 		"hits": hits, "misses": misses, "total_notes": total_notes,
 		"energy_pct": energy_pct, "lvl_progress_pct": lvl_progress_pct,
 	})
-	while _spec_samples.size() > 2 and _spec_samples[0].ms < chart_ms - SPEC_KEEP_MS:
+	while _spec_samples.size() > 4 and _spec_samples[0].ms < chart_ms - SPEC_KEEP_MS:
 		_spec_samples.pop_front()
+	# their map time against your clock (map ms run at the song speed)
+	_spec_offsets.append([now, chart_ms - now * 1000.0 * _spec_speed()])
+	while _spec_offsets.size() > 1 and _spec_offsets[0][0] < now - SPEC_WINDOW_SEC:
+		_spec_offsets.pop_front()
+	if _spec_offsets.size() % 8 == 0:
+		_spec_update_delay()
+
+func _spec_speed() -> float:
+	return max(Spawn.speed_multi, 0.05) if Spawn != null else 1.0
+
+func _spec_reset_clock():
+	_spec_samples.clear()
+	_spec_offsets.clear()
+	_spec_clock_set = false
+
+func _spec_best_offset() -> float:
+	var best: float = -INF
+	for o in _spec_offsets:
+		best = max(best, o[1])
+	return best
+
+# How late messages come compared with the quickest ones: the delay covers
+# the latest of the last few seconds (plus a little), so the next position is
+# here in time and playback never has to wait.
+func _spec_update_delay():
+	var best := _spec_best_offset()
+	var lates := []
+	for o in _spec_offsets:
+		lates.append((best - o[1]) / (1000.0 * _spec_speed()))
+	lates.sort()
+	var latest: float = lates[lates.size() - 1] if lates.size() > 0 else 0.1
+	_spec_delay_target = clamp(latest + 0.05, SPEC_MIN_DELAY_SEC, SPEC_MAX_DELAY_SEC)
 
 func _update_spectate_render(delta: float):
 	if not spectating or spectate_cursor == null or _spec_samples.empty() or Spawn == null:
 		return
-	var spd: float = max(Spawn.speed_multi, 0.05)
-	var newest: Dictionary = _spec_samples[_spec_samples.size() - 1]
+	var spd := _spec_speed()
 	var now: float = OS.get_ticks_usec() / 1000000.0
-	# where they are now (guessed on for a moment if a message is late), less the delay
-	var ahead: float = clamp(now - newest.t, 0.0, 0.25)
-	var target: float = newest.ms + (ahead - SPEC_DELAY_SEC) * 1000.0 * spd
-	if not _spec_clock_set or abs(target - _spec_ms) > 1500.0 * spd:
-		_spec_ms = target # start, a skip, or far off: jump
+	var best := _spec_best_offset()
+	if not _spec_clock_set or abs(best - _spec_offset) > 400.0 * spd:
+		_spec_offset = best # start, a skip, or far off: jump
+		_spec_delay = _spec_delay_target
 		_spec_clock_set = true
 	else:
-		var next: float = _spec_ms + delta * 1000.0 * spd
-		next += (target - next) * min(1.0, delta * 2.0)
-		_spec_ms = max(next, _spec_ms) # eased towards them, never backwards
-	# the two positions around that time
-	var a: Dictionary = _spec_samples[0]
-	var b: Dictionary = a
-	if _spec_ms >= newest.ms:
-		a = newest
-		b = newest
-	elif _spec_ms > a.ms:
-		var i: int = _spec_samples.size() - 2
-		while i > 0 and _spec_samples[i].ms > _spec_ms:
-			i -= 1
-		a = _spec_samples[i]
-		b = _spec_samples[i + 1]
-	var alpha: float = 0.0
-	if b.ms > a.ms:
-		alpha = clamp((_spec_ms - a.ms) / (b.ms - a.ms), 0.0, 1.0)
-	spectate_cursor.transform.origin = Vector3(lerp(a.x, b.x, alpha), lerp(a.y, b.y, alpha), spectate_cursor.transform.origin.z)
-	_apply_spectate_stats(a)
+		# small changes are taken in slowly so the speed stays even
+		_spec_offset += (best - _spec_offset) * min(1.0, delta * 0.5)
+		_spec_delay += (_spec_delay_target - _spec_delay) * min(1.0, delta * 0.5)
+	var play: float = now * 1000.0 * spd + _spec_offset - _spec_delay * 1000.0 * spd
+	if play < _spec_ms and _spec_ms - play < 400.0 * spd:
+		play = _spec_ms # never a little backwards
+	var newest: Dictionary = _spec_samples[_spec_samples.size() - 1]
+	_spec_ms = min(play, newest.ms) # no newer position yet: wait on the last one
+	spectate_cursor.transform.origin = _spec_cursor_at(_spec_ms)
+	_apply_spectate_stats(_spec_sample_before(_spec_ms))
 	update_static_values()
 	Spawn.ms = _spec_ms # NoteManager moves the notes and keeps the music with it
+
+func _spec_index_before(ms: float) -> int:
+	var i: int = _spec_samples.size() - 1
+	while i > 0 and _spec_samples[i].ms > ms:
+		i -= 1
+	return i
+
+func _spec_sample_before(ms: float) -> Dictionary:
+	return _spec_samples[_spec_index_before(ms)]
+
+# A smooth curve through the positions (Catmull-Rom on their map times).
+func _spec_cursor_at(ms: float) -> Vector3:
+	var n: int = _spec_samples.size()
+	var z: float = spectate_cursor.transform.origin.z
+	var i: int = _spec_index_before(ms)
+	var p1: Dictionary = _spec_samples[i]
+	if i >= n - 1 or ms <= p1.ms:
+		return Vector3(p1.x, p1.y, z)
+	var p2: Dictionary = _spec_samples[i + 1]
+	var p0: Dictionary = _spec_samples[i - 1] if i > 0 else p1
+	var p3: Dictionary = _spec_samples[i + 2] if i + 2 < n else p2
+	var h: float = max(p2.ms - p1.ms, 0.001)
+	var u: float = clamp((ms - p1.ms) / h, 0.0, 1.0)
+	var a := Vector2(p1.x, p1.y)
+	var b := Vector2(p2.x, p2.y)
+	var m1: Vector2 = (b - Vector2(p0.x, p0.y)) / max(p2.ms - p0.ms, 0.001) * h
+	var m2: Vector2 = (Vector2(p3.x, p3.y) - a) / max(p3.ms - p1.ms, 0.001) * h
+	var u2 := u * u
+	var u3 := u2 * u
+	var pos: Vector2 = a * (2.0 * u3 - 3.0 * u2 + 1.0) + m1 * (u3 - 2.0 * u2 + u) + b * (-2.0 * u3 + 3.0 * u2) + m2 * (u3 - u2)
+	return Vector3(pos.x, pos.y, z)
 
 func _apply_spectate_stats(sample: Dictionary):
 	_spectate_data.score = sample.score
