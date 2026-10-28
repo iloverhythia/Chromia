@@ -204,6 +204,8 @@ func note_check_collision(i: int):
 		return Rhythia.replay.should_hit(i)
 
 	var cursor_world_pos = _n_cursor.global_transform.origin
+	if Grid != null and Grid.spectating and Grid.spectate_cursor != null:
+		cursor_world_pos = Grid.spectate_cursor.global_transform.origin
 	var local_cpos = _n_notes.to_local(cursor_world_pos)
 
 	var hbs: float = Rhythia.note_hitbox_size / 2
@@ -665,14 +667,17 @@ func do_half_lock():
 var sh: Vector2 = Vector2(-0.5, -0.5)
 var edgec: float = 0
 func do_spin():
-	var centeroff = get_node("../..").get_node("SpinPos").global_transform.origin + cursor_offset
-
-	var cx = centeroff.x
-	var cy = -centeroff.y
-	cx = clamp(cx, (0 + sh.x + edgec), (3 + sh.x - edgec))
-	cy = clamp(cy, (0 + sh.y + edgec), (3 + sh.y - edgec))
-	centeroff.x = cx - cursor_offset.x
-	centeroff.y = -cy - cursor_offset.y
+	var centeroff
+	if Grid.spectating and Grid.spectate_cursor != null:
+		centeroff = Grid.spectate_cursor.transform.origin - cursor_offset
+	else:
+		centeroff = get_node("../..").get_node("SpinPos").global_transform.origin + cursor_offset
+		var cx = centeroff.x
+		var cy = -centeroff.y
+		cx = clamp(cx, (0 + sh.x + edgec), (3 + sh.x - edgec))
+		cy = clamp(cy, (0 + sh.y + edgec), (3 + sh.y - edgec))
+		centeroff.x = cx - cursor_offset.x
+		centeroff.y = -cy - cursor_offset.y
 
 	var hlm = 0.25
 	var uim = Rhythia.get("ui_parallax") * 0.1
@@ -888,7 +893,7 @@ func _process(delta: float):
 	_set_rec_interval(delta)
 
 	var lobby_manager = _lobby_manager if is_instance_valid(_lobby_manager) else null
-	if lobby_manager != null and lobby_manager.lobby_active:
+	if lobby_manager != null and lobby_manager.lobby_active and active and not (Grid != null and Grid.spectating):
 		_live_send_timer += delta
 		if _live_send_timer >= lobby_manager.LIVE_STATE_SEND_INTERVAL:
 			_live_send_timer = 0.0
@@ -1083,7 +1088,22 @@ func _process(delta: float):
 		if Rhythia.rainbow_grid:
 			$Outer.get("material/0").albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.65, 1)
 	elif Grid != null and Grid.spectating and notes_loaded:
+		_spectate_music()
+		emit_signal("timer_update", ms, false)
 		reposition_notes()
+
+# Spectating: ms comes from the watched player (HUD.gd), the music keeps up.
+func _spectate_music():
+	var at: float = ms + Rhythia.music_offset
+	if at >= Rhythia.start_offset:
+		if not music_started:
+			_n_music.play(at / 1000.0)
+			music_started = true
+		elif _n_music.playing and abs(_n_music.get_playback_position() * 1000.0 - at) > 150.0 * max(speed_multi, 1.0):
+			_n_music.play(at / 1000.0)
+	elif music_started:
+		_n_music.stop()
+		music_started = false
 
 
 # Adds a back-facing copy of every triangle, so an imported .obj shows up even

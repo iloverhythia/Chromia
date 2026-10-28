@@ -18,6 +18,13 @@ var black_fade: float = 0
 
 
 func _ready():
+	# your own settings for a normal play (someone else's stay on only when
+	# this load goes straight into spectating them)
+	var lm = get_node_or_null("/root/LobbyManager")
+	var spec = load("res://scripts/SpectateSettings.gd")
+	if spec.active() and (lm == null or not lm.spectate_load_pending()):
+		spec.restore()
+		target2 = _world_path() # your background, not theirs
 	load("res://scripts/game/SoundSpaceMode.gd").begin_song() # Sound Space Mode: its look for this song
 	print("song loading")
 	Rhythia.start_log("loading screen", true)

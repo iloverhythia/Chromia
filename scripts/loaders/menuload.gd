@@ -10,6 +10,7 @@ var black_fade: float = 0
 func _ready():
 	Rhythia.trail("loading the menu")
 	load("res://scripts/game/SoundSpaceMode.gd").end_song() # leaving the song: your own settings back
+	load("res://scripts/SpectateSettings.gd").restore() # and yours if you were watching with someone's
 	get_tree().paused = false
 	if Rhythia.vr:
 		target = "res://vr/vrmenu.tscn"

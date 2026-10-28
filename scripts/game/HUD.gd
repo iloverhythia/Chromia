@@ -440,21 +440,26 @@ var _spectate_data: Dictionary = {
 }
 var ghost_cursor: MeshInstance = null
 
+# Playback: the watched player sends where they are about 30 times a second,
+# with their map time (ms). It is played back a little behind on that map
+# time (not on when the messages arrived), so the notes, cursor and music move
+# smoothly whatever the network does.
+const SPEC_DELAY_SEC := 0.35
+const SPEC_KEEP_MS := 6000.0
 var _spec_samples: Array = []
-
-var _spec_playback_t: float = -1.0
+var _spec_ms: float = 0.0
+var _spec_clock_set: bool = false
+var _spec_reloading: bool = false
 
 func _get_lobby_manager():
 	return get_node_or_null("/root/LobbyManager")
 
+func _spec_settings():
+	return load("res://scripts/SpectateSettings.gd")
+
 func enter_spectate_mode(peer_id: int):
 	spectating = true
-	spectate_peer_id = peer_id
-	_spec_samples.clear()
-	_spec_playback_t = -1.0
-
 	var lobby_manager = _get_lobby_manager()
-
 	if lobby_manager != null:
 		if not lobby_manager.is_connected("live_state_received", self, "_on_spectate_live_state"):
 			lobby_manager.connect("live_state_received", self, "_on_spectate_live_state")
@@ -462,52 +467,67 @@ func enter_spectate_mode(peer_id: int):
 			lobby_manager.connect("lobby_state_changed", self, "_on_spectate_lobby_state_changed")
 		if not lobby_manager.is_connected("player_failed", self, "_on_spectate_target_failed"):
 			lobby_manager.connect("player_failed", self, "_on_spectate_target_failed")
-
-	if lobby_manager != null:
-		lobby_manager.report_spectate_target(peer_id)
-
+		if not lobby_manager.is_connected("player_settings_received", self, "_on_spectate_settings_received"):
+			lobby_manager.connect("player_settings_received", self, "_on_spectate_settings_received")
 	_create_ghost_cursor()
 	_create_spectate_banner()
+	if not Rhythia.vr:
+		# the switch button and the scoreboard are clicked with the mouse
+		Input.set_custom_mouse_cursor(null)
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	_set_spectate_target(peer_id)
+
+# Watch peer_id (the server sends their settings back).
+func _set_spectate_target(peer_id: int):
+	spectate_peer_id = peer_id
+	_spec_samples.clear()
+	_spec_clock_set = false
+	var lobby_manager = _get_lobby_manager()
+	if lobby_manager != null:
+		lobby_manager.report_spectate_target(peer_id)
 	_update_spectate_target_name()
+	_check_view_settings()
 
 func spectate_specific_player(peer_id: int):
-	if not spectating or peer_id == spectate_peer_id:
+	if not spectating or peer_id == spectate_peer_id or _spec_reloading:
 		return
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager == null or peer_id == lobby_manager.local_peer_id:
 		return
-	var exists = false
 	for p in lobby_manager.players:
 		if int(p.get("peer_id", -1)) == peer_id:
-			exists = true
-			break
-	if not exists:
-		return
-	spectate_peer_id = peer_id
-	_spec_samples.clear()
-	_spec_playback_t = -1.0
-	lobby_manager.report_spectate_target(peer_id)
-	_update_spectate_target_name()
+			_set_spectate_target(peer_id)
+			return
 
 func _on_spectate_target_failed(peer_id):
+	if spectating and peer_id == spectate_peer_id:
+		_pick_next_target()
+
+func _on_spectate_lobby_state_changed():
 	if not spectating:
-		return
-	if peer_id != spectate_peer_id:
 		return
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager == null:
 		return
-	var next_first = lobby_manager.get_first_place_peer_id()
-	if next_first == -1:
+	for p in lobby_manager.players:
+		if int(p.get("peer_id", -1)) == spectate_peer_id:
+			if bool(p.get("failed", false)):
+				break
+			_update_spectate_target_name()
+			return
+	_pick_next_target() # they failed or left
 
-		_end_spectate_and_return_to_lobby()
+func _pick_next_target():
+	if _spec_reloading:
 		return
-	if next_first != spectate_peer_id:
-		spectate_peer_id = next_first
-		_spec_samples.clear()
-		_spec_playback_t = -1.0
-		lobby_manager.report_spectate_target(next_first)
-		_update_spectate_target_name()
+	var lobby_manager = _get_lobby_manager()
+	if lobby_manager == null:
+		return
+	var next = lobby_manager.get_first_place_peer_id()
+	if next == -1:
+		_end_spectate_and_return_to_lobby()
+	elif next != spectate_peer_id:
+		_set_spectate_target(next)
 
 func exit_spectate_mode():
 	spectating = false
@@ -516,13 +536,15 @@ func exit_spectate_mode():
 	if lobby_manager != null:
 		lobby_manager.report_spectate_target(-1)
 	_spec_samples.clear()
-	_spec_playback_t = -1.0
+	_spec_clock_set = false
 	if spectate_cursor != null:
 		spectate_cursor.queue_free()
 		spectate_cursor = null
-	if _spectate_banner != null:
-		_spectate_banner.queue_free()
+	if _spectate_ui != null:
+		_spectate_ui.queue_free()
+		_spectate_ui = null
 		_spectate_banner = null
+		_spectate_view_button = null
 	if _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.visible = true
 		_real_cursor.set_process(true)
@@ -545,72 +567,57 @@ func _end_spectate_and_return_to_lobby():
 func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, misses, total_notes, energy_pct, lvl_progress_pct, chart_ms):
 	if not spectating or peer_id != spectate_peer_id:
 		return
-	var now = OS.get_ticks_msec() / 1000.0
+	if not _spec_samples.empty():
+		var last_ms: float = _spec_samples[_spec_samples.size() - 1].ms
+		if chart_ms < last_ms - 1000.0:
+			_spec_samples.clear() # their map time went back: start over
+			_spec_clock_set = false
+		elif chart_ms <= last_ms:
+			return # late or repeated
 	_spec_samples.append({
-		"t": now, "x": x, "y": y, "combo": combo, "combo_level": combo_level, "score": score,
+		"t": OS.get_ticks_usec() / 1000000.0, "ms": chart_ms, "x": x, "y": y,
+		"combo": combo, "combo_level": combo_level, "score": score,
 		"hits": hits, "misses": misses, "total_notes": total_notes,
-		"energy_pct": energy_pct, "lvl_progress_pct": lvl_progress_pct, "ms": chart_ms,
+		"energy_pct": energy_pct, "lvl_progress_pct": lvl_progress_pct,
 	})
-	while _spec_samples.size() > 0 and now - _spec_samples[0].t > 1.0:
+	while _spec_samples.size() > 2 and _spec_samples[0].ms < chart_ms - SPEC_KEEP_MS:
 		_spec_samples.pop_front()
 
 func _update_spectate_render(delta: float):
-	if not spectating or spectate_cursor == null:
+	if not spectating or spectate_cursor == null or _spec_samples.empty() or Spawn == null:
 		return
-	if _spec_samples.size() == 0:
-		return
-
-	var lobby_manager = _get_lobby_manager()
-	var delay = lobby_manager.SPECTATE_DELAY_SEC if lobby_manager != null else 0.2
-	var newest_t = _spec_samples[_spec_samples.size() - 1].t
-	var oldest_t = _spec_samples[0].t
-
-	if _spec_playback_t < 0.0:
-		_spec_playback_t = newest_t - delay
-
-	_spec_playback_t += delta
-
-	_spec_playback_t = min(_spec_playback_t, newest_t)
-	if _spec_playback_t < oldest_t:
-		_spec_playback_t = max(oldest_t, newest_t - delay)
-
-	if _spec_samples.size() == 1 or _spec_playback_t <= oldest_t:
-		_apply_spectate_sample(_spec_samples[0])
-		return
-	if _spec_playback_t >= newest_t:
-		_apply_spectate_sample(_spec_samples[_spec_samples.size() - 1])
-		return
-
-	for i in range(_spec_samples.size() - 1):
-		var a = _spec_samples[i]
-		var b = _spec_samples[i + 1]
-		if _spec_playback_t >= a.t and _spec_playback_t <= b.t:
-			var alpha = 0.0
-			if b.t > a.t:
-				alpha = (_spec_playback_t - a.t) / (b.t - a.t)
-			var x = lerp(a.x, b.x, alpha)
-			var y = lerp(a.y, b.y, alpha)
-			spectate_cursor.transform.origin = Vector3(x, y, spectate_cursor.transform.origin.z)
-			_apply_spectate_stats(a)
-			update_static_values()
-			_sync_note_timeline(lerp(a.ms, b.ms, alpha))
-			return
-
-func _apply_spectate_sample(sample: Dictionary):
-	spectate_cursor.transform.origin = Vector3(sample.x, sample.y, spectate_cursor.transform.origin.z)
-	_apply_spectate_stats(sample)
+	var spd: float = max(Spawn.speed_multi, 0.05)
+	var newest: Dictionary = _spec_samples[_spec_samples.size() - 1]
+	var now: float = OS.get_ticks_usec() / 1000000.0
+	# where they are now (guessed on for a moment if a message is late), less the delay
+	var ahead: float = clamp(now - newest.t, 0.0, 0.25)
+	var target: float = newest.ms + (ahead - SPEC_DELAY_SEC) * 1000.0 * spd
+	if not _spec_clock_set or abs(target - _spec_ms) > 1500.0 * spd:
+		_spec_ms = target # start, a skip, or far off: jump
+		_spec_clock_set = true
+	else:
+		var next: float = _spec_ms + delta * 1000.0 * spd
+		next += (target - next) * min(1.0, delta * 2.0)
+		_spec_ms = max(next, _spec_ms) # eased towards them, never backwards
+	# the two positions around that time
+	var a: Dictionary = _spec_samples[0]
+	var b: Dictionary = a
+	if _spec_ms >= newest.ms:
+		a = newest
+		b = newest
+	elif _spec_ms > a.ms:
+		var i: int = _spec_samples.size() - 2
+		while i > 0 and _spec_samples[i].ms > _spec_ms:
+			i -= 1
+		a = _spec_samples[i]
+		b = _spec_samples[i + 1]
+	var alpha: float = 0.0
+	if b.ms > a.ms:
+		alpha = clamp((_spec_ms - a.ms) / (b.ms - a.ms), 0.0, 1.0)
+	spectate_cursor.transform.origin = Vector3(lerp(a.x, b.x, alpha), lerp(a.y, b.y, alpha), spectate_cursor.transform.origin.z)
+	_apply_spectate_stats(a)
 	update_static_values()
-	_sync_note_timeline(sample.ms)
-
-
-func _sync_note_timeline(target_ms: float):
-	if Spawn == null:
-		return
-	var diff = target_ms - Spawn.ms
-	Spawn.ms = target_ms
-	if abs(diff) > 1000.0 * max(Spawn.speed_multi, 1.0):
-		if Spawn.music_started and Spawn.has_node("Music"):
-			Spawn.get_node("Music").play((Spawn.ms + Rhythia.music_offset) / 1000.0)
+	Spawn.ms = _spec_ms # NoteManager moves the notes and keeps the music with it
 
 func _apply_spectate_stats(sample: Dictionary):
 	_spectate_data.score = sample.score
@@ -622,35 +629,83 @@ func _apply_spectate_stats(sample: Dictionary):
 	_spectate_data.energy_pct = sample.energy_pct
 	_spectate_data.lvl_progress_pct = sample.lvl_progress_pct
 
-func _on_spectate_lobby_state_changed():
-	if not spectating:
+# --- their settings or yours ----------------------------------------------------
+# Most settings are read when the song scene is built, so switching reloads it
+# straight into spectating the same player (LobbyManager.reload_into_spectate).
+
+func _on_spectate_settings_received(peer_id):
+	if spectating and peer_id == spectate_peer_id:
+		_check_view_settings()
+
+func _check_view_settings():
+	_update_view_button()
+	if not spectating or _spec_reloading:
 		return
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager == null:
 		return
-	var target_failed = false
-	for p in lobby_manager.players:
-		if int(p.get("peer_id", -1)) == spectate_peer_id and bool(p.get("failed", false)):
-			target_failed = true
-	if not target_failed:
-		return
-	var first = lobby_manager.get_first_place_peer_id()
-	if first == -1:
-		_end_spectate_and_return_to_lobby()
-		return
-	if first != spectate_peer_id:
-		spectate_peer_id = first
-		_spec_samples.clear()
-		_spec_playback_t = -1.0
-		lobby_manager.report_spectate_target(first)
-		_update_spectate_target_name()
+	var spec = _spec_settings()
+	var on_for: int = spec.applied_for() # -1: yours
+	if spec.prefer_theirs():
+		if on_for == spectate_peer_id or not lobby_manager.player_view_settings.has(spectate_peer_id):
+			return # already on, or not here yet
+		if lobby_manager.has_player_settings(spectate_peer_id):
+			_reload_spectate(true)
+		elif on_for != -1:
+			_reload_spectate(false) # they sent none (an older game): yours
+	elif on_for != -1:
+		_reload_spectate(false)
 
-var _spectate_banner: Label = null
-func _create_spectate_banner():
-	if _spectate_banner != null:
+func _reload_spectate(theirs: bool):
+	var lobby_manager = _get_lobby_manager()
+	if lobby_manager == null or not lobby_manager.lobby_active or not bool(lobby_manager.lobby_state.get("started", false)):
 		return
+	_spec_reloading = true
+	var spec = _spec_settings()
+	if theirs:
+		spec.apply(lobby_manager.player_view_settings[spectate_peer_id], spectate_peer_id)
+	else:
+		spec.restore()
+	_update_view_button()
+	lobby_manager.reload_into_spectate(spectate_peer_id)
+
+func toggle_spectate_view():
+	if not spectating or _spec_reloading:
+		return
+	var spec = _spec_settings()
+	spec.set_prefer_theirs(not spec.prefer_theirs())
+	var lobby_manager = _get_lobby_manager()
+	if spec.prefer_theirs() and lobby_manager != null and not lobby_manager.player_view_settings.has(spectate_peer_id):
+		lobby_manager.request_player_settings(spectate_peer_id)
+	if Rhythia.vr:
+		Globals.notify(Globals.NOTIFY_INFO, "Spectating with %s settings" % ("their" if spec.prefer_theirs() else "your"))
+	_check_view_settings()
+
+func _input(event):
+	if not spectating:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_TAB:
+		toggle_spectate_view()
+		get_tree().set_input_as_handled()
+	elif Rhythia.vr and event.is_action_pressed("vr_click"):
+		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
+
+var _spectate_ui: CanvasLayer = null
+var _spectate_banner: Label = null
+var _spectate_view_button: Button = null
+
+func _create_spectate_banner():
+	if _spectate_ui != null:
+		return
+	_spectate_ui = CanvasLayer.new()
+	_spectate_ui.layer = 50
+	add_child(_spectate_ui)
+	var box := VBoxContainer.new()
+	box.rect_position = Vector2(36, 32)
+	box.add_constant_override("separation", 6)
+	_spectate_ui.add_child(box)
+
 	_spectate_banner = Label.new()
-	_spectate_banner.rect_position = Vector2(36, 32)
 	var spectate_font = DynamicFont.new()
 	spectate_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	spectate_font.size = 20
@@ -659,7 +714,37 @@ func _create_spectate_banner():
 	_spectate_banner.add_color_override("font_color_shadow", Color(0, 0, 0, 0.6))
 	_spectate_banner.add_constant_override("shadow_offset_x", 2)
 	_spectate_banner.add_constant_override("shadow_offset_y", 2)
-	get_tree().get_root().add_child(_spectate_banner)
+	box.add_child(_spectate_banner)
+
+	_spectate_view_button = Button.new()
+	_spectate_view_button.focus_mode = Control.FOCUS_NONE # Space / Enter don't press it
+	var button_font = DynamicFont.new()
+	button_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	button_font.size = 16
+	_spectate_view_button.add_font_override("font", button_font)
+	_spectate_view_button.connect("pressed", self, "toggle_spectate_view")
+	box.add_child(_spectate_view_button)
+	_update_view_button()
+
+func _update_view_button():
+	if _spectate_view_button == null:
+		return
+	var key: String = "trigger" if Rhythia.vr else "Tab"
+	var lobby_manager = _get_lobby_manager()
+	var spec = _spec_settings()
+	var text := ""
+	if _spec_reloading:
+		text = "Loading %s settings..." % ("their" if spec.prefer_theirs() else "your")
+	elif not spec.prefer_theirs():
+		text = "Your settings  |  Use theirs (%s)" % key
+	elif spec.applied_for() == spectate_peer_id:
+		text = "Their settings  |  Use yours (%s)" % key
+	elif lobby_manager != null and lobby_manager.player_view_settings.has(spectate_peer_id):
+		text = "Their settings aren't available  |  Use yours (%s)" % key
+	else:
+		text = "Getting their settings...  |  Use yours (%s)" % key
+	_spectate_view_button.text = text
+	_spectate_view_button.disabled = _spec_reloading
 
 func _update_spectate_target_name():
 	if _spectate_banner == null:

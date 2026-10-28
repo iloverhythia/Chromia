@@ -9,6 +9,7 @@ signal lobby_error(reason)
 signal skip_triggered(target_ms)
 signal live_state_received(peer_id, x, y, combo, combo_level, score, hits, misses, total_notes, energy_pct, lvl_progress_pct, chart_ms)
 signal player_failed(peer_id)
+signal player_settings_received(peer_id)
 signal player_missing_map(peer_id)
 signal map_download_started(song_id)
 signal map_download_progress(song_id, bytes_received, total_bytes)
@@ -352,6 +353,8 @@ func close_lobby():
 	_map_readiness_checked_song_id = ""
 	_last_scrolled_song_id = ""
 	lobby_chat_history = []
+	player_view_settings = {}
+	_spectate_load_target = -1
 	if was_active:
 		emit_signal("lobby_closed")
 
@@ -585,6 +588,46 @@ func report_spectate_target(target_peer_id: int):
 		return
 	_send({"type": "set_spectate_target", "target_peer_id": target_peer_id})
 
+# --- spectating with the watched player's settings (SpectateSettings.gd) -------
+# peer id -> the display settings that player sent ({} if they sent none, e.g.
+# an older game)
+var player_view_settings: Dictionary = {}
+var _spectate_load_target: int = -1
+
+# Your display settings, for anyone who watches you (sent when a round starts).
+func send_view_settings():
+	if not lobby_active:
+		return
+	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+
+func request_player_settings(peer_id: int):
+	if lobby_active and peer_id > 0 and peer_id != local_peer_id:
+		_send({"type": "get_player_settings", "peer_id": peer_id})
+
+func has_player_settings(peer_id: int) -> bool:
+	var s = player_view_settings.get(peer_id, {})
+	return s is Dictionary and not s.empty()
+
+# The next song load goes straight into spectating (a late join, or switching
+# between their settings and yours): songload keeps the settings put on for it.
+func spectate_load_pending() -> bool:
+	return _late_join_pending
+
+func consume_spectate_target() -> int:
+	var t = _spectate_load_target
+	_spectate_load_target = -1
+	return t
+
+# Builds the song scene again, spectating peer_id (the settings to watch with
+# are already on). Most settings are read when the scene is built.
+func reload_into_spectate(peer_id: int):
+	if not lobby_active or not bool(lobby_state.get("started", false)):
+		return
+	_late_join_pending = true
+	_spectate_load_target = peer_id
+	get_tree().paused = false
+	_scene_transition_now()
+
 func request_map(song_id: String):
 	if not lobby_active or song_id == "":
 		return
@@ -613,6 +656,7 @@ func _check_map_readiness():
 	if song:
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
+			request_player_settings(get_first_place_peer_id())
 			_scene_transition_now()
 	else:
 		report_missing_map()
@@ -868,13 +912,23 @@ func all_players_ready() -> bool:
 			return false
 	return true
 
+# Who to spectate: the best of those still playing (not you, not failed, not
+# done, not joined late, not spectating someone themselves). If nobody is
+# still playing, the best of those who didn't fail.
 func get_first_place_peer_id() -> int:
 	var candidates = []
 	for p in players:
-		if not bool(p.get("failed", false)):
-			candidates.append(p)
+		var pid = int(p.get("peer_id", -1))
+		if pid == local_peer_id or bool(p.get("failed", false)):
+			continue
+		if bool(p.get("finished", false)) or bool(p.get("late_join", false)) or int(p.get("spectate_target", -1)) != -1:
+			continue
+		candidates.append(p)
 	if candidates.size() == 0:
-
+		for p in players:
+			if int(p.get("peer_id", -1)) != local_peer_id and not bool(p.get("failed", false)):
+				candidates.append(p)
+	if candidates.size() == 0:
 		return -1
 	candidates.sort_custom(self, "_sort_players_for_first")
 	return int(candidates[0].get("peer_id", -1))
@@ -942,6 +996,11 @@ func _handle_message(msg: Dictionary):
 			if not lobby_active:
 				close_lobby()
 				emit_signal("lobby_state_changed") # e.g. a failed join: the panel kept saying "Joining lobby..."
+		"player_settings":
+			var sp = int(msg.get("peer_id", -1))
+			var ss = msg.get("settings", null)
+			player_view_settings[sp] = ss if ss is Dictionary else {}
+			emit_signal("player_settings_received", sp)
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
@@ -1060,6 +1119,11 @@ func _handle_message(msg: Dictionary):
 func _scene_transition_now():
 	if not lobby_active:
 		return
+	if _late_join_pending and _spectate_load_target == -1:
+		var spec = load("res://scripts/SpectateSettings.gd")
+		var first = get_first_place_peer_id()
+		if spec.prefer_theirs() and first != -1 and has_player_settings(first):
+			spec.apply(player_view_settings[first], first)
 	if lobby_state.has("song_id") and lobby_state.song_id != "":
 		var song = Rhythia.registry_song.get_item(lobby_state.song_id, Globals.SEARCH_ID) if Rhythia.registry_song else null
 		var _n_notes: int = -1

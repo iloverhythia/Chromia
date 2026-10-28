@@ -828,7 +828,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c"
 ]
 
 
@@ -918,6 +918,7 @@ const VERSION_NOTES = {
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
 	"oct28-2026-b": "- iPhone: removed the likely cause of a crash when starting a second song: the faster loading from the last update reused parts of the previous song. Scenes are loaded fresh again; in VR only their textures, meshes and sounds are kept, so VR songs still start quickly\n- Crash reports only show after a real crash: restarting for an update (and old installs moving to Chromia) no longer counts as one\n- Phones and web: the Export map data button is hidden (it needs a desktop file dialog); this also removes an error at every menu load on iPhone",
+	"oct28-2026-c": "- Spectating shows the player's own settings: their camera (spin, parallax, FOV), approach rate, note colors and mesh, cursor, HUD and background. Your settings are never changed and come back when you leave\n- Switch between their settings and yours with the button at the top left or Tab (in VR: the trigger)\n- In VR your own camera is kept; someone playing in VR is shown with a still camera\n- Smoother spectating: the cursor, notes and music follow the player's map time, notes are hit by their cursor, the music plays when you join late, and spin follows their cursor\n- You only spectate players still playing (not someone who finished, joined late or is spectating)",
 	"oct28-2026-a": "- VR: the black pillars in the menu are gone (they got in the way of your view)\n- NEW (VR): Settings > VR > Menu environment: what is around you in the menu. Classic (the old room), five new places: Deep Space (stars, a nebula and a ringed planet), Synthwave (a neon grid running to a striped sun and purple mountains), Sunset Ocean (a wooden dock over sparkling waves), Pastel Clouds (a soft sky with floating clouds) and Neon City (a rooftop among glowing towers and flying lights). Or pick any background from the background list, your own custom ones too\n- VR: songs start much faster: the song scene is loaded once when the VR menu loads and kept, and backgrounds stay loaded, so the next song skips loading them again. Going back to the menu is faster too\n- PC VR: removed a likely cause of the crash when starting a song: in VR everything now loads on the main thread, like on the Meta Quest (loading on a second thread while the headset draws can crash Godot 3). If it still crashes, send the crash report from Settings > Crash Reports",
 	"oct27-2026-m": "- Transfer settings page: much less text, shorter messages",
 	"oct27-2026-l": "- Background Editor: much less text, just the controls",
@@ -1624,6 +1625,7 @@ func quit_game():
 	# without this, settings changed before quitting were lost.
 	if first_init_done:
 		load("res://scripts/game/SoundSpaceMode.gd").end_song() # your settings, not Sound Space Mode's
+		load("res://scripts/SpectateSettings.gd").restore() # nor the ones of someone you were watching
 		save_settings()
 	_star_quit = true
 	_thumb_quit = true
@@ -4032,11 +4034,15 @@ func get_startup_settings_path() -> String:
 	return active if active != "" else Globals.p("user://settings.json")
 
 func save_settings(saveFile: String = Globals.p("user://settings.json")):
+	# spectating with someone else's settings: yours are what gets written
+	var spec = load("res://scripts/SpectateSettings.gd")
+	var theirs = spec.swap_out()
 	var result = _write_settings_file(saveFile)
 	if result is String and saveFile == Globals.p("user://settings.json"):
 		var active := get_active_profile_path()
 		if active != "" and active != saveFile:
 			_write_settings_file(active)
+	spec.swap_in(theirs)
 	return result
 
 func _write_settings_file(saveFile: String):
@@ -5748,6 +5754,7 @@ func do_init(_ud = null):
 	var result = load_saved_settings(get_startup_settings_path())
 	call_deferred("apply_mobile_tuning")
 	load("res://scripts/game/SoundSpaceMode.gd").recover()
+	load("res://scripts/SpectateSettings.gd").recover() # closed while watching with someone's settings
 	if typeof(result) != TYPE_INT:
 		# load_saved_settings stopped on an error part-way (null): keep the
 		# settings read so far instead of getting stuck on this screen

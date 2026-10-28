@@ -737,17 +737,28 @@ func _ready():
 	var is_late_join = lobby_manager != null and lobby_manager.consume_late_join_pending()
 
 	if lobby_manager != null and lobby_manager.lobby_active and not is_late_join:
+		lobby_manager.send_view_settings() # for anyone who spectates you
 		_wait_for_all_players_loaded(lobby_manager)
 	else:
 		$Spawn.active = true
 
 	if is_late_join:
 		$Spawn.active = false
-		var target_peer_id = lobby_manager.get_first_place_peer_id()
+		ending = true
+		# the player picked before this load (switching settings), if still playing
+		var target_peer_id = lobby_manager.consume_spectate_target()
+		var still_there = false
+		for p in lobby_manager.players:
+			if int(p.get("peer_id", -1)) == target_peer_id and not bool(p.get("failed", false)):
+				still_there = true
+		if not still_there:
+			target_peer_id = lobby_manager.get_first_place_peer_id()
 		var hud = get_node("HUD")
-		if hud != null and target_peer_id != -1:
-			ending = true
-			hud.enter_spectate_mode(target_peer_id)
+		if hud != null:
+			if target_peer_id != -1:
+				hud.enter_spectate_mode(target_peer_id)
+			else:
+				hud._end_spectate_and_return_to_lobby() # nobody left to watch
 
 var _waiting_for_players_canvas: CanvasLayer = null
 
