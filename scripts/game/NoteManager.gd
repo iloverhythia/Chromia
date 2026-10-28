@@ -888,6 +888,12 @@ func _process(delta: float):
 	last_usec = u
 
 	if Rhythia.vr: do_vr_cursor()
+	elif Grid != null and Grid.spectating and Grid.vr_view_on():
+		# watching someone in VR with their settings: their head is the camera,
+		# and the grid stays still as it does in VR
+		transform.origin = Vector3(-1, 1, 0)
+		Grid.transform.origin = Vector3(0, 0, Grid.transform.origin.z)
+		Grid.apply_vr_view(cam)
 	elif Rhythia.get("cam_unlock"): do_spin()
 	else: do_half_lock()
 	_set_rec_interval(delta)
@@ -900,7 +906,7 @@ func _process(delta: float):
 			var cursor_pos = _n_cursor.transform.origin
 			var energy_pct = (get_parent().energy / get_parent().max_energy) if get_parent().max_energy > 0 else 0.0
 			var lvl_progress_pct = get_parent().lvl_progress / 10.0
-			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms)
+			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null)
 
 	if active and notes_loaded:
 		if not notes_loaded: return
@@ -1091,6 +1097,22 @@ func _process(delta: float):
 		_spectate_music()
 		emit_signal("timer_update", ms, false)
 		reposition_notes()
+
+# VR: where your head and hands are (next to the game, so a spectator can put
+# them in their own scene): which hand points (0 right, 1 left), then head,
+# left hand, right hand, each as position x y z + rotation x y z w.
+func _vr_pose_for_spectators():
+	var p = Rhythia.vr_player
+	if p == null or not is_instance_valid(p) or p.head == null or p.left_hand == null or p.right_hand == null:
+		return null
+	var ref: Transform = get_parent().global_transform.affine_inverse()
+	var out := [1.0 if Rhythia.vr_left_handed else 0.0]
+	for n in [p.head, p.left_hand, p.right_hand]:
+		var t: Transform = ref * n.global_transform
+		var q := Quat(t.basis.orthonormalized())
+		for v in [t.origin.x, t.origin.y, t.origin.z, q.x, q.y, q.z, q.w]:
+			out.append(stepify(v, 0.0001))
+	return out
 
 # Spectating: ms comes from the watched player (HUD.gd), the music keeps up.
 func _spectate_music():

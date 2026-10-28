@@ -545,6 +545,11 @@ func exit_spectate_mode():
 	if lobby_manager != null:
 		lobby_manager.report_spectate_target(-1)
 	_spec_reset_clock()
+	_spec_vr_head = null
+	if _spec_vr_holder != null:
+		_spec_vr_holder.queue_free()
+		_spec_vr_holder = null
+		_spec_vr_hands = []
 	if spectate_cursor != null:
 		spectate_cursor.queue_free()
 		spectate_cursor = null
@@ -582,7 +587,14 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 		elif chart_ms <= last_ms:
 			return # late or repeated
 	var now: float = OS.get_ticks_usec() / 1000000.0
+	var vr_pose = null
+	var lobby_manager = _get_lobby_manager()
+	if lobby_manager != null:
+		var raw = lobby_manager._live_state_cache.get(peer_id, {}).get("vr", null)
+		if raw is Array and raw.size() == 22:
+			vr_pose = raw
 	_spec_samples.append({
+		"vr": vr_pose,
 		"t": now, "ms": chart_ms, "x": x, "y": y,
 		"combo": combo, "combo_level": combo_level, "score": score,
 		"hits": hits, "misses": misses, "total_notes": total_notes,
@@ -643,9 +655,87 @@ func _update_spectate_render(delta: float):
 	var newest: Dictionary = _spec_samples[_spec_samples.size() - 1]
 	_spec_ms = min(play, newest.ms) # no newer position yet: wait on the last one
 	spectate_cursor.transform.origin = _spec_cursor_at(_spec_ms)
+	_update_spectate_vr(_spec_ms)
 	_apply_spectate_stats(_spec_sample_before(_spec_ms))
 	update_static_values()
 	Spawn.ms = _spec_ms # NoteManager moves the notes and keeps the music with it
+
+# --- watching someone in VR: their hands, beam and (with their settings) view ---
+# Their head and hands come with each position, placed next to the game, so
+# they land in the same spot in your scene. The hands and beam are the game's
+# own (vr/VRPlayer.tscn); the beam ends on their cursor.
+var _spec_vr_holder: Spatial = null
+var _spec_vr_hands: Array = [] # [left, right]
+var _spec_vr_head = null # Transform next to the game, or null
+
+func vr_view_on() -> bool:
+	return spectating and typeof(_spec_vr_head) == TYPE_TRANSFORM and not Rhythia.vr \
+		and _spec_settings().applied_for() == spectate_peer_id
+
+func apply_vr_view(cam: Camera):
+	if typeof(_spec_vr_head) == TYPE_TRANSFORM:
+		cam.global_transform = get_parent().global_transform * _spec_vr_head
+
+func _pose_at(arr: Array, o: int) -> Transform:
+	var q := Quat(arr[o + 3], arr[o + 4], arr[o + 5], arr[o + 6]).normalized()
+	return Transform(Basis(q), Vector3(arr[o], arr[o + 1], arr[o + 2]))
+
+func _spec_make_hands():
+	if _spec_vr_holder != null:
+		return
+	_spec_vr_holder = Spatial.new()
+	_spec_vr_holder.name = "SpectatedVRHands"
+	get_parent().add_child(_spec_vr_holder)
+	var scene = load("res://vr/VRPlayer.tscn")
+	if not (scene is PackedScene):
+		return
+	# only the plain hands (FakeOrigin) are taken; the rest never enters the tree
+	var vrp = scene.instance()
+	var fake = vrp.get_node_or_null("FakeOrigin")
+	for n in ["LeftHand", "RightHand"]:
+		var h = fake.get_node_or_null(n) if fake != null else null
+		if h == null:
+			continue
+		fake.remove_child(h)
+		h.owner = null
+		for c in h.get_children():
+			c.owner = null
+		_spec_vr_holder.add_child(h)
+		_spec_vr_hands.append(h)
+	vrp.free()
+
+func _update_spectate_vr(ms: float):
+	_spec_vr_head = null
+	var n: int = _spec_samples.size()
+	var i: int = _spec_index_before(ms)
+	var a: Dictionary = _spec_samples[i]
+	if not (a.get("vr") is Array):
+		if _spec_vr_holder != null:
+			_spec_vr_holder.visible = false
+		return
+	var b: Dictionary = _spec_samples[i + 1] if i + 1 < n and _spec_samples[i + 1].get("vr") is Array else a
+	var alpha: float = 0.0
+	if b.ms > a.ms:
+		alpha = clamp((ms - a.ms) / (b.ms - a.ms), 0.0, 1.0)
+	var pa: Array = a.vr
+	var pb: Array = b.vr
+	_spec_vr_head = _pose_at(pa, 1).interpolate_with(_pose_at(pb, 1), alpha)
+	_spec_make_hands()
+	if _spec_vr_hands.size() < 2:
+		return
+	_spec_vr_holder.visible = true
+	var pointing: int = 0 if pa[0] > 0.5 else 1 # left : right
+	for k in range(2):
+		var o: int = 8 + k * 7
+		var hand: Spatial = _spec_vr_hands[k]
+		hand.transform = _pose_at(pa, o).interpolate_with(_pose_at(pb, o), alpha)
+		var ray = hand.get_node_or_null("Ray")
+		if ray == null:
+			continue
+		ray.enabled = k == pointing
+		if k == pointing and ray.has_method("update_beam") and spectate_cursor != null:
+			ray.set_target(spectate_cursor.global_transform.origin)
+			ray.update_beam()
 
 func _spec_index_before(ms: float) -> int:
 	var i: int = _spec_samples.size() - 1

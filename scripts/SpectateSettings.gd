@@ -29,6 +29,9 @@ const CAMERA_KEYS := [
 	"hit_fov_exponential", "hit_fov_decay", "faraway_hud", "camera_mode",
 	"glow", "bloom", "vhs_shader",
 ]
+# a VR player's beam, shown to a spectator who isn't in VR (in VR your own beam
+# keeps your look)
+const VR_LOOK_KEYS := ["vr_beam_color", "vr_beam_width", "vr_beam_rainbow"]
 # what the notes, cursor, grid and HUD look like
 const VIEW_KEYS := [
 	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity",
@@ -73,7 +76,7 @@ const FORCED := {"random_colorset": false}
 const FLAT_FOR_VR := {"cam_unlock": false, "parallax": 0.0, "ui_parallax": 0.0, "grid_parallax": 0.0}
 
 static func all_keys() -> Array:
-	var out: Array = CAMERA_KEYS + VIEW_KEYS + ID_KEYS.keys() + FORCED.keys()
+	var out: Array = CAMERA_KEYS + VIEW_KEYS + VR_LOOK_KEYS + ID_KEYS.keys() + FORCED.keys()
 	return out
 
 static func active() -> bool:
@@ -106,7 +109,7 @@ static func set_prefer_theirs(theirs: bool):
 static func collect() -> Dictionary:
 	var backup: Dictionary = Rhythia.get_meta("spec_backup") if active() else {}
 	var out := {}
-	for k in CAMERA_KEYS + VIEW_KEYS + ID_KEYS.keys():
+	for k in CAMERA_KEYS + VIEW_KEYS + VR_LOOK_KEYS + ID_KEYS.keys():
 		if not (k in Rhythia):
 			continue
 		var v = backup[k] if backup.has(k) else Rhythia.get(k)
@@ -127,6 +130,7 @@ static func apply(their: Dictionary, peer_id: int):
 	var keys: Array = VIEW_KEYS.duplicate()
 	var their_vr := bool(their.get("_vr", false))
 	if not Rhythia.vr:
+		keys += VR_LOOK_KEYS
 		if their_vr:
 			for k in FLAT_FOR_VR:
 				_assign(k, FLAT_FOR_VR[k])

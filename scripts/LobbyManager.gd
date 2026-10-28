@@ -557,13 +557,16 @@ func _apply_mods_locally(mods: Dictionary):
 	if Rhythia.has_signal("mods_changed"):
 		Rhythia.emit_signal("mods_changed")
 
-func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float):
+func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null):
 	if not lobby_active:
 		return
-	_send({
+	var msg := {
 		"type": "update_live_state", "x": x, "y": y, "combo": combo, "combo_level": combo_level,
 		"energy_pct": energy_pct, "lvl_progress_pct": lvl_progress_pct, "ms": chart_ms,
-	})
+	}
+	if vr_pose is Array:
+		msg["vr"] = vr_pose # in VR: head and hands, for spectators
+	_send(msg)
 func notify_passed():
 	if not lobby_active:
 		return
