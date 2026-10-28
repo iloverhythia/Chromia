@@ -92,12 +92,12 @@ func _ready():
 	m.add_child(box)
 
 	_label("Transfer settings", f_title, ACCENT)
-	_label("Move your settings and custom content to another device: colorsets, note meshes, cursors and trails, hit / miss / menu sounds, borders, backgrounds, profiles, keybinds and VR settings. Maps, replays, scores and stats stay where they are. A few settings that belong to each device stay as they are on the receiving one (window, frame rate, touch layout, sensitivity, audio offset).", f_body, DIM, true)
+	_label("Copy your settings and custom content (colorsets, meshes, sounds, backgrounds, profiles, keybinds) to another device. Maps and scores aren't included.", f_body, DIM, true)
 
 	if not web():
 		box.add_child(HSeparator.new())
 		_label("Send from this device", f_title, ACCENT)
-		_label("Make a code, then enter it on the other device. Both need to be on the same Wi-Fi, with Chromia open. The code works for 15 minutes, once.", f_body, DIM, true)
+		_label("Make a code and enter it on the other device. Both need Chromia open on the same Wi-Fi.", f_body, DIM, true)
 		var h = HBoxContainer.new()
 		h.add_constant_override("separation", 10)
 		box.add_child(h)
@@ -110,7 +110,7 @@ func _ready():
 
 		box.add_child(HSeparator.new())
 		_label("Receive on this device", f_title, ACCENT)
-		_label("Enter the code shown on the other device (letters and numbers, the dashes don't matter).", f_body, DIM, true)
+		_label("Enter the code from the other device.", f_body, DIM, true)
 		var h2 = HBoxContainer.new()
 		h2.add_constant_override("separation", 10)
 		box.add_child(h2)
@@ -133,7 +133,7 @@ func _ready():
 
 	box.add_child(HSeparator.new())
 	_label("Or use a file", f_title, ACCENT)
-	_label("Save everything to one file and open it on the other device (copy it over any way you like)." + (" The browser version can only use files." if web() else ""), f_body, DIM, true)
+	_label("Save everything to one file and open it on the other device." + (" The browser version can only use files." if web() else ""), f_body, DIM, true)
 	var h3 = HBoxContainer.new()
 	h3.add_constant_override("separation", 10)
 	box.add_child(h3)
@@ -174,9 +174,9 @@ func _start_send():
 	_stop_send()
 	var ip: String = ST.local_ip()
 	if ip == "":
-		_say(_send_status, "Not connected to a local network. Connect to Wi-Fi and try again, or use a file below.", BAD)
+		_say(_send_status, "Not on Wi-Fi. Connect, or use a file below.", BAD)
 		return
-	_say(_send_status, "Packing your settings and content...")
+	_say(_send_status, "Packing...")
 	_send_btn.disabled = true
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
@@ -191,7 +191,7 @@ func _start_send():
 	_send_btn.disabled = false
 	if idx < 0:
 		_server = null
-		_say(_send_status, "Couldn't open a connection on this device (ports %d-%d are in use)." % [ST.PORTS[0], ST.PORTS[-1]], BAD)
+		_say(_send_status, "Couldn't open a connection (ports %d-%d are in use)." % [ST.PORTS[0], ST.PORTS[-1]], BAD)
 		return
 	randomize()
 	_pin = randi() & 0x3ffffff
@@ -202,8 +202,8 @@ func _start_send():
 	_stop_btn.visible = true
 	var extra = ""
 	if not b.skipped.empty():
-		extra = "\n%d file(s) too big to send were left out: %s" % [b.skipped.size(), PoolStringArray(b.skipped).join(", ")]
-	_say(_send_status, "Ready: %d files (%s). Enter this code on the other device...%s" % [b.files, ST.human_size(b.size), extra])
+		extra = "\nLeft out %d file(s), too big: %s" % [b.skipped.size(), PoolStringArray(b.skipped).join(", ")]
+	_say(_send_status, "Code ready (%d files, %s). Enter it on the other device.%s" % [b.files, ST.human_size(b.size), extra])
 	Rhythia.trail("transfer: sending from %s port %d" % [ip, ST.PORTS[idx]])
 	set_process(true)
 
@@ -229,7 +229,7 @@ func _process_send():
 	if _server == null:
 		return
 	if OS.get_ticks_msec() > _server_until and not _sending:
-		_stop_send("The code ran out. Make a new one.")
+		_stop_send("Code expired. Make a new one.")
 		return
 	if _peer == null and _server.is_connection_available():
 		_peer = _server.take_connection()
@@ -242,7 +242,7 @@ func _process_send():
 		return
 	if _peer.get_status() != StreamPeerTCP.STATUS_CONNECTED:
 		if _sending:
-			_say(_send_status, "The other device stopped receiving. Its code still works: try again there.", BAD)
+			_say(_send_status, "The other device stopped. Try again there.", BAD)
 		_peer = null
 		_sending = false
 		return
@@ -273,7 +273,7 @@ func _process_send():
 				_peer = null
 				_bad_tries += 1
 				if _bad_tries >= 10:
-					_stop_send("Too many wrong codes were tried: stopped. Make a new code.")
+					_stop_send("Too many wrong codes. Make a new one.")
 			return
 		if OS.get_ticks_msec() - _peer_since > 10000:
 			_peer.disconnect_from_host()
@@ -315,12 +315,12 @@ func _start_receive():
 	_received = null
 	var c: Dictionary = ST.parse_code(_code_in.text)
 	if c.empty():
-		_say(_recv_status, "That isn't a transfer code: it has 12 letters and numbers, like 7K2M-9QXA-4T0B.", BAD)
+		_say(_recv_status, "Not a valid code (it looks like 7K2M-9QXA-4T0B).", BAD)
 		return
 	_client = StreamPeerTCP.new()
 	if _client.connect_to_host(c.ip, c.port) != OK:
 		_client = null
-		_say(_recv_status, "Couldn't connect. Check that both devices are on the same Wi-Fi.", BAD)
+		_say(_recv_status, "Couldn't connect. Are both on the same Wi-Fi?", BAD)
 		return
 	_client.set_no_delay(true)
 	_client_since = OS.get_ticks_msec()
@@ -344,11 +344,11 @@ func _process_receive():
 	if st == StreamPeerTCP.STATUS_CONNECTING:
 		if OS.get_ticks_msec() - _client_since > 10000:
 			_stop_receive()
-			_say(_recv_status, "No answer. Check the code, that the other device still shows it, and that both are on the same Wi-Fi.", BAD)
+			_say(_recv_status, "No answer. Check the code and the Wi-Fi.", BAD)
 		return
 	if st != StreamPeerTCP.STATUS_CONNECTED:
 		_stop_receive()
-		_say(_recv_status, "The connection was lost%s." % (" (the code may be wrong or used up)" if _want < 0 else ""), BAD)
+		_say(_recv_status, "The connection was lost%s." % (" (wrong or used code?)" if _want < 0 else ""), BAD)
 		return
 	if not _client_hello_sent:
 		var hello = StreamPeerBuffer.new()
@@ -365,7 +365,7 @@ func _process_receive():
 	if _want < 0:
 		if _got.size() >= 2 and _got.subarray(0, 1).get_string_from_ascii() == "NO":
 			_stop_receive()
-			_say(_recv_status, "Wrong code. Check it on the other device.", BAD)
+			_say(_recv_status, "Wrong code.", BAD)
 			return
 		if _got.size() >= 10:
 			var sp = StreamPeerBuffer.new()
@@ -389,7 +389,7 @@ func _got_bundle(bytes: PoolByteArray, status: Label):
 		return
 	_received = r.data
 	var from: String = str(_received.get("from", "another device"))
-	_say(status, "Got %d files (%s) and the settings from %s. Apply them? Your settings now are kept as the profile 'before transfer' (Settings > Select Profile) if you want them back." % [_received.files.size(), ST.human_size(int(_received.size)), from], GOOD)
+	_say(status, "Got %d files (%s) from %s. Apply them? Your current settings are kept as the profile 'before transfer'." % [_received.files.size(), ST.human_size(int(_received.size)), from], GOOD)
 	if _apply_box == null:
 		# browser: no apply row in the code part, so ask here
 		_apply_box = HBoxContainer.new()
