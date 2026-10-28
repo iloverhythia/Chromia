@@ -828,7 +828,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f"
 ]
 
 
@@ -920,6 +920,7 @@ const VERSION_NOTES = {
 	"oct28-2026-b": "- iPhone: removed the likely cause of a crash when starting a second song: the faster loading from the last update reused parts of the previous song. Scenes are loaded fresh again; in VR only their textures, meshes and sounds are kept, so VR songs still start quickly\n- Crash reports only show after a real crash: restarting for an update (and old installs moving to Chromia) no longer counts as one\n- Phones and web: the Export map data button is hidden (it needs a desktop file dialog); this also removes an error at every menu load on iPhone",
 	"oct28-2026-c": "- Spectating shows the player's own settings: their camera (spin, parallax, FOV), approach rate, note colors and mesh, cursor, HUD and background. Your settings are never changed and come back when you leave\n- Switch between their settings and yours with the button at the top left or Tab (in VR: the trigger)\n- In VR your own camera is kept; someone playing in VR is shown with a still camera\n- Smoother spectating: the cursor, notes and music follow the player's map time, notes are hit by their cursor, the music plays when you join late, and spin follows their cursor\n- You only spectate players still playing (not someone who finished, joined late or is spectating)",
 	"oct28-2026-d": "- Spectating is smooth: notes and music move at an even speed (playback runs on a steady clock instead of chasing each message), the cursor follows a curve instead of straight lines, and you get up to 60 positions a second instead of 30\n- About a tenth of a second behind the player instead of a third",
+	"oct28-2026-f": "- NEW (VR): lock the play area: press the recenter button 5 times quickly. While it is locked nothing moves where the menu and the grid are (holding the recenter button or a view reset on the headset do nothing), and it stays the same after you quit and open the game again. 5 quick presses again unlock it. Also in Settings > VR > Play area",
 	"oct28-2026-e": "- Spectating someone in VR shows their hands and pointer beam (in their beam color), ending on their cursor\n- With their settings on, you see the song from their headset: the camera is their head\n- If you spectate in VR yourself, you see their hands and beam next to you (your own view and beam stay yours)",
 	"oct28-2026-a": "- VR: the black pillars in the menu are gone (they got in the way of your view)\n- NEW (VR): Settings > VR > Menu environment: what is around you in the menu. Classic (the old room), five new places: Deep Space (stars, a nebula and a ringed planet), Synthwave (a neon grid running to a striped sun and purple mountains), Sunset Ocean (a wooden dock over sparkling waves), Pastel Clouds (a soft sky with floating clouds) and Neon City (a rooftop among glowing towers and flying lights). Or pick any background from the background list, your own custom ones too\n- VR: songs start much faster: the song scene is loaded once when the VR menu loads and kept, and backgrounds stay loaded, so the next song skips loading them again. Going back to the menu is faster too\n- PC VR: removed a likely cause of the crash when starting a song: in VR everything now loads on the main thread, like on the Meta Quest (loading on a second thread while the headset draws can crash Godot 3). If it still crashes, send the crash report from Settings > Crash Reports",
 	"oct27-2026-m": "- Transfer settings page: much less text, shorter messages",
@@ -1982,6 +1983,11 @@ var vr_hand: String = "default"
 # the VR menu's surroundings: "classic", a built-in one (vr/MenuEnvs.gd) or
 # "bg:<background id>" for a background from the background list
 var vr_menu_env: String = "classic"
+# the play area locked (5 quick presses of the recenter button, VRPlayer.gd):
+# its placement (12 numbers, a Transform) and how far you looked down / up
+var vr_play_lock: bool = false
+var vr_play_lock_frame: Array = []
+var vr_play_lock_pitch: float = 0.0
 # VR graphics (vr/VRPlayer.gd apply_xr_settings): Meta Quest foveated rendering
 # 0 off .. 3 high, display refresh rate (0 = the headset's own), render
 # resolution (applies when VR starts) and glow (-1 = off on Quest, on on PC)
@@ -3707,6 +3713,19 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_hand = str(data.vr_hand)
 		if data.has("vr_menu_env") and load("res://vr/MenuEnvs.gd").is_valid(str(data.vr_menu_env)):
 			vr_menu_env = str(data.vr_menu_env)
+		if data.has("vr_play_lock"):
+			vr_play_lock = bool(data.vr_play_lock)
+		vr_play_lock_frame = []
+		if data.has("vr_play_lock_frame") and typeof(data.vr_play_lock_frame) == TYPE_ARRAY and data.vr_play_lock_frame.size() == 12:
+			var ok := true
+			for v in data.vr_play_lock_frame:
+				if not (typeof(v) == TYPE_REAL or typeof(v) == TYPE_INT) or is_nan(float(v)) or is_inf(float(v)):
+					ok = false
+			if ok:
+				for v in data.vr_play_lock_frame:
+					vr_play_lock_frame.append(float(v))
+		if data.has("vr_play_lock_pitch"):
+			vr_play_lock_pitch = clamp(float(data.vr_play_lock_pitch), -1.2, 1.2)
 		if data.has("vr_foveation"):
 			vr_foveation = int(clamp(int(data.vr_foveation), 0, 3))
 		if data.has("vr_refresh"):
@@ -4206,6 +4225,9 @@ func _write_settings_file(saveFile: String):
 			vr_haptic_miss = vr_haptic_miss,
 			vr_hand = vr_hand,
 			vr_menu_env = vr_menu_env,
+			vr_play_lock = vr_play_lock,
+			vr_play_lock_frame = vr_play_lock_frame,
+			vr_play_lock_pitch = vr_play_lock_pitch,
 			vr_foveation = vr_foveation,
 			vr_refresh = vr_refresh,
 			vr_render_scale = vr_render_scale,

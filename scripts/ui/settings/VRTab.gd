@@ -93,6 +93,15 @@ func _ready():
 	box.add_child(_curve_box)
 	_button(box, "Reset screen", "_reset_screen")
 	box.add_child(HSeparator.new())
+	_label("Play area", f_title, ACCENT)
+	_label("Locked: nothing moves where the menu and the grid are (holding the recenter button or a view reset on the headset do nothing), and it stays the same after you reopen the game. Press the recenter button 5 times quickly to lock or unlock it.", f_body, DIM, true)
+	_lock_area_box = CheckBox.new()
+	_lock_area_box.text = "Lock the play area"
+	_lock_area_box.theme = load("res://uitheme.tres")
+	_lock_area_box.add_font_override("font", f_bold)
+	_lock_area_box.connect("toggled", self, "_on_lock_area")
+	box.add_child(_lock_area_box)
+	box.add_child(HSeparator.new())
 	_label("Menu environment", f_title, ACCENT)
 	_label("What's around you in the menu: a built-in place, or any background from the background list (also your own custom ones).", f_body, DIM, true)
 	var envs := []
@@ -361,6 +370,25 @@ static func _select_meta(o: OptionButton, value):
 			o.select(i)
 			return
 	o.select(0)
+
+var _lock_area_box: CheckBox
+
+func _on_lock_area(on: bool):
+	if _loading or on == Rhythia.vr_play_lock:
+		return
+	if Rhythia.vr_player != null and Rhythia.vr_player.has_method("set_play_lock"):
+		Rhythia.vr_player.set_play_lock(on)
+	else:
+		Rhythia.vr_play_lock = on
+		_save_soon()
+
+# (the 5 presses can change it while this page is open)
+func _process(_d):
+	if _lock_area_box != null and _lock_area_box.pressed != Rhythia.vr_play_lock:
+		var was := _loading
+		_loading = true
+		_lock_area_box.pressed = Rhythia.vr_play_lock
+		_loading = was
 
 const BG_ITEM := "__bg__"
 var _env_pick: OptionButton

@@ -41,6 +41,7 @@ func _ready():
 	get_tree().create_timer(1.5).connect("timeout", self, "apply_xr_settings")
 	get_tree().connect("node_added", self, "_on_node_added")
 	update_primary_ray()
+	_restore_play_lock()
 	set_process(true)
 	pause_mode = PAUSE_MODE_PROCESS
 
@@ -48,6 +49,7 @@ func _process(delta):
 	if Input.is_action_just_pressed("vr_switch_hands"):
 		Rhythia.vr_left_handed = not Rhythia.vr_left_handed
 		update_primary_ray()
+	_lock_presses()
 	_hold_recenter(delta)
 	_haptics_tick(delta)
 	_watch_for_reset(delta)
@@ -97,6 +99,10 @@ func _hold_recenter(delta: float):
 	if _hold_done:
 		return
 	_held += delta
+	if Rhythia.vr_play_lock:
+		if _held > 0.4:
+			_show_hold("Play area locked (press 5 times quickly to unlock)")
+		return
 	if _held >= HOLD_TIME:
 		_hold_done = true
 		recenter_to_head()
@@ -152,8 +158,10 @@ func _place_eye():
 	var eye: float = c.y - dist * tan(_pitch)
 	if is_nan(eye) or is_inf(eye):
 		eye = EYE_HEIGHT
-	if abs(origin.transform.origin.y - eye) > 0.001 or origin.transform.origin.x != 0 or origin.transform.origin.z != 0:
-		origin.transform.origin = Vector3(0, eye, 0)
+	# (_lock_frame: a locked play area's placement from before a restart)
+	var want_o := Transform(Basis(), Vector3(0, eye, 0)) * _lock_frame
+	if not origin.transform.is_equal_approx(want_o):
+		origin.transform = want_o
 
 func _watch_for_reset(delta: float):
 	if Rhythia.fake_vr:
@@ -175,14 +183,18 @@ func _watch_for_reset(delta: float):
 		var f0: Vector3 = -_last_head.basis.z
 		var f1: Vector3 = -t.basis.z
 		var turned: float = Vector2(f0.x, f0.z).angle_to(Vector2(f1.x, f1.z)) if Vector2(f0.x, f0.z).length() > 0.1 and Vector2(f1.x, f1.z).length() > 0.1 else 0.0
-		if (moved > JUMP_MOVE or abs(turned) > JUMP_TURN) and _recenter_in == 0:
+		if (moved > JUMP_MOVE or abs(turned) > JUMP_TURN) and _recenter_in == 0 and not Rhythia.vr_play_lock:
 			Rhythia.trail("VR view jumped (moved %.2f, turned %d deg): recentering" % [moved, int(rad2deg(abs(turned)))])
 			_recenter_in = SETTLE_FRAMES
 	_last_head = t
+	if _recenter_in > 0 and Rhythia.vr_play_lock and Rhythia.vr_play_lock_frame.size() == 12:
+		_recenter_in = 0 # locked: nothing moves
 	if _recenter_in > 0:
 		_recenter_in -= 1
 		if _recenter_in == 0:
 			recenter_to_head()
+			if Rhythia.vr_play_lock:
+				_save_play_lock() # (locked before there was a placement to keep)
 
 # Where the game's content is (menu screen or grid centre), in world space.
 func _content_point() -> Vector3:
@@ -219,6 +231,7 @@ func recenter_to_head():
 	var fwd: Vector3 = -head.global_transform.basis.z.normalized()
 	var pitch: float = clamp(asin(clamp(fwd.y, -1.0, 1.0)), -MAX_LOOK_DOWN, MAX_LOOK_UP)
 	# head to the origin, facing forward (keeps the floor level / tilt)
+	_lock_frame = Transform() # (the new centre replaces a restored one)
 	ARVRServer.center_on_hmd(ARVRServer.RESET_BUT_KEEP_TILT, false)
 	_pitch = pitch
 	_place_eye()
@@ -226,6 +239,67 @@ func recenter_to_head():
 	_last_head = null
 	_ignore = 3 # the recenter itself makes the pose jump
 	_recenter_in = 0
+
+# --- Locking the play area -------------------------------------------------------
+# Press the recenter button 5 times quickly: the play area is locked. Nothing
+# moves it any more (holding the recenter button, a view reset on the
+# headset), and it stays where it is when you quit and open the game again,
+# as long as the headset's own boundary / room setup is the same. 5 quick
+# presses again unlock it. Also Settings > VR > Play area.
+#
+# The placement kept is the headset's reference frame at the moment you lock
+# (where the last recenter put things). After a restart the headset starts
+# without one, so it goes on the Origin node instead (_lock_frame).
+const LOCK_PRESSES := 5
+const LOCK_WINDOW := 2.5 # seconds for all 5 presses
+var _presses := []
+var _lock_frame := Transform()
+
+func _lock_presses():
+	if not Input.is_action_just_pressed("vr_recenter"):
+		return
+	var now := OS.get_ticks_msec() / 1000.0
+	_presses.append(now)
+	while _presses.size() > LOCK_PRESSES:
+		_presses.pop_front()
+	if _presses.size() == LOCK_PRESSES and now - float(_presses[0]) <= LOCK_WINDOW:
+		_presses.clear()
+		set_play_lock(not Rhythia.vr_play_lock)
+
+func set_play_lock(on: bool):
+	Rhythia.vr_play_lock = on
+	if on:
+		_save_play_lock()
+	_recenter_in = 0
+	_hold_done = true # (the last press isn't the start of a hold-to-recenter)
+	_show_hold("Play area locked" if on else "Play area unlocked", 1.5)
+	_buzz(0.7, 0.15)
+	Rhythia.trail("VR play area " + ("locked" if on else "unlocked"))
+	Rhythia.save_settings()
+
+func _save_play_lock():
+	if Rhythia.fake_vr:
+		Rhythia.vr_play_lock_frame = transform_to_array(Transform())
+		return
+	Rhythia.vr_play_lock_frame = transform_to_array(_lock_frame * ARVRServer.get_reference_frame())
+	Rhythia.vr_play_lock_pitch = _pitch
+
+# VR starting with the play area locked: the saved placement instead of a
+# recenter
+func _restore_play_lock():
+	if not Rhythia.vr_play_lock or Rhythia.vr_play_lock_frame.size() != 12:
+		return
+	_lock_frame = array_to_transform(Rhythia.vr_play_lock_frame)
+	_pitch = Rhythia.vr_play_lock_pitch
+	_recenter_in = 0
+	Rhythia.trail("VR play area locked: placement from last time")
+
+static func transform_to_array(t: Transform) -> Array:
+	var b := t.basis
+	return [b.x.x, b.x.y, b.x.z, b.y.x, b.y.y, b.y.z, b.z.x, b.z.y, b.z.z, t.origin.x, t.origin.y, t.origin.z]
+
+static func array_to_transform(a: Array) -> Transform:
+	return Transform(Vector3(a[0], a[1], a[2]), Vector3(a[3], a[4], a[5]), Vector3(a[6], a[7], a[8]), Vector3(a[9], a[10], a[11]))
 
 # --- Hands -------------------------------------------------------------------
 # Settings > VR > Hands: "default" (the box), "paw" (PawHand.gd, built in) or
