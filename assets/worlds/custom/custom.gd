@@ -6,7 +6,9 @@ func hit(noteColor:Color):
 	pass
 
 func _ready():
-	get_parent().get_node("Game").connect("hit",self,"hit")
+	var game = get_parent().get_node_or_null("Game") # (none in the VR menu)
+	if game:
+		game.connect("hit",self,"hit")
 	# Shaders
 	var env = get_node("WorldEnvironment").environment
 	if Rhythia.glow > 0:

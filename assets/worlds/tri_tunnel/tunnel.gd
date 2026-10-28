@@ -11,7 +11,9 @@ func hit(col:Color):
 	color = col
 
 func _ready():
-	get_parent().get_node("Game").connect("hit",self,"hit")
+	var game = get_parent().get_node_or_null("Game") # (none in the VR menu)
+	if game:
+		game.connect("hit",self,"hit")
 
 func _process(delta):
 	$tunnel.translation.z += rate * delta

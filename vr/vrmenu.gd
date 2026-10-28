@@ -12,28 +12,39 @@ func _ready():
 	Rhythia.vr_menu = $PointerScreen # VRPlayer.recenter_to_head puts it back in front of you
 	$PointerScreen.set_meta("home", $PointerScreen.transform)
 	call_deferred("_adopt_overlays")
-	call_deferred("_bake_csg")
+	_classic_env = $WorldEnvironment.environment
+	# a background as the menu environment, and the game crashed last time:
+	# the classic room this time, in case that background was the cause
+	if Rhythia.vr_menu_env.begins_with("bg:") and Rhythia.last_session_crashed and not Rhythia.has_meta("vr_env_crash_checked"):
+		Rhythia.set_meta("vr_env_crash_checked", true)
+		Rhythia.trail("VR menu: the last session crashed, classic environment instead of " + Rhythia.vr_menu_env)
+		Rhythia.vr_menu_env = "classic"
+		Globals.call_deferred("notify", Globals.NOTIFY_INFO, "The game closed unexpectedly last time, so the menu is in the Classic environment. Pick your background again in Settings > VR if you like.", "VR menu")
+	apply_env()
 
-# Performance: the pillars are CSG boxes, which keep their CSG machinery (and a
-# draw each) around; once built they're turned into plain meshes.
-func _bake_csg():
-	for holder in [get_node_or_null("Pillers"), get_node_or_null("Pillers2")]:
-		if holder == null:
-			continue
-		for c in holder.get_children():
-			if not (c is CSGShape) or not c.is_root_shape():
-				continue
-			var m: Array = c.get_meshes()
-			if m.size() < 2 or m[1] == null:
-				continue
-			var mi := MeshInstance.new()
-			mi.mesh = m[1]
-			mi.transform = m[0] # (the CSG node's own transform)
-			mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
-			mi.material_override = c.material_override
-			mi.material_overlay = c.material_overlay
-			holder.add_child(mi)
-			c.queue_free()
+
+# --- What's around you (Settings > VR > Menu environment, vr/MenuEnvs.gd) ---
+# "classic" is this scene's own room (the logo and the floating avatar);
+# anything else is built by MenuEnvs and put in its place.
+var _classic_env: Environment = null
+const CLASSIC_NODES := ["Sprite3D", "Sprite3D2", "Sprite3D3", "Avatar"]
+
+func apply_env():
+	var old = get_node_or_null("MenuEnv")
+	if old != null:
+		remove_child(old) # (its WorldEnvironment lets go of the world now)
+		old.queue_free()
+	var env = load("res://vr/MenuEnvs.gd").make(Rhythia.vr_menu_env)
+	var classic: bool = env == null
+	for n in CLASSIC_NODES:
+		var c = get_node_or_null(n)
+		if c != null:
+			c.visible = classic
+	# one WorldEnvironment at a time: the classic one steps aside
+	$WorldEnvironment.environment = _classic_env if classic else null
+	if env != null:
+		add_child(env)
+	Rhythia.trail("VR menu environment: %s" % (Rhythia.vr_menu_env if env != null else "classic"))
 
 func _overlays() -> Array:
 	var out := []

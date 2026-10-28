@@ -1,4 +1,4 @@
-[gd_scene load_steps=63 format=2]
+[gd_scene load_steps=61 format=2]
 
 [ext_resource path="res://scenes/menu/menu2.tscn" type="PackedScene" id=1]
 [ext_resource path="res://assets/images/branding/icon.png" type="Texture" id=2]
@@ -73,10 +73,6 @@ flags_unshaded = true
 [sub_resource type="QuadMesh" id=7]
 material = SubResource( 20 )
 size = Vector2( 0.1, 0.1 )
-
-[sub_resource type="SpatialMaterial" id=22]
-
-[sub_resource type="SpatialMaterial" id=23]
 
 [sub_resource type="SpatialMaterial" id=126]
 flags_unshaded = true
@@ -749,92 +745,6 @@ draw_pass_1 = SubResource( 14 )
 [node name="Pointer" type="MeshInstance" parent="PointerScreen"]
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.00136518 )
 mesh = SubResource( 7 )
-
-[node name="Pillers" type="Spatial" parent="."]
-transform = Transform( 3, 0, 0, 0, 5, 0, 0, 0, 3, 0.001, -5, -0.01 )
-
-[node name="Piller" type="CSGBox" parent="Pillers"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, 0 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller5" type="CSGBox" parent="Pillers"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, 2.5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller2" type="CSGBox" parent="Pillers"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, -2.5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller3" type="CSGBox" parent="Pillers"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, -5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller4" type="CSGBox" parent="Pillers"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.841, 2.306, -7.5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Pillers2" type="Spatial" parent="."]
-transform = Transform( 3, 0, 0, 0, 5, 0, 0, 0, 3, 17, -5, -0.01 )
-
-[node name="Piller" type="CSGBox" parent="Pillers2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, 0 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller5" type="CSGBox" parent="Pillers2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, 2.5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller2" type="CSGBox" parent="Pillers2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, -2.5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller3" type="CSGBox" parent="Pillers2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.836, 2.296, -5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
-
-[node name="Piller4" type="CSGBox" parent="Pillers2"]
-transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -2.841, 2.306, -7.5 )
-material_override = SubResource( 22 )
-material_overlay = SubResource( 23 )
-width = 0.3
-height = 4.0
-depth = 0.3
 
 [node name="Sprite3D" type="Sprite3D" parent="."]
 transform = Transform( 1, 0.000560265, 1.74821e-07, -0.000560265, 1, -1.06581e-14, -1.74821e-07, -9.79492e-11, 1, 1.41707e-07, 6.03115, -6.91845 )

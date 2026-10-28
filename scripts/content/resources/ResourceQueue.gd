@@ -51,7 +51,8 @@ func queue_resource(path, p_in_front = false):
 		else:
 			queue.push_back(res)
 		pending[path] = res
-		_post("queue_resource")
+		if not _main_thread():
+			_post("queue_resource")
 		_unlock("queue_resource")
 		return OK
 
@@ -126,6 +127,8 @@ func get_resource(path):
 func thread_process(wait_for_signal: bool = true):
 	if wait_for_signal:
 		_wait("thread_process")
+		if _main_thread():
+			return # (VR started meanwhile: the main thread loads now)
 
 	_lock("process")
 	while queue.size() > 0:
@@ -169,8 +172,14 @@ func start():
 	var phone := OS.has_feature("mobile") or OS.has_feature("iOS") or OS.has_feature("Android")
 	thread_started = not phone and OS.can_use_threads() and thread.start(self, "thread_func", 0) == OK
 
+# In VR everything loads on the main thread, like on phones and the Meta Quest:
+# loading scenes on a second thread while the headset is drawing is a known
+# source of crashes in Godot 3 (PC VR crashed when a song started).
+func _main_thread() -> bool:
+	return not thread_started or (Rhythia != null and Rhythia.vr)
+
 func _process(_delta):
-	if not thread_started:
+	if _main_thread():
 		thread_process(false)
 
 

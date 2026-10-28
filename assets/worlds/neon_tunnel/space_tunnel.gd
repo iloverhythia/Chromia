@@ -27,7 +27,10 @@ func _ready():
 		env.glow_bicubic_upscale = true
 	mat.albedo_color = colors[0]
 	mat2.albedo_color = colors[0]
-	get_parent().get_node("Game").connect("hit",self,"hit")
+	# (no Game node when it is the VR menu's environment)
+	var game = get_parent().get_node_or_null("Game")
+	if game:
+		game.connect("hit",self,"hit")
 	#$WorldEnvironment.environment = $WorldEnvironment.environment.duplicate()
 
 #func _ready():

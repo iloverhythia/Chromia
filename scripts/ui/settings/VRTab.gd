@@ -93,6 +93,14 @@ func _ready():
 	box.add_child(_curve_box)
 	_button(box, "Reset screen", "_reset_screen")
 	box.add_child(HSeparator.new())
+	_label("Menu environment", f_title, ACCENT)
+	_label("What's around you in the menu: a built-in place, or any background from the background list (also your own custom ones).", f_body, DIM, true)
+	var envs := []
+	for b in load("res://vr/MenuEnvs.gd").BUILT_IN:
+		envs.append([b[1], b[0]])
+	envs.append(["A background...", BG_ITEM])
+	_env_pick = _option_row("Environment", envs, "_on_env")
+	box.add_child(HSeparator.new())
 	_label("In songs", f_title, ACCENT)
 	_label("How far away the grid is (where the notes come from and where you hit them). Closer fills more of your view, like a wider FOV; further fits it all in view. Changes from the next song you play. Default 2.25 m.", f_body, DIM, true)
 	_screen_row(GRID_ROW)
@@ -354,6 +362,56 @@ static func _select_meta(o: OptionButton, value):
 			return
 	o.select(0)
 
+const BG_ITEM := "__bg__"
+var _env_pick: OptionButton
+var _env_picker = null
+
+func _on_env(i: int):
+	if _loading:
+		return
+	var v = str(_env_pick.get_item_metadata(i))
+	if v == BG_ITEM:
+		_open_env_picker()
+		return
+	_set_env(v)
+
+func _set_env(v: String):
+	Rhythia.vr_menu_env = v
+	var sc = get_tree().current_scene
+	if sc != null and sc.has_method("apply_env"):
+		sc.apply_env()
+	_show_env()
+	_save_soon()
+
+# every background as a tile (the background setting's picker)
+func _open_env_picker():
+	if _env_picker != null and is_instance_valid(_env_picker):
+		return
+	_env_picker = preload("res://scripts/ui/settings/WorldPicker.gd").new()
+	_env_picker.worlds = Rhythia.registry_world.get_items()
+	var cur = null
+	if Rhythia.vr_menu_env.begins_with("bg:"):
+		cur = Rhythia.registry_world.get_item(Rhythia.vr_menu_env.substr(3))
+	_env_picker.selected = cur
+	_env_picker.connect("picked", self, "_on_env_bg_picked")
+	_env_picker.connect("tree_exited", self, "_show_env")
+	get_viewport().add_child(_env_picker)
+
+func _on_env_bg_picked(w):
+	if w != null:
+		_set_env("bg:" + w.id)
+
+func _show_env():
+	if _env_pick == null or not is_instance_valid(_env_pick):
+		return
+	var last := _env_pick.get_item_count() - 1
+	if Rhythia.vr_menu_env.begins_with("bg:"):
+		_env_pick.set_item_text(last, load("res://vr/MenuEnvs.gd").name_of(Rhythia.vr_menu_env))
+		_env_pick.select(last)
+	else:
+		_env_pick.set_item_text(last, "A background...")
+		_select_meta(_env_pick, Rhythia.vr_menu_env)
+
 func _on_hand(i: int):
 	if _loading:
 		return
@@ -446,6 +504,7 @@ func _load_values():
 	if _miss_box:
 		_miss_box.pressed = bool(Rhythia.vr_haptic_miss)
 	_select_meta(_hand_pick, Rhythia.vr_hand)
+	_show_env()
 	_select_meta(_fov_pick, Rhythia.vr_foveation)
 	_select_meta(_rate_pick, Rhythia.vr_refresh)
 	_select_meta(_glow_pick, Rhythia.vr_glow)

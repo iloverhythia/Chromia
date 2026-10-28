@@ -15,7 +15,10 @@ func _process(delta):
 
 func _ready():
 	$WorldEnvironment.environment = $WorldEnvironment.environment.duplicate()
-	get_parent().get_node("Game").connect("hit",self,"hit")
+	# (no Game node when it is the VR menu's environment)
+	var game = get_parent().get_node_or_null("Game")
+	if game:
+		game.connect("hit",self,"hit")
 	# Shaders
 	var env = get_node("WorldEnvironment").environment
 	if Rhythia.glow > 0:
