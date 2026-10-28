@@ -102,7 +102,7 @@ static func analyze(cur: Dictionary) -> Dictionary:
 		total += p.rows.size()
 	out.notes = total
 	if plays.size() < MIN_PLAYS or total < MIN_NOTES:
-		out.summary = "Not enough plays yet%s: %d / %d plays and %d / %d notes tracked. Play a few more maps (any result counts) and come back." % [
+		out.summary = "Not enough plays yet%s: %d / %d plays, %d / %d notes. Play a few more maps." % [
 			(" with %s" % _input_name(input)) if input != "" else "", plays.size(), MIN_PLAYS, total, MIN_NOTES]
 		out.status_text = out.summary
 		return out
@@ -237,18 +237,18 @@ static func analyze(cur: Dictionary) -> Dictionary:
 		out.status_text = PoolStringArray(parts).join(" ")
 	elif mine.reading.current and aim_ready:
 		out.status = "fits"
-		out.status_text = "Nothing in your %d recent plays with these settings points to a better value. Keep playing; Generate again after a few more maps." % mine.reading.plays.size()
+		out.status_text = "Your settings fit your last %d plays. Check again after a few more maps." % mine.reading.plays.size()
 	else:
 		out.status = "need_data"
 		var sel_nc: Dictionary = mine.motor if not aim_ready else mine.reading
 		var have: int = int(sel_nc.get("have", 0))
 		var have_p: int = int(sel_nc.get("have_plays", 0))
-		var what: String = "your aim setting (%s)" % TUNABLE["absolute_scale" if bool(cur.get("absolute_mode", false)) else "sensitivity"][0].to_lower() if not aim_ready else "your approach rate, distance and fade-in"
-		out.status_text = "You changed %s by a lot, so the advice about it waits for plays with the new value: %d play%s and %d notes so far, it needs %d plays and %d notes. Play %s with it and Generate again." % [
+		var what: String = "your aim setting (%s)" % TUNABLE["absolute_scale" if bool(cur.get("absolute_mode", false)) else "sensitivity"][0].to_lower() if not aim_ready else "your approach settings"
+		out.status_text = "You changed %s a lot. Waiting for plays with it: %d play%s, %d notes (needs %d plays, %d notes). Play %s with it." % [
 			what, have_p, "" if have_p == 1 else "s", have, CUR_PLAYS, CUR_NOTES,
 			("%d more map%s" % [CUR_PLAYS - have_p, "" if CUR_PLAYS - have_p == 1 else "s"]) if have_p < CUR_PLAYS else "a few more maps"]
 	if not recs.empty() and real_recs == 0:
-		out.status_text = "Nothing clearly better yet. The suggestions below are things to try, so your history can compare them next time."
+		out.status_text = "Nothing clearly better yet. Try the ideas below so it can compare."
 	return out
 
 static func _input_name(input: String) -> String:
@@ -724,15 +724,15 @@ static func _history_setting(plays: Array, model: Dictionary, key: String, cur: 
 			oe.append(other_x * other_x)
 		var zk: float = _diff_eta(fit, model.base_k, ce, oe) / max(_diff_se(fit, model.base_k, ce, oe), 1e-6)
 		if zk >= 1.64:
-			return {"note": "%s: your %s is the best of the values you've played with (%.1f%% more notes than %s; %d plays compared on equal terms)." % [label, _fmt(key, curv), (cur_rate - other_rate) * 100.0, _fmt(key, _round(key, _untx(key, other_x))), plays.size()]}
-		return {"note": "%s: no clear difference yet between %s and %s once each map's difficulty and you improving are allowed for." % [label, _fmt(key, curv), _fmt(key, _round(key, _untx(key, other_x)))]}
+			return {"note": "%s: %s is your best so far (%.1f%% more notes than %s, %d plays)." % [label, _fmt(key, curv), (cur_rate - other_rate) * 100.0, _fmt(key, _round(key, _untx(key, other_x))), plays.size()]}
+		return {"note": "%s: no clear difference yet between %s and %s." % [label, _fmt(key, curv), _fmt(key, _round(key, _untx(key, other_x)))]}
 	var conf := _conf(z, gain)
 	if conf == "":
 		if z >= 1.0 and gain >= 0.004:
-			return {"note": "%s: your plays lean toward %s (%+.1f%% notes) but it isn't clear yet; keep playing and Generate again." % [label, _fmt(key, to), gain * 100.0]}
+			return {"note": "%s: leaning toward %s (%+.1f%% notes), not clear yet." % [label, _fmt(key, to), gain * 100.0]}
 		return null
 	var same := _same_map(plays, key, best_x, ccx)
-	var why := "On your usual notes, with how you play now, %s %s hits %.1f%% more notes than %s (from %d plays, comparing like with like: each note's difficulty, the map and you improving are all taken into account)." % [
+	var why := "%s %s hits %.1f%% more notes than %s (%d plays)." % [
 		label, _fmt(key, to), gain * 100.0, _fmt(key, curv), plays.size()]
 	if same != "":
 		why += " " + same
@@ -769,7 +769,7 @@ static func _same_map(plays: Array, key: String, xa: float, xb: float) -> String
 			hb += float(e[1][1]) / e[1][0]
 	if both < 2:
 		return ""
-	return "On the %d maps you played with both, you hit %.1f%% vs %.1f%%." % [both, ha / both * 100.0, hb / both * 100.0]
+	return "On %d maps played with both: %.1f%% vs %.1f%%." % [both, ha / both * 100.0, hb / both * 100.0]
 
 # Approach rate and distance from your history, as time on screen (log) and
 # approach rate (log), each with a curve when you've played 3+ values.
@@ -854,12 +854,12 @@ static func _history_approach(plays: Array, model: Dictionary, cur: Dictionary):
 		var oe := _ap_cols(ov if use_v else ccv, oa if use_a else cca, use_v, use_a, qv, qa)
 		var zk: float = _diff_eta(fit, model.base_k, ce, oe) / max(_diff_se(fit, model.base_k, ce, oe), 1e-6)
 		if zk >= 1.64:
-			return {"note": "Approach: your approach rate %s and distance %s (notes on screen for %.2f s) are the best of what you've played with." % [_fmt("approach_rate", cur.approach_rate), _fmt("spawn_distance", cur.spawn_distance), float(cur.vis)]}
-		return {"note": "Approach: no clear difference yet between the approach settings you've played with (now %.2f s on screen)." % float(cur.vis)}
+			return {"note": "Approach: approach rate %s and distance %s (%.2f s on screen) are your best so far." % [_fmt("approach_rate", cur.approach_rate), _fmt("spawn_distance", cur.spawn_distance), float(cur.vis)]}
+		return {"note": "Approach: no clear difference yet (now %.2f s on screen)." % float(cur.vis)}
 	var conf := _conf(z, gain)
 	if conf == "":
 		if z >= 1.0 and gain >= 0.004:
-			return {"note": "Approach: your plays lean toward notes on screen for %.2f s at approach rate %s (%+.1f%% notes), but it isn't clear yet." % [vis_to, _fmt("approach_rate", ar_new), gain * 100.0]}
+			return {"note": "Approach: leaning toward %.2f s on screen at approach rate %s (%+.1f%% notes), not clear yet." % [vis_to, _fmt("approach_rate", ar_new), gain * 100.0]}
 		return null
 	var changes := {}
 	if not same_ar:
@@ -869,12 +869,12 @@ static func _history_approach(plays: Array, model: Dictionary, cur: Dictionary):
 	var vis_changed: bool = abs(vis_to - float(cur.vis)) > 0.03 * max(float(cur.vis), 0.01)
 	var what := ""
 	if vis_changed:
-		what = "notes on screen for %.2f s (now %.2f s)" % [vis_to, float(cur.vis)]
+		what = "%.2f s on screen (now %.2f s)" % [vis_to, float(cur.vis)]
 		if use_a and not same_ar:
-			what += " coming in at approach rate %s (now %s)" % [_fmt("approach_rate", ar_new), _fmt("approach_rate", cur.approach_rate)]
+			what += " at approach rate %s (now %s)" % [_fmt("approach_rate", ar_new), _fmt("approach_rate", cur.approach_rate)]
 	else:
-		what = "approach rate %s (now %s) with notes still on screen for %.2f s" % [_fmt("approach_rate", ar_new), _fmt("approach_rate", cur.approach_rate), float(cur.vis)]
-	var why := "On your usual notes, %s hit %.1f%% more notes, from %d plays with different approach settings compared like with like." % [
+		what = "approach rate %s (now %s), still %.2f s on screen" % [_fmt("approach_rate", ar_new), _fmt("approach_rate", cur.approach_rate), float(cur.vis)]
+	var why := "%s hits %.1f%% more notes (%d plays)." % [
 		what, gain * 100.0, plays.size()]
 	return _rec(changes, cur, conf, why, "history", gain)
 
@@ -1015,13 +1015,13 @@ static func _history_check(plays: Array, model, changes: Dictionary, cur: Dictio
 		var r_new := _hit_rate(fit, ref, at_new)
 		var z_new: float = _diff_eta(fit, model.base_k, at_new, at_now) / max(_diff_se(fit, model.base_k, at_new, at_now), 1e-6)
 		if r_new - r_now < 0.002 or z_new < z_need:
-			return {"ok": false, "note": "%s: how you play now points toward %s, but you've played around there before and hit %s, so it stays." % [
+			return {"ok": false, "note": "%s: points toward %s, but you hit %s there before, so it stays." % [
 				label, _changes_text(changes), ("%.1f%% fewer notes" % ((r_now - r_new) * 100.0)) if r_now - r_new >= 0.001 else "no clearly more notes"]}
 	if any_behind:
 		var r_back := _hit_rate(fit, ref, at_back)
 		var z_back: float = _diff_eta(fit, model.base_k, at_now, at_back) / max(_diff_se(fit, model.base_k, at_now, at_back), 1e-6)
 		if r_now - r_back < 0.002 or z_back < z_need:
-			return {"ok": false, "note": "%s: how you play now points toward %s, but your plays on the other side of your setting went %s, so it doesn't push further that way." % [
+			return {"ok": false, "note": "%s: points toward %s, but the other side went %s, so it holds." % [
 				label, _changes_text(changes), ("%.1f%% better" % ((r_back - r_now) * 100.0)) if r_back - r_now >= 0.001 else "about as well"]}
 	return ok
 
@@ -1062,7 +1062,7 @@ static func _pending(plays: Array, cur: Dictionary) -> Dictionary:
 			continue
 		var group: String = "approach" if APPROACH_KEYS.has(k) else k
 		var left: int = CUR_PLAYS - n
-		out[group] = {"note": "%s: you set it to %s with the generator. Play %d more map%s with it and Generate again: then it compares it with what you had before." % [
+		out[group] = {"note": "%s: set to %s. Play %d more map%s with it, then check again." % [
 			"Approach" if group == "approach" else TUNABLE[k][0], _fmt(k, e.to), left, "" if left == 1 else "s"]}
 	return out
 
@@ -1181,7 +1181,7 @@ static func _motor(sel: Dictionary, cur: Dictionary):
 		if plays.empty():
 			return null
 		var was = sel.values.get(key)
-		return {"note": "%s: you changed it to %s and %s. Play a few more maps with it and Generate again to see how it suits you." % [label, _fmt(key, cur.get(key)), _have_text(int(sel.get("have", 0)))]}
+		return {"note": "%s: changed to %s, %s. Play a few more maps with it." % [label, _fmt(key, cur.get(key)), _have_text(int(sel.get("have", 0)))]}
 	var n := 0
 	var over := 0
 	var late := 0
@@ -1238,31 +1238,31 @@ static func _motor(sel: Dictionary, cur: Dictionary):
 	var curv: float = float(cur.get(key, 1.0))
 	var miss: float = over + late + near
 	if miss / n < 0.01:
-		return {"note": "%s: you aim cleanly with %s (only %.1f%% of jumps missed by overshooting or arriving late)." % [label, _fmt(key, curv), miss / n * 100.0]}
+		return {"note": "%s %s: clean aim (%.1f%% of jumps missed)." % [label, _fmt(key, curv), miss / n * 100.0]}
 	# too fast: overshoots dominate, and you slide well past notes
 	if share_over >= 0.65 and over / float(n) >= 0.008:
 		var f: float = clamp(0.03 + (share_over - 0.65) * 0.2 + min(over_med, 1.0) * 0.04, 0.03, 0.12)
 		var conf := "medium" if over / float(n) >= 0.02 and plays.size() >= 5 else "try"
-		var why := "With %s %s, %d%% of your aiming misses are overshoots (you get on the note and slide off before it comes) against %d%% late%s. A slightly lower %s should let you stop on notes." % [
+		var why := "%s %s: %d%% of aim misses are overshoots, %d%% late%s. Try a bit lower %s." % [
 			label, _fmt(key, curv), int(round(share_over * 100.0)), int(round((1.0 - share_over) * 100.0)),
-			(", and when you slide off you go about %.1f hitboxes past" % (over_med + 1.0)) if over_med > 0.15 else "", label.to_lower()]
+			(", overshooting by ~%.1f hitboxes" % (over_med + 1.0)) if over_med > 0.15 else "", label.to_lower()]
 		return _rec({key: curv * (1.0 - f)}, cur, conf, why, "now", over / float(n) * 0.5)
 	# too slow: late on big jumps although you get going in time
 	if share_over <= 0.35 and late / float(n) >= 0.008 and big_n >= 80 and float(big_late) / big_n >= 0.015 and (lead_med < 0 or lead_med < 90.0):
 		var f2: float = clamp(0.03 + (0.35 - share_over) * 0.2, 0.03, 0.12)
 		var conf2 := "medium" if late / float(n) >= 0.02 and plays.size() >= 5 else "try"
-		var why2 := "With %s %s, %d%% of your aiming misses are late (still on your way when the note comes), mostly on big jumps (%d%% of them), and you reach big jumps only ~%d ms early. A slightly higher %s gets you there in time." % [
+		var why2 := "%s %s: %d%% of aim misses are late, mostly big jumps (%d%% missed, reached only ~%d ms early). Try a bit higher %s." % [
 			label, _fmt(key, curv), int(round((1.0 - share_over) * 100.0)), int(round(float(big_late) / big_n * 100.0)), int(max(lead_med, 0)), label.to_lower()]
 		return _rec({key: curv * (1.0 + f2)}, cur, conf2, why2, "now", late / float(n) * 0.5)
 	if share_over > 0.35 and share_over < 0.65:
-		return {"note": "%s %s: your overshoots and late arrivals are balanced (%d%% / %d%%), so it suits you; your misses come from elsewhere." % [label, _fmt(key, curv), int(round(share_over * 100.0)), int(round((1.0 - share_over) * 100.0))]}
-	return {"note": "%s %s: your aiming misses lean toward %s (%d%%), but they're only %.1f%% of your jumps, too few to say %s %s would do better." % [
+		return {"note": "%s %s: overshoots and late misses are balanced (%d%% / %d%%), so it fits." % [label, _fmt(key, curv), int(round(share_over * 100.0)), int(round((1.0 - share_over) * 100.0))]}
+	return {"note": "%s %s: aim misses lean %s (%d%%), but only %.1f%% of jumps, too few to say %s %s helps." % [
 		label, _fmt(key, curv), "overshooting" if share_over >= 0.65 else "arriving late", int(round((share_over if share_over >= 0.65 else 1.0 - share_over) * 100.0)),
 		miss / n * 100.0, "a lower" if share_over >= 0.65 else "a higher", label.to_lower()]}
 
 # Reading: distance (time on screen) and approach rate (spacing).
 static func _have_text(n: int) -> String:
-	return "haven't played with it yet" if n <= 0 else "have only %d notes with it so far" % n
+	return "not played yet" if n <= 0 else "only %d notes so far" % n
 
 static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 	var out := []
@@ -1271,7 +1271,7 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 		return out
 	if not sel.current:
 		if not plays.empty():
-			out.append({"note": "Approach: you changed it (now approach rate %s, distance %s, notes on screen %.2f s) and %s; play a few maps with it before judging it." % [
+			out.append({"note": "Approach: changed (approach rate %s, distance %s, %.2f s on screen), %s. Play a few maps with it." % [
 				_fmt("approach_rate", cur.approach_rate), _fmt("spawn_distance", cur.spawn_distance), float(cur.vis), _have_text(int(sel.get("have", 0)))]})
 		return out
 	var vis: float = float(cur.vis) * 1000.0 # ms
@@ -1343,9 +1343,9 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 		want = clamp(want, vis * 1.1, vis * 1.5)
 		var nd: float = dist * want / vis
 		var conf := "medium" if late_m[0] >= 15 and rate_late - rate_ok >= 0.05 else "try"
-		var why := "Notes are readable for %.2f s with your settings. On notes that only showed up after you'd finished the one before, you were late %d%% of the time, against %d%% on notes you could see coming%s." % [
+		var why := "Notes are visible for %.2f s. On notes that appear after you finish the previous one you're late %d%% of the time, vs %d%% otherwise%s." % [
 			vis / 1000.0, int(round(rate_late * 100.0)), int(round(rate_ok * 100.0)),
-			(" (your reaction time to a new note is about %d ms)" % int(react)) if react > 0 else ""]
+			(" (reaction ~%d ms)" % int(react)) if react > 0 else ""]
 		var fade: float = clamp(float(cur.get("fade_length", 0.0)), 0.0, 1.0)
 		var gain_r: float = (rate_late - rate_ok) * float(late_n[0]) / max(n, 1)
 		if fade >= 0.25:
@@ -1355,16 +1355,16 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 			var nf: float = (1.0 - want / full) / FADE_SEEN
 			if nf >= 0.0:
 				nf = min(nf, fade - 0.1)
-				why += " Your fade-in (%s) keeps notes invisible for part of their way in; with less of it (%s) they're readable for about %.2f s, with the same speed and spacing." % [
+				why += " Less fade-in (%s to %s) shows them for ~%.2f s." % [
 					_fmt("fade_length", fade), _fmt("fade_length", nf), _vis_time(dist, ar, nf)]
 				out.append(_rec({"fade_length": nf}, cur, conf, why, "now", gain_r))
 			else:
 				var nd0: float = want / 1000.0 * ar
-				why += " Your fade-in (%s) keeps notes invisible for part of their way in: with no fade-in and a bit more distance (same approach rate, so the same speed and spacing) they're readable for about %.2f s." % [
+				why += " No fade-in (now %s) plus a bit more distance shows them for ~%.2f s." % [
 					_fmt("fade_length", fade), want / 1000.0]
 				out.append(_rec({"fade_length": 0.0, "spawn_distance": nd0}, cur, conf, why, "now", gain_r))
 			return out
-		why += " More distance (same approach rate, so the same speed and spacing) shows notes sooner: about %.2f s." % (want / 1000.0)
+		why += " More distance shows them for ~%.2f s (same speed)." % (want / 1000.0)
 		out.append(_rec({"spawn_distance": nd}, cur, conf, why, "now", gain_r))
 		return out
 	# 1b. almost every miss is being late (or never getting there) and notes
@@ -1374,7 +1374,7 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 	if miss >= 30 and late_share >= 0.6 and float(miss) / n >= 0.08 and vis < 650.0:
 		var want3: float = clamp(max(vis * 1.4, 500.0), vis * 1.2, vis * 1.7)
 		var conf3 := "medium" if late_share >= 0.75 and float(miss) / n >= 0.15 else "try"
-		var why4 := "%d%% of your misses are being late or never getting to the note, and notes are readable for only %.2f s with your settings: you don't get to see them in time." % [
+		var why4 := "%d%% of your misses are late, and notes are visible for only %.2f s." % [
 			int(round(late_share * 100.0)), vis / 1000.0]
 		var fade3: float = clamp(float(cur.get("fade_length", 0.0)), 0.0, 1.0)
 		if fade3 >= 0.25:
@@ -1382,10 +1382,10 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 			var nf3: float = (1.0 - want3 / full3) / FADE_SEEN
 			if nf3 >= 0.0:
 				nf3 = min(nf3, fade3 - 0.1)
-				why4 += " Less fade-in (%s instead of %s) makes them readable for about %.2f s, with the same speed and spacing." % [_fmt("fade_length", nf3), _fmt("fade_length", fade3), _vis_time(dist, ar, nf3)]
+				why4 += " Less fade-in (%s instead of %s) shows them for ~%.2f s." % [_fmt("fade_length", nf3), _fmt("fade_length", fade3), _vis_time(dist, ar, nf3)]
 				out.append(_rec({"fade_length": nf3}, cur, conf3, why4, "now", late_share * float(miss) / n * 0.5))
 				return out
-		why4 += " More distance (same approach rate, so the same speed and spacing) makes them readable for about %.2f s." % (want3 / 1000.0)
+		why4 += " More distance shows them for ~%.2f s (same speed)." % (want3 / 1000.0)
 		out.append(_rec({"spawn_distance": dist * want3 / vis}, cur, conf3, why4, "now", late_share * float(miss) / n * 0.5))
 		return out
 	# 2. approach rate: leaving notes early / skipping them in quick runs
@@ -1397,7 +1397,7 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 		var nar: float = ar * (1.0 + f2)
 		var nd2: float = dist * (1.0 + f2) # same time on screen
 		var conf2 := "medium" if es >= 20 and (quick_rate >= 0.04 or quick_rate >= 2.5 * slow_rate) else "try"
-		var why2 := "%d%% of your misses are leaving a note for the next one too early or skipping it, mostly in quick runs (%.1f%% of notes under 200 ms apart, against %.1f%% elsewhere). A higher approach rate spreads notes further apart as they come in, so the one you're on is easier to tell from the next; the distance goes up with it to keep them on screen just as long (%.2f s)." % [
+		var why2 := "%d%% of your misses are leaving notes early or skipping them, mostly in quick runs (%.1f%% vs %.1f%% elsewhere). A higher approach rate spaces notes out; distance goes up too, so they stay on screen %.2f s." % [
 			int(round(es / miss * 100.0)), quick_rate * 100.0, slow_rate * 100.0, vis / 1000.0]
 		out.append(_rec({"approach_rate": nar, "spawn_distance": nd2}, cur, conf2, why2, "now", es / max(n, 1) * 0.5))
 		return out
@@ -1412,11 +1412,11 @@ static func _reading(sel: Dictionary, cur: Dictionary) -> Array:
 	var on_screen: float = vis / max(med_gap, 50.0)
 	if on_screen >= 9.0 and miss >= 20 and float(skip) / max(miss, 1) >= 0.15:
 		var want2: float = clamp(med_gap * 7.0, vis * 0.75, vis * 0.9)
-		var why3 := "With notes on screen for %.2f s you usually see ~%d notes at once on your maps, and %d%% of your misses are notes you skipped. A bit less distance (%.2f s on screen) shows fewer at a time." % [
+		var why3 := "At %.2f s on screen you see ~%d notes at once, and %d%% of your misses are skips. A bit less distance (%.2f s) shows fewer." % [
 			vis / 1000.0, int(on_screen), int(round(float(skip) / miss * 100.0)), want2 / 1000.0]
 		out.append(_rec({"spawn_distance": dist * want2 / vis}, cur, "try", why3, "now", float(skip) / max(n, 1) * 0.3))
 		return out
-	out.append({"note": "Approach: with notes on screen for %.2f s (approach rate %s, distance %s) you read notes in time%s and rarely lose track of which note is next, so these suit you." % [
+	out.append({"note": "Approach: %.2f s on screen (approach rate %s, distance %s) fits: you read notes in time%s." % [
 		vis / 1000.0, _fmt("approach_rate", ar), _fmt("spawn_distance", dist), (" (reaction ~%d ms)" % int(react)) if react > 0 else ""]})
 	return out
 
@@ -1454,7 +1454,7 @@ static func _experiments(mine: Dictionary, cur: Dictionary, hist: Dictionary, pl
 		var v: float = float(cur.get(key, 1.0))
 		if not _explored(plays, key, v, fk):
 			out.append(_rec({key: v * fk}, cur, "try",
-				"Nothing in how you play points one way yet, and you haven't played with your %s much %s than %s. Play about 5 maps with %s (your misses lean slightly toward %s); when you Generate again, your history can compare the two on equal terms." % [
+				"You haven't tried your %s much %s than %s. Try %s for about 5 maps (misses lean slightly toward %s)." % [
 					TUNABLE[key][0].to_lower(), "lower" if down else "higher", _fmt(key, v), _fmt(key, _round(key, v * fk)), "overshooting" if down else "arriving late"], "test", 0.0))
 	# approach: more time to read if you're mostly late / skipping, more
 	# spacing if you leave notes early
@@ -1464,11 +1464,11 @@ static func _experiments(mine: Dictionary, cur: Dictionary, hist: Dictionary, pl
 		var all_m: int = over + late + early + skip
 		if late + skip >= 0.5 * max(all_m, 1) and late + skip >= 2 * max(early, 1) and not _explored(plays, "spawn_distance", dist, 1.15):
 			out.append(_rec({"spawn_distance": dist * 1.15}, cur, "try",
-				"Most of your misses are being late or skipping a note (%d%% of them), and you haven't played with much more distance than %s. Play about 5 maps with %s (notes readable a bit sooner, same speed and spacing); then Generate again and your history can compare." % [
+				"%d%% of your misses are late or skipped, and you haven't tried much more distance than %s. Try %s for about 5 maps." % [
 					int(round(float(late + skip) / max(all_m, 1) * 100.0)), _fmt("spawn_distance", dist), _fmt("spawn_distance", _round("spawn_distance", dist * 1.15))], "test", 0.0))
 		elif not _explored(plays, "approach_rate", ar, 1.15):
 			out.append(_rec({"approach_rate": ar * 1.15, "spawn_distance": dist * 1.15}, cur, "try",
-				"Nothing in how you read notes points one way yet, and you haven't played with a much higher approach rate than %s. Play about 5 maps with %s (distance up as much, so notes stay on screen as long, just further apart); then Generate again and your history can compare." % [
+				"You haven't tried a much higher approach rate than %s. Try %s for about 5 maps (distance goes up too, so notes stay on screen as long)." % [
 					_fmt("approach_rate", ar), _fmt("approach_rate", _round("approach_rate", ar * 1.15))], "test", 0.0))
 	# then the next thing: less fade-in
 	if out.empty() and not hist.has("fade_length") and not taken.has("fade_length"):
@@ -1481,7 +1481,7 @@ static func _experiments(mine: Dictionary, cur: Dictionary, hist: Dictionary, pl
 					tried_less = true
 			if not tried_less:
 				out.append(_rec({"fade_length": nf}, cur, "try",
-					"Your approach settings and aim look settled. You haven't played with less fade-in than %s: try %s for about 5 maps (notes readable sooner, same speed and spacing); then Generate again and your history can compare." % [
+					"Your settings look settled. You haven't tried less fade-in than %s: try %s for about 5 maps." % [
 						_fmt("fade_length", fade), _fmt("fade_length", nf)], "test", 0.0))
 	return out
 
@@ -1606,7 +1606,7 @@ static func _parallax(sel: Dictionary, cur: Dictionary):
 	var shift_pct: int = int(round(move / max(hbs * 2.0, 0.1) * 100.0)) # of a note's width
 	if move <= 0.0:
 		if bias >= 0.12 and z >= 3.0:
-			return {"note": "Camera: you hit outer notes on their inner side (%d%% of the way to the hitbox edge on average), but your camera and grid don't move, so it isn't parallax; it's how you reach for them." % int(round(bias * 100.0))}
+			return {"note": "Camera: you hit outer notes on their inner side (%d%%), but nothing moves, so it's your reach, not parallax." % int(round(bias * 100.0))}
 		return null
 	if bias >= 0.1 and z >= 3.0:
 		var changes := {}
@@ -1614,20 +1614,20 @@ static func _parallax(sel: Dictionary, cur: Dictionary):
 		var txt := ""
 		if gpar > 0.0:
 			changes["grid_parallax"] = 0.0
-			txt = "Grid parallax moves the notes themselves with your cursor; without it they stay where your finger expects them"
+			txt = "Turning off grid parallax keeps notes where your finger expects them"
 			if par >= 4.0:
 				changes["parallax"] = to_par
-				txt += ", and half the camera parallax (%s) moves the view half as much" % _fmt("parallax", to_par)
+				txt += ", and half the camera parallax (%s) moves the view less" % _fmt("parallax", to_par)
 		else:
 			changes["parallax"] = to_par
-			txt = "Half the camera parallax (%s) moves the view half as much, so outer notes show up closer to where your finger has to go" % _fmt("parallax", to_par)
+			txt = "Half the camera parallax (%s) keeps outer notes closer to where your finger goes" % _fmt("parallax", to_par)
 		var conf := "medium" if bias >= 0.15 and z >= 4.0 and inward.size() >= 400 else "try"
-		var why := "On touch, the camera%s moves with your cursor, so notes on the outer squares show up about %d%% of a note's width away from where your finger has to go. Your hits on outer notes land on their inner side (%d%% of the way to the hitbox edge on average, from %d hits)%s. %s." % [
+		var why := "The camera%s moves with your cursor, shifting outer notes ~%d%% of a note's width. Your outer hits land on their inner side (%d%%, %d hits)%s. %s." % [
 			" and grid" if gpar > 0.0 else "", shift_pct, int(round(bias * 100.0)), inward.size(),
-			(", and you hit %.1f%% fewer corner notes than middle ones on jumps of the same speed" % (og[0] * 100.0)) if og[1] >= 150 and og[0] >= 0.015 else "",
+			(", and you hit %.1f%% fewer corner notes than middle ones" % (og[0] * 100.0)) if og[1] >= 150 and og[0] >= 0.015 else "",
 			txt]
 		return _rec(changes, cur, conf, why, "now", max(og[0], 0.0) * 0.3 + bias * 0.01)
-	return {"note": "Camera: with camera parallax %s%s the view moves a bit with your cursor, and your hits on outer notes are centred (%+d%% towards the middle), so it doesn't throw your finger off." % [
+	return {"note": "Camera: parallax %s%s fits; your outer hits are centred (%+d%%)." % [
 		_fmt("parallax", par), (" and grid parallax %s" % _fmt("grid_parallax", gpar)) if gpar > 0.0 else "", int(round(bias * 100.0))]}
 
 static func _precision(sel: Dictionary, cur: Dictionary, abs_mode: bool):
@@ -1669,19 +1669,19 @@ static func _precision(sel: Dictionary, cur: Dictionary, abs_mode: bool):
 	var graze_share: float = float(graze) / max(hits, 1)
 	if near_share >= 0.35 and float(near) / n >= 0.012:
 		var conf := "medium" if near_share >= 0.45 and near >= 60 else "try"
-		var base := "%d%% of your misses are by a hair: the cursor gets to the note and stays just outside its hitbox%s." % [
-			int(round(near_share * 100.0)), (", and %d%% of your hits are right on its edge" % int(round(graze_share * 100.0))) if graze_share >= 0.1 else ""]
+		var base := "%d%% of your misses are by a hair (just outside the hitbox)%s." % [
+			int(round(near_share * 100.0)), (", and %d%% of hits are on the edge" % int(round(graze_share * 100.0))) if graze_share >= 0.1 else ""]
 		if cs >= 1.25:
 			var to_cs: float = max(1.0, cs * 0.8)
-			return _rec({"cursor_scale": to_cs}, cur, conf, base + " Your cursor is big (%s): it covers the edge of the note, so you can't see how close you are. A smaller one (%s) shows it." % [_fmt("cursor_scale", cs), _fmt("cursor_scale", to_cs)], "now", float(near) / n * 0.4)
+			return _rec({"cursor_scale": to_cs}, cur, conf, base + " Your big cursor (%s) hides the note's edge; a smaller one (%s) shows it." % [_fmt("cursor_scale", cs), _fmt("cursor_scale", to_cs)], "now", float(near) / n * 0.4)
 		if not abs_mode and fov >= 62.0:
 			var to_fov: float = max(50.0, fov * 0.9)
-			return _rec({"fov": to_fov}, cur, conf, base + " A lower FOV (%s) makes the grid bigger on screen, so being a little off is easier to see and fix (your sensitivity stays the same)." % _fmt("fov", to_fov), "now", float(near) / n * 0.3)
+			return _rec({"fov": to_fov}, cur, conf, base + " A lower FOV (%s) makes the grid bigger, so small misses are easier to see." % _fmt("fov", to_fov), "now", float(near) / n * 0.3)
 	if cs <= 0.7 and float(off) / miss >= 0.35 and float(off) / n >= 0.02:
 		var to_cs2: float = min(1.0, cs * 1.3)
-		return _rec({"cursor_scale": to_cs2}, cur, "try", "%d%% of your misses are with the cursor nowhere near the note, and your cursor is small (%s). A bigger one (%s) is easier to keep track of." % [
+		return _rec({"cursor_scale": to_cs2}, cur, "try", "%d%% of your misses are nowhere near the note, and your cursor is small (%s). A bigger one (%s) is easier to follow." % [
 			int(round(float(off) / miss * 100.0)), _fmt("cursor_scale", cs), _fmt("cursor_scale", to_cs2)], "now", float(off) / n * 0.2)
-	return {"note": "FOV and cursor: only %d%% of your misses are by a hair (just outside the hitbox), so FOV %s and cursor size %s let you see where you are." % [
+	return {"note": "FOV and cursor: only %d%% of misses are by a hair, so FOV %s and cursor size %s fit." % [
 		int(round(near_share * 100.0)), _fmt("fov", fov), _fmt("cursor_scale", cs)]}
 
 # ------------------------------------------------------------------ for the screen
@@ -1760,12 +1760,12 @@ static func _summary(plays: Array, mine: Dictionary, cur: Dictionary) -> String:
 		n += p.rows.size()
 		h += int(p.hits)
 	var with_now: int = mine.motor.notes if mine.motor.current else 0
-	var s := "%d plays and %d notes tracked, each with the settings it was played with. Your last %d plays: %.1f%% of notes hit." % [
+	var s := "%d plays, %d notes tracked. Last %d plays: %.1f%% hit." % [
 		plays.size(), _count(plays), newest.size(), 100.0 * h / max(n, 1)]
 	if mine.motor.current and mine.reading.current:
-		s += " %d of your recent plays are with the settings you have now." % mine.reading.plays.size()
+		s += " %d recent plays use your current settings." % mine.reading.plays.size()
 	else:
-		s += " You've only just changed some settings, so the advice about how you play is about the ones you used before (it says which)."
+		s += " You just changed some settings, so some advice is about your previous ones."
 	return s
 
 static func _count(plays: Array) -> int:
@@ -1838,7 +1838,7 @@ static func _insights(mine: Dictionary, cur: Dictionary) -> Array:
 	leads.sort()
 	reacts.sort()
 	if leads.size() >= 30:
-		out.append("You usually get to a note %d ms before it arrives%s." % [int(leads[leads.size() / 2]), (" and set off toward the next one ~%d ms after hitting a note" % int(reacts[reacts.size() / 2])) if reacts.size() >= 30 else ""])
+		out.append("You reach notes ~%d ms early%s." % [int(leads[leads.size() / 2]), (" and leave ~%d ms after hitting" % int(reacts[reacts.size() / 2])) if reacts.size() >= 30 else ""])
 	var worst_cell := -1
 	var wr := 2.0
 	for c in cells:
@@ -1849,7 +1849,7 @@ static func _insights(mine: Dictionary, cur: Dictionary) -> Array:
 			wr = r
 			worst_cell = c
 	if worst_cell >= 0 and wr < 0.97:
-		out.append("You miss most in the %s of the grid (%.0f%% hit there)." % [_cell_name(worst_cell), wr * 100.0])
+		out.append("Most misses: %s of the grid (%.0f%% hit)." % [_cell_name(worst_cell), wr * 100.0])
 	if hits > 50:
 		var bias := Vector2(offx, offy) / hits
 		if bias.length() >= 0.18:
@@ -1858,11 +1858,11 @@ static func _insights(mine: Dictionary, cur: Dictionary) -> Array:
 				dir += "low" if bias.y < 0 else "high"
 			if abs(bias.x) >= 0.12:
 				dir += ("-" if dir != "" else "") + ("left" if bias.x < 0 else "right")
-			out.append("When you hit, you're usually a bit %s of the note's centre." % dir)
+			out.append("Your hits land a bit %s of centre." % dir)
 	return out
 
 static func _with(sel: Dictionary, what: String) -> String:
-	return " (your %d newest plays with %s)" % [sel.plays.size(), what] if sel.current else " (your plays with the settings you used before)"
+	return " (last %d plays, %s)" % [sel.plays.size(), what] if sel.current else " (previous settings)"
 
 static func _cell_name(cell: int) -> String:
 	var c := _cell_xy(cell)

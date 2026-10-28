@@ -80,7 +80,7 @@ func _ready():
 	m.add_child(box)
 
 	_label("Settings Generator", f_title, ACCENT)
-	_label("Chromia keeps track of how you play every map, note by note, together with the settings and mods that play was played with: which notes you hit, when your cursor sets off toward each note and how early it gets there, whether you miss by being late, sliding off, leaving early for the next note or skipping it, and which jumps and parts of the grid give you trouble. Generate compares your plays on equal terms (each note's difficulty, the map and you improving are taken into account) and suggests settings that fit you, with the reason for each and how sure it is: sensitivity or absolute scale, approach rate, distance and fade-in, camera and grid parallax (on touch), FOV and cursor size. It only touches how the game feels, never your hitbox, hit window or mods. Everything stays on this device.", f_body, DIM, true)
+	_label("Chromia tracks how you play (on this device only). Generate suggests settings that suit you, each with a reason and how sure it is. It only changes how the game feels, never hitbox, hit window or mods.", f_body, DIM, true)
 
 	var track := CheckBox.new()
 	track.text = "Track my plays"
@@ -106,7 +106,7 @@ func _ready():
 	box.add_child(recs_box)
 	profiles_box = VBoxContainer.new()
 	box.add_child(profiles_box)
-	summary.text = "%d plays tracked so far. Press Generate to see what fits you." % PT.list_files().size()
+	summary.text = "%d plays tracked." % PT.list_files().size()
 
 func _label(text: String, f: Font, col: Color, wrap: bool = false, parent: Node = null) -> Label:
 	var l := Label.new()
@@ -199,7 +199,7 @@ func _show(res: Dictionary):
 	if better.empty():
 		var txt: String = String(res.get("status_text", ""))
 		if txt == "":
-			txt = "Nothing to suggest yet. Keep playing; Generate again later."
+			txt = "Nothing to suggest yet."
 		_label(txt, f_bold, CONF_COLORS.high if status == "fits" else DIM, true, recs_box)
 	else:
 		_label("Suggested for you:", f_bold, ACCENT, false, recs_box)
@@ -208,7 +208,7 @@ func _show(res: Dictionary):
 		if better.size() > 1:
 			_button(recs_box, "Apply all", "_apply_all")
 	if not tries.empty():
-		_label("To find out more (not shown to be better yet: play a few maps with it, then Generate again):", f_bold, DIM, true, recs_box)
+		_label("Worth trying (not proven yet):", f_bold, DIM, true, recs_box)
 		for i in tries:
 			_rec_card(_recs[i], i)
 
@@ -222,7 +222,7 @@ func _show_profiles(list: Array):
 		var t := "%s%s:  %d play%s, %d notes, %.1f%% hit%s" % [
 			e.label, "  (now)" if e.current else "", e.plays, "" if e.plays == 1 else "s", e.notes,
 			float(e.rate) * 100.0,
-			(",  %+.1f%% vs what the maps would expect" % vs) if abs(vs) >= 0.05 else ""]
+			(",  %+.1f%% vs expected" % vs) if abs(vs) >= 0.05 else ""]
 		_label(t, f_body, TEXT if e.current else DIM, true, profiles_box)
 
 func _rec_card(r: Dictionary, i: int):
@@ -293,7 +293,7 @@ func _apply(list: Array):
 	_remember_applied(list)
 	_sync_controls()
 	Rhythia.save_settings()
-	Globals.notify(Globals.NOTIFY_SUCCEED, "Applied %d setting%s. Play a few maps with them, then Generate again." % [n, "" if n == 1 else "s"], "Settings Generator")
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Applied %d setting%s. Play a few maps, then check again." % [n, "" if n == 1 else "s"], "Settings Generator")
 
 # The generator waits for a few plays with what you applied before it
 # changes those settings again (SettingsAdvisor._pending).
