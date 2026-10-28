@@ -76,9 +76,9 @@ func finish():
 	result = RQueue.get_resource(target)
 	result2 = RQueue.get_resource(target2)
 	Rhythia.loaded_world = result2
-	# kept in memory: the next song starts without loading them again
-	Rhythia.keep_scene(target, result)
-	Rhythia.keep_scene(target2, result2)
+	# VR: their textures, meshes, sounds... stay loaded for the next song
+	Rhythia.keep_deps(target)
+	Rhythia.keep_deps(target2, "world")
 	if not (result is Object):
 		Rhythia.errorstr = "song.tscn get_resource returned non-object (probably null)"
 		get_tree().change_scene("res://scenes/errors/songload.tscn")

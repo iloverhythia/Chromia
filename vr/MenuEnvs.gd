@@ -91,7 +91,8 @@ func _build_background(world_id: String) -> bool:
 	if w == null:
 		return false
 	var path: String = load("res://scripts/game/SoundSpaceMode.gd").space_path(w.path)
-	var scene = Rhythia.cached_scene(path) if Rhythia.has_method("cached_scene") else load(path)
+	var scene = load(path)
+	Rhythia.keep_deps(path, "world")
 	if not (scene is PackedScene):
 		Rhythia.trail("VR menu: background %s didn't load" % world_id)
 		return false

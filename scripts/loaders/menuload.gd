@@ -47,8 +47,9 @@ func _ready():
 	if res != OK:
 		Rhythia.errorstr = "queue_resource returned %s" % res
 		get_tree().change_scene("res://scenes/errors/menuload.tscn")
-	# VR: the song scene is loaded once here too, so songs start quickly
-	if Rhythia.vr and not Rhythia._scene_cache.has(SONG_SCENE):
+	# VR: the song scene's files are loaded once here too (and kept), so the
+	# first song starts quickly
+	if Rhythia.vr and not Rhythia._dep_walked.has(SONG_SCENE):
 		if RQueue.queue_resource(SONG_SCENE) == OK:
 			_song_too = true
 
@@ -71,10 +72,12 @@ func _process(delta):
 	if not leaving:
 		if RQueue.is_ready(target) and (not _song_too or RQueue.is_ready(SONG_SCENE)):
 			if _song_too:
-				Rhythia.keep_scene(SONG_SCENE, RQueue.get_resource(SONG_SCENE))
+				var _song = RQueue.get_resource(SONG_SCENE)
+				Rhythia.keep_deps(SONG_SCENE) # (its files; the scene itself is let go)
+				_song = null
 				_song_too = false
 			result = RQueue.get_resource(target)
-			Rhythia.keep_scene(target, result)
+			Rhythia.keep_deps(target)
 			leaving = true
 			black_fade_target = true
 			if not (result is Object):

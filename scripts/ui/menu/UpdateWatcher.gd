@@ -98,5 +98,4 @@ func _check():
 		_busy = false
 		return
 	Rhythia.save_settings()
-	OS.execute(OS.get_executable_path(), [], false)
-	Rhythia.quit_game()
+	Rhythia.restart_game() # (marks this session closed first: not a crash)

@@ -65,8 +65,7 @@ func _pressed():
 	Globals.confirm_prompt.close()
 	if bool(sel):
 		Rhythia.save_settings()
-		OS.execute(OS.get_executable_path(), [], false)
-		Rhythia.quit_game()
+		Rhythia.restart_game() # (marks this session closed first: not a crash)
 	else:
 		text = "Restart to update"
 

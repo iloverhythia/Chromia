@@ -828,7 +828,7 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b"
 ]
 
 
@@ -917,6 +917,7 @@ const VERSION_NOTES = {
 	"oct22-2026-r": "- NEW: Meta Quest app (chromia-quest.apk). Sideload it (SideQuest or adb install) and Chromia runs on the headset by itself, no PC: it starts straight in VR, with the controller as the pointer and cursor. It updates itself: new versions download when it starts and load the next time you open it\n- VR keyboard: a keyboard pops up on the VR menu screen whenever you select a text box (search, names, settings...). Point and pull the trigger to type; Shift for capitals and symbols, Done to close it. Also in PC VR\n- VR: boxes and messages (update boxes, confirmations, the file picker, notifications, crash reports) now show on the VR menu screen; you couldn't see them in the headset before\n- VR: the controller buttons work from either controller",
 	"oct22-2026-s": "- NEW: Meta Horizon Store version (chromia-quest-store.apk), ready to upload to the store: it lists the headsets it runs on (Quest 2, Pro, 3, 3S), runs in landscape, needs Android 10+, asks for no storage permissions and leaves updates to the store\n- The sideload Quest app gets the same fixes",
 	"oct23-2026-b": "- The Update Log shows the notes of the last few versions again",
+	"oct28-2026-b": "- iPhone: removed the likely cause of a crash when starting a second song: the faster loading from the last update reused parts of the previous song. Scenes are loaded fresh again; in VR only their textures, meshes and sounds are kept, so VR songs still start quickly\n- Crash reports only show after a real crash: restarting for an update (and old installs moving to Chromia) no longer counts as one\n- Phones and web: the Export map data button is hidden (it needs a desktop file dialog); this also removes an error at every menu load on iPhone",
 	"oct28-2026-a": "- VR: the black pillars in the menu are gone (they got in the way of your view)\n- NEW (VR): Settings > VR > Menu environment: what is around you in the menu. Classic (the old room), five new places: Deep Space (stars, a nebula and a ringed planet), Synthwave (a neon grid running to a striped sun and purple mountains), Sunset Ocean (a wooden dock over sparkling waves), Pastel Clouds (a soft sky with floating clouds) and Neon City (a rooftop among glowing towers and flying lights). Or pick any background from the background list, your own custom ones too\n- VR: songs start much faster: the song scene is loaded once when the VR menu loads and kept, and backgrounds stay loaded, so the next song skips loading them again. Going back to the menu is faster too\n- PC VR: removed a likely cause of the crash when starting a song: in VR everything now loads on the main thread, like on the Meta Quest (loading on a second thread while the headset draws can crash Godot 3). If it still crashes, send the crash report from Settings > Crash Reports",
 	"oct27-2026-m": "- Transfer settings page: much less text, shorter messages",
 	"oct27-2026-l": "- Background Editor: much less text, just the controls",
@@ -1296,34 +1297,53 @@ const STAR_MAX_NOTES = 100000
 # Song start timing for the log: "[start +123ms] step". Reset when a song starts loading.
 var _start_t0: int = 0
 
-# Scenes kept in memory once loaded (the song scene, the menu, the last few
-# backgrounds): the next song or menu starts without reading and building
-# them from the files again. Only the game's own (res://) scenes: custom ones
-# can change on disk.
-var _scene_cache := {} # path -> PackedScene
-var _scene_cache_order := []
-const SCENE_CACHE_MAX := 6
-func keep_scene(path: String, scene):
-	if not (scene is PackedScene) or not path.begins_with("res://"):
+# VR: the files a scene is built from that never change (textures, meshes,
+# fonts, sounds, shaders) stay in memory once loaded, so the next song or menu
+# doesn't read and decode them again. The scenes themselves are loaded fresh
+# every time: keeping a loaded scene and building it again (oct28-2026-a)
+# reused the parts the last song had changed, and crashed iPhones.
+var _dep_cache := {} # file -> Resource
+var _dep_walked := {} # scene path -> true
+var _dep_groups := {} # group -> [scene path, [files]]: a group keeps one scene's files
+const DEP_KEEP_MAX := 600
+# group: "" keeps them for good (the song scene, the menu); "world" keeps only
+# the last background's files (backgrounds can be big)
+func keep_deps(path: String, group: String = ""):
+	if not vr or not path.begins_with("res://") or _dep_walked.has(path):
 		return
-	if not _scene_cache.has(path):
-		_scene_cache_order.append(path)
-	_scene_cache[path] = scene
-	while _scene_cache_order.size() > SCENE_CACHE_MAX:
-		var old = _scene_cache_order.pop_front()
-		if old != "res://scenes/song.tscn" and old != "res://vr/vrmenu.tscn" and old != "res://scenes/menu/menu2.tscn":
-			_scene_cache.erase(old)
-		else:
-			_scene_cache_order.append(old) # (these three always stay)
-			if _scene_cache_order.size() <= 3:
-				break
+	if group != "" and _dep_groups.has(group):
+		var old: Array = _dep_groups[group]
+		_dep_walked.erase(old[0])
+		for f in old[1]:
+			_dep_cache.erase(f)
+	var added := []
+	_dep_walked[path] = true
+	var todo := [path]
+	var seen := {}
+	while not todo.empty() and _dep_cache.size() < DEP_KEEP_MAX:
+		var p: String = todo.pop_back()
+		if seen.has(p):
+			continue
+		seen[p] = true
+		for d in ResourceLoader.get_dependencies(p):
+			var dp: String = String(d).split("::")[0]
+			if not dp.begins_with("res://") or seen.has(dp):
+				continue
+			var ext := dp.get_extension().to_lower()
+			if ext in ["tscn", "scn"]:
+				todo.append(dp) # (a scene inside: its files, not the scene)
+				continue
+			if ext in ["gd", "gdns", "gdnlib", "tres", "res"]:
+				continue # scripts are kept anyway; .tres can be materials scripts change
+			if _dep_cache.has(dp) or not ResourceLoader.has_cached(dp):
+				continue # only what this load has just read: no extra loading
+			var r = ResourceLoader.load(dp)
+			if r is Texture or r is Mesh or r is Font or r is DynamicFontData or r is AudioStream or r is Shader:
+				_dep_cache[dp] = r
+				added.append(dp)
+	if group != "":
+		_dep_groups[group] = [path, added]
 
-func cached_scene(path: String):
-	if _scene_cache.has(path):
-		return _scene_cache[path]
-	var s = load(path)
-	keep_scene(path, s)
-	return s
 func start_log(msg: String, reset: bool = false):
 	if reset or _start_t0 == 0:
 		_start_t0 = OS.get_ticks_msec()
@@ -1415,6 +1435,8 @@ var _trail_lines: int = 0
 var _heartbeat: Timer = null
 
 func _set_session_state(state: String):
+	if _session_closed and state != "closed":
+		return # (a focus / resume event while quitting)
 	var f := File.new()
 	if f.open(Globals.p(SESSION_FILE), File.WRITE) == OK:
 		f.store_string(state)
@@ -1459,7 +1481,7 @@ func _on_heartbeat():
 
 # Safe from any thread.
 func trail(msg: String):
-	if _trail_file == null:
+	if _trail_file == null or _session_closed:
 		return
 	_trail_mutex.lock()
 	if _trail_lines > 4000: # keep the file small on long sessions
@@ -1489,9 +1511,24 @@ func _on_trail_frame_drawn():
 	_trail_frames_left -= 1
 	trail("frame drawn")
 
+# Marks this session as closed normally (once): only a session that never got
+# here shows a crash report at the next start.
+var _session_closed := false
 func _trail_close(how: String):
+	if _session_closed:
+		return
 	trail(how)
+	_session_closed = true # (nothing more goes to the trail file after this)
 	_set_session_state("closed")
+
+# Restarting the game (updates, moving to Chromia): this session is marked
+# closed BEFORE the new copy starts. It used to be marked after, so the new
+# copy saw a session still running and showed a crash report, and the old
+# copy then marked the new copy's session closed on its way out.
+func restart_game(exe: String = ""):
+	_trail_close("restarting (%s)" % ("update" if exe == "" else "handing over to " + exe.get_file()))
+	OS.execute(exe if exe != "" else OS.get_executable_path(), [], false)
+	quit_game()
 
 # Crash reports are kept (newest 5) in user://logs/crashes, so they can be sent
 # later (Settings > Crash Reports), e.g. when there was no internet.
@@ -5283,8 +5320,7 @@ func do_init(_ud = null):
 		var chromia_exe = yield(mover, "done")
 		mover.queue_free()
 		if String(chromia_exe) != "":
-			OS.execute(String(chromia_exe), [], false)
-			get_tree().call_deferred("quit")
+			restart_game(String(chromia_exe))
 			return
 
 	if Online.can_self_update():
@@ -5313,8 +5349,7 @@ func do_init(_ud = null):
 					elif Online.update_blocked_reason != "":
 						Globals.call_deferred("notify", Globals.NOTIFY_WARN, Online.update_blocked_reason, "Update needs a reinstall")
 				else:
-					get_tree().call_deferred("quit", 1)
-					OS.execute(OS.get_executable_path(), [], false)
+					restart_game()
 					return
 		var rdir = Directory.new()
 		if rdir.file_exists(Online.local_pck_path() + ".old"):
