@@ -126,7 +126,7 @@ func _ready():
 
 	var title = _label("Background Editor", _font("res://assets/font/Lato/Lato-Bold.ttf", 20))
 	main.add_child(title)
-	var hint = _label("Place images or videos around the screen during gameplay. Drag a layer to move it, drag a corner to resize it (Shift keeps its shape), drag the round top handle to rotate it (Shift snaps). Right-click a layer for more options, Delete removes it.", font_small, DIM)
+	var hint = _label("Drag to move, corners to resize, top handle to rotate. Right-click for more.", font_small, DIM)
 	hint.autowrap = true
 	main.add_child(hint)
 
@@ -163,7 +163,7 @@ func _ready():
 	btns.add_child(_button("Remove", "_remove_selected"))
 	btns.add_child(_button("Open folder", "_open_folder"))
 	left.add_child(btns)
-	var formats = _label("Images: png, jpg, webp, bmp, gif.\nVideos: .webm or .ogv only (Godot 3 can't play mp4/mov, convert them first). Videos are muted and loop.", font_small, DIM)
+	var formats = _label("Images, or .webm / .ogv videos.", font_small, DIM)
 	formats.autowrap = true
 	formats.rect_min_size = Vector2(LEFT_W, 0)
 	left.add_child(formats)
@@ -215,7 +215,7 @@ func _ready():
 	left.add_child(HSeparator.new())
 
 	enabled_box = CheckBox.new()
-	enabled_box.text = "Show layers during gameplay"
+	enabled_box.text = "Show in game"
 	enabled_box.add_font_override("font", font_reg)
 	enabled_box.pressed = data.enabled
 	enabled_box.connect("toggled", self, "_on_enabled_toggled")
@@ -223,17 +223,14 @@ func _ready():
 
 	var prow = _row("Draw")
 	placement_option = OptionButton.new()
-	placement_option.add_item("In front of the 3D world", 0)
-	placement_option.add_item("Behind the 3D world", 1)
+	placement_option.add_item("In front of the world", 0)
+	placement_option.add_item("Behind the world", 1)
+	placement_option.hint_tooltip = "Behind: the grid and notes draw over your layers (worlds with a sky always use In front)"
 	placement_option.select(1 if data.placement == BG.PLACE_BEHIND else 0)
 	placement_option.size_flags_horizontal = SIZE_EXPAND_FILL
 	placement_option.connect("item_selected", self, "_on_placement")
 	prow.add_child(placement_option)
 	left.add_child(prow)
-	var phint = _label("In front: layers are drawn over the world like stickers (under the game's menus). Behind: layers replace the world's plain background colour, so the world, grid and notes draw over them (backgrounds with a sky image always use In front).", font_small, DIM)
-	phint.autowrap = true
-	phint.rect_min_size = Vector2(LEFT_W, 0)
-	left.add_child(phint)
 
 	# --- preview -----------------------------------------------------------
 	var right = VBoxContainer.new()
@@ -324,7 +321,7 @@ func _refresh_list():
 	for i in range(layers.size() - 1, -1, -1):
 		list.add_item(_layer_title(i), visuals[i].rect.texture)
 	if layers.empty():
-		list.add_item("No layers yet: press Import media", null, false)
+		list.add_item("No layers yet", null, false)
 		list.set_item_disabled(0, true)
 
 func _list_to_layer(li: int) -> int:
@@ -568,7 +565,7 @@ func _on_files_picked(files):
 		if not BG.is_supported_file(path):
 			var ext = path.get_extension().to_lower()
 			if ["mp4", "mov", "mkv", "avi", "m4v"].has(ext):
-				msgs.append("%s: Godot 3 can't play .%s, convert it to .webm" % [path.get_file(), ext])
+				msgs.append("%s: .%s isn't supported, use .webm" % [path.get_file(), ext])
 			else:
 				msgs.append("%s isn't a supported file" % path.get_file())
 			continue
