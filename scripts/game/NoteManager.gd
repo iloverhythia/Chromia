@@ -899,7 +899,7 @@ func _process(delta: float):
 	_set_rec_interval(delta)
 
 	var lobby_manager = _lobby_manager if is_instance_valid(_lobby_manager) else null
-	if lobby_manager != null and lobby_manager.lobby_active and active and not (Grid != null and Grid.spectating):
+	if lobby_manager != null and lobby_manager.broadcasting() and active and not (Grid != null and Grid.spectating):
 		_live_send_timer += delta
 		if _live_send_timer >= lobby_manager.LIVE_STATE_SEND_INTERVAL:
 			_live_send_timer = fmod(_live_send_timer, lobby_manager.LIVE_STATE_SEND_INTERVAL) # even spacing

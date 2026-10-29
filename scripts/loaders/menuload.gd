@@ -11,6 +11,9 @@ func _ready():
 	Rhythia.trail("loading the menu")
 	load("res://scripts/game/SoundSpaceMode.gd").end_song() # leaving the song: your own settings back
 	load("res://scripts/SpectateSettings.gd").restore() # and yours if you were watching with someone's
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null and lm.watch_mode:
+		lm.stop_watching() # back from watching someone (Spectate tab)
 	get_tree().paused = false
 	if Rhythia.vr:
 		target = "res://vr/vrmenu.tscn"
