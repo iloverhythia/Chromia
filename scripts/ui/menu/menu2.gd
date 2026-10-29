@@ -2539,7 +2539,7 @@ func _process(delta):
 
 
 # Secret: clicking the little Chromia icon by the version text opens the
-# Furry Upgrade Tree. It's only created while open and deleted when closed,
+# Chromia Upgrade Tree. It's only created while open and deleted when closed,
 # so it costs nothing the rest of the time.
 var furry_tree = null
 var _furry_layer: CanvasLayer = null
@@ -2562,7 +2562,7 @@ func open_furry_tree():
 	_furry_layer.layer = 90
 	_furry_layer.name = "FurrySecret"
 	add_child(_furry_layer)
-	furry_tree = preload("res://scripts/ui/menu/FurryUpgradeTree.gd").new()
+	furry_tree = preload("res://scripts/ui/menu/ChromiaUpgradeTree.gd").new()
 	furry_tree.connect("closed", self, "_on_furry_tree_closed")
 	_furry_layer.add_child(furry_tree)
 	furry_tree.open()
