@@ -101,13 +101,19 @@ func _enter_tree():
 # things before they're released, on the test server).
 func _channel_text(ch: Button):
 	if Online.is_tester():
-		ch.text = "Update channel: Test (tester account)"
+		ch.text = "Update channel: %s (tester account)" % ("Test" if Online.wanted_channel() == "test" else "Stable")
 		return
 	ch.text = "Update channel: %s" % ("Test" if Online.wanted_channel() == "test" else "Stable")
 
 func _on_channel(ch: Button):
 	if Online.is_tester():
-		Globals.notify(Globals.NOTIFY_INFO, "Your Discord account is a tester account: it always gets test builds, on every device.", "Update Channel")
+		# tester accounts switch right away, no questions
+		Rhythia.tester_channel = "stable" if Online.wanted_channel() == "test" else "test"
+		Rhythia.update_channel = Rhythia.tester_channel
+		Rhythia.save_settings()
+		_channel_text(ch)
+		Globals.notify(Globals.NOTIFY_INFO, "Getting the %s build..." % ("test" if Rhythia.tester_channel == "test" else "stable"), "Update Channel")
+		_pressed() # get that channel's build now
 		return
 	var to_test: bool = Online.wanted_channel() != "test"
 	Globals.confirm_prompt.open(

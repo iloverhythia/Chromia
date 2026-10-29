@@ -1745,6 +1745,9 @@ var update_channel: String = load("res://scripts/BuildChannel.gd").CHANNEL
 # ran a test build once (kept in settings.json): the Update channel switch is
 # shown from then on, also in stable builds, so you can go back and forth
 var tried_test_builds: bool = load("res://scripts/BuildChannel.gd").CHANNEL == "test"
+# tester accounts (Online.TESTER_DISCORD_IDS): the build they picked with the
+# Update channel button ("test" until they switch)
+var tester_channel: String = "test"
 var random_colorset: bool = false # experimental: a random colorset every time a map starts
 var _colorset_before_random = null
 
@@ -3435,6 +3438,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			update_channel = data.update_channel
 		if data.has("tried_test_builds") and bool(data.tried_test_builds):
 			tried_test_builds = true
+		if data.has("tester_channel") and (data.tester_channel == "stable" or data.tester_channel == "test"):
+			tester_channel = data.tester_channel
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
@@ -4166,6 +4171,7 @@ func _write_settings_file(saveFile: String):
 			disable_bg_effects = disable_bg_effects,
 			update_channel = update_channel,
 			tried_test_builds = tried_test_builds or update_channel == "test",
+			tester_channel = tester_channel,
 			vsync_enabled = OS.vsync_enabled,
 
 			window_fullscreen = OS.window_fullscreen,
