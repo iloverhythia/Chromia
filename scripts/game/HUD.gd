@@ -846,20 +846,19 @@ func _input(event):
 	elif Rhythia.vr and event.is_action_pressed("vr_click"):
 		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
 
-var _spectate_ui: CanvasLayer = null
+var _spectate_ui: Control = null
 var _spectate_banner: Label = null
 var _spectate_view_button: Button = null
 
 func _create_spectate_banner():
 	if _spectate_ui != null:
 		return
-	_spectate_ui = CanvasLayer.new()
-	_spectate_ui.layer = 50
-	add_child(_spectate_ui)
+	# (in the top-left column, above the Spectators list; exit_spectate_mode frees it)
 	var box := VBoxContainer.new()
-	box.rect_position = Vector2(36, 32)
 	box.add_constant_override("separation", 6)
-	_spectate_ui.add_child(box)
+	_top_left().add_child(box)
+	_top_left().move_child(box, 0)
+	_spectate_ui = box
 
 	_spectate_banner = Label.new()
 	var spectate_font = DynamicFont.new()
@@ -961,30 +960,76 @@ func _on_round_ended():
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
 
+# --- the Spectators list (top left) --------------------------------------------------
+# Who is watching: shown to the player and to everyone watching them, and
+# not at all when nobody is.
 var _spectators_banner: Label = null
+var _top_left_ui: CanvasLayer = null
+var _top_left_box: VBoxContainer = null
+const SPECTATORS_SHOWN := 8
+
+func _top_left() -> VBoxContainer:
+	if _top_left_box == null:
+		_top_left_ui = CanvasLayer.new()
+		_top_left_ui.layer = 50
+		add_child(_top_left_ui)
+		_top_left_box = VBoxContainer.new()
+		_top_left_box.rect_position = Vector2(36, 32)
+		_top_left_box.add_constant_override("separation", 6)
+		_top_left_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_top_left_ui.add_child(_top_left_box)
+	return _top_left_box
 
 func _create_spectators_banner():
 	if _spectators_banner != null:
 		return
-
-	var right_control = get_node_or_null("RightVP/Control")
-	if right_control == null:
-		return
 	_spectators_banner = Label.new()
-	_spectators_banner.anchor_right = 1.0
-	_spectators_banner.margin_top = 10
-	_spectators_banner.margin_bottom = 90
-	_spectators_banner.align = Label.ALIGN_CENTER
-	_spectators_banner.valign = Label.VALIGN_CENTER
-	_spectators_banner.autowrap = true
-
-	var banner_font = DynamicFont.new()
-	banner_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
-	banner_font.size = 32
-	_spectators_banner.add_font_override("font", banner_font)
-	_spectators_banner.add_color_override("font_color", Color(0.8, 0.8, 0.8))
+	var f = DynamicFont.new()
+	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	f.size = 18
+	_spectators_banner.add_font_override("font", f)
+	_spectators_banner.add_color_override("font_color", Color(0.9, 0.9, 0.9))
+	_spectators_banner.add_color_override("font_color_shadow", Color(0, 0, 0, 0.6))
+	_spectators_banner.add_constant_override("shadow_offset_x", 2)
+	_spectators_banner.add_constant_override("shadow_offset_y", 2)
 	_spectators_banner.visible = false
-	right_control.add_child(_spectators_banner)
+	_top_left().add_child(_spectators_banner)
+	var t := Timer.new() # (also follows switching who you watch)
+	t.wait_time = 0.5
+	t.pause_mode = PAUSE_MODE_PROCESS
+	t.connect("timeout", self, "_on_lobby_state_changed_for_spectators_list")
+	add_child(t)
+	t.start()
+
+# the names of those watching the player on screen (you, or who you watch)
+func _spectator_names() -> Array:
+	var lm = _get_lobby_manager()
+	if lm == null:
+		return []
+	var names := []
+	if not lm.lobby_active:
+		# playing alone, watched from the Spectate tab
+		for n in lm.watcher_names:
+			names.append(Globals.s(n))
+		for i in range(names.size(), int(lm.watchers_count)):
+			names.append("") # (more than the server names)
+		return names
+	var shown: int = spectate_peer_id if spectating else int(lm.local_peer_id)
+	for sp in lm.lobby_spectators:
+		if not (sp is Dictionary):
+			continue
+		# (a watch room has only their watchers; older servers don't say who
+		# a spectator watches: then everyone spectating counts)
+		if lm.watch_mode or not sp.has("target") or int(sp.get("target", -1)) == shown or int(sp.get("target", -1)) == -1:
+			names.append(_you_or(lm, int(sp.get("peer_id", -1)), Globals.s(sp.get("name", "Spectator"))))
+	for p in lm.players:
+		var pid := int(p.get("peer_id", -1))
+		if pid != shown and int(p.get("spectate_target", -1)) == shown and bool(p.get("failed", false)):
+			names.append(_you_or(lm, pid, Globals.s(p.get("name", "Player"))))
+	return names
+
+static func _you_or(lm, peer_id: int, name: String) -> String:
+	return "%s (you)" % name if peer_id == int(lm.local_peer_id) else name
 
 func _exit_tree():
 
@@ -992,42 +1037,29 @@ func _exit_tree():
 		_spectate_banner.queue_free()
 		_spectate_banner = null
 
+func _on_watchers_changed_for_list(_count, _names):
+	_on_lobby_state_changed_for_spectators_list()
+
 func _on_lobby_state_changed_for_spectators_list():
 	if _spectators_banner == null:
 		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager == null:
-		return
-	var alive_names = {}
-	for p in lobby_manager.players:
-		if not bool(p.get("failed", false)):
-			alive_names[int(p.get("peer_id", -1))] = Globals.s(p.get("name", "Player"))
-	var groups = {}
-	var unassigned = []
-	var spectator_count = 0
-	for p in lobby_manager.players:
-		if not bool(p.get("failed", false)):
-			continue
-		if int(p.get("peer_id", -1)) == lobby_manager.local_peer_id:
-			continue
-		spectator_count += 1
-		var spec_name = Globals.s(p.get("name", "Player"))
-		var target_id = int(p.get("spectate_target", -1))
-		if target_id != -1 and alive_names.has(target_id):
-			if not groups.has(target_id):
-				groups[target_id] = []
-			groups[target_id].append(spec_name)
-		else:
-			unassigned.append(spec_name)
-	if groups.empty() and unassigned.empty():
+	var names := _spectator_names()
+	if names.empty():
 		_spectators_banner.visible = false
 		return
+	var lines := ["👁 Spectators (%d)" % names.size()]
+	var unnamed := 0
+	for n in names:
+		if n == "":
+			unnamed += 1
+		elif lines.size() <= SPECTATORS_SHOWN:
+			lines.append("   " + n)
+		else:
+			unnamed += 1
+	if unnamed > 0:
+		lines.append("   + %d more" % unnamed)
+	_spectators_banner.text = "\n".join(lines)
 	_spectators_banner.visible = true
-	var spectator_names = []
-	for target_id in groups:
-		spectator_names += groups[target_id]
-	spectator_names += unassigned
-	_spectators_banner.text = "👁 %d watching\n%s" % [spectator_count, ", ".join(spectator_names)]
 
 func _ready():
 	Rhythia.start_log("hud")
@@ -1038,6 +1070,8 @@ func _ready():
 	var lobby_manager_for_spectators = _get_lobby_manager()
 	if lobby_manager_for_spectators != null and not lobby_manager_for_spectators.is_connected("lobby_state_changed", self, "_on_lobby_state_changed_for_spectators_list"):
 		lobby_manager_for_spectators.connect("lobby_state_changed", self, "_on_lobby_state_changed_for_spectators_list")
+	if lobby_manager_for_spectators != null and not lobby_manager_for_spectators.is_connected("watchers_changed", self, "_on_watchers_changed_for_list"):
+		lobby_manager_for_spectators.connect("watchers_changed", self, "_on_watchers_changed_for_list")
 
 	$Stats/Label.visible = Rhythia.show_stats
 

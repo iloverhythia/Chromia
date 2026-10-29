@@ -360,6 +360,7 @@ func close_lobby():
 	lobby_code = ""
 	local_peer_id = -1
 	players = []
+	lobby_spectators = []
 	lobby_state = {"song_id": "", "song_name": "", "started": false, "host_name": ""}
 	_map_readiness_checked_song_id = ""
 	_last_scrolled_song_id = ""
@@ -1037,6 +1038,8 @@ func _handle_message(msg: Dictionary):
 				return # (a lobby you just left)
 			lobby_state = msg.get("state", lobby_state)
 			players = msg.get("players", players)
+			var specs = msg.get("spectators", [])
+			lobby_spectators = specs if specs is Array else []
 
 			for p in players:
 				if int(p.get("peer_id", -1)) == local_peer_id:
@@ -1287,6 +1290,7 @@ var presence_supported: int = -1 # -1 not known yet, 0 no, 1 yes
 var online_players: Array = []
 var my_player_number: int = -1
 var watch_mode: bool = false
+var lobby_spectators: Array = [] # lobby_state.spectators: {peer_id, name, target}
 var watch_target_name: String = ""
 var watchers_count: int = 0
 var watcher_names: Array = []
@@ -1472,6 +1476,7 @@ func _finish_watch_locally():
 	lobby_code = ""
 	local_peer_id = -1
 	players = []
+	lobby_spectators = []
 	lobby_state = {"song_id": "", "song_name": "", "started": false, "host_name": ""}
 	_map_readiness_checked_song_id = ""
 	lobby_chat_history = []
