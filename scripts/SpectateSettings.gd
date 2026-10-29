@@ -118,7 +118,21 @@ static func collect() -> Dictionary:
 			out[k] = e
 	out["_vr"] = bool(Rhythia.vr)
 	out["_v"] = 1
+	# your cursor picture, for whoever watches you with your settings (the
+	# server keeps it by this hash: LobbyManager.upload_cursor_picture)
+	var pic := own_cursor_file()
+	if pic != "":
+		out["cursor_image"] = File.new().get_sha256(pic)
 	return out
+
+# your custom cursor picture (Settings: cursor), "" when it's the default one
+# (an animated .gif cursor isn't sent)
+static func own_cursor_file() -> String:
+	for ext in ["png", "jpg", "jpeg", "webp"]:
+		var p: String = Globals.p("user://cursor." + ext)
+		if File.new().file_exists(p):
+			return p
+	return ""
 
 # --- applying -----------------------------------------------------------------
 static func apply(their: Dictionary, peer_id: int):

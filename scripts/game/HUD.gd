@@ -821,6 +821,7 @@ func _on_spectate_settings_received(peer_id):
 
 func _check_view_settings():
 	_update_view_button()
+	_spectate_cursor_picture()
 	if not spectating or _spec_reloading:
 		return
 	var lobby_manager = _get_lobby_manager()
@@ -955,6 +956,96 @@ func _update_spectate_target_name():
 
 var spectate_cursor: Spatial = null
 var _real_cursor: Spatial = null
+
+# Watching with their settings: the cursor shows their cursor picture (from
+# the server, kept in user://spectate_cursors/). With yours: your own.
+const CURSOR_PIC_URL := "https://savia.nysr.host/savia-cursor/%s.png"
+const CURSOR_PIC_DIR := "user://spectate_cursors"
+var _own_cursor_mat = null
+var _cursor_pic_shown: String = ""
+var _cursor_pic_http: HTTPRequest = null
+
+func _spectate_cursor_picture():
+	if spectate_cursor == null or not is_instance_valid(spectate_cursor):
+		return
+	var spec = _spec_settings()
+	var lm = _get_lobby_manager()
+	var sha := ""
+	var theirs_on: bool = lm != null and spec.prefer_theirs() and spec.applied_for() == spectate_peer_id
+	if theirs_on:
+		var s = lm.player_view_settings.get(spectate_peer_id, {})
+		if s is Dictionary:
+			sha = String(s.get("cursor_image", "")).to_lower()
+		if sha.length() != 64 or not sha.is_valid_hex_number():
+			sha = "default" # their cursor is the game's own circle
+	if sha == _cursor_pic_shown:
+		return
+	_cursor_pic_shown = sha
+	if sha == "":
+		_put_cursor_picture(null)
+		return
+	if sha == "default":
+		_put_cursor_picture(load("res://assets/images/cursors/circle.png"))
+		return
+	var file: String = Globals.p("%s/%s.png" % [CURSOR_PIC_DIR, sha])
+	if File.new().file_exists(file):
+		var img := Image.new()
+		if img.load(file) == OK:
+			_put_cursor_picture(_texture_of(img))
+			return
+	if _cursor_pic_http != null and is_instance_valid(_cursor_pic_http):
+		_cursor_pic_http.queue_free()
+	_cursor_pic_http = HTTPRequest.new()
+	_cursor_pic_http.timeout = 15
+	add_child(_cursor_pic_http)
+	_cursor_pic_http.connect("request_completed", self, "_on_cursor_picture", [sha, _cursor_pic_http])
+	if _cursor_pic_http.request(CURSOR_PIC_URL % sha) != OK:
+		_cursor_pic_http.queue_free()
+		_cursor_pic_http = null
+
+func _on_cursor_picture(result: int, code: int, _headers, body: PoolByteArray, sha: String, http: HTTPRequest):
+	http.queue_free()
+	if http == _cursor_pic_http:
+		_cursor_pic_http = null
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.empty() or sha != _cursor_pic_shown:
+		return
+	var img := Image.new()
+	if img.load_png_from_buffer(body) != OK:
+		return
+	var d := Directory.new()
+	d.make_dir_recursive(Globals.p(CURSOR_PIC_DIR))
+	img.save_png(Globals.p("%s/%s.png" % [CURSOR_PIC_DIR, sha]))
+	_put_cursor_picture(_texture_of(img))
+
+static func _texture_of(img: Image) -> ImageTexture:
+	var tex := ImageTexture.new()
+	tex.create_from_image(img)
+	return tex
+
+# tex null: your own cursor picture back
+func _put_cursor_picture(tex):
+	if spectate_cursor == null or not is_instance_valid(spectate_cursor):
+		return
+	var mesh = spectate_cursor.get_node_or_null("Mesh")
+	if mesh == null or not (mesh is MeshInstance):
+		return
+	if _own_cursor_mat == null:
+		_own_cursor_mat = mesh.get_surface_material(0)
+		if _own_cursor_mat == null and mesh.mesh != null:
+			_own_cursor_mat = mesh.mesh.surface_get_material(0)
+	if tex == null:
+		mesh.set_surface_material(0, _own_cursor_mat)
+		return
+	var mat: SpatialMaterial
+	if _own_cursor_mat is SpatialMaterial:
+		mat = _own_cursor_mat.duplicate()
+	else:
+		mat = SpatialMaterial.new()
+		mat.flags_transparent = true
+		mat.flags_unshaded = true
+	mat.albedo_color = Color(1, 1, 1, mat.albedo_color.a)
+	mat.albedo_texture = tex
+	mesh.set_surface_material(0, mat)
 
 func _create_ghost_cursor():
 	if spectate_cursor != null:
