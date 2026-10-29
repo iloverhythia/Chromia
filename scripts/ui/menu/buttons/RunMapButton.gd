@@ -127,7 +127,9 @@ func _input(event: InputEvent):
 				grab_click_focus()
 				pressed = true
 		if not disabled and not has_been_pressed and event is InputEventKey:
-			if event.pressed and event.scancode == KEY_SPACE:
+			# Space, or the retry key (start the map again right after leaving it)
+			var retry_key: bool = InputMap.has_action("retry") and event.is_action("retry")
+			if event.pressed and not event.echo and (event.scancode == KEY_SPACE or retry_key):
 				grab_focus()
 				grab_click_focus()
 				pressed = true
