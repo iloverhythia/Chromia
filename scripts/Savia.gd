@@ -2873,6 +2873,7 @@ var simple_hud: bool = false
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
 var rainbow_hud: bool = false
+var colorset_hud: bool = false # the HUD takes the colour of the notes you hit (HUD.gd)
 var friend_position: int = Globals.FRIEND_BEHIND_GRID
 var note_visual_approach: bool = false
 var visual_approach_follow: bool = false
@@ -3602,6 +3603,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			rainbow_grid = data.rainbow_grid
 		if data.has("rainbow_hud"):
 			rainbow_hud = data.rainbow_hud
+		if data.has("colorset_hud"):
+			colorset_hud = bool(data.colorset_hud)
 
 		if data.has("show_warnings"):
 			show_warnings = data.show_warnings
@@ -4229,6 +4232,7 @@ func _write_settings_file(saveFile: String):
 			attach_timer_to_grid = attach_timer_to_grid,
 			rainbow_grid = rainbow_grid,
 			rainbow_hud = rainbow_hud,
+			colorset_hud = colorset_hud,
 			smart_trail = smart_trail,
 			hit_effect_at_cursor = hit_effect_at_cursor,
 			show_warnings = show_warnings,

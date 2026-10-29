@@ -8,3 +8,4 @@ in scripts/Savia.gd and empties this list.
 - VR: hitboxes feel like on PC. Your hand is closer to the grid than your eyes, so notes took a bigger turn of the controller to cross than they looked and felt a bit bigger. Turning the controller now moves the cursor as far as that turn looks from your eyes (the hitbox itself is the same size). Settings > VR > Pointer > Hitboxes feel like on PC (on by default)
 - Spectate tab: the # on each player is their leaderboard rank (SP), not their player number
 - Map list: a small TOP button above UP takes you straight back to the top of your map list
+- NEW: Colorset HUD (Settings > UI, under Rainbow HUD): the HUD's text, numbers and bars take the colour of the notes you hit

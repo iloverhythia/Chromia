@@ -65,7 +65,7 @@ const LOOK := {
 	"show_hit_effect": false, "show_miss_effect": false, "note_spawn_effect": false,
 	"note_visual_approach": false, "note_spin_x": 0.0, "note_spin_y": 0.0, "note_spin_z": 0.0,
 	"glow": 0.0, "bloom": 0.0, "vhs_shader": false,
-	"score_popup": false, "show_config": false, "simple_hud": false, "rainbow_hud": false,
+	"score_popup": false, "show_config": false, "simple_hud": false, "rainbow_hud": false, "colorset_hud": false,
 	"attach_hp_to_grid": false, "attach_timer_to_grid": false, "expand_hud_onhr": false,
 	"enable_grid": false, "enable_border": true, "show_left_panel": true,
 	"show_right_panel": true, "show_timer": true, "show_hp_bar": true, "show_stats": false,
