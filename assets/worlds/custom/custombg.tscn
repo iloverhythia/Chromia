@@ -110,7 +110,7 @@ size = Vector2( 4096, 2048 )
 world = SubResource( 6 )
 hdr = false
 usage = 0
-render_target_update_mode = 1
+render_target_update_mode = 0
 
 [node name="R" type="ColorRect" parent="V"]
 material = SubResource( 4 )
