@@ -10,6 +10,14 @@
   production.cmd` on the server PC, which bundles everything on `test` into one
   production release. Don't push to `main` and don't open PRs into it.
 
+## Who publishes
+
+Only SavvyScripter (the owner) and breck (player #3) release to players: the
+owner with `Servers\Publish to production.cmd`, breck with the Publish button
+on the test website. Claude never publishes, never pushes to `main`, never
+merges or opens PRs into `main`, and never adds a production version. If `test`
+is behind `main`, merge `main` into `test` (not the other way round).
+
 ## For each change on `test`
 
 - Don't bump the version (no new entry in `VERSION_SEQUENCE` /
