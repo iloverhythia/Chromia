@@ -14,3 +14,5 @@ in scripts/Savia.gd and empties this list.
 - NEW: Colorset HUD (Settings > UI, under Rainbow HUD): the HUD's text, numbers and bars take the colour of the notes you hit
 - Settings > Update channel is shown to anyone who has run a test build once (also in stable builds), so you can switch between stable and test without downloading again
 - The retry key no longer jumps into the map search box in the menu
+- Map editor: much smoother on big maps and when zoomed out (the track drew every note, label and outline on top of each other every frame: zoomed out it took 50+ ms a frame, now about 2)
+- NEW: Map editor Settings (button next to BACK TO MENU), like SSQE+: Colors, Graphics, Mapping, Player, Audio, Keybinds (click one, press the new key) and Other (autosave on/off and how often), plus Reset to Default and Open Editor Folder

@@ -44,7 +44,7 @@ func _compact(c: Control, k: float):
 		c.add_stylebox_override(n, sb)
 
 func wants_keys() -> bool:
-	if _modal != null:
+	if _modal != null or _kb_capture != "":
 		return true
 	return focused == "tapper" and windows.has("tapper")
 
@@ -311,6 +311,12 @@ func _modal_answer(value: String):
 func _input(ev):
 	if not is_visible_in_tree():
 		return
+	if _kb_capture != "" and ev is InputEventKey:
+		if not windows.has("settings"):
+			_kb_capture = ""
+		elif _st_kb_input(ev):
+			get_tree().set_input_as_handled()
+			return
 	if _modal != null and ev is InputEventKey and ev.pressed and not ev.echo:
 		if ev.scancode == KEY_ESCAPE:
 			_modal_answer("cancel")
@@ -1305,3 +1311,198 @@ func _am_reset():
 func _am_run():
 	if ed.page:
 		ed.page.auto_map()
+
+# ================================================================== Settings (GuiWindowSettings + GuiWindowKeybinds)
+# Sound Space Quantum Editor Plus's settings window: tabs on the left, the
+# settings of the tab on the right, saved as you change them (ed.s, saved to
+# user://editor/ssqe_settings.json by ed.settings_changed).
+
+const SETTINGS_TABS = ["COLORS", "GRAPHICS", "MAPPING", "PLAYER", "AUDIO", "KEYBINDS", "OTHER"]
+var _st: Dictionary = {}
+var _kb_capture := "" # the keybind waiting for a key
+
+func settings(tab := ""):
+	var info := floating("settings", "Settings", 760, 500)
+	_st = {"info": info, "tab": "", "content": null, "rows": []}
+	var y := 10.0
+	_st.tab_buttons = {}
+	for t in SETTINGS_TABS:
+		_st.tab_buttons[t] = a_button(info, t, 10, y, 140, 36, "_st_tab", [t])
+		y += 44
+	a_button(info, "RESET TO DEFAULT", 165, 455, 190, 34, "_st_reset")
+	a_button(info, "OPEN EDITOR FOLDER", 365, 455, 190, 34, "_st_folder")
+	a_button(info, "SAVE AND CLOSE", 565, 455, 185, 34, "close", ["settings"])
+	_st_tab(tab if tab in SETTINGS_TABS else String(ed.s.get("lastSettingsTab", "COLORS")))
+
+func _st_tab(t: String):
+	if _st.empty() or not windows.has("settings"):
+		return
+	var info: Dictionary = _st.info
+	_kb_capture = ""
+	_st.tab = t
+	ed.s["lastSettingsTab"] = t
+	for name in _st.tab_buttons:
+		_st.tab_buttons[name].modulate = Color(1, 1, 1) if name == t else Color(0.7, 0.7, 0.75)
+	if _st.content != null and is_instance_valid(_st.content):
+		_st.content.queue_free()
+	var content := Control.new()
+	content.rect_position = Vector2(165 * info.k, 10 * info.k)
+	content.rect_size = Vector2(585 * info.k, 435 * info.k)
+	content.mouse_filter = MOUSE_FILTER_PASS
+	info.body.add_child(content)
+	_st.content = content
+	var c: Dictionary = info.duplicate()
+	c.body = content
+	_st.c = c
+	match t:
+		"COLORS":
+			_st_color(c, "Color 1 (1/X beat ticks, primary)", "color1", 0)
+			_st_color(c, "Color 2 (1/1 beat ticks, secondary)", "color2", 1)
+			_st_color(c, "Color 3 (1/2 beat ticks, preview)", "color3", 2)
+			_st_color(c, "Color 4 (waveform)", "color4", 3)
+			_st_color(c, "Color 5 (special objects)", "color5", 4)
+			a_label(c, "Notes use the colours of your colour set (Settings > Notes in the game).", 0, 330, 585, 40)
+		"GRAPHICS":
+			var y := 0.0
+			y = _st_slider(c, "Editor Background Opacity", "editorBGOpacity", 0, 255, 1, y)
+			y = _st_slider(c, "Grid Opacity", "gridOpacity", 0, 255, 1, y)
+			y = _st_slider(c, "Track Opacity", "trackOpacity", 0, 255, 1, y)
+			y = _st_slider(c, "Grid Zoom (%)", "gridZoom", 25, 200, 1, y)
+			y = _st_slider(c, "Grid Note Size (%)", "gridNoteSize", 25, 200, 1, y)
+			y += 6
+			y = _st_checks(c, [["Enable Waveform", "waveform"], ["Use Classic Waveform", "classicWaveform"], ["Grid Squircles", "gridSquircles"],
+				["Grid Letters", "gridLetters"], ["Grid Numbers", "gridNumbers"], ["Approach Squares", "approachSquares"], ["Quantum Grid Lines", "quantumGridLines"],
+				["3D Mode", "mode3D"], ["3D Hit Effect", "mode3DHitEffect"]], y)
+		"MAPPING":
+			var y2 := _st_checks(c, [["Correct Errors on Copy", "correctOnCopy"], ["Reverse Scroll Direction", "reverseScroll"], ["Pause When Scrolling", "pauseScroll"],
+				["Separate Click Tools", "separateClickTools"], ["Auto-Advance", "autoAdvance"], ["Snap to Quantum Grid", "quantumGridSnap"], ["Old Quantum Snapping", "oldQuantumSnap"],
+				["Apply Timing on Paste", "applyOnPaste"], ["Jump to Pasted Notes", "jumpPaste"], ["Paste Reversed", "pasteReversed"], ["Adjust Notes With Timing", "adjustNotes"],
+				["Move Cursor With Grid Keys", "moveOnGridKey"], ["Use Numpad for Grid Keys", "numpad"], ["Curve Bezier", "curveBezier"], ["Clamp Star Rating", "clampSR"]], 0)
+			_st_slider(c, "Bezier Divisor", "bezierDivisor", 1, 32, 1, y2 + 4)
+		"PLAYER":
+			var y3 := 0.0
+			y3 = _st_slider(c, "Approach Rate", "approachRate", 1, 50, 1, y3)
+			y3 = _st_slider(c, "Track Cursor Position (%)", "cursorPos", 0, 100, 1, y3)
+			y3 = _st_checks(c, [["Autoplay Cursor", "autoplay"], ["Smooth Autoplay", "smoothAutoplay"]], y3 + 6)
+		"AUDIO":
+			var y4 := 0.0
+			y4 = _st_slider(c, "Master Volume", "masterVolume", 0, 1, 0.01, y4)
+			y4 = _st_slider(c, "Hit Sound Volume", "sfxVolume", 0, 1, 0.01, y4)
+			y4 = _st_slider(c, "Hit Sound Offset (ms)", "sfxOffset", -200, 200, 1, y4)
+			y4 = _st_slider(c, "Music Offset (ms)", "musicOffset", -500, 500, 1, y4)
+			y4 = _st_slider(c, "Maximum Polyphony", "maxPolyphony", 1, 16, 1, y4)
+			y4 = _st_checks(c, [["Metronome", "metronome"], ["Scale Metronome With Divisor", "scaleMetronome"], ["Mute Hit Sounds", "muteSfx"], ["Mute Music", "muteMusic"]], y4 + 6)
+		"KEYBINDS":
+			_st_keybinds(c)
+		"OTHER":
+			var y5 := _st_checks(c, [["Enable Autosave", "autosave"]], 0)
+			y5 = _st_slider(c, "Autosave Interval (min)", "autosaveInterval", 0.5, 30, 0.5, y5)
+			a_label(c, "Your maps are saved in the editor folder (OPEN EDITOR FOLDER). Exported maps go to your map list.", 0, y5 + 10, 585, 40)
+
+# a checkbox per [label, key], two columns; returns the y below them
+func _st_checks(c: Dictionary, items: Array, y: float) -> float:
+	var i := 0
+	for it in items:
+		var cb := a_check(c, it[0], bool(ed.s.get(it[1], false)), 0 if i % 2 == 0 else 295, y + int(i / 2) * 30, 285, 26)
+		cb.connect("toggled", self, "_st_set", [it[1]])
+		i += 1
+	return y + int((items.size() + 1) / 2) * 30
+
+func _st_set(v, key: String):
+	ed.s[key] = v
+	ed.settings_changed()
+
+# label, slider and value; returns the y below
+func _st_slider(c: Dictionary, label: String, key: String, mn: float, mx: float, step: float, y: float) -> float:
+	a_label(c, label, 0, y, 260, 26)
+	var sl := HSlider.new()
+	sl.theme = theme_res
+	sl.min_value = mn
+	sl.max_value = mx
+	sl.step = step
+	sl.value = float(ed.s.get(key, mn))
+	sl.focus_mode = FOCUS_NONE
+	_place(c, sl, 265, y + 3, 230, 20, 0)
+	var vl := a_label(c, _st_fmt(sl.value, step), 505, y, 80, 26, "right")
+	sl.connect("value_changed", self, "_st_slid", [key, vl, step])
+	return y + 34
+
+static func _st_fmt(v: float, step: float) -> String:
+	return str(int(round(v))) if step >= 1.0 else str(stepify(v, step))
+
+func _st_slid(v: float, key: String, vl: Label, step: float):
+	vl.text = _st_fmt(v, step)
+	ed.s[key] = int(round(v)) if typeof(SSQESettings.defaults().get(key)) == TYPE_INT else v
+	ed.settings_changed()
+
+func _st_color(c: Dictionary, label: String, key: String, row: int):
+	var y := row * 62.0
+	a_label(c, label, 0, y, 400, 24)
+	var p := ColorPickerButton.new()
+	p.theme = theme_res
+	p.edit_alpha = false
+	p.color = SSQESettings.color(ed.s, key)
+	p.focus_mode = FOCUS_NONE
+	_place(c, p, 0, y + 26, 160, 30, 0)
+	p.connect("color_changed", self, "_st_color_set", [key])
+	a_button(c, "DEFAULT", 170, y + 26, 100, 30, "_st_color_default", [key, p])
+
+func _st_color_set(col: Color, key: String):
+	ed.s[key] = [int(round(col.r * 255)), int(round(col.g * 255)), int(round(col.b * 255))]
+	ed.settings_changed()
+
+func _st_color_default(key: String, p: ColorPickerButton):
+	ed.s[key] = SSQESettings.defaults()[key].duplicate()
+	p.color = SSQESettings.color(ed.s, key)
+	ed.settings_changed()
+
+func _st_keybinds(c: Dictionary):
+	var names: Array = SSQESettings.KEYBINDS.keys()
+	var rows := []
+	var i := 0
+	for name in names:
+		var col := 0 if i % 2 == 0 else 295
+		var y := int(i / 2) * 34.0
+		a_label(c, SSQESettings.KEYBIND_LABELS.get(name, name), col, y, 150, 28)
+		var b := a_button(c, SSQESettings.keybind_text(ed.s.keybinds[name]), col + 150, y, 135, 28, "_st_kb_pick", [name])
+		rows.append([name, b])
+		i += 1
+	_st.rows = rows
+	a_label(c, "Click a key, then press the new key (with Ctrl / Alt / Shift if you want). Esc cancels.", 0, int((names.size() + 1) / 2) * 34.0 + 4, 585, 26)
+
+func _st_kb_pick(name: String):
+	_kb_capture = name
+	for r in _st.rows:
+		r[1].text = "Press a key..." if r[0] == name else SSQESettings.keybind_text(ed.s.keybinds[r[0]])
+
+func _st_kb_input(ev: InputEventKey) -> bool:
+	if _kb_capture == "" or not ev.pressed or ev.echo:
+		return false
+	if ev.scancode in [KEY_CONTROL, KEY_ALT, KEY_SHIFT, KEY_META]:
+		return true # (waiting for the key itself)
+	if ev.scancode != KEY_ESCAPE:
+		ed.s.keybinds[_kb_capture] = [ev.scancode, ev.control or ev.command, ev.alt, ev.shift]
+		ed.settings_changed()
+	_kb_capture = ""
+	for r in _st.rows:
+		if is_instance_valid(r[1]):
+			r[1].text = SSQESettings.keybind_text(ed.s.keybinds[r[0]])
+	return true
+
+func _st_reset():
+	confirm("Reset every editor setting (colours, keybinds and all) to the defaults?", self, "_st_reset_answer")
+
+func _st_reset_answer(answer: String):
+	if answer != "yes":
+		return
+	var keep := {"patterns": ed.s.patterns, "lastLeftNav": ed.s.lastLeftNav, "lastRightNav": ed.s.lastRightNav}
+	var d := SSQESettings.defaults()
+	for k in d:
+		ed.s[k] = keep[k] if keep.has(k) else d[k]
+	ed.settings_changed()
+	_st_tab(_st.tab)
+
+func _st_folder():
+	var dir := Globals.p("user://editor")
+	Directory.new().make_dir_recursive(dir)
+	OS.shell_open(ProjectSettings.globalize_path(dir) if dir.begins_with("user://") else dir)

@@ -66,6 +66,7 @@ var lyric_create: Button
 var lyric_preview: Label
 var fever_preview: ColorRect
 var background: ColorRect
+var settings_button: Button
 var touch_bar: Array = []
 var am_stars_label: Label
 var am_quantum_label: Label
@@ -565,7 +566,8 @@ func build():
 
 	# ------------------------------------------------ main controls
 	copy_button = _btn(810, 273, 300, 42, "COPY MAP DATA", 27, "_copy_map_data")
-	back_button = _btn(810, 774, 300, 42, "BACK TO MENU", 27, "_back")
+	back_button = _btn(810, 774, 147, 42, "BACK TO MENU", 22, "_back")
+	settings_button = _btn(963, 774, 147, 42, "SETTINGS", 22, "_open_settings")
 	var tempo = _slider(1408, 1016, 512, 64, "tempoSlider", 1.4, 0.05, 0.9)
 	tempo.set_meta("tempo", true)
 	ed.timeline = load("res://scripts/editor/ssqe/SSQETimeline.gd").new()
@@ -661,7 +663,7 @@ func _layout_grid_buttons():
 	for it in items:
 		if it.node == copy_button:
 			it.y = cy
-		elif it.node == back_button:
+		elif it.node == back_button or it.node == settings_button:
 			it.y = by
 		elif it.node == click_mode_label:
 			it.y = ly
@@ -968,6 +970,10 @@ func _paste_bookmarks():
 	var n: int = ed.map.paste_bookmarks_text(OS.clipboard)
 	if n == 0:
 		ed.toast("NO BOOKMARKS TO PASTE (\"ms ~ text\" PER LINE)", "warn")
+
+func _open_settings():
+	if ed.dialogs:
+		ed.dialogs.settings()
 
 func _copy_map_data():
 	OS.clipboard = F.write_txt(ed.map, bool(ed.s.correctOnCopy))
