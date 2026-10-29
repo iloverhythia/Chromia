@@ -596,6 +596,11 @@ func _apply_discord_user(du: Dictionary):
 	}
 	_save_discord_profile()
 	emit_signal("discord_login_changed")
+	if Online.is_tester():
+		# a tester account: get the test build now (UpdateWatcher.gd)
+		var w = get_tree().root.get_node_or_null("UpdateWatcher")
+		if w != null and w.has_method("check_now"):
+			w.check_now()
 
 func unlink_discord():
 	if cid == "" or not discord_user.has("id"):
@@ -5433,7 +5438,7 @@ func do_init(_ud = null):
 		var latest_version = yield(Online, "latest_version")
 		if ProjectSettings.get_setting("application/config/version") != latest_version:
 			var sel = 1
-			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest"):
+			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest") and not Online.is_tester():
 
 				Globals.confirm_prompt.open("loud sound = gone\nYou are on an outdated version of the game! Would you like to automatically update?", "Outdated", [{text = "Ignore", wait = 0}, {text = "Update", wait = 1}])
 				sel = yield(Globals.confirm_prompt, "option_selected")

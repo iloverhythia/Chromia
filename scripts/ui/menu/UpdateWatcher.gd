@@ -32,6 +32,10 @@ func _ready():
 	t.connect("timeout", self, "_tick")
 	add_child(t)
 
+# right away (a tester account just signed in)
+func check_now():
+	_last = -INTERVAL
+
 func _tick():
 	if _busy or not is_inside_tree():
 		return
@@ -62,7 +66,7 @@ func _check():
 		_busy = false
 		return
 	var data = Online.latest_version_data if typeof(Online.latest_version_data) == TYPE_DICTIONARY else {}
-	var silent := String(data.get("body", "")).begins_with("-a")
+	var silent := String(data.get("body", "")).begins_with("-a") or Online.is_tester() # (testers: test builds without asking)
 	if not silent:
 		Globals.confirm_prompt.open(
 			"Version %s just came out (you have %s).\nUpdate now? The game restarts when it's done." % [latest, current]

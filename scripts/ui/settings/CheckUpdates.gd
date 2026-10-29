@@ -100,9 +100,15 @@ func _enter_tree():
 # Settings > Update channel: Stable (everyone) or Test (test builds: new
 # things before they're released, on the test server).
 func _channel_text(ch: Button):
+	if Online.is_tester():
+		ch.text = "Update channel: Test (tester account)"
+		return
 	ch.text = "Update channel: %s" % ("Test" if Online.wanted_channel() == "test" else "Stable")
 
 func _on_channel(ch: Button):
+	if Online.is_tester():
+		Globals.notify(Globals.NOTIFY_INFO, "Your Discord account is a tester account: it always gets test builds, on every device.", "Update Channel")
+		return
 	var to_test: bool = Online.wanted_channel() != "test"
 	Globals.confirm_prompt.open(
 		("Switch to test builds?\nThey get new things before everyone else and may have bugs. They play on the test server: scores there don't count on the real leaderboards (the test server starts as a copy of them)." if to_test

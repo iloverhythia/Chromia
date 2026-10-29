@@ -522,7 +522,19 @@ static func app_asset() -> String:
 static func build_channel() -> String:
 	return load("res://scripts/BuildChannel.gd").CHANNEL
 
+# Testers: signed in with one of these Discord accounts, a game always takes
+# test builds, on every device, and updates to them without asking
+# (Savia.do_init, UpdateWatcher.gd). The Update channel button can't switch
+# them back.
+const TESTER_DISCORD_IDS := ["697113209051545640"]
+
+static func is_tester() -> bool:
+	var du = Rhythia.get("discord_user")
+	return du is Dictionary and TESTER_DISCORD_IDS.has(String(du.get("id", "")))
+
 static func wanted_channel() -> String:
+	if is_tester():
+		return "test"
 	var c = Rhythia.get("update_channel")
 	return String(c) if c is String and (c == "stable" or c == "test") else build_channel()
 
