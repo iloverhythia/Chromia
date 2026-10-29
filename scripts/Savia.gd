@@ -317,6 +317,8 @@ func current_xp_speed_multiplier() -> float:
 
 func _get_active_mods_dict() -> Dictionary:
 	return {
+		"vr": vr, # how it was played (the website shows VR / Mobile / Spin badges)
+		"mobile": device("mobile"),
 		"nofail": mod_nofail,
 		"extra_energy": mod_extra_energy,
 		"no_regen": mod_no_regen,
@@ -1685,6 +1687,9 @@ func _save_star_cache(cache: Dictionary):
 
 var sort_by_stars: bool = false
 var sort_by_plays: bool = false # map list: most played first
+# Settings > Update channel: "stable" or "test" (Online.gd); a fresh install
+# keeps to the kind of build it is
+var update_channel: String = load("res://scripts/BuildChannel.gd").CHANNEL
 var random_colorset: bool = false # experimental: a random colorset every time a map starts
 var _colorset_before_random = null
 
@@ -3362,6 +3367,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			play_miss_snd = data.play_miss_snd
 		if data.has("auto_preview_song"):
 			auto_preview_song = data.auto_preview_song
+		if data.has("update_channel") and (data.update_channel == "stable" or data.update_channel == "test"):
+			update_channel = data.update_channel
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
@@ -4085,6 +4092,7 @@ func _write_settings_file(saveFile: String):
 			play_miss_snd = play_miss_snd,
 			auto_preview_song = auto_preview_song,
 			disable_bg_effects = disable_bg_effects,
+			update_channel = update_channel,
 			vsync_enabled = OS.vsync_enabled,
 
 			window_fullscreen = OS.window_fullscreen,

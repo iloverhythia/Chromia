@@ -515,12 +515,25 @@ static func restart_hint() -> String:
 static func app_asset() -> String:
 	return "chromia-quest.apk" if OS.has_feature("quest") else "chromia-ios.ipa"
 
+# Update channel (Settings > Update channel): "stable" takes the latest
+# release, "test" the newest test build (a GitHub pre-release, built from the
+# test branch; it talks to the test server). Switching channels offers the
+# other channel's build even when its version looks older.
+static func build_channel() -> String:
+	return load("res://scripts/BuildChannel.gd").CHANNEL
+
+static func wanted_channel() -> String:
+	var c = Rhythia.get("update_channel")
+	return String(c) if c is String and (c == "stable" or c == "test") else build_channel()
+
 func check_latest_version():
 	if not can_self_update() or not ProjectSettings.get_setting("application/networking/enabled"):
 		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
 		return
 
 	var github_url = "https://api.github.com/repos/%s/releases/latest" % UPDATE_REPO
+	if wanted_channel() == "test":
+		github_url = "https://api.github.com/repos/%s/releases?per_page=30" % UPDATE_REPO
 	if version_hr.request(github_url) != OK:
 		# Couldn't even start the request: answer "no update" instead of never answering.
 		call_deferred("emit_signal", "latest_version", ProjectSettings.get_setting("application/config/version"))
@@ -532,12 +545,22 @@ func _on_version_request_completed(result, response_code, headers, body):
 
 	var json = JSON.parse(body.get_string_from_utf8())
 	var current: String = ProjectSettings.get_setting("application/config/version")
-	if json.error == OK and typeof(json.result) == TYPE_DICTIONARY and json.result.has("tag_name"):
-		latest_version_data = json.result
+	var found = json.result if json.error == OK else null
+	if typeof(found) == TYPE_ARRAY:
+		# the test channel: the newest test build (releases come newest first)
+		var pick = null
+		for r in found:
+			if typeof(r) == TYPE_DICTIONARY and bool(r.get("prerelease", false)) and not bool(r.get("draft", false)):
+				pick = r
+				break
+		found = pick
+	if typeof(found) == TYPE_DICTIONARY and found.has("tag_name"):
+		latest_version_data = found
 		var tag := String(latest_version_data.tag_name)
-		# Never "update" to a version that is older than this one.
+		# Never "update" to a version that is older than this one (unless
+		# switching channel: then the other channel's build is the one wanted).
 		var seq: Array = Rhythia.VERSION_SEQUENCE
-		if seq.has(tag) and seq.has(current) and seq.find(tag) <= seq.find(current):
+		if wanted_channel() == build_channel() and seq.has(tag) and seq.has(current) and seq.find(tag) <= seq.find(current):
 			tag = current
 		# iOS: an update that failed to start on this phone isn't offered again
 		if updates_by_pack() and tag == _read_text(PackUpdate.DIR + "/bad_version.txt"):
