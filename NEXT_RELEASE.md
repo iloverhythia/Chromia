@@ -13,3 +13,4 @@ in scripts/Savia.gd and empties this list.
 - Map list: a small TOP button above UP takes you straight back to the top of your map list
 - NEW: Colorset HUD (Settings > UI, under Rainbow HUD): the HUD's text, numbers and bars take the colour of the notes you hit
 - Settings > Update channel is shown to anyone who has run a test build once (also in stable builds), so you can switch between stable and test without downloading again
+- The retry key no longer jumps into the map search box in the menu
