@@ -14,6 +14,7 @@ extends Reference
 #   h  notes hit        m  misses        n  notes judged
 #   p  end position ms  l  map length ms c  max combo    pz pauses
 #   s  speed multiplier mods [short mod tags]  nm player name  so start-from ms
+#   av Discord picture url  rp the replay's id (user://replays/<rp>.sspre)
 
 const DIR = "user://score_history"
 const MAX_ENTRIES = 100
@@ -192,6 +193,47 @@ static func current_mod_tags() -> Array:
 	if R.invert_mouse: m.append("IM")
 	return m
 
+# The replay file of an attempt: the one it recorded, or for attempts from
+# before that was kept, a replay of this map that started shortly before the
+# attempt ended. "" if there's none.
+static func replay_path_for(song_id: String, e: Dictionary) -> String:
+	var f := File.new()
+	var rp := String(e.get("rp", ""))
+	if rp != "":
+		var p := Globals.p("user://replays/%s.sspre" % rp)
+		return p if f.file_exists(p) else ""
+	var t := int(e.get("t", 0))
+	if t <= 0 or song_id == "":
+		return ""
+	var dir := Directory.new()
+	var folder := Globals.p("user://replays")
+	if dir.open(folder) != OK:
+		return ""
+	var bias := int(OS.get_time_zone_info().get("bias", 0)) * 60 # (replay names use local time)
+	var played := float(e.get("p", 0)) / 1000.0 / max(float(e.get("s", 1.0)), 0.1)
+	var want := t - played
+	var best := ""
+	var best_d := 1e9
+	dir.list_dir_begin(true, true)
+	var fn := dir.get_next()
+	var prefix := song_id + "."
+	while fn != "":
+		if fn.begins_with(prefix) and fn.ends_with(".sspre"):
+			var stamp := fn.substr(prefix.length(), fn.length() - prefix.length() - 6)
+			var parts := stamp.replace("_", "-").split("-")
+			if parts.size() == 6:
+				var start := OS.get_unix_time_from_datetime({"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2]),
+					"hour": int(parts[3]), "minute": int(parts[4]), "second": int(parts[5])}) - bias
+				# it started before the attempt ended, and not long before it began
+				if start <= t + 5 and start >= want - 180:
+					var d: float = abs(start - want)
+					if d < best_d:
+						best_d = d
+						best = folder.plus_file(fn)
+		fn = dir.get_next()
+	dir.list_dir_end()
+	return best
+
 const JUST_ENDED_META = "score_history_just_ended"
 
 # True once after a song ended (the map screen then opens on the result box).
@@ -226,6 +268,12 @@ static func record_attempt() -> void:
 		"mods": current_mod_tags(),
 		"nm": player_name(),
 	}
+	if typeof(R.discord_user) == TYPE_DICTIONARY and String(R.discord_user.get("avatar_url", "")) != "":
+		e["av"] = String(R.discord_user.get("avatar_url", ""))
+	# the replay of this attempt (not the throwaway ones recorded only for the
+	# auto retry, which are deleted back in the menu)
+	if R.record_replays and not bool(R.get("_forced_replay")) and R.replay != null and String(R.replay.id) != "":
+		e["rp"] = String(R.replay.id)
 	if float(R.start_offset) > 0:
 		e["so"] = int(R.start_offset)
 	if not add_entry(String(R.selected_song.id), e):
