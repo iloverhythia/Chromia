@@ -18,6 +18,19 @@ on the test website. Claude never publishes, never pushes to `main`, never
 merges or opens PRs into `main`, and never adds a production version. If `test`
 is behind `main`, merge `main` into `test` (not the other way round).
 
+## Working at the same time (more than one person or Claude session)
+
+- Start every piece of work from the newest `test`: `git pull --rebase origin test`.
+- Commit small, finished steps and push them straight away. If the push is
+  refused (someone pushed first): `git pull --rebase origin test`, fix any
+  conflict, push again. Never force-push.
+- `NEXT_RELEASE.md` conflicts: keep both sides' lines.
+- `scripts/Savia.gd` VERSION_SEQUENCE / VERSION_NOTES and `config/version` in
+  `project.godot` only change through the publish, so nobody should be editing
+  them on `test`.
+- Each push to `test` makes a test build that every tester gets: push working
+  code (the build stops before releasing if the game doesn't reach the menu).
+
 ## For each change on `test`
 
 - Don't bump the version (no new entry in `VERSION_SEQUENCE` /
