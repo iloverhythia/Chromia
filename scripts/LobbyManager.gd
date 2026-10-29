@@ -636,7 +636,38 @@ var _spectate_load_target: int = -1
 func send_view_settings():
 	if not broadcasting():
 		return
+	upload_cursor_picture()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+
+# Your cursor picture to the server once (it keeps it by the file's hash), so
+# spectators watching with your settings see your cursor.
+const CURSOR_URL := "https://savia.nysr.host/savia-cursor"
+var _cursor_sent: String = ""
+func upload_cursor_picture():
+	var pic: String = load("res://scripts/SpectateSettings.gd").own_cursor_file()
+	if pic == "":
+		return
+	var f := File.new()
+	var sha: String = f.get_sha256(pic)
+	if sha == "" or sha == _cursor_sent or f.open(pic, File.READ) != OK:
+		return
+	var data: PoolByteArray = f.get_buffer(f.get_len())
+	f.close()
+	if data.size() > 2 * 1024 * 1024:
+		return
+	_cursor_sent = sha
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.connect("request_completed", self, "_on_cursor_uploaded", [http])
+	var url: String = "%s?client_id=%s" % [CURSOR_URL, String(Rhythia._ensure_client_id()).http_escape()]
+	if http.request_raw(url, ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, data) != OK:
+		http.queue_free()
+		_cursor_sent = ""
+
+func _on_cursor_uploaded(result, code, _headers, _body, http):
+	http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		_cursor_sent = "" # (tried again next song)
 
 # Playing alone: your display settings go to the server at the start of the
 # song, so whoever starts watching from the Spectate tab sees it your way
@@ -644,6 +675,7 @@ func send_view_settings():
 func send_solo_view_settings():
 	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
+	upload_cursor_picture()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
 
 func request_player_settings(peer_id: int):

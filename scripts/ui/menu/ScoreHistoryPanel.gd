@@ -54,6 +54,7 @@ var _f_rank: DynamicFont
 var _f_grade: DynamicFont
 var _f_tab: DynamicFont
 var _f_avatar: DynamicFont
+var _f_acc: DynamicFont
 
 static func attach(screen: Node) -> Node:
 	var ei = screen.get_node_or_null("RS/H2/EndInfo")
@@ -77,12 +78,13 @@ func _font(data, size: int) -> DynamicFont:
 
 func _ready():
 	theme = UI_THEME
-	_f_name = _font(FONT_BOLD, 15)
-	_f_small = _font(FONT_REGULAR, 13)
-	_f_rank = _font(FONT_BLACK, 14)
-	_f_grade = _font(FONT_BLACK, 24)
+	_f_name = _font(FONT_BOLD, 17)
+	_f_small = _font(FONT_REGULAR, 14)
+	_f_rank = _font(FONT_BLACK, 13)
+	_f_grade = _font(FONT_BLACK, 28)
 	_f_tab = _font(FONT_BOLD, 15)
-	_f_avatar = _font(FONT_BLACK, 13)
+	_f_avatar = _font(FONT_BLACK, 15)
+	_f_acc = _font(FONT_BOLD, 14)
 
 	size_flags_horizontal = SIZE_EXPAND_FILL
 	size_flags_vertical = SIZE_EXPAND_FILL
@@ -117,7 +119,7 @@ func _ready():
 	_scroll.add_child(_rows_wrap)
 	_rows = VBoxContainer.new()
 	_rows.size_flags_horizontal = SIZE_EXPAND_FILL
-	_rows.add_constant_override("separation", 4)
+	_rows.add_constant_override("separation", 6)
 	_rows_wrap.add_child(_rows)
 	var vbar = _scroll.get_v_scrollbar()
 	if vbar != null:
@@ -331,37 +333,64 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 		sb.bg_color = sb.bg_color.linear_interpolate(rank_col, 0.12)
 		sb.border_color = rank_col
 		sb.border_width_left = 3
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 6
-	sb.content_margin_right = 6
-	sb.content_margin_top = 5
-	sb.content_margin_bottom = 5
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 7
+	sb.content_margin_right = 7
+	sb.content_margin_top = 7
+	sb.content_margin_bottom = 7
 	panel.add_stylebox_override("panel", sb)
+	# hover: a little lighter, and a click watches the replay
+	var sbh: StyleBoxFlat = sb.duplicate()
+	sbh.bg_color = sb.bg_color.lightened(0.12)
+	panel.set_meta("sb", sb)
+	panel.set_meta("sbh", sbh)
+	panel.connect("mouse_entered", self, "_row_hover", [panel, true])
+	panel.connect("mouse_exited", self, "_row_hover", [panel, false])
+	panel.connect("gui_input", self, "_row_input", [e])
+	panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	var h := HBoxContainer.new()
-	h.add_constant_override("separation", 4)
+	h.add_constant_override("separation", 6)
 	h.mouse_filter = MOUSE_FILTER_IGNORE
 	panel.add_child(h)
 
+	# left: the rank above the avatar
+	var left := VBoxContainer.new()
+	left.mouse_filter = MOUSE_FILTER_IGNORE
+	left.add_constant_override("separation", 0)
+	left.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(left)
 	var rl := _label("#%d" % rank, _f_rank, rank_col)
-	rl.rect_min_size = Vector2(24, 0)
-	h.add_child(rl)
+	rl.align = Label.ALIGN_CENTER
+	left.add_child(rl)
 
-	# Avatar: your initial in a round badge.
+	# Avatar: their Discord picture (saved with the attempt; yours for older
+	# attempts with your name), else their initial in a round badge.
 	var nm := Globals.s(e.get("nm", "You"))
 	var av := Panel.new()
-	av.rect_min_size = Vector2(22, 22)
+	av.rect_min_size = Vector2(AVATAR, AVATAR)
 	av.size_flags_vertical = SIZE_SHRINK_CENTER
 	av.mouse_filter = MOUSE_FILTER_IGNORE
 	var avs := StyleBoxFlat.new()
 	avs.bg_color = C_LILAC
-	avs.set_corner_radius_all(11)
+	avs.set_corner_radius_all(AVATAR / 2)
 	av.add_stylebox_override("panel", avs)
 	var ini := _label(nm.substr(0, 1).to_upper() if nm != "" else "?", _f_avatar, Color(0.12, 0.08, 0.16))
 	ini.align = Label.ALIGN_CENTER
+	ini.valign = Label.VALIGN_CENTER
 	ini.set_anchors_and_margins_preset(Control.PRESET_WIDE)
 	av.add_child(ini)
-	h.add_child(av)
+	var pic := TextureRect.new()
+	pic.expand = true
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	pic.mouse_filter = MOUSE_FILTER_IGNORE
+	pic.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	pic.visible = false
+	av.add_child(pic)
+	var url := _avatar_url_for(e, nm)
+	if url != "":
+		_show_avatar(url, pic)
+	left.add_child(av)
 
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -369,14 +398,10 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	v.mouse_filter = MOUSE_FILTER_IGNORE
 	h.add_child(v)
 
-	var l1 := HBoxContainer.new()
-	l1.mouse_filter = MOUSE_FILTER_IGNORE
 	var name_l := _label(nm, _f_name, C_TEXT)
 	name_l.clip_text = true
 	name_l.size_flags_horizontal = SIZE_EXPAND_FILL
-	l1.add_child(name_l)
-	l1.add_child(_label("%.2f%%" % (acc * 100.0), _f_name, C_ACCENT))
-	v.add_child(l1)
+	v.add_child(name_l)
 
 	# Line 2: how it ended, and when.
 	var status := ""
@@ -417,18 +442,117 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	l3.clip_text = true
 	v.add_child(l3)
 
+	# right: the grade above the accuracy
+	var right := VBoxContainer.new()
+	right.mouse_filter = MOUSE_FILTER_IGNORE
+	right.add_constant_override("separation", -4)
+	right.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(right)
 	var g = ScoreHistory.grade_for(acc, show_fc)
 	var gl := _label(g[0], _f_grade, g[1])
-	gl.align = Label.ALIGN_RIGHT
-	gl.rect_min_size = Vector2(28, 0)
-	h.add_child(gl)
+	gl.align = Label.ALIGN_CENTER
+	right.add_child(gl)
+	var al := _label("%.2f%%" % (acc * 100.0), _f_acc, C_ACCENT)
+	al.align = Label.ALIGN_CENTER
+	right.add_child(al)
 
 	panel.hint_tooltip = "%s  %s\n%d / %d notes hit, max combo %d%s%s" % [
 		nm, _date_str(int(e.get("t", 0))), int(e.get("h", 0)), int(e.get("n", 0)), int(e.get("c", 0)),
 		(", %d pause%s" % [int(e.get("pz", 0)), "" if int(e.get("pz", 0)) == 1 else "s"]) if int(e.get("pz", 0)) > 0 else "",
 		("\nMods: " + mods_txt) if mods_txt != "" else ""
-	]
+	] + "\nClick to watch the replay"
 	return panel
+
+# --- avatars ----------------------------------------------------------------------
+const AVATAR = 30
+const AVATAR_CACHE_META = "score_history_avatars" # url -> texture (for the whole session)
+var _avatar_waiting := {} # url -> [TextureRect]
+
+func _avatar_url_for(e: Dictionary, nm: String) -> String:
+	var url := Globals.s(e.get("av", ""))
+	if url != "":
+		return url
+	var du = Rhythia.discord_user
+	if typeof(du) == TYPE_DICTIONARY and String(du.get("avatar_url", "")) != "":
+		if nm == ScoreHistory.player_name() or nm == String(du.get("display_name", "")) or nm == String(du.get("username", "")):
+			return String(du.get("avatar_url", ""))
+	return ""
+
+static func _small_png(url: String) -> String:
+	if url.find("cdn.discordapp.com") == -1 and url.find("media.discordapp.net") == -1:
+		return url
+	var base := url.split("?")[0]
+	if base.get_extension().to_lower() in ["gif", "webp", "jpg", "jpeg", "png"]:
+		base = base.get_basename() + ".png"
+	return base + "?size=64"
+
+func _show_avatar(url: String, pic: TextureRect):
+	var cache: Dictionary = Engine.get_meta(AVATAR_CACHE_META) if Engine.has_meta(AVATAR_CACHE_META) else {}
+	if cache.has(url):
+		pic.texture = cache[url]
+		pic.visible = true
+		return
+	if _avatar_waiting.has(url):
+		_avatar_waiting[url].append(pic)
+		return
+	_avatar_waiting[url] = [pic]
+	var r := HTTPRequest.new()
+	r.timeout = 15
+	add_child(r)
+	r.connect("request_completed", self, "_on_avatar", [r, url])
+	if r.request(_small_png(url)) != OK:
+		r.queue_free()
+		_avatar_waiting.erase(url)
+
+func _on_avatar(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, url: String):
+	r.queue_free()
+	var waiting: Array = _avatar_waiting.get(url, [])
+	_avatar_waiting.erase(url)
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.size() < 8:
+		return
+	var img := Image.new()
+	var err := img.load_png_from_buffer(body)
+	if err != OK:
+		err = img.load_jpg_from_buffer(body)
+	if err != OK or img.is_empty():
+		return
+	img.resize(64, 64, Image.INTERPOLATE_BILINEAR)
+	img.convert(Image.FORMAT_RGBA8)
+	load("res://scripts/ui/menu/ProfilePage.gd")._round_mask(img)
+	var tex := ImageTexture.new()
+	tex.create_from_image(img, Texture.FLAG_FILTER)
+	var cache: Dictionary = Engine.get_meta(AVATAR_CACHE_META) if Engine.has_meta(AVATAR_CACHE_META) else {}
+	cache[url] = tex
+	Engine.set_meta(AVATAR_CACHE_META, cache)
+	for pic in waiting:
+		if is_instance_valid(pic):
+			pic.texture = tex
+			pic.visible = true
+
+# --- watching an attempt's replay ----------------------------------------------------
+func _row_hover(panel: Control, on: bool):
+	if is_instance_valid(panel):
+		panel.add_stylebox_override("panel", panel.get_meta("sbh") if on else panel.get_meta("sb"))
+
+var _press_pos := Vector2()
+func _row_input(ev, e: Dictionary):
+	if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
+		if ev.pressed:
+			_press_pos = ev.global_position
+		elif ev.global_position.distance_to(_press_pos) < 12: # (not a scroll drag)
+			_watch(e)
+
+func _watch(e: Dictionary):
+	var song = Rhythia.selected_song
+	if song == null:
+		return
+	var path := ScoreHistory.replay_path_for(String(song.id), e)
+	if path == "":
+		Globals.notify(Globals.NOTIFY_WARN, "There's no replay saved for this attempt (Settings > Record Replays was off, or the replay was deleted).", "No Replay")
+		return
+	var run = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/Run")
+	if run and run.has_method("files_dropped"):
+		run.files_dropped(PoolStringArray([path]), 0)
 
 func _load_prefs():
 	var cfg := ConfigFile.new()

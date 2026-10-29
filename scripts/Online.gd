@@ -526,7 +526,7 @@ static func build_channel() -> String:
 # test builds, on every device, and updates to them without asking
 # (Savia.do_init, UpdateWatcher.gd). The Update channel button can't switch
 # them back.
-const TESTER_DISCORD_IDS := ["697113209051545640"]
+const TESTER_DISCORD_IDS := ["697113209051545640", "998599880324952114"] # breck, Savvy
 
 static func is_tester() -> bool:
 	var du = Rhythia.get("discord_user")
@@ -539,7 +539,9 @@ static func shows_channel_switch() -> bool:
 
 static func wanted_channel() -> String:
 	if is_tester():
-		return "test"
+		# testers start on test builds; the Update channel button switches them
+		var tc = Rhythia.get("tester_channel")
+		return String(tc) if tc is String and (tc == "stable" or tc == "test") else "test"
 	var c = Rhythia.get("update_channel")
 	return String(c) if c is String and (c == "stable" or c == "test") else build_channel()
 
