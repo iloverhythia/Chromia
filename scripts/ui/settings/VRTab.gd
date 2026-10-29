@@ -139,6 +139,7 @@ func _ready():
 	_button(ch, "Reset", "_reset_beam")
 	_rainbow_box = _check("Rainbow pointer", "vr_beam_rainbow")
 	_lock_box = _check("Lock the pointer to the grid in songs (the beam ends on the cursor and never goes past the grid's edges; a thin blue beam still shows where you really point)", "vr_lock_beam")
+	_eyes_box = _check("Hitboxes feel like on PC (turning the controller moves the cursor as far as it looks from your eyes; off: exactly where the beam points)", "vr_aim_from_eyes")
 	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
@@ -273,6 +274,7 @@ var _simple_box: CheckBox
 var _beam_color: ColorPickerButton
 var _rainbow_box: CheckBox
 var _lock_box: CheckBox
+var _eyes_box: CheckBox
 
 func _on_beam_color(c: Color):
 	if _loading:
@@ -544,6 +546,8 @@ func _load_values():
 		_rainbow_box.pressed = bool(Rhythia.vr_beam_rainbow)
 	if _lock_box:
 		_lock_box.pressed = bool(Rhythia.vr_lock_beam)
+	if _eyes_box:
+		_eyes_box.pressed = bool(Rhythia.vr_aim_from_eyes)
 	for e in _screen:
 		var v: float = float(Rhythia.get(e[2][1]))
 		e[0].value = v

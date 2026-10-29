@@ -696,9 +696,16 @@ func do_spin():
 # replay position). The grid stays still: the PC parallax settings move the
 # grid and notes with the cursor for a flat camera, which in VR only made the
 # notes slide away from where you point.
+# Hitboxes like on PC (Settings > VR, on by default): your hand is closer to
+# the grid than your eyes (about 30-40 cm), so a hitbox takes a bigger turn of
+# the wrist to cross than it looks like it should, and feels bigger than on
+# PC. The cursor's offset from the point straight in front of the controller
+# is scaled by eye distance / hand distance: turning the controller by an
+# angle then moves the cursor as far as that angle looks from your eyes.
+# Moving the hand sideways still moves the cursor 1:1.
 # Settings > VR > Aim sensitivity scales how far the cursor goes from the
-# grid's centre for how far you point from it (1 = exactly where you point);
-# the beam is bent to end on the cursor then.
+# grid's centre for how far you point from it (1 = exactly where you point).
+# The beam is bent to end on the cursor when either changes where it goes.
 func do_vr_cursor():
 	transform.origin = Vector3(-1, 1, 0)
 	Grid.transform.origin = Vector3(0, 0, Grid.transform.origin.z)
@@ -718,6 +725,10 @@ func do_vr_cursor():
 		return # pointing away from the grid
 	var hit: Vector3 = from + dir * t
 	var local: Vector3 = to_local(hit)
+	var eyes_k := _vr_eye_scale(from, plane_p, plane_n)
+	if eyes_k != 1.0:
+		var foot: Vector3 = to_local(from - plane_n * (from - plane_p).dot(plane_n))
+		local = foot + (local - foot) * eyes_k
 	var sens: float = Rhythia.vr_sensitivity
 	if abs(sens - 1.0) > 0.001:
 		var centre := Vector3(1, -1, 0)
@@ -728,8 +739,21 @@ func do_vr_cursor():
 		# locked to the grid (Settings > VR > Pointer): then it never points
 		# past the grid's edges, it stops where the cursor stops
 		# (locked: a thin second beam still shows where you really point)
-		var bend: bool = abs(sens - 1.0) > 0.001 or Rhythia.vr_lock_beam
+		var bend: bool = abs(sens - 1.0) > 0.001 or eyes_k != 1.0 or Rhythia.vr_lock_beam
 		ray.set_target(to_global(_n_cursor.transform.origin) if bend else null, Rhythia.vr_lock_beam)
+
+# eye distance / hand distance to the grid's plane (1 when off or odd)
+func _vr_eye_scale(hand: Vector3, plane_p: Vector3, plane_n: Vector3) -> float:
+	if not Rhythia.vr_aim_from_eyes or Rhythia.vr_player == null:
+		return 1.0
+	var head = Rhythia.vr_player.get("head")
+	if not (head is Spatial):
+		return 1.0
+	var hand_d: float = (hand - plane_p).dot(plane_n)
+	var eye_d: float = (head.global_transform.origin - plane_p).dot(plane_n)
+	if hand_d < 0.3 or eye_d <= hand_d:
+		return 1.0 # (hand level with or in front of your eyes: nothing to correct)
+	return clamp(eye_d / hand_d, 1.0, 1.6)
 
 func comma_sep(number):
 	var string = str(number)

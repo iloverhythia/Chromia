@@ -2054,6 +2054,11 @@ var vr_beam_rainbow: bool = false
 # in songs the beam ends on the cursor (kept inside the grid) instead of
 # going on past the grid's edges
 var vr_lock_beam: bool = false
+# Settings > VR > Pointer: turning the controller moves the cursor as far as
+# that angle looks from your eyes (NoteManager.do_vr_cursor). Your hand is
+# closer to the grid than your eyes, so without it a hitbox is a bigger
+# target for your wrist than it looks, and feels bigger than on PC.
+var vr_aim_from_eyes: bool = true
 var vr_xr_config = null # the OpenXR plugin's settings object (Quest)
 # VR controller buttons (Settings > VR): action -> up to two button numbers
 var vr_binds := {}
@@ -3802,6 +3807,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_beam_rainbow = bool(data.vr_beam_rainbow)
 		if data.has("vr_lock_beam"):
 			vr_lock_beam = bool(data.vr_lock_beam)
+		if data.has("vr_aim_from_eyes"):
+			vr_aim_from_eyes = bool(data.vr_aim_from_eyes)
 		if data.has("vr_binds") and data.vr_binds is Dictionary:
 			vr_binds = data.vr_binds
 		if data.has("menu_lyric_volume"):
@@ -4297,6 +4304,7 @@ func _write_settings_file(saveFile: String):
 			vr_beam_color = vr_beam_color.to_html(true),
 			vr_beam_rainbow = vr_beam_rainbow,
 			vr_lock_beam = vr_lock_beam,
+			vr_aim_from_eyes = vr_aim_from_eyes,
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
