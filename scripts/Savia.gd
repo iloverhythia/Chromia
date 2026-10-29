@@ -221,6 +221,8 @@ func save_jp():
 	config.save("user://settings.cfg")
 
 const REPORT_COMPLETION_URL = "https://savia.nysr.host/savia-report-completion"
+# a ranked pass sent with its replay (the server only gives XP with one)
+const SUBMIT_PASS_URL = "https://savia.nysr.host/savia-submit-pass"
 const PLAYER_XP_URL = "https://savia.nysr.host/savia-player-xp"
 const LEADERBOARD_URL = "https://savia.nysr.host/savia-leaderboard"
 const LEADERBOARD_SP_URL = "https://savia.nysr.host/savia-leaderboard-sp"
@@ -348,6 +350,32 @@ func _get_active_mods_dict() -> Dictionary:
 		"health_model": health_model,
 	}
 
+# --- replays for ranked passes ---------------------------------------------------
+# The server only gives XP on ranked maps with the play's replay, so every
+# play is recorded, also with Settings > Record Replays off. Then the setting
+# is only switched on for the song (not saved), and those replay files are
+# deleted when you're back in the menu.
+var _forced_replay: bool = false
+var _forced_replay_files: Array = []
+
+func begin_forced_replay():
+	if replaying or record_replays:
+		return
+	record_replays = true
+	_forced_replay = true
+
+func note_replay_started():
+	if _forced_replay and replay != null and String(replay.id) != "":
+		_forced_replay_files.append(Globals.p("user://replays/%s.sspre" % replay.id))
+
+func end_forced_replay():
+	if _forced_replay:
+		record_replays = false
+		_forced_replay = false
+	for p in _forced_replay_files:
+		Directory.new().remove(p)
+	_forced_replay_files.clear()
+
 var _xp_eligibility_song_id: String = ""
 
 func check_xp_eligibility_notice(song_id: String):
@@ -431,15 +459,27 @@ func report_map_completion(song_id: String):
 		return
 	var content_hash = selected_song.compute_chart_hash() if selected_song != null else ""
 	var replay_id_snapshot = replay.id if replay != null else ""
+	# ranked maps only give XP with the play's replay (recorded even with
+	# Record Replays off, see begin_forced_replay): it goes with the score
+	var replay_b64 := ""
+	if replay_id_snapshot != "":
+		var rf := File.new()
+		if rf.open(Globals.p("user://replays/%s.sspre" % replay_id_snapshot), File.READ) == OK:
+			replay_b64 = Marshalls.raw_to_base64(rf.get_buffer(rf.get_len()))
+			rf.close()
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
-	http_request.connect("request_completed", self, "_on_report_completion_received", [http_request, song_id, replay_id_snapshot])
+	http_request.connect("request_completed", self, "_on_report_completion_received", [http_request, song_id, replay_id_snapshot, replay_b64 != ""])
 	var mods_json = JSON.print(_get_active_mods_dict())
 	var url = "%s?client_id=%s&song_id=%s&speed=%s&content_hash=%s&misses=%s&note_count=%s&hitwindow=%s&mods=%s&hwid=%s" % [
-		REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
+		SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
 		str(song_end_misses), str(song_end_total_notes), str(hitwindow_ms), mods_json.http_escape(), get_hardware_id().http_escape()
 	]
-	var error = http_request.request(url)
+	var error
+	if replay_b64 != "":
+		error = http_request.request(url, ["Content-Type: text/plain"], true, HTTPClient.METHOD_POST, replay_b64)
+	else:
+		error = http_request.request(url)
 	if error != OK:
 		http_request.queue_free()
 
@@ -455,7 +495,7 @@ const XP_REJECT_REASONS := {
 	"debounced": "you already scored this map recently",
 }
 
-func _on_report_completion_received(result, response_code, headers, body, http_request: HTTPRequest, song_id: String, replay_id_snapshot: String):
+func _on_report_completion_received(result, response_code, headers, body, http_request: HTTPRequest, song_id: String, replay_id_snapshot: String, sent_replay: bool = false):
 	http_request.queue_free()
 	if response_code != 200:
 		Globals.notify(Globals.NOTIFY_ERROR, "Couldn't reach the server to submit your score.", "Score Not Submitted")
@@ -482,7 +522,7 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 			msg += "\nSP unchanged (%d) — not a new best on this map" % sp
 		if show_xp_notifications:
 			Globals.notify(Globals.NOTIFY_SUCCEED, msg, "Score Submitted")
-		if record_replays:
+		if record_replays and not sent_replay: # (sent with the score already)
 			upload_replay_for_pass(song_id, replay_id_snapshot)
 	elif data.has("reason"):
 		var reason_text = XP_REJECT_REASONS.get(Globals.s(data.reason), Globals.s(data.reason))
@@ -1631,6 +1671,7 @@ func quit_game():
 	if first_init_done:
 		load("res://scripts/game/SoundSpaceMode.gd").end_song() # your settings, not Sound Space Mode's
 		load("res://scripts/SpectateSettings.gd").restore() # nor the ones of someone you were watching
+		end_forced_replay()
 		save_settings()
 	_star_quit = true
 	_thumb_quit = true
@@ -4173,7 +4214,7 @@ func _write_settings_file(saveFile: String):
 			smart_trail = smart_trail,
 			hit_effect_at_cursor = hit_effect_at_cursor,
 			show_warnings = show_warnings,
-			record_replays = record_replays,
+			record_replays = record_replays and not _forced_replay,
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
 			sort_by_stars = sort_by_stars,

@@ -146,6 +146,7 @@ func end(end_type: int):
 			if Rhythia.record_replays and not Rhythia.replaying:
 				Rhythia.replay = Replay.new()
 				Rhythia.replay.start_recording(Rhythia.selected_song)
+				Rhythia.note_replay_started()
 
 			$Spawn.notes_loaded = false
 			$Spawn.chaos_rng = RandomNumberGenerator.new()

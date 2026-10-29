@@ -530,6 +530,7 @@ func _ready():
 	if not Rhythia.replaying and Rhythia.record_replays:
 		Rhythia.replay = Replay.new()
 		Rhythia.replay.start_recording(Rhythia.selected_song)
+		Rhythia.note_replay_started()
 		load("res://scripts/game/TouchRecorder.gd").attach(self) # fingers, for the touch indicator in replays
 
 	chaos_rng.seed = hash(Rhythia.selected_song.id)
