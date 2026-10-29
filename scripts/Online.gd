@@ -540,10 +540,26 @@ static func shows_channel_switch() -> bool:
 static func wanted_channel() -> String:
 	if is_tester():
 		# testers start on test builds; the Update channel button switches them
-		var tc = Rhythia.get("tester_channel")
+		var tc = _saved_channel("tester_channel", Rhythia.get("tester_channel"))
 		return String(tc) if tc is String and (tc == "stable" or tc == "test") else "test"
-	var c = Rhythia.get("update_channel")
+	var c = _saved_channel("update_channel", Rhythia.get("update_channel"))
 	return String(c) if c is String and (c == "stable" or c == "test") else build_channel()
+
+# The channel picked with the Update channel button, read from settings.json:
+# the update check at startup runs before the settings are loaded, and with
+# the default instead (test, for a tester account) it took a tester who had
+# switched to stable straight back to a test build on every start.
+static func _saved_channel(key: String, fallback):
+	var path: String = Globals.p("user://settings.json")
+	var f := File.new()
+	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+		return fallback
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return fallback
+	var v = parsed.result.get(key, null)
+	return v if v is String and (v == "stable" or v == "test") else fallback
 
 func check_latest_version():
 	if not can_self_update() or not ProjectSettings.get_setting("application/networking/enabled"):
