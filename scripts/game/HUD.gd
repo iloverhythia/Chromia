@@ -184,7 +184,7 @@ func update_static_values():
 	if shine != lettergrade.material.get_shader_param("amount"):
 		lettergrade.material.set_shader_param("amount", shine)
 
-	if not Rhythia.rainbow_hud:
+	if not _tinted_hud():
 		lettergrade.set("custom_colors/font_color", gcol)
 
 var miss_flash: float = 0
@@ -212,7 +212,7 @@ func update_timer(ms: float, canSkip: bool = false):
 	# Runs every frame: colors are only repainted when the timer's state
 	# changes, and text/bar only when they'd look different.
 	var tstate: int = 1 if canSkip else (2 if (not Rhythia.queue_active and Spawn.ms > Game.last_ms) else 0)
-	if not Rhythia.rainbow_hud and tstate != _timer_state:
+	if not _tinted_hud() and tstate != _timer_state:
 		_timer_state = tstate
 		if canSkip:
 			timebar.get("custom_styles/fg").bg_color = timer_fg_canskip
@@ -329,6 +329,31 @@ func _refresh_hud_viewports(delta: float):
 
 var _timer_hud = null
 
+# --- Rainbow HUD / Colorset HUD: the whole HUD (text, numbers, bars) tinted ---
+func _tinted_hud() -> bool:
+	return Rhythia.rainbow_hud or Rhythia.colorset_hud
+
+# Colorset HUD: the colour of the last note you hit, blended in quickly
+var _cs_tint: Color = Color(1, 1, 1)
+var _cs_tint_target: Color = Color(1, 1, 1)
+
+func _on_hit_for_colorset_hud(col):
+	if typeof(col) == TYPE_COLOR:
+		_cs_tint_target = _readable(col)
+
+# (dark colours would make the text hard to read)
+static func _readable(c: Color) -> Color:
+	var o := Color(c.r, c.g, c.b, 1.0)
+	if o.v < 0.75:
+		o.v = 0.75
+	return o
+
+func _hud_tint(delta: float) -> Color:
+	if Rhythia.colorset_hud:
+		_cs_tint = _cs_tint.linear_interpolate(_cs_tint_target, min(1.0, delta * 10.0))
+		return _cs_tint
+	return Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
+
 func _process(delta: float):
 	gtimer += delta
 	_refresh_hud_viewports(delta)
@@ -365,7 +390,7 @@ func _process(delta: float):
 		get_node("GiveUpHud").visible = false
 		get_node("GiveUpHud").opacity = 0
 
-	if rainbow_letter_grade and not Rhythia.rainbow_hud:
+	if rainbow_letter_grade and not _tinted_hud():
 		lettergrade.set("custom_colors/font_color", Color.from_hsv(Rhythia.rainbow_t * 0.1, grade_ss_saturation, grade_ss_value))
 
 	if miss_flash != 0:
@@ -374,16 +399,17 @@ func _process(delta: float):
 			paint(n, miss_col)
 		miss_flash = max(0, miss_flash - (delta * 3))
 
-	if Rhythia.rainbow_hud:
-		energybar.get("custom_styles/fg").bg_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
-		energybar.get("custom_styles/bg").bg_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 0.2, 0.65)
+	if _tinted_hud():
+		var tint: Color = _hud_tint(delta)
+		energybar.get("custom_styles/fg").bg_color = tint
+		energybar.get("custom_styles/bg").bg_color = Color(tint.r * 0.2, tint.g * 0.2, tint.b * 0.2, 0.65)
 		# The timer may have been moved onto the grid (attach_timer_to_grid), so it
 		# is kept in a variable instead of being looked up under the HUD.
 		if is_instance_valid(_timer_hud):
-			_timer_hud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
-		$ComboHud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
-		$LeftHud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
-		$RightHud.modulate = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.4, 1)
+			_timer_hud.modulate = tint
+		$ComboHud.modulate = tint
+		$LeftHud.modulate = tint
+		$RightHud.modulate = tint
 
 	if Spawn.pause_state != 0:
 		$PauseHud.visible = not Input.is_key_pressed(KEY_C)
@@ -846,20 +872,19 @@ func _input(event):
 	elif Rhythia.vr and event.is_action_pressed("vr_click"):
 		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
 
-var _spectate_ui: CanvasLayer = null
+var _spectate_ui: Control = null
 var _spectate_banner: Label = null
 var _spectate_view_button: Button = null
 
 func _create_spectate_banner():
 	if _spectate_ui != null:
 		return
-	_spectate_ui = CanvasLayer.new()
-	_spectate_ui.layer = 50
-	add_child(_spectate_ui)
+	# (in the top-left column, above the Spectators list; exit_spectate_mode frees it)
 	var box := VBoxContainer.new()
-	box.rect_position = Vector2(36, 32)
 	box.add_constant_override("separation", 6)
-	_spectate_ui.add_child(box)
+	_top_left().add_child(box)
+	_top_left().move_child(box, 0)
+	_spectate_ui = box
 
 	_spectate_banner = Label.new()
 	var spectate_font = DynamicFont.new()
@@ -961,30 +986,76 @@ func _on_round_ended():
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
 
+# --- the Spectators list (top left) --------------------------------------------------
+# Who is watching: shown to the player and to everyone watching them, and
+# not at all when nobody is.
 var _spectators_banner: Label = null
+var _top_left_ui: CanvasLayer = null
+var _top_left_box: VBoxContainer = null
+const SPECTATORS_SHOWN := 8
+
+func _top_left() -> VBoxContainer:
+	if _top_left_box == null:
+		_top_left_ui = CanvasLayer.new()
+		_top_left_ui.layer = 50
+		add_child(_top_left_ui)
+		_top_left_box = VBoxContainer.new()
+		_top_left_box.rect_position = Vector2(36, 32)
+		_top_left_box.add_constant_override("separation", 6)
+		_top_left_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_top_left_ui.add_child(_top_left_box)
+	return _top_left_box
 
 func _create_spectators_banner():
 	if _spectators_banner != null:
 		return
-
-	var right_control = get_node_or_null("RightVP/Control")
-	if right_control == null:
-		return
 	_spectators_banner = Label.new()
-	_spectators_banner.anchor_right = 1.0
-	_spectators_banner.margin_top = 10
-	_spectators_banner.margin_bottom = 90
-	_spectators_banner.align = Label.ALIGN_CENTER
-	_spectators_banner.valign = Label.VALIGN_CENTER
-	_spectators_banner.autowrap = true
-
-	var banner_font = DynamicFont.new()
-	banner_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
-	banner_font.size = 32
-	_spectators_banner.add_font_override("font", banner_font)
-	_spectators_banner.add_color_override("font_color", Color(0.8, 0.8, 0.8))
+	var f = DynamicFont.new()
+	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	f.size = 18
+	_spectators_banner.add_font_override("font", f)
+	_spectators_banner.add_color_override("font_color", Color(0.9, 0.9, 0.9))
+	_spectators_banner.add_color_override("font_color_shadow", Color(0, 0, 0, 0.6))
+	_spectators_banner.add_constant_override("shadow_offset_x", 2)
+	_spectators_banner.add_constant_override("shadow_offset_y", 2)
 	_spectators_banner.visible = false
-	right_control.add_child(_spectators_banner)
+	_top_left().add_child(_spectators_banner)
+	var t := Timer.new() # (also follows switching who you watch)
+	t.wait_time = 0.5
+	t.pause_mode = PAUSE_MODE_PROCESS
+	t.connect("timeout", self, "_on_lobby_state_changed_for_spectators_list")
+	add_child(t)
+	t.start()
+
+# the names of those watching the player on screen (you, or who you watch)
+func _spectator_names() -> Array:
+	var lm = _get_lobby_manager()
+	if lm == null:
+		return []
+	var names := []
+	if not lm.lobby_active:
+		# playing alone, watched from the Spectate tab
+		for n in lm.watcher_names:
+			names.append(Globals.s(n))
+		for i in range(names.size(), int(lm.watchers_count)):
+			names.append("") # (more than the server names)
+		return names
+	var shown: int = spectate_peer_id if spectating else int(lm.local_peer_id)
+	for sp in lm.lobby_spectators:
+		if not (sp is Dictionary):
+			continue
+		# (a watch room has only their watchers; older servers don't say who
+		# a spectator watches: then everyone spectating counts)
+		if lm.watch_mode or not sp.has("target") or int(sp.get("target", -1)) == shown or int(sp.get("target", -1)) == -1:
+			names.append(_you_or(lm, int(sp.get("peer_id", -1)), Globals.s(sp.get("name", "Spectator"))))
+	for p in lm.players:
+		var pid := int(p.get("peer_id", -1))
+		if pid != shown and int(p.get("spectate_target", -1)) == shown and bool(p.get("failed", false)):
+			names.append(_you_or(lm, pid, Globals.s(p.get("name", "Player"))))
+	return names
+
+static func _you_or(lm, peer_id: int, name: String) -> String:
+	return "%s (you)" % name if peer_id == int(lm.local_peer_id) else name
 
 func _exit_tree():
 
@@ -992,52 +1063,47 @@ func _exit_tree():
 		_spectate_banner.queue_free()
 		_spectate_banner = null
 
+func _on_watchers_changed_for_list(_count, _names):
+	_on_lobby_state_changed_for_spectators_list()
+
 func _on_lobby_state_changed_for_spectators_list():
 	if _spectators_banner == null:
 		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager == null:
-		return
-	var alive_names = {}
-	for p in lobby_manager.players:
-		if not bool(p.get("failed", false)):
-			alive_names[int(p.get("peer_id", -1))] = Globals.s(p.get("name", "Player"))
-	var groups = {}
-	var unassigned = []
-	var spectator_count = 0
-	for p in lobby_manager.players:
-		if not bool(p.get("failed", false)):
-			continue
-		if int(p.get("peer_id", -1)) == lobby_manager.local_peer_id:
-			continue
-		spectator_count += 1
-		var spec_name = Globals.s(p.get("name", "Player"))
-		var target_id = int(p.get("spectate_target", -1))
-		if target_id != -1 and alive_names.has(target_id):
-			if not groups.has(target_id):
-				groups[target_id] = []
-			groups[target_id].append(spec_name)
-		else:
-			unassigned.append(spec_name)
-	if groups.empty() and unassigned.empty():
+	var names := _spectator_names()
+	if names.empty():
 		_spectators_banner.visible = false
 		return
+	var lines := ["👁 Spectators (%d)" % names.size()]
+	var unnamed := 0
+	for n in names:
+		if n == "":
+			unnamed += 1
+		elif lines.size() <= SPECTATORS_SHOWN:
+			lines.append("   " + n)
+		else:
+			unnamed += 1
+	if unnamed > 0:
+		lines.append("   + %d more" % unnamed)
+	_spectators_banner.text = "\n".join(lines)
 	_spectators_banner.visible = true
-	var spectator_names = []
-	for target_id in groups:
-		spectator_names += groups[target_id]
-	spectator_names += unassigned
-	_spectators_banner.text = "👁 %d watching\n%s" % [spectator_count, ", ".join(spectator_names)]
 
 func _ready():
 	Rhythia.start_log("hud")
 	_timer_hud = get_node_or_null("TimerHud")
 	_setup_hud_viewports()
 	Game.connect("miss", self, "on_miss")
+	if Rhythia.colorset_hud:
+		Game.connect("hit", self, "_on_hit_for_colorset_hud")
+		var cs = Rhythia.selected_colorset
+		if cs != null and cs.real_colors.size() > 0:
+			_cs_tint_target = _readable(cs.real_colors[0])
+			_cs_tint = _cs_tint_target
 	_create_spectators_banner()
 	var lobby_manager_for_spectators = _get_lobby_manager()
 	if lobby_manager_for_spectators != null and not lobby_manager_for_spectators.is_connected("lobby_state_changed", self, "_on_lobby_state_changed_for_spectators_list"):
 		lobby_manager_for_spectators.connect("lobby_state_changed", self, "_on_lobby_state_changed_for_spectators_list")
+	if lobby_manager_for_spectators != null and not lobby_manager_for_spectators.is_connected("watchers_changed", self, "_on_watchers_changed_for_list"):
+		lobby_manager_for_spectators.connect("watchers_changed", self, "_on_watchers_changed_for_list")
 
 	$Stats/Label.visible = Rhythia.show_stats
 
@@ -1067,7 +1133,7 @@ func _ready():
 	if lobby_manager != null and not lobby_manager.is_connected("round_ended", self, "_on_round_ended"):
 		lobby_manager.connect("round_ended", self, "_on_round_ended")
 
-	if Rhythia.rainbow_hud:
+	if _tinted_hud():
 		var cf = max(max(combo_fill_color.r, combo_fill_color.g), combo_fill_color.b)
 		var ce = max(max(combo_empty_color.r, combo_empty_color.g), combo_empty_color.b)
 		var af = max(max(acc_fill_color.r, acc_fill_color.g), acc_fill_color.b)
@@ -1083,7 +1149,7 @@ func _ready():
 		accbar.get("custom_styles/fg").bg_color = acc_fill_color
 		accbar.get("custom_styles/bg").bg_color = acc_empty_color
 
-	if not Rhythia.rainbow_hud:
+	if not _tinted_hud():
 		energybar.get("custom_styles/fg").bg_color = energy_fill_color
 		energybar.get("custom_styles/bg").bg_color = energy_empty_color
 

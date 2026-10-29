@@ -221,6 +221,8 @@ func save_jp():
 	config.save("user://settings.cfg")
 
 const REPORT_COMPLETION_URL = "https://savia.nysr.host/savia-report-completion"
+# a ranked pass sent with its replay (the server only gives XP with one)
+const SUBMIT_PASS_URL = "https://savia.nysr.host/savia-submit-pass"
 const PLAYER_XP_URL = "https://savia.nysr.host/savia-player-xp"
 const LEADERBOARD_URL = "https://savia.nysr.host/savia-leaderboard"
 const LEADERBOARD_SP_URL = "https://savia.nysr.host/savia-leaderboard-sp"
@@ -317,6 +319,8 @@ func current_xp_speed_multiplier() -> float:
 
 func _get_active_mods_dict() -> Dictionary:
 	return {
+		"vr": vr, # how it was played (the website shows VR / Mobile / Spin badges)
+		"mobile": device("mobile"),
 		"nofail": mod_nofail,
 		"extra_energy": mod_extra_energy,
 		"no_regen": mod_no_regen,
@@ -345,6 +349,32 @@ func _get_active_mods_dict() -> Dictionary:
 		"hitbox_size": note_hitbox_size,
 		"health_model": health_model,
 	}
+
+# --- replays for ranked passes ---------------------------------------------------
+# The server only gives XP on ranked maps with the play's replay, so every
+# play is recorded, also with Settings > Record Replays off. Then the setting
+# is only switched on for the song (not saved), and those replay files are
+# deleted when you're back in the menu.
+var _forced_replay: bool = false
+var _forced_replay_files: Array = []
+
+func begin_forced_replay():
+	if replaying or record_replays:
+		return
+	record_replays = true
+	_forced_replay = true
+
+func note_replay_started():
+	if _forced_replay and replay != null and String(replay.id) != "":
+		_forced_replay_files.append(Globals.p("user://replays/%s.sspre" % replay.id))
+
+func end_forced_replay():
+	if _forced_replay:
+		record_replays = false
+		_forced_replay = false
+	for p in _forced_replay_files:
+		Directory.new().remove(p)
+	_forced_replay_files.clear()
 
 var _xp_eligibility_song_id: String = ""
 
@@ -429,15 +459,27 @@ func report_map_completion(song_id: String):
 		return
 	var content_hash = selected_song.compute_chart_hash() if selected_song != null else ""
 	var replay_id_snapshot = replay.id if replay != null else ""
+	# ranked maps only give XP with the play's replay (recorded even with
+	# Record Replays off, see begin_forced_replay): it goes with the score
+	var replay_b64 := ""
+	if replay_id_snapshot != "":
+		var rf := File.new()
+		if rf.open(Globals.p("user://replays/%s.sspre" % replay_id_snapshot), File.READ) == OK:
+			replay_b64 = Marshalls.raw_to_base64(rf.get_buffer(rf.get_len()))
+			rf.close()
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
-	http_request.connect("request_completed", self, "_on_report_completion_received", [http_request, song_id, replay_id_snapshot])
+	http_request.connect("request_completed", self, "_on_report_completion_received", [http_request, song_id, replay_id_snapshot, replay_b64 != ""])
 	var mods_json = JSON.print(_get_active_mods_dict())
 	var url = "%s?client_id=%s&song_id=%s&speed=%s&content_hash=%s&misses=%s&note_count=%s&hitwindow=%s&mods=%s&hwid=%s" % [
-		REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
+		SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
 		str(song_end_misses), str(song_end_total_notes), str(hitwindow_ms), mods_json.http_escape(), get_hardware_id().http_escape()
 	]
-	var error = http_request.request(url)
+	var error
+	if replay_b64 != "":
+		error = http_request.request(url, ["Content-Type: text/plain"], true, HTTPClient.METHOD_POST, replay_b64)
+	else:
+		error = http_request.request(url)
 	if error != OK:
 		http_request.queue_free()
 
@@ -453,7 +495,7 @@ const XP_REJECT_REASONS := {
 	"debounced": "you already scored this map recently",
 }
 
-func _on_report_completion_received(result, response_code, headers, body, http_request: HTTPRequest, song_id: String, replay_id_snapshot: String):
+func _on_report_completion_received(result, response_code, headers, body, http_request: HTTPRequest, song_id: String, replay_id_snapshot: String, sent_replay: bool = false):
 	http_request.queue_free()
 	if response_code != 200:
 		Globals.notify(Globals.NOTIFY_ERROR, "Couldn't reach the server to submit your score.", "Score Not Submitted")
@@ -480,7 +522,7 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 			msg += "\nSP unchanged (%d) — not a new best on this map" % sp
 		if show_xp_notifications:
 			Globals.notify(Globals.NOTIFY_SUCCEED, msg, "Score Submitted")
-		if record_replays:
+		if record_replays and not sent_replay: # (sent with the score already)
 			upload_replay_for_pass(song_id, replay_id_snapshot)
 	elif data.has("reason"):
 		var reason_text = XP_REJECT_REASONS.get(Globals.s(data.reason), Globals.s(data.reason))
@@ -833,11 +875,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e"
 ]
 
 
 const VERSION_NOTES = {
+	"oct29-2026-e": "- Scores now remember if they were played in VR or on a phone/tablet (the website shows VR / Mobile / Spin badges)\n- Settings > Update channel: switch to test builds (new things first, on the test server) or back to stable\n- Ranked passes are sent with their replay (needed for XP now, and anyone can watch them on the website). Replays are recorded even with Record Replays off; those are deleted again when you're back in the menu\n- Spectators list in the top left: the player and everyone watching see who is spectating (hidden when nobody is)\n- Watching someone from the Spectate tab no longer shows the one-player leaderboard on the left\n- VR: hitboxes feel like on PC. Your hand is closer to the grid than your eyes, so notes took a bigger turn of the controller to cross than they looked and felt a bit bigger. Turning the controller now moves the cursor as far as that turn looks from your eyes (the hitbox itself is the same size). Settings > VR > Pointer > Hitboxes feel like on PC (on by default)\n- Spectate tab: the # on each player is their leaderboard rank (SP), not their player number\n- Map list: a small TOP button above UP takes you straight back to the top of your map list\n- NEW: Colorset HUD (Settings > UI, under Rainbow HUD): the HUD's text, numbers and bars take the colour of the notes you hit\n- Settings > Update channel is shown to anyone who has run a test build once (also in stable builds), so you can switch between stable and test without downloading again\n- The retry key no longer jumps into the map search box in the menu",
 	"LEGACY": "- Added Update Notifications\n- Added 360 mod (duuhh)\n- Added arcw\n- Added Strobe mod!\n- Added Nyo to testers\n- Added Vanfi to testers\n- Added Dylan Jarvis to patreon (joke)\n- Fixed Online maps (partially)\n- Brrecken's gay!",
 	"may24-2026-d": "- Fixed Online maps",
 	"may24-2026-e": "- Backend Changes",
@@ -1639,6 +1682,7 @@ func quit_game():
 	if first_init_done:
 		load("res://scripts/game/SoundSpaceMode.gd").end_song() # your settings, not Sound Space Mode's
 		load("res://scripts/SpectateSettings.gd").restore() # nor the ones of someone you were watching
+		end_forced_replay()
 		save_settings()
 	_star_quit = true
 	_thumb_quit = true
@@ -1695,6 +1739,12 @@ func _save_star_cache(cache: Dictionary):
 
 var sort_by_stars: bool = false
 var sort_by_plays: bool = false # map list: most played first
+# Settings > Update channel: "stable" or "test" (Online.gd); a fresh install
+# keeps to the kind of build it is
+var update_channel: String = load("res://scripts/BuildChannel.gd").CHANNEL
+# ran a test build once (kept in settings.json): the Update channel switch is
+# shown from then on, also in stable builds, so you can go back and forth
+var tried_test_builds: bool = load("res://scripts/BuildChannel.gd").CHANNEL == "test"
 var random_colorset: bool = false # experimental: a random colorset every time a map starts
 var _colorset_before_random = null
 
@@ -2013,6 +2063,11 @@ var vr_beam_rainbow: bool = false
 # in songs the beam ends on the cursor (kept inside the grid) instead of
 # going on past the grid's edges
 var vr_lock_beam: bool = false
+# Settings > VR > Pointer: turning the controller moves the cursor as far as
+# that angle looks from your eyes (NoteManager.do_vr_cursor). Your hand is
+# closer to the grid than your eyes, so without it a hitbox is a bigger
+# target for your wrist than it looks, and feels bigger than on PC.
+var vr_aim_from_eyes: bool = true
 var vr_xr_config = null # the OpenXR plugin's settings object (Quest)
 # VR controller buttons (Settings > VR): action -> up to two button numbers
 var vr_binds := {}
@@ -2827,6 +2882,7 @@ var simple_hud: bool = false
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
 var rainbow_hud: bool = false
+var colorset_hud: bool = false # the HUD takes the colour of the notes you hit (HUD.gd)
 var friend_position: int = Globals.FRIEND_BEHIND_GRID
 var note_visual_approach: bool = false
 var visual_approach_follow: bool = false
@@ -3375,6 +3431,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			play_miss_snd = data.play_miss_snd
 		if data.has("auto_preview_song"):
 			auto_preview_song = data.auto_preview_song
+		if data.has("update_channel") and (data.update_channel == "stable" or data.update_channel == "test"):
+			update_channel = data.update_channel
+		if data.has("tried_test_builds") and bool(data.tried_test_builds):
+			tried_test_builds = true
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
@@ -3554,6 +3614,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			rainbow_grid = data.rainbow_grid
 		if data.has("rainbow_hud"):
 			rainbow_hud = data.rainbow_hud
+		if data.has("colorset_hud"):
+			colorset_hud = bool(data.colorset_hud)
 
 		if data.has("show_warnings"):
 			show_warnings = data.show_warnings
@@ -3759,6 +3821,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_beam_rainbow = bool(data.vr_beam_rainbow)
 		if data.has("vr_lock_beam"):
 			vr_lock_beam = bool(data.vr_lock_beam)
+		if data.has("vr_aim_from_eyes"):
+			vr_aim_from_eyes = bool(data.vr_aim_from_eyes)
 		if data.has("vr_binds") and data.vr_binds is Dictionary:
 			vr_binds = data.vr_binds
 		if data.has("menu_lyric_volume"):
@@ -4100,6 +4164,8 @@ func _write_settings_file(saveFile: String):
 			play_miss_snd = play_miss_snd,
 			auto_preview_song = auto_preview_song,
 			disable_bg_effects = disable_bg_effects,
+			update_channel = update_channel,
+			tried_test_builds = tried_test_builds or update_channel == "test",
 			vsync_enabled = OS.vsync_enabled,
 
 			window_fullscreen = OS.window_fullscreen,
@@ -4178,10 +4244,11 @@ func _write_settings_file(saveFile: String):
 			attach_timer_to_grid = attach_timer_to_grid,
 			rainbow_grid = rainbow_grid,
 			rainbow_hud = rainbow_hud,
+			colorset_hud = colorset_hud,
 			smart_trail = smart_trail,
 			hit_effect_at_cursor = hit_effect_at_cursor,
 			show_warnings = show_warnings,
-			record_replays = record_replays,
+			record_replays = record_replays and not _forced_replay,
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
 			sort_by_stars = sort_by_stars,
@@ -4253,6 +4320,7 @@ func _write_settings_file(saveFile: String):
 			vr_beam_color = vr_beam_color.to_html(true),
 			vr_beam_rainbow = vr_beam_rainbow,
 			vr_lock_beam = vr_lock_beam,
+			vr_aim_from_eyes = vr_aim_from_eyes,
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,

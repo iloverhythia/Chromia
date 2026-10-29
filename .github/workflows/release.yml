@@ -3,9 +3,16 @@ name: Release
 # Pushing to main publishes a release for the version in project.godot
 # (application/config/version) if that version has no release yet.
 # The game's auto-updater downloads Chromia.pck (older builds: Furria.pck, Savia.pck) from the latest release.
+#
+# Pushing to test makes a TEST build on every push: a GitHub pre-release
+# (normal players never see those) named test-<date>-<run>, that talks to the
+# test server (vars.TEST_SERVER_HOST) and updates from test builds
+# (scripts/BuildChannel.gd = "test"). Players get it with Settings > Update
+# channel > Test. Production only gets a release when test is merged into main
+# (Servers\Publish to production.cmd).
 on:
   push:
-    branches: [main]
+    branches: [main, test]
   workflow_dispatch:
     inputs:
       notes:
@@ -13,15 +20,17 @@ on:
         required: false
         default: ""
 
+# (a newer push to test replaces a test build still being made)
 concurrency:
-  group: release
-  cancel-in-progress: false
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: ${{ github.ref_name == 'test' }}
 
 permissions:
   contents: write
 
 env:
   GODOT_VERSION: 3.5.3
+  TEST_SERVER_HOST: ${{ vars.TEST_SERVER_HOST || 'savia-test.savvyscripterpc.workers.dev' }}
 
 jobs:
   release:
@@ -54,6 +63,13 @@ jobs:
         run: |
           version=$(sed -n 's/^config\/version="\(.*\)"$/\1/p' project.godot | head -n1)
           test -n "$version"
+          if [ "$GITHUB_REF_NAME" = "test" ]; then
+            # every push to test is a new test build
+            version="test-$(date -u +%b%d | tr 'A-Z' 'a-z')-${GITHUB_RUN_NUMBER}"
+            echo "channel=test" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          fi
           echo "tag=$version" >> "$GITHUB_OUTPUT"
           if gh release view "$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "Release $version already exists; nothing to do."
@@ -61,6 +77,23 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+      # Test builds: the test server instead of savia.nysr.host, the test
+      # channel, and the test tag as the version. Committed (locally) so the
+      # steps that read project.godot from git (iOS, Quest) get it too.
+      - name: Make it a test build
+        if: steps.version.outputs.exists == 'false' && steps.version.outputs.channel == 'test'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          grep -rl --include='*.gd' "savia.nysr.host" . | xargs -r sed -i "s#savia\.nysr\.host#${TEST_SERVER_HOST}#g"
+          sed -i 's/^const CHANNEL := "stable"/const CHANNEL := "test"/' scripts/BuildChannel.gd
+          grep -q '^const CHANNEL := "test"' scripts/BuildChannel.gd
+          sed -i "s/^config\/version=\".*\"/config\/version=\"$TAG\"/" project.godot
+          grep -q "^config/version=\"$TAG\"" project.godot
+          ! grep -rn --include='*.gd' "savia.nysr.host" .
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -am "test build $TAG"
+          echo "Test build $TAG: server $TEST_SERVER_HOST"
 
       - name: Install Godot and export templates
         if: steps.version.outputs.exists == 'false'
@@ -299,7 +332,7 @@ jobs:
       # your app > API) every release is uploaded to the store's release channel
       # META_CHANNEL (repository variable, default ALPHA: private testers).
       - name: Meta Horizon Store build and upload
-        if: steps.version.outputs.exists == 'false' && steps.quest.outcome == 'success'
+        if: steps.version.outputs.exists == 'false' && steps.quest.outcome == 'success' && steps.version.outputs.channel != 'test'
         continue-on-error: true
         env:
           TAG: ${{ steps.version.outputs.tag }}
@@ -345,7 +378,7 @@ jobs:
       # The browser version on GitHub Pages (Settings > Pages > branch gh-pages):
       # replaced on every release, so the branch never grows.
       - name: Publish web build to gh-pages
-        if: steps.version.outputs.exists == 'false'
+        if: steps.version.outputs.exists == 'false' && steps.version.outputs.channel != 'test'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -365,8 +398,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
           NOTES: ${{ inputs.notes }}
+          CHANNEL: ${{ steps.version.outputs.channel }}
         run: |
           notes="$NOTES"
+          pre=()
+          if [ "$CHANNEL" = "test" ]; then
+            pre=(--prerelease)
+            # what changed since the last test build
+            prev=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 60 --json tagName,isPrerelease -q '[.[] | select(.isPrerelease)][0].tagName' || true)
+            changes=""
+            if [ -n "$prev" ]; then
+              changes=$(gh api "repos/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_SHA" --jq '.commits[].commit.message | split("\n")[0] | "- " + .' 2>/dev/null | tail -n 40 || true)
+            fi
+            notes="Test build $TAG (test server: https://$TEST_SERVER_HOST). Get it in Chromia: Settings > Update channel > Test.
+
+          Changes since ${prev:-the last test build}:
+          ${changes:-- (see the commits)}"
+            notes=$(printf '%s' "$notes" | sed 's/^          //')
+          fi
           if [ -z "$notes" ]; then
             notes="Chromia $TAG.
           - Windows: unzip chromia-windows.zip and run Chromia.exe (existing installs update automatically).
@@ -383,7 +432,7 @@ jobs:
           for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk" "chromia-ios.ipa" "chromia-ios.pck" "chromia-ios-compat.txt" "chromia-quest.apk" "chromia-quest.pck" "chromia-quest-compat.txt" "chromia-quest-store.apk"; do
             [ -f "$f" ] && files+=("$f")
           done
-          gh release create "$TAG" "${files[@]}" \
+          gh release create "$TAG" "${files[@]}" "${pre[@]}" \
             --target "$GITHUB_SHA" --title "Chromia $TAG" --notes "$notes"
 
       # The release is published without the Quest files when their build

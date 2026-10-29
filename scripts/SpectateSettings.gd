@@ -45,7 +45,7 @@ const VIEW_KEYS := [
 	"enable_grid", "enable_border", "border_color", "rainbow_grid", "custombg_color",
 	"disable_bg_effects",
 	"show_hp_bar", "show_timer", "show_left_panel", "show_right_panel", "attach_hp_to_grid",
-	"attach_timer_to_grid", "rainbow_hud", "simple_hud", "show_accuracy_bar",
+	"attach_timer_to_grid", "rainbow_hud", "colorset_hud", "simple_hud", "show_accuracy_bar",
 	"show_letter_grade", "show_fc_grade", "expand_hud_onhr", "score_popup", "billboard_score",
 	"display_true_combo", "show_hit_effect", "show_miss_effect", "hit_effects_v2",
 	"hit_effect_at_cursor",

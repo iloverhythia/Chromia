@@ -100,6 +100,9 @@ func _gui_input(ev):
 			ed.on_wheel(1 if ev.button_index == BUTTON_WHEEL_UP else -1)
 			accept_event()
 
+var _tick_key := ""
+var _tick_rects := []
+
 func _process(delta):
 	var target := 1.0 if (_hovering or dragging) else 0.0
 	_hover = move_toward(_hover, target, delta * 10.0)
@@ -129,12 +132,19 @@ func _draw():
 	for b in map.bookmarks:
 		var col := SSQESettings.color(s, "color2", 0.75) if hovering_bookmark == b else SSQESettings.color(s, "color3", 0.75)
 		draw_rect(_bookmark_rect(b, line, mx), col)
-	# ticks
+	# ticks: worked out again only after an edit, a drag, or a size change
+	# (every object, every frame, was slow on big maps)
 	var wdiff: float = ed.wd
-	_ticks(map.notes.items, line, mx, y + 5, y + 3, 1 * wdiff)
-	_ticks(map.timing_points, line, mx, y - 10, y - 6, 2 * wdiff)
-	_ticks(map.vfx_objects.items, line, mx, y + 9, y + 7, 2 * wdiff)
-	_ticks(map.special_objects.items, line, mx, y + 9, y + 7, 2 * wdiff)
+	var key := "%d|%s|%f|%f|%d|%d|%d|%d" % [ed.edit_count, str(line), mx, wdiff, map.notes.items.size(), map.timing_points.size(), map.vfx_objects.items.size(), map.special_objects.items.size()]
+	if key != _tick_key or not ed.dragging_objects.empty():
+		_tick_key = key
+		_tick_rects = []
+		_ticks(map.notes.items, line, mx, y + 5, y + 3, 1 * wdiff)
+		_ticks(map.timing_points, line, mx, y - 10, y - 6, 2 * wdiff)
+		_ticks(map.vfx_objects.items, line, mx, y + 9, y + 7, 2 * wdiff)
+		_ticks(map.special_objects.items, line, mx, y + 9, y + 7, 2 * wdiff)
+	for r in _tick_rects:
+		draw_rect(r, Color(1, 1, 1))
 	if hovering_bookmark != null:
 		var f: DynamicFont = ed.font(int(round(16 * min(ed.wd, ed.hd) * 0.9 + 4)))
 		var bx: float = line.position.x + hovering_bookmark.ms / mx * line.size.x
@@ -148,5 +158,5 @@ func _ticks(items: Array, line: Rect2, mx: float, y1: float, y2: float, width: f
 	for o in items:
 		var x: float = line.position.x + o.ms * scale
 		if x - 1 >= prev:
-			draw_rect(Rect2(x - width / 2, top, max(width, 1), h), Color(1, 1, 1))
+			_tick_rects.append(Rect2(x - width / 2, top, max(width, 1), h))
 			prev = x

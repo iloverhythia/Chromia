@@ -515,15 +515,33 @@ static func restart_hint() -> String:
 static func app_asset() -> String:
 	return "chromia-quest.apk" if OS.has_feature("quest") else "chromia-ios.ipa"
 
-# Testers: signed in with one of these Discord accounts, a game always updates
-# to the newest test build (a GitHub pre-release built from the test branch;
-# it plays on the test server), on every device, without asking
-# (Savia.do_init, UpdateWatcher.gd).
+# Update channel (Settings > Update channel): "stable" takes the latest
+# release, "test" the newest test build (a GitHub pre-release, built from the
+# test branch; it talks to the test server). Switching channels offers the
+# other channel's build even when its version looks older.
+static func build_channel() -> String:
+	return load("res://scripts/BuildChannel.gd").CHANNEL
+
+# Testers: signed in with one of these Discord accounts, a game always takes
+# test builds, on every device, and updates to them without asking
+# (Savia.do_init, UpdateWatcher.gd). The Update channel button can't switch
+# them back.
 const TESTER_DISCORD_IDS := ["697113209051545640"]
 
 static func is_tester() -> bool:
 	var du = Rhythia.get("discord_user")
 	return du is Dictionary and TESTER_DISCORD_IDS.has(String(du.get("id", "")))
+
+# the Update channel switch: for anyone who has run a test build once (or
+# picked the test channel, or has a tester account), not for everyone
+static func shows_channel_switch() -> bool:
+	return build_channel() == "test" or is_tester() or bool(Rhythia.get("tried_test_builds")) or String(Rhythia.get("update_channel")) == "test"
+
+static func wanted_channel() -> String:
+	if is_tester():
+		return "test"
+	var c = Rhythia.get("update_channel")
+	return String(c) if c is String and (c == "stable" or c == "test") else build_channel()
 
 func check_latest_version():
 	if not can_self_update() or not ProjectSettings.get_setting("application/networking/enabled"):
@@ -531,7 +549,7 @@ func check_latest_version():
 		return
 
 	var github_url = "https://api.github.com/repos/%s/releases/latest" % UPDATE_REPO
-	if is_tester():
+	if wanted_channel() == "test":
 		github_url = "https://api.github.com/repos/%s/releases?per_page=30" % UPDATE_REPO
 	if version_hr.request(github_url) != OK:
 		# Couldn't even start the request: answer "no update" instead of never answering.
@@ -546,7 +564,7 @@ func _on_version_request_completed(result, response_code, headers, body):
 	var current: String = ProjectSettings.get_setting("application/config/version")
 	var found = json.result if json.error == OK else null
 	if typeof(found) == TYPE_ARRAY:
-		# a tester: the newest test build (releases come newest first)
+		# the test channel: the newest test build (releases come newest first)
 		var pick = null
 		for r in found:
 			if typeof(r) == TYPE_DICTIONARY and bool(r.get("prerelease", false)) and not bool(r.get("draft", false)):
@@ -556,9 +574,10 @@ func _on_version_request_completed(result, response_code, headers, body):
 	if typeof(found) == TYPE_DICTIONARY and found.has("tag_name"):
 		latest_version_data = found
 		var tag := String(latest_version_data.tag_name)
-		# Never "update" to a version that is older than this one.
+		# Never "update" to a version that is older than this one (unless
+		# switching channel: then the other channel's build is the one wanted).
 		var seq: Array = Rhythia.VERSION_SEQUENCE
-		if seq.has(tag) and seq.has(current) and seq.find(tag) <= seq.find(current):
+		if wanted_channel() == build_channel() and seq.has(tag) and seq.has(current) and seq.find(tag) <= seq.find(current):
 			tag = current
 		# iOS: an update that failed to start on this phone isn't offered again
 		if updates_by_pack() and tag == _read_text(PackUpdate.DIR + "/bad_version.txt"):

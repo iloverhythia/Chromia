@@ -583,6 +583,7 @@ func firstload():
 	get_parent().get_parent().get_parent().get_node("ScrollControl/M").connect("button_down", self, "pg_up_cont")
 	get_parent().get_parent().get_parent().get_node("ScrollControl/P").connect("button_up", self, "pg_down_stop")
 	get_parent().get_parent().get_parent().get_node("ScrollControl/M").connect("button_up", self, "pg_up_stop")
+	_make_top_button(get_parent().get_parent().get_parent().get_node("ScrollControl"))
 
 	get_parent().get_parent().get_node("T/Random").connect("pressed", self, "select_random")
 	prepare_songs()
@@ -606,6 +607,45 @@ func update_clouds():
 				cover_node.texture = map.get_cover_thumb()
 				cover_node.visible = true
 
+
+# The empty square above UP (it lines UP up with the filters) is a "back to
+# the top" button: same look as UP / DOWN, a small TOP label. It jumps to the
+# first map without changing which map is selected.
+func _make_top_button(sc: Node):
+	var b = sc.get_node_or_null("bump")
+	var up = sc.get_node_or_null("M")
+	if not (b is Button) or not (up is Button):
+		return
+	b.modulate = Color(1, 1, 1, 1)
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_stylebox_override(st, up.get_stylebox(st))
+	b.focus_mode = Control.FOCUS_NONE
+	b.hint_tooltip = "Back to the top of the map list"
+	var src: Label = up.get_node_or_null("Label")
+	if src != null:
+		var l: Label = src.duplicate()
+		l.text = "TOP"
+		l.margin_top = 0
+		l.margin_bottom = 0
+		var f = src.get_font("font")
+		if f is DynamicFont:
+			f = f.duplicate()
+			f.size = 14
+			f.outline_size = 2
+			f.extra_spacing_char = 0
+			l.add_font_override("font", f)
+		b.add_child(l)
+	if not b.is_connected("pressed", self, "go_to_top"):
+		b.connect("pressed", self, "go_to_top")
+
+func go_to_top():
+	if disp.size() == 0:
+		return
+	scroll_up = false
+	scroll_down = false
+	momentum = 0
+	cur_map = 0
+	load_pg()
 
 func pg_up_cont():
 	scrolling_to = false

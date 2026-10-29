@@ -153,6 +153,7 @@ func end(end_type: int):
 			if Rhythia.record_replays and not Rhythia.replaying:
 				Rhythia.replay = Replay.new()
 				Rhythia.replay.start_recording(Rhythia.selected_song)
+				Rhythia.note_replay_started()
 
 			$Spawn.notes_loaded = false
 			$Spawn.chaos_rng = RandomNumberGenerator.new()
@@ -393,7 +394,7 @@ func _update_lobby_score_ui():
 	var lobby_manager = _get_lobby_manager()
 	if lobby_score_canvas == null or lobby_manager == null:
 		return
-	var show = showing_round_results or (lobby_manager.lobby_active and lobby_manager.lobby_state.get("started", false))
+	var show = showing_round_results or (lobby_manager.lobby_active and lobby_manager.lobby_state.get("started", false) and not lobby_manager.watch_mode)
 	lobby_score_canvas.visible = show
 	if not show:
 		return

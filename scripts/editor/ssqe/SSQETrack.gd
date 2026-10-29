@@ -32,6 +32,10 @@ func col(i: int, a := 1.0) -> Color:
 		10: return SSQESettings.color(s, "color5", a)
 	return Color(1, 1, 1, a)
 
+func _note_cols() -> Array:
+	var cols: Array = Rhythia.selected_colorset.colors if Rhythia.selected_colorset else []
+	return cols if not cols.empty() else [Color8(255, 0, 255), Color8(0, 255, 200)]
+
 func note_col(i, a := 1.0) -> Color:
 	var cols: Array = Rhythia.selected_colorset.colors if Rhythia.selected_colorset else [Color8(255, 0, 255), Color8(0, 255, 200)]
 	var c: Color = cols[int(i) % int(max(cols.size(), 1))] if not cols.empty() else Color(1, 1, 1)
@@ -42,6 +46,18 @@ func _line(a: Vector2, b: Vector2, c: Color, w := 1.0):
 		a.x = floor(a.x) + 0.5
 		b.x = a.x
 	draw_line(a, b, c, w)
+
+# pts plus a rectangle's outline as 4 line segments (for draw_multiline)
+static func _outline_pts(pts: PoolVector2Array, x: float, y: float, w: float, h: float) -> PoolVector2Array:
+	var a := Vector2(x, y)
+	var b := Vector2(x + w, y)
+	var d := Vector2(x + w, y + h)
+	var e := Vector2(x, y + h)
+	pts.append(a); pts.append(b)
+	pts.append(b); pts.append(d)
+	pts.append(d); pts.append(e)
+	pts.append(e); pts.append(a)
+	return pts
 
 func _stroke_box(x: float, y: float, w: float, h: float, c: Color):
 	draw_rect(Rect2(x + 0.5, y + 0.5, w - 1, h - 1), c, false, 1.0)
@@ -122,23 +138,58 @@ func _draw():
 					ed.hovering_object = items[i]
 		var last_box := -1e9
 		var any_hover: bool = ed.hovering_object != null
+		# zoomed out, notes overlap: the small 3x3 grid inside a box is only
+		# drawn when the box has room to show, and labels need room to be read
+		# (every note's box, grid and label used to be drawn on top of each
+		# other: 60 ms a frame zoomed out on a 2,000 note map)
+		var box_gap: float = max(1.0, note_size * 0.35)
+		var lf: DynamicFont = ed.font(int(round(H / 4 * 0.95)))
+		var label_gap: float = max(8.0, lf.get_string_size("Note 00,000").x + 6.0) # (labels side by side, not on top of each other)
+		var line_pts_on := PoolVector2Array()
+		var line_pts_dim := PoolVector2Array()
+		# a note's box and its 3x3 mini grid are two ready-made outlines, each
+		# drawn with one call where the note is: an outlined draw_rect is slow
+		# (10 a note were 50 ms a frame zoomed out)
+		var tmpl_box := PoolVector2Array()
+		tmpl_box = _outline_pts(tmpl_box, 0.5, 0.5, note_size - 1, note_size - 1)
+		var tmpl_cells := PoolVector2Array()
+		for k in range(9):
+			tmpl_cells = _outline_pts(tmpl_cells, (2 - k % 3) * cell + note_size * 0.1 + 0.5, (k / 3) * cell + note_size * 0.1 + 0.5, mark - 1, mark - 1)
+		var cols: Array = _note_cols()
+		var ncols: int = cols.size()
+		var last_drawn := -1e9
 		for i in range(low, high):
 			var n = items[i]
 			var is_hovering: bool = ed.hovering_object == n
 			var x: float = base_x + n.ms * ms_to_px
+			# several notes on one pixel: only the first is drawn (selected and
+			# hovered ones always are)
+			if x - last_drawn < 1.0 and not is_hovering and not n.selected:
+				continue
+			last_drawn = x
 			var a: float = 0.35 if n.ms < current_time - 1 else 1.0
-			var c := note_col(i, a)
-			if x - last_box >= 1 or is_hovering or n.selected:
+			var c0: Color = cols[i % ncols]
+			var c := Color(c0.r, c0.g, c0.b, a)
+			var roomy: bool = x - last_box >= box_gap
+			var spacious: bool = x - last_box >= note_size # (the mini grid only shows on a box of its own)
+			if roomy or is_hovering or n.selected:
 				draw_rect(Rect2(x, cell_gap, note_size, note_size), Color(c.r, c.g, c.b, a / 20.0))
-				draw_rect(Rect2(x + 0.5, cell_gap + 0.5, note_size - 1, note_size - 1), c, false, 1.0)
-				var gc := Color(c.r, c.g, c.b, a * 0.45)
-				for k in range(9):
-					var gx := (2 - k % 3) * cell + note_size * 0.1
-					var gy := (k / 3) * cell + note_size * 0.1
-					draw_rect(Rect2(x + gx + 0.5, cell_gap + gy + 0.5, mark - 1, mark - 1), gc, false, 1.0)
+				draw_set_transform(Vector2(x, cell_gap), 0, Vector2.ONE)
+				draw_multiline(tmpl_box, c)
+				if spacious or is_hovering:
+					draw_multiline(tmpl_cells, Color(c.r, c.g, c.b, a * 0.45))
+				draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 				last_box = x
 			draw_rect(Rect2(x + (2 - n.x) * cell + note_size * 0.1, cell_gap + (2 - n.y) * cell + note_size * 0.1, mark, mark), c)
-			_line(Vector2(x + 0.5, H + 2), Vector2(x + 0.5, H * 1.4), col(4, a if (not any_hover or is_hovering) else 0.35))
+			# the line under each note: all drawn at once below
+			var lx: float = floor(x) + 0.5
+			var lpts: PoolVector2Array = line_pts_on if (a >= 1.0 and (not any_hover or is_hovering)) else line_pts_dim
+			lpts.append(Vector2(lx, H + 2))
+			lpts.append(Vector2(lx, H * 1.4))
+			if a >= 1.0 and (not any_hover or is_hovering):
+				line_pts_on = lpts
+			else:
+				line_pts_dim = lpts
 			if is_hovering:
 				_stroke_box(x - 4, cell_gap - 4, note_size + 8, note_size + 8, col(5))
 			elif n.selected:
@@ -148,9 +199,13 @@ func _draw():
 				else:
 					_stroke_box(x - 4, cell_gap - 4, note_size + 8, note_size + 8, col(6))
 			is_hovering = is_hovering or (dragging and n.selected)
-			if x - 8 > last_text or is_hovering:
+			if x - label_gap > last_text or is_hovering:
 				labels.append([x + 3, "Note " + comma(i + 1), comma(n.ms) + "ms", is_hovering])
 				last_text = x
+		if line_pts_dim.size() > 0:
+			draw_multiline(line_pts_dim, col(4, 0.35))
+		if line_pts_on.size() > 0:
+			draw_multiline(line_pts_on, col(4, 1.0))
 	else:
 		var list = map.vfx_objects if map.render_mode == RM.VFX else map.special_objects
 		var check_id: bool = map.render_mode == RM.SPECIAL and map.object_mode != SSQEMap.OBJ_DISABLED
@@ -325,6 +380,14 @@ func _draw_object_icon(o, c: Vector2, r: float, color: Color):
 		_:
 			draw_circle(c, r * 0.25, color)
 
+# The waveform's points are worked out once per zoom level (for the whole
+# song, at most ~2 a pixel), in pieces of WAVE_CHUNK points, and moved with
+# the scroll: only the pieces on screen are drawn. Working them out every
+# frame was slow zoomed out.
+const WAVE_CHUNK := 512
+var _wave_key := ""
+var _wave_chunks := [] # [first sample index, PoolVector2Array]
+
 func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms: float, H: float):
 	var offset: float = ed.music_offset() - 15.0
 	var step_ms: float = wave.res * 1000.0
@@ -332,20 +395,47 @@ func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms:
 	var last := int(min(wave.count, ceil((max_ms - offset) / step_ms) + 1))
 	if last <= first:
 		return
-	# at most ~2 points a pixel
-	var stride := int(max(1, floor((last - first) / max(rect_size.x * 2.0, 1.0))))
-	var pts := PoolVector2Array()
-	var left: PoolRealArray = wave.left
-	var right: PoolRealArray = wave.right
 	var classic: bool = ed.s.classicWaveform
-	var i := first
-	while i < last:
-		var x := base_x + (i * step_ms + offset) * ms_to_px
-		if classic:
-			pts.append(Vector2(x, (2.0 - max(abs(left[i]), abs(right[i])) * 2.0) * H / 2))
-		else:
-			pts.append(Vector2(x, (left[i] + 1.0) * H / 2))
-			pts.append(Vector2(x, (right[i] + 1.0) * H / 2))
-		i += stride
-	if pts.size() >= 2:
-		draw_polyline(pts, col(2), 1.0)
+	# at most ~2 points a pixel (a power of two, so small scrolls keep it)
+	var stride := 1
+	while (last - first) / stride > rect_size.x * 2.0:
+		stride *= 2
+	var key := "%f|%f|%f|%d|%s|%d" % [step_ms, ms_to_px, H, stride, str(classic), wave.count]
+	if key != _wave_key:
+		_wave_key = key
+		_wave_chunks = []
+		var left: PoolRealArray = wave.left
+		var right: PoolRealArray = wave.right
+		var pts := PoolVector2Array()
+		var start := 0
+		var n := 0
+		var i := 0
+		while i < wave.count:
+			var x := i * step_ms * ms_to_px
+			if classic:
+				pts.append(Vector2(x, (2.0 - max(abs(left[i]), abs(right[i])) * 2.0) * H / 2))
+			else:
+				pts.append(Vector2(x, (left[i] + 1.0) * H / 2))
+				pts.append(Vector2(x, (right[i] + 1.0) * H / 2))
+			n += 1
+			if n >= WAVE_CHUNK:
+				_wave_chunks.append([start, pts])
+				# the next piece starts where this one ends, so they join up
+				var tail := pts[pts.size() - 1]
+				pts = PoolVector2Array()
+				pts.append(tail)
+				start = i
+				n = 0
+			i += stride
+		if pts.size() >= 2:
+			_wave_chunks.append([start, pts])
+	draw_set_transform(Vector2(base_x + offset * ms_to_px, 0), 0, Vector2.ONE)
+	var c := col(2)
+	for ch in _wave_chunks:
+		var s0: int = ch[0]
+		if s0 > last:
+			break
+		if s0 + WAVE_CHUNK * stride < first:
+			continue
+		draw_polyline(ch[1], c, 1.0)
+	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)

@@ -3474,6 +3474,26 @@ flat = true
 script = ExtResource( 54 )
 target = "rainbow_hud"
 
+[node name="ColorsetHUD" type="CheckBox" parent="TabContainer/UI/UIColor/Group/H"]
+margin_top = 108.0
+margin_right = 500.0
+margin_bottom = 136.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "your HUD (text, numbers and bars) takes the colour of the notes you hit, from your colorset"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Colorset HUD"
+flat = true
+script = ExtResource( 54 )
+target = "colorset_hud"
+
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/UI/UIColor/Group/H"]
 margin_top = 108.0
 margin_right = 500.0

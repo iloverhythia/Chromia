@@ -201,10 +201,15 @@ func update_volume():
 		h.volume_db = linear2db(max(sv, 0.0001))
 	metro.volume_db = linear2db(max(sv, 0.0001))
 
+# counts edits, so drawings that only change with the map (the timeline's
+# ticks) are made again only after one
+var edit_count := 0
+
 func on_map_changed():
 	map.changed()
+	edit_count += 1
 	dirty = true
-	_autosave_left = 30.0
+	_autosave_left = max(float(s.autosaveInterval), 0.1) * 60.0
 	if page and page.has_method("on_map_edited"):
 		page.on_map_edited()
 
@@ -451,10 +456,10 @@ func _process(delta):
 		grid.update()
 	if timeline:
 		timeline.update()
-	if dirty:
+	if dirty and s.autosave:
 		_autosave_left -= delta
 		if _autosave_left <= 0:
-			_autosave_left = 30.0
+			_autosave_left = max(float(s.autosaveInterval), 0.1) * 60.0
 			if page and page.has_method("autosave"):
 				page.autosave()
 

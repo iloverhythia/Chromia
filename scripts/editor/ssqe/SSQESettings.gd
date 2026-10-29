@@ -124,6 +124,9 @@ static func defaults() -> Dictionary:
 		"mode3D": false,
 		"mode3DHitEffect": false,
 		"grid3DOpacity": 80.0,
+		"autosave": true,
+		"autosaveInterval": 0.5, # minutes
+		"lastSettingsTab": "COLORS",
 	}
 
 static func load_settings() -> Dictionary:

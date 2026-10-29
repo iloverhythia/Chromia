@@ -74,6 +74,11 @@ func _input(event):
 		if event.scancode == KEY_SPACE:
 			return
 
+		# the retry keybind (` by default, or a letter) isn't typing: it doesn't
+		# jump into the search box
+		if InputMap.has_action("retry") and event.is_action("retry"):
+			return
+
 		if event.scancode == KEY_BACKSPACE:
 			if len(text) > 0:
 				clear()

@@ -87,6 +87,44 @@ func _enter_tree():
 	b.size_flags_vertical = size_flags_vertical
 	b.connect("pressed", self, "_on_crash_reports")
 	get_parent().call_deferred("add_child", b)
+	if Online.can_self_update() and Online.shows_channel_switch():
+		var ch := Button.new()
+		ch.name = "UpdateChannel"
+		ch.theme = theme
+		ch.size_flags_horizontal = size_flags_horizontal
+		ch.size_flags_vertical = size_flags_vertical
+		ch.connect("pressed", self, "_on_channel", [ch])
+		_channel_text(ch)
+		get_parent().call_deferred("add_child", ch)
+
+# Settings > Update channel: Stable (everyone) or Test (test builds: new
+# things before they're released, on the test server).
+func _channel_text(ch: Button):
+	if Online.is_tester():
+		ch.text = "Update channel: Test (tester account)"
+		return
+	ch.text = "Update channel: %s" % ("Test" if Online.wanted_channel() == "test" else "Stable")
+
+func _on_channel(ch: Button):
+	if Online.is_tester():
+		Globals.notify(Globals.NOTIFY_INFO, "Your Discord account is a tester account: it always gets test builds, on every device.", "Update Channel")
+		return
+	var to_test: bool = Online.wanted_channel() != "test"
+	Globals.confirm_prompt.open(
+		("Switch to test builds?\nThey get new things before everyone else and may have bugs. They play on the test server: scores there don't count on the real leaderboards (the test server starts as a copy of them)." if to_test
+		else "Switch back to the stable version?\nYou go back to the normal server and the latest release."),
+		"Update Channel",
+		[{text = "Cancel", wait = 0}, {text = "Switch", wait = 0}]
+	)
+	var sel = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	yield(Globals.confirm_prompt, "done_closing")
+	if not bool(sel):
+		return
+	Rhythia.update_channel = "test" if to_test else "stable"
+	Rhythia.save_settings()
+	_channel_text(ch)
+	_pressed() # get that channel's build now
 
 func _on_crash_reports():
 	var reports: Array = Rhythia.saved_crash_reports()

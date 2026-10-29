@@ -382,7 +382,10 @@ func _fill_card(c: Dictionary, p: Dictionary):
 		var tc := String(p.get("tag_color", ""))
 		c.tag.add_color_override("font_color", Color(tc) if tc.is_valid_html_color() else ACCENT)
 	var dev := String(p.get("device", "pc"))
-	c.sub.text = "#%d  ·  %s" % [n, DEVICE_NAMES.get(dev, "PC")]
+	# their place on the leaderboard (SP), not the player number
+	var rank = p.get("rank", null)
+	var place: String = ("#%d" % int(rank)) if (typeof(rank) == TYPE_INT or typeof(rank) == TYPE_REAL) and int(rank) > 0 else "Unranked"
+	c.sub.text = "%s  ·  %s" % [place, DEVICE_NAMES.get(dev, "PC")]
 	# avatar: their Discord picture, else a colored circle with the first letter
 	var col := _name_color(nm)
 	c.circle.add_stylebox_override("panel", _flat(col, AVATAR / 2))

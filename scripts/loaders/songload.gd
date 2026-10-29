@@ -26,6 +26,7 @@ func _ready():
 		spec.restore()
 		target2 = _world_path() # your background, not theirs
 	load("res://scripts/game/SoundSpaceMode.gd").begin_song() # Sound Space Mode: its look for this song
+	Rhythia.begin_forced_replay() # ranked passes need the play's replay
 	print("song loading")
 	Rhythia.start_log("loading screen", true)
 	Rhythia.pick_random_colorset()
