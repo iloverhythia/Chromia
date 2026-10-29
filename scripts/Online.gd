@@ -532,6 +532,11 @@ static func is_tester() -> bool:
 	var du = Rhythia.get("discord_user")
 	return du is Dictionary and TESTER_DISCORD_IDS.has(String(du.get("id", "")))
 
+# the Update channel switch: for anyone who has run a test build once (or
+# picked the test channel, or has a tester account), not for everyone
+static func shows_channel_switch() -> bool:
+	return build_channel() == "test" or is_tester() or bool(Rhythia.get("tried_test_builds")) or String(Rhythia.get("update_channel")) == "test"
+
 static func wanted_channel() -> String:
 	if is_tester():
 		return "test"

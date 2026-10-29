@@ -10,3 +10,4 @@ in scripts/Savia.gd and empties this list.
 - Map list: a small TOP button above UP takes you straight back to the top of your map list
 - NEW: Colorset HUD (Settings > UI, under Rainbow HUD): the HUD's text, numbers and bars take the colour of the notes you hit
 - Tester accounts: signed in with a tester Discord account, the game always updates to the newest test build on every device, without asking
+- Settings > Update channel is shown to anyone who has run a test build once (also in stable builds), so you can switch between stable and test without downloading again

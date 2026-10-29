@@ -1741,6 +1741,9 @@ var sort_by_plays: bool = false # map list: most played first
 # Settings > Update channel: "stable" or "test" (Online.gd); a fresh install
 # keeps to the kind of build it is
 var update_channel: String = load("res://scripts/BuildChannel.gd").CHANNEL
+# ran a test build once (kept in settings.json): the Update channel switch is
+# shown from then on, also in stable builds, so you can go back and forth
+var tried_test_builds: bool = load("res://scripts/BuildChannel.gd").CHANNEL == "test"
 var random_colorset: bool = false # experimental: a random colorset every time a map starts
 var _colorset_before_random = null
 
@@ -3429,6 +3432,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			auto_preview_song = data.auto_preview_song
 		if data.has("update_channel") and (data.update_channel == "stable" or data.update_channel == "test"):
 			update_channel = data.update_channel
+		if data.has("tried_test_builds") and bool(data.tried_test_builds):
+			tried_test_builds = true
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
@@ -4159,6 +4164,7 @@ func _write_settings_file(saveFile: String):
 			auto_preview_song = auto_preview_song,
 			disable_bg_effects = disable_bg_effects,
 			update_channel = update_channel,
+			tried_test_builds = tried_test_builds or update_channel == "test",
 			vsync_enabled = OS.vsync_enabled,
 
 			window_fullscreen = OS.window_fullscreen,

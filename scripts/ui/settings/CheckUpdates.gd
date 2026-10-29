@@ -87,7 +87,7 @@ func _enter_tree():
 	b.size_flags_vertical = size_flags_vertical
 	b.connect("pressed", self, "_on_crash_reports")
 	get_parent().call_deferred("add_child", b)
-	if Online.can_self_update():
+	if Online.can_self_update() and Online.shows_channel_switch():
 		var ch := Button.new()
 		ch.name = "UpdateChannel"
 		ch.theme = theme
