@@ -156,8 +156,8 @@ func _on_vr_status_checked():
 	$L/StartVR.visible = Rhythia.vr_available and not Rhythia.vr
 
 # Pages made here rather than in menu2.tscn: a copy of the Online button plus a
-# page under Main. Map Browser (download maps from rhythia.com) and Map Editor
-# (in-game editor, scripts/editor/).
+# page under Main. Map Browser (download maps from rhythia.com), Map Editor
+# (in-game editor, scripts/editor/) and Spectate (who's online, SpectatePage.gd).
 func _add_page(node_name: String, script_path: String, icon_path: String, label: String, below: Node) -> Button:
 	var main = get_node_or_null("../Main")
 	var online_btn = get_node_or_null("L/OnlineTab")
@@ -188,6 +188,13 @@ func _add_page(node_name: String, script_path: String, icon_path: String, label:
 	smm_visibility[btn] = false
 	return btn
 
+# (a moment after the menu opens: it picks its first page itself)
+func _reopen_spectate():
+	yield(get_tree().create_timer(0.3), "timeout")
+	var sp = get_node_or_null("../Main/Spectate")
+	if sp != null and is_inside_tree():
+		press_page(sp)
+
 func _add_extra_pages():
 	# the content manager's black backdrop hid the menu background (waves...)
 	var cm = get_node_or_null("../Main/Content/Menu")
@@ -195,6 +202,8 @@ func _add_extra_pages():
 		cm.color = Color(0, 0, 0, 0)
 	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/MapBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Map Browser", null)
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
+	# everyone online and what they play, with a Spectate button (right under Online)
+	_add_page("Spectate", "res://scripts/ui/menu/SpectatePage.gd", "res://assets/images/ui/spectate.png", "Spectate", null)
 	if ed != null and (Rhythia.vr or OS.has_feature("Android") or OS.has_feature("iOS")):
 		ed.visible = false # needs a keyboard
 	# browser version: a new player has no maps yet; point them to the Map Browser
@@ -236,6 +245,10 @@ func _ready():
 		buttons[i].connect("pressed", self, "press", [i])
 
 	press(0, true)
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null and lm.reopen_spectate_tab:
+		lm.reopen_spectate_tab = false # back from watching someone: pick the next
+		call_deferred("_reopen_spectate")
 	$Click.connect("mouse_entered", self, "_on_Sidebar", [true])
 	if Rhythia.device("mobile"):
 		$Click.visible = false # touch: a tap on an icon opens that page right away

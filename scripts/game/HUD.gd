@@ -533,6 +533,8 @@ func _pick_next_target():
 	if lobby_manager == null:
 		return
 	var next = lobby_manager.get_first_place_peer_id()
+	if next == -1 and lobby_manager.watch_mode:
+		return # (Spectate tab: the server says when it's over, with why)
 	if next == -1:
 		_end_spectate_and_return_to_lobby()
 	elif next != spectate_peer_id:
@@ -565,6 +567,11 @@ func exit_spectate_mode():
 	_real_cursor = null
 
 func _end_spectate_and_return_to_lobby():
+	var lm = _get_lobby_manager()
+	if lm != null and lm.watch_mode:
+		exit_spectate_mode()
+		get_parent().leave_watching()
+		return
 	exit_spectate_mode()
 	var game = get_parent()
 	if game != null and game.has_method("show_round_results"):
@@ -874,6 +881,21 @@ func _create_spectate_banner():
 	_spectate_view_button.connect("pressed", self, "toggle_spectate_view")
 	box.add_child(_spectate_view_button)
 	_update_view_button()
+	var lm = _get_lobby_manager()
+	if lm != null and lm.watch_mode:
+		# from the Spectate tab: a way back (or hold the give up key)
+		var stop := Button.new()
+		stop.focus_mode = Control.FOCUS_NONE
+		stop.add_font_override("font", button_font)
+		stop.text = "Stop watching" if Rhythia.vr else "Stop watching (hold %s)" % _give_up_key_name()
+		stop.connect("pressed", get_parent(), "leave_watching")
+		box.add_child(stop)
+
+static func _give_up_key_name() -> String:
+	for e in InputMap.get_action_list("give_up"):
+		if e is InputEventKey:
+			return OS.get_scancode_string(e.scancode)
+	return "give up"
 
 func _update_view_button():
 	if _spectate_view_button == null:

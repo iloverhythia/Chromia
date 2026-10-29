@@ -35,6 +35,12 @@ signal map_publish_status_received(song_id, published)
 signal map_publish_progress(song_id, bytes_sent, total_bytes)
 signal map_publish_complete(song_id)
 signal ranked_maps_received(song_ids)
+# the Spectate tab
+signal online_players_received(list, you)
+signal spectate_denied(reason)
+signal watch_ended(text)
+signal presence_support_changed(supported)
+signal watchers_changed(count, names)
 signal unpublished_ranked_maps_received(song_ids)
 
 var _live_state_cache: Dictionary = {}
@@ -132,6 +138,7 @@ func _process(_delta):
 		_client.poll()
 	_process_map_upload_step()
 	_process_map_publish_step()
+	_presence_tick(_delta)
 
 	if _announcement_fade_timer > 0:
 		_announcement_fade_timer -= _delta
@@ -187,7 +194,7 @@ func create_lobby(name: String = "Host", is_public: bool = true) -> bool:
 	_pending_name = name
 	_pending_is_public = is_public
 	_connecting_intent = "create"
-	return _connect_socket()
+	return _connect_or_send_intent()
 
 func join_lobby(code: String, name: String) -> bool:
 	close_lobby()
@@ -195,7 +202,7 @@ func join_lobby(code: String, name: String) -> bool:
 	_pending_name = name
 	_pending_code = code
 	_connecting_intent = "join"
-	return _connect_socket()
+	return _connect_or_send_intent()
 
 func _ensure_connected_then_send(payload: Dictionary):
 	if _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_CONNECTED:
@@ -341,7 +348,11 @@ func close_lobby():
 	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 		if lobby_active:
 			_send({"type": "leave_lobby"})
-		_client.disconnect_from_host()
+		# (servers with the Spectate tab keep the connection: it says you're online)
+		if presence_supported != 1:
+			_client.disconnect_from_host()
+	if watch_mode:
+		_finish_watch_locally()
 
 	var was_active = lobby_active
 	lobby_active = false
@@ -395,7 +406,7 @@ func _flush_pending_lobby_song():
 	_send({"type": "set_song", "song_id": song_id, "song_name": song_name})
 
 func update_player_stats(score: int, hits: int, misses: int, total_notes: int):
-	if not lobby_active:
+	if not broadcasting():
 		return
 	_send({"type": "update_stats", "score": score, "hits": hits, "misses": misses, "total_notes": total_notes})
 
@@ -444,7 +455,21 @@ func _discord_identity_fields() -> Dictionary:
 		"discord_display_name": Rhythia.discord_user.get("display_name", ""),
 	}
 
-func _on_connected(_proto = ""):
+# Creating / joining: servers with the Spectate tab keep the connection open,
+# so the request goes out on it; otherwise (or while it's still connecting)
+# it goes out once connected.
+func _connect_or_send_intent() -> bool:
+	if presence_supported != 1:
+		return _connect_socket() # (as before: close_lobby just disconnected)
+	var st = _client.get_connection_status()
+	if st == NetworkedMultiplayerPeer.CONNECTION_CONNECTED:
+		_send_lobby_intent()
+		return true
+	if st == NetworkedMultiplayerPeer.CONNECTION_CONNECTING:
+		return true # (_on_connected sends it)
+	return _connect_socket()
+
+func _send_lobby_intent():
 	if _connecting_intent == "create":
 		var msg = {"type": "create_lobby", "name": _pending_name, "client_id": Rhythia.cid, "is_public": _pending_is_public}
 		msg.merge(_discord_identity_fields())
@@ -453,6 +478,15 @@ func _on_connected(_proto = ""):
 		var msg = {"type": "join_lobby", "code": _pending_code, "name": _pending_name, "client_id": Rhythia.cid}
 		msg.merge(_discord_identity_fields())
 		_send(msg)
+	_connecting_intent = "generic"
+
+func _on_connected(_proto = ""):
+	_send_lobby_intent()
+	_send({"type": "hello"})
+	if presence_supported == 1:
+		_send_presence(true)
+		if _online_subscribed:
+			_send({"type": "subscribe_online"})
 	# Requests queued while connecting (map rank, my stats...) go out for every
 	# intent; after a lobby connect they used to wait until the next reconnect.
 	if not _pending_send_after_connect.empty():
@@ -558,7 +592,7 @@ func _apply_mods_locally(mods: Dictionary):
 		Rhythia.emit_signal("mods_changed")
 
 func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null):
-	if not lobby_active:
+	if not broadcasting():
 		return
 	var msg := {
 		"type": "update_live_state", "x": x, "y": y, "combo": combo, "combo_level": combo_level,
@@ -568,12 +602,12 @@ func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pc
 		msg["vr"] = vr_pose # in VR: head and hands, for spectators
 	_send(msg)
 func notify_passed():
-	if not lobby_active:
+	if not broadcasting():
 		return
 	_send({"type": "player_passed"})
 
 func notify_failed():
-	if not lobby_active:
+	if not broadcasting():
 		return
 
 	for p in players:
@@ -599,12 +633,22 @@ var _spectate_load_target: int = -1
 
 # Your display settings, for anyone who watches you (sent when a round starts).
 func send_view_settings():
-	if not lobby_active:
+	if not broadcasting():
+		return
+	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+
+# Playing alone: your display settings go to the server at the start of the
+# song, so whoever starts watching from the Spectate tab sees it your way
+# right away (servers with the Spectate tab only; a lobby uses the above).
+func send_solo_view_settings():
+	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
 
 func request_player_settings(peer_id: int):
 	if lobby_active and peer_id > 0 and peer_id != local_peer_id:
+		if watch_mode and player_view_settings.has(peer_id):
+			return # (the server sent them with the start)
 		_send({"type": "get_player_settings", "peer_id": peer_id})
 
 func has_player_settings(peer_id: int) -> bool:
@@ -659,6 +703,12 @@ func _check_map_readiness():
 	if song:
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
+			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and not has_player_settings(_spectate_load_target):
+				# Spectate tab: their settings are on the way (they send them
+				# when someone starts watching); load once with them
+				request_player_settings(_spectate_load_target)
+				_watch_wait_t = 2.5
+				return
 			request_player_settings(get_first_place_peer_id())
 			_scene_transition_now()
 	else:
@@ -681,7 +731,7 @@ func _start_map_upload(song_id: String):
 	if _map_upload_active:
 		print("[furria] upload aborted: already have one in flight for ", _map_upload_song_id)
 		return
-	if not is_host:
+	if not is_host and watchers_count <= 0:
 		print("[furria] upload aborted: this client isn't the host (server shouldn't have asked)")
 		return
 	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
@@ -878,10 +928,16 @@ func _finish_map_download(song_id: String):
 	var bytes = Marshalls.base64_to_raw(full_b64)
 	print("[furria] map_download_end ", song_id, " — decoded ", bytes.size(), " of ", _map_download_total_bytes, " declared bytes")
 	if bytes.size() == 0:
+		if watch_mode:
+			end_watch("Their map didn't download.")
+			return
 		emit_signal("lobby_error", "Received an empty map download.")
 		return
 	if _map_download_total_bytes > 0 and bytes.size() < _map_download_total_bytes * 0.95:
 		push_error("[furria] map download size mismatch: got %d, expected %d" % [bytes.size(), _map_download_total_bytes])
+		if watch_mode:
+			end_watch("Their map didn't download completely.")
+			return
 		emit_signal("lobby_error", "The map download was incomplete — try again.")
 		return
 	var dir = Directory.new()
@@ -967,9 +1023,18 @@ func _handle_message(msg: Dictionary):
 			is_host = false
 			lobby_active = true
 			_late_join_pending = bool(msg.get("started", false))
+			if bool(msg.get("watch", false)):
+				# from the Spectate tab: watching one player (in their lobby, or
+				# a watch room the server makes around a solo player)
+				watch_mode = true
+				watch_target_name = Globals.s(msg.get("target_name", ""))
+				_spectate_load_target = int(msg.get("target_peer", -1))
+				_watch_first_load = true
 			emit_signal("lobby_joined", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_state":
+			if not lobby_active:
+				return # (a lobby you just left)
 			lobby_state = msg.get("state", lobby_state)
 			players = msg.get("players", players)
 
@@ -995,7 +1060,15 @@ func _handle_message(msg: Dictionary):
 		"skip_triggered":
 			emit_signal("skip_triggered", float(msg.get("target_ms", 0)))
 		"error":
-			emit_signal("lobby_error", Globals.s(msg.get("reason", "Unknown error")))
+			var reason := Globals.s(msg.get("reason", "Unknown error"))
+			if reason.find("Unknown message type") != -1 or reason.find("hello") != -1 or reason.find("presence") != -1:
+				# an older server without the Spectate tab: nothing to show
+				if reason.find("hello") != -1 or reason.find("presence") != -1:
+					_set_presence_supported(0)
+				return
+			if watch_mode and not lobby_active:
+				_finish_watch_locally()
+			emit_signal("lobby_error", reason)
 			if not lobby_active:
 				close_lobby()
 				emit_signal("lobby_state_changed") # e.g. a failed join: the panel kept saying "Joining lobby..."
@@ -1004,6 +1077,9 @@ func _handle_message(msg: Dictionary):
 			var ss = msg.get("settings", null)
 			player_view_settings[sp] = ss if ss is Dictionary else {}
 			emit_signal("player_settings_received", sp)
+			if _watch_wait_t > 0.0 and watch_mode and sp == _spectate_load_target and has_player_settings(sp):
+				_watch_wait_t = 0.0
+				_scene_transition_now()
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
@@ -1049,12 +1125,48 @@ func _handle_message(msg: Dictionary):
 				_finish_map_download(dl_song_id)
 		"map_unavailable":
 			print("[furria] map_unavailable: ", Globals.s(msg.get("reason", "")))
+			if watch_mode:
+				end_watch("Couldn't get their map: " + Globals.s(msg.get("reason", "it isn't available.")))
+				return
 			emit_signal("lobby_error", Globals.s(msg.get("reason", "That map isn't available.")))
+		"server_hello":
+			var feats = msg.get("features", [])
+			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
+		"online_players":
+			var lst = msg.get("players", [])
+			online_players = lst if lst is Array else []
+			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
+			emit_signal("online_players_received", online_players, my_player_number)
+		"spectate_denied":
+			if watch_mode and not lobby_active:
+				_finish_watch_locally()
+			emit_signal("spectate_denied", Globals.s(msg.get("reason", "You can't watch them right now.")))
+		"watch_ended":
+			end_watch(Globals.s(msg.get("text", "They stopped playing.")))
+		"watchers_changed":
+			var was := watchers_count
+			watchers_count = int(msg.get("count", 0))
+			var nm = msg.get("names", [])
+			watcher_names = nm if nm is Array else []
+			if watchers_count > 0 and was == 0 and Rhythia.in_map:
+				send_view_settings() # so they see it your way
+				var game = get_tree().current_scene.find_node("Game", true, false) if get_tree().current_scene else null
+				if game != null and game.has_method("_sync_lobby_stats"):
+					game._sync_lobby_stats()
+			if watchers_count > was and not watcher_names.empty():
+				Globals.notify(Globals.NOTIFY_INFO, "%s is watching you" % String(watcher_names[watcher_names.size() - 1]), "Spectator")
+			emit_signal("watchers_changed", watchers_count, watcher_names)
 		"round_ended":
+			if watch_mode:
+				end_watch("The round ended.")
+				return
 			emit_signal("round_ended")
 		"all_players_loaded":
 			emit_signal("all_players_loaded")
 		"lobby_closed":
+			if watch_mode:
+				end_watch("The lobby closed.")
+				return
 			close_lobby()
 		"chat_message":
 			var lm_peer_id = int(msg.get("peer_id", -1))
@@ -1122,9 +1234,10 @@ func _handle_message(msg: Dictionary):
 func _scene_transition_now():
 	if not lobby_active:
 		return
-	if _late_join_pending and _spectate_load_target == -1:
+	if _late_join_pending and (_spectate_load_target == -1 or _watch_first_load):
+		_watch_first_load = false
 		var spec = load("res://scripts/SpectateSettings.gd")
-		var first = get_first_place_peer_id()
+		var first = _spectate_load_target if (watch_mode and _spectate_load_target != -1) else get_first_place_peer_id()
 		if spec.prefer_theirs() and first != -1 and has_player_settings(first):
 			spec.apply(player_view_settings[first], first)
 	if lobby_state.has("song_id") and lobby_state.song_id != "":
@@ -1151,3 +1264,220 @@ func _scene_transition_now():
 			request_map(lobby_state.song_id)
 			return
 	get_tree().change_scene("res://scenes/loaders/songload.tscn")
+
+
+# --- Online, and the Spectate tab --------------------------------------------------
+# Servers from Savia server 2.1 on keep a list of who's online and what they
+# play, and let anyone watch anyone (in a lobby or not). The game says hello
+# when it connects; a server that answers with server_hello gets a lasting
+# connection and your presence (menu / playing what, spectators allowed),
+# re-sent whenever it changes. Older servers just see the hello and nothing
+# changes for them.
+#
+# Watching from the Spectate tab looks to the rest of the game like a late
+# join into a lobby (lobby_joined with watch): the spectate code in HUD.gd
+# works as it is. watch_mode marks it; the menu loading (menuload.gd) ends
+# it, and the server saying it ended brings you back to the menu, with your
+# own mods back.
+#
+# When someone watches you outside a lobby (watchers_count > 0), the game
+# sends your live state, stats and display settings as it does in a lobby.
+
+var presence_supported: int = -1 # -1 not known yet, 0 no, 1 yes
+var online_players: Array = []
+var my_player_number: int = -1
+var watch_mode: bool = false
+var watch_target_name: String = ""
+var watchers_count: int = 0
+var watcher_names: Array = []
+var _watch_first_load: bool = false
+var _watch_wait_t: float = 0.0
+var reopen_spectate_tab: bool = false # the menu opens on the Spectate tab after watching
+var _watch_mods_backup = null
+var _online_subscribed: bool = false
+var _presence_sent: String = ""
+var _presence_t: float = 0.0
+var _presence_hello_t: float = -1.0
+var _presence_retry_t: float = 3.0 # the first connect, a moment after the game starts
+var _presence_failures: int = 0
+
+# sending your play to whoever watches you (in a lobby, or watched alone)
+func broadcasting() -> bool:
+	if lobby_active:
+		return not watch_mode
+	return watchers_count > 0
+
+func _set_presence_supported(v: int):
+	if presence_supported == v:
+		return
+	presence_supported = v
+	if v == 1:
+		_presence_failures = 0
+		_send_presence(true)
+		if _online_subscribed:
+			_send({"type": "subscribe_online"})
+	emit_signal("presence_support_changed", v == 1)
+
+func _connected() -> bool:
+	return _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_CONNECTED
+
+func _presence_tick(delta: float):
+	if Rhythia == null or String(Rhythia.cid) == "":
+		return
+	if _connected():
+		if presence_supported == -1:
+			if _presence_hello_t < 0.0:
+				_presence_hello_t = 0.0
+			_presence_hello_t += delta
+			if _presence_hello_t > 8.0:
+				_set_presence_supported(0) # no answer: an older server
+		_presence_t += delta
+		if _presence_t >= 1.0:
+			_presence_t = 0.0
+			_send_presence(false)
+		if _watch_wait_t > 0.0:
+			_watch_wait_t -= delta
+			if _watch_wait_t <= 0.0 and watch_mode:
+				_scene_transition_now() # (their settings didn't come: yours)
+		return
+	_presence_hello_t = -1.0
+	_presence_sent = ""
+	if presence_supported == 0:
+		return # an older server: connects only when needed, as before
+	if _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_CONNECTING:
+		return
+	_presence_retry_t -= delta
+	if _presence_retry_t <= 0.0:
+		# reconnect: soon at first, then less often while the server is down
+		_presence_failures += 1
+		_presence_retry_t = min(10.0 * _presence_failures, 120.0)
+		_connecting_intent = "generic"
+		_last_connect_try = -100000
+		_connect_socket()
+
+func _presence_name() -> String:
+	var n := ""
+	if Rhythia.discord_user is Dictionary:
+		n = String(Rhythia.discord_user.get("display_name", ""))
+		if n == "" or n == "Null":
+			n = String(Rhythia.discord_user.get("username", ""))
+	if n == "" and player_name != "Player":
+		n = player_name
+	return n.substr(0, 32)
+
+func _presence_device() -> String:
+	if Rhythia.vr:
+		return "quest" if OS.has_feature("quest") else "vr"
+	if OS.has_feature("JavaScript"):
+		return "web"
+	if OS.has_feature("Android") or OS.has_feature("iOS"):
+		return "mobile"
+	return "pc"
+
+func _presence_now() -> Dictionary:
+	var spectating_someone := watch_mode
+	var game = null
+	if Rhythia.in_map and get_tree().current_scene != null:
+		game = get_tree().current_scene.find_node("Game", true, false)
+		var hud = game.get_node_or_null("HUD") if game != null else null
+		if hud != null and bool(hud.get("spectating")):
+			spectating_someone = true
+	var playing: bool = Rhythia.in_map and not Rhythia.replaying and not spectating_someone and Rhythia.selected_song != null
+	var p := {
+		"type": "presence", "client_id": Rhythia.cid, "name": _presence_name(),
+		"status": "playing" if playing else "menu",
+		"allow_spectate": bool(Rhythia.allow_spectators),
+		"device": _presence_device(),
+	}
+	if playing:
+		var s = Rhythia.selected_song
+		p["song_id"] = String(s.id).substr(0, 200)
+		p["song_name"] = String(s.name).substr(0, 200)
+		p["song_creator"] = String(s.get("creator") if s.get("creator") != null else "").substr(0, 100)
+		var d = s.get("difficulty")
+		p["difficulty"] = clamp(float(d), -1.0, 100.0) if d != null else -1.0
+		p["mods"] = _collect_current_mods()
+	return p
+
+func _send_presence(force: bool):
+	if presence_supported != 1 or not _connected():
+		return
+	var p := _presence_now()
+	var key := JSON.print(p)
+	if key == _presence_sent and not force:
+		return
+	_presence_sent = key
+	_send(p)
+
+# right away (a setting changed, a song started)
+func update_presence():
+	_send_presence(false)
+
+func subscribe_online():
+	_online_subscribed = true
+	if presence_supported == 1 and _connected():
+		_send({"type": "subscribe_online"})
+	elif not _connected():
+		_presence_retry_t = 0.0
+
+func unsubscribe_online():
+	_online_subscribed = false
+	if _connected():
+		_send({"type": "unsubscribe_online"})
+
+func spectate_player(number: int) -> bool:
+	if lobby_active and not watch_mode:
+		emit_signal("spectate_denied", "Leave your lobby first.")
+		return false
+	if presence_supported != 1 or not _connected():
+		emit_signal("spectate_denied", "Not connected to the server.")
+		return false
+	if _watch_mods_backup == null:
+		_watch_mods_backup = _collect_current_mods()
+	_send({"type": "spectate_player", "number": number, "name": _presence_name() if _presence_name() != "" else player_name, "client_id": Rhythia.cid})
+	return true
+
+# you leave (back to the menu)
+func stop_watching():
+	if not watch_mode:
+		return
+	if _connected():
+		_send({"type": "stop_watching"})
+	_finish_watch_locally()
+
+# the server ended it (they finished, failed, left, turned spectators off)
+func end_watch(text: String):
+	if not watch_mode:
+		return
+	var in_song: bool = Rhythia.in_map
+	if _connected():
+		_send({"type": "stop_watching"}) # (out of their lobby, if it was one)
+	_finish_watch_locally()
+	Globals.notify(Globals.NOTIFY_INFO, text, "Spectating")
+	if in_song:
+		get_tree().paused = false
+		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
+func _finish_watch_locally():
+	if watch_mode:
+		reopen_spectate_tab = true
+	watch_mode = false
+	_watch_wait_t = 0.0
+	_watch_first_load = false
+	watch_target_name = ""
+	_late_join_pending = false
+	# leave the lobby state without dropping the connection
+	lobby_active = false
+	is_host = false
+	lobby_code = ""
+	local_peer_id = -1
+	players = []
+	lobby_state = {"song_id": "", "song_name": "", "started": false, "host_name": ""}
+	_map_readiness_checked_song_id = ""
+	lobby_chat_history = []
+	player_view_settings = {}
+	_spectate_load_target = -1
+	if _watch_mods_backup is Dictionary:
+		_apply_mods_locally(_watch_mods_backup)
+	_watch_mods_backup = null
+	emit_signal("lobby_state_changed")

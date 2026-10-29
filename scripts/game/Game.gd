@@ -120,6 +120,13 @@ func end(end_type: int):
 		Rhythia.award_offline_rp()
 
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
+	if lobby_manager != null and not lobby_manager.lobby_active and lobby_manager.watchers_count > 0:
+		# watched from the Spectate tab (not in a lobby): they see how it ended
+		# (giving up shows as "stopped playing" once you're back in the menu)
+		if end_type == Globals.END_PASS:
+			lobby_manager.notify_passed()
+		elif end_type == Globals.END_FAIL:
+			lobby_manager.notify_failed()
 	if lobby_manager != null and lobby_manager.lobby_active:
 		if end_type == Globals.END_PASS:
 			lobby_manager.notify_passed()
@@ -370,6 +377,19 @@ func _on_lobby_score_row_input(event: InputEvent, row: Control):
 func _get_lobby_manager():
 	return get_node_or_null("/root/LobbyManager")
 
+func _watching_from_tab() -> bool:
+	var lm = _get_lobby_manager()
+	return lm != null and lm.watch_mode
+
+# back to the menu from watching someone (Spectate tab)
+func leave_watching():
+	var lm = _get_lobby_manager()
+	if lm != null:
+		lm.stop_watching()
+	get_tree().paused = false
+	black_fade_target = true
+	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
 func _update_lobby_score_ui():
 	var lobby_manager = _get_lobby_manager()
 	if lobby_score_canvas == null or lobby_manager == null:
@@ -482,7 +502,7 @@ func _accuracy_color(acc: float) -> Color:
 
 func _sync_lobby_stats():
 	var lobby_manager = _get_lobby_manager()
-	if lobby_manager == null or not lobby_manager.lobby_active:
+	if lobby_manager == null or not lobby_manager.broadcasting():
 		return
 	lobby_manager.update_player_stats(score, hits, misses, total_notes)
 
@@ -534,6 +554,15 @@ func _process(delta):
 			if giving_up >= 1:
 				if not Rhythia.queue_active and $Spawn.ms > last_ms: end(Globals.END_PASS)
 				else: end(Globals.END_GIVEUP)
+		else:
+			giving_up = 0
+	elif _watching_from_tab():
+		# watching someone from the Spectate tab: holding give up stops watching
+		if Input.is_action_pressed("give_up"):
+			giving_up += delta / 0.6
+			if giving_up >= 1:
+				giving_up = 0
+				leave_watching()
 		else:
 			giving_up = 0
 
@@ -742,6 +771,8 @@ func _ready():
 		_wait_for_all_players_loaded(lobby_manager)
 	else:
 		$Spawn.active = true
+		if lobby_manager != null and not lobby_manager.lobby_active:
+			lobby_manager.send_solo_view_settings() # for anyone who starts watching (Spectate tab)
 
 	if is_late_join:
 		$Spawn.active = false
