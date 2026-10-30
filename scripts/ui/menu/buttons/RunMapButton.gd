@@ -133,6 +133,12 @@ func _input(event: InputEvent):
 				grab_focus()
 				grab_click_focus()
 				pressed = true
+				# Space presses the focused button by itself (ui_accept); the
+				# retry key doesn't, so it presses it here
+				if retry_key and event.scancode != KEY_SPACE:
+					get_tree().set_input_as_handled()
+					Rhythia.disarm_post_death_quick_restart() # (that one would load the map a second time)
+					_pressed()
 
 func _pressed():
 	if not Rhythia.selected_song: return
@@ -170,7 +176,7 @@ func _ready():
 	get_tree().connect("files_dropped", self, "files_dropped")
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
-		lobby_manager.connect("game_started", self, "_on_lobby_game_started_on_lobby_game_started")
+		lobby_manager.connect("game_started", self, "_on_lobby_game_started")
 
 func _on_lobby_game_started():
 	if has_been_pressed:
