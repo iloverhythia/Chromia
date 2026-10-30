@@ -1171,6 +1171,7 @@ func _handle_message(msg: Dictionary):
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
+			i_am_staff = bool(msg.get("you_staff", false))
 			emit_signal("online_players_received", online_players, my_player_number)
 		"spectate_denied":
 			if watch_mode and not lobby_active:
@@ -1322,6 +1323,7 @@ var presence_supported: int = -1 # -1 not known yet, 0 no, 1 yes
 var online_players: Array = []
 var my_player_number: int = -1
 var watch_mode: bool = false
+var i_am_staff: bool = false # Owner / Administrator: may watch players with spectators off (Spectate anyway)
 var lobby_spectators: Array = [] # lobby_state.spectators: {peer_id, name, target}
 var watch_target_name: String = ""
 var watchers_count: int = 0

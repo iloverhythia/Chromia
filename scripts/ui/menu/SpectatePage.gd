@@ -434,15 +434,21 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	c.btn.set_meta("number", n)
 	c.btn.set_meta("name", nm)
 	# only for someone playing who allows it (the server checks again)
-	c.btn.visible = bool(p.get("can_spectate", false)) and not is_you
+	# staff can watch someone with spectators off too: "Spectate anyway"
+	var anyway: bool = not bool(p.get("can_spectate", false)) and _lm != null and _lm.i_am_staff and bool(p.get("can_spectate_staff", false))
+	c.btn.set_meta("anyway", anyway)
+	c.btn.visible = (bool(p.get("can_spectate", false)) or anyway) and not is_you
 	c.btn.disabled = _pending_number != -1
-	c.btn.text = "Joining..." if _pending_number == n else "Spectate"
+	c.btn.text = "Joining..." if _pending_number == n else _btn_text(c.btn)
 
 func _refresh_buttons():
 	for n in _cards.keys():
 		var c = _cards[n]
 		c.btn.disabled = _pending_number != -1
-		c.btn.text = "Joining..." if _pending_number == n else "Spectate"
+		c.btn.text = "Joining..." if _pending_number == n else _btn_text(c.btn)
+
+static func _btn_text(btn: Button) -> String:
+	return "Spectate anyway" if btn.has_meta("anyway") and bool(btn.get_meta("anyway")) else "Spectate"
 
 func _on_spectate(btn: Button):
 	if _lm == null or _pending_number != -1:
