@@ -38,7 +38,7 @@ func _pressed():
 		return
 
 	text = "Downloading..."
-	Online.attempt_update()
+	Online.attempt_update(true)
 	yield(Online, "update_finished")
 	if not Online.update_installed:
 		Globals.notify(Globals.NOTIFY_WARN, Online.update_blocked_reason if Online.update_blocked_reason != "" else "The update couldn't be downloaded. Try again later.", "Update Failed")

@@ -5469,9 +5469,11 @@ func do_init(_ud = null):
 						_pending_update_notice = latest_version
 					elif Online.update_blocked_reason != "":
 						Globals.call_deferred("notify", Globals.NOTIFY_WARN, Online.update_blocked_reason, "Update needs a reinstall")
-				else:
+				elif Online.update_installed:
 					restart_game()
 					return
+				elif Online.update_blocked_reason != "":
+					Globals.call_deferred("notify", Globals.NOTIFY_WARN, Online.update_blocked_reason, "Update stopped")
 		var rdir = Directory.new()
 		if rdir.file_exists(Online.local_pck_path() + ".old"):
 			rdir.remove(Online.local_pck_path() + ".old")

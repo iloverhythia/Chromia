@@ -612,10 +612,22 @@ static func _read_text(path: String) -> String:
 	f.close()
 	return t
 
-func attempt_update():
+# manual: Settings > Check for Updates / Update channel (always allowed);
+# otherwise the automatic checks, which never undo an update they just made
+func attempt_update(manual: bool = false):
+	update_blocked_reason = ""
 	if not latest_version_data or not latest_version_data.has("assets"):
 		emit_signal("update_finished")
 		return
+	var to := String(latest_version_data.get("tag_name", ""))
+	var from := String(ProjectSettings.get_setting("application/config/version"))
+	if not manual and _bounces_back(from, to):
+		update_installed = false
+		update_blocked_reason = "Not updating to %s: this game just updated from it, and going back would start an update loop. Pick a version in Settings > Update channel." % to
+		Rhythia.trail("update loop stopped: %s -> %s" % [from, to])
+		emit_signal("update_finished")
+		return
+	_note_update(from, to)
 
 	if updates_by_pack():
 		var why = yield(_pack_compatible(), "completed")
@@ -649,6 +661,36 @@ func attempt_update():
 	update_hr.request(download_url)
 
 var update_installed: bool = false # the last attempt_update() worked
+
+# Update-loop guard: the last update (from -> to). An automatic update straight
+# back to the version just left within a few minutes is stopped (two versions
+# that each want the other restarted the game over and over).
+const LAST_UPDATE_FILE := "user://last_update.json"
+const BOUNCE_WINDOW_S := 15 * 60
+
+static func _note_update(from: String, to: String):
+	var f := File.new()
+	if f.open(Globals.p(LAST_UPDATE_FILE), File.WRITE) == OK:
+		f.store_string(JSON.print({"from": from, "to": to, "at": OS.get_unix_time()}))
+		f.close()
+
+static func _bounces_back(from: String, to: String) -> bool:
+	var f := File.new()
+	var path: String = Globals.p(LAST_UPDATE_FILE)
+	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+		return false
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return false
+	var last: Dictionary = parsed.result
+	if OS.get_unix_time() - int(last.get("at", 0)) >= BOUNCE_WINDOW_S:
+		return false
+	var lf := String(last.get("from", ""))
+	var lt := String(last.get("to", ""))
+	# straight back (to -> from), or the same update again: an older version in
+	# between undid it (it never got this guard), so it would only loop
+	return (lf == to and lt == from) or (lf == from and lt == to)
 var update_blocked_reason: String = "" # pack updates: why this one can't be used
 
 # A pack can only replace the game's files, not the app's list of startup
