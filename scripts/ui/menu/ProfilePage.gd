@@ -229,7 +229,7 @@ func load_profile():
 	status_label.text = "Loading your profile…"
 	var discord_id := String(Rhythia.discord_user.get("id", ""))
 	var names := []
-	for n in [Rhythia.discord_user.get("username", ""), Rhythia.discord_user.get("display_name", "")]:
+	for n in [Rhythia.website_name, Rhythia.discord_user.get("username", ""), Rhythia.discord_user.get("display_name", "")]:
 		if String(n) != "": names.append(String(n).strip_edges().to_lower())
 	var lm = get_node_or_null("/root/LobbyManager")
 	if lm != null and String(lm.player_name) != "" and String(lm.player_name) != "Player":
@@ -248,9 +248,14 @@ func load_profile():
 		if number != null:
 			break
 
+	# not found by Discord or name (a name or picture changed on the website):
+	# this game's own player number, from the server
+	if number == null and lm != null and int(lm.my_player_number) > 0:
+		number = int(lm.my_player_number)
+
 	if number == null:
 		_loading = false
-		name_label.text = String(Rhythia.discord_user.get("display_name", Rhythia.discord_user.get("username", "Your Profile")))
+		name_label.text = String(Rhythia.website_name) if String(Rhythia.website_name) != "" else String(Rhythia.discord_user.get("display_name", Rhythia.discord_user.get("username", "Your Profile")))
 		if discord_id == "":
 			status_label.text = "Connect Discord on the right (Profile tab) so we can find you on the Chromia leaderboard."
 		else:

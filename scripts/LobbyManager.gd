@@ -1037,8 +1037,32 @@ func _sort_players_for_first(a, b) -> bool:
 	return String(a.get("name", "")) < String(b.get("name", ""))
 
 
+# The name set on the website (savia_web profile.js): the server sends it when
+# the game connects and again when it changes. It's the name in lobbies, chat
+# and the menu; with none set, your Discord name comes back.
+func _apply_server_name(msg: Dictionary):
+	var custom := Globals.s(msg.get("custom_name", "")).strip_edges()
+	var before := Globals.s(Rhythia.website_name)
+	if custom == before:
+		return
+	Rhythia.website_name = custom
+	if custom != "":
+		player_name = custom
+		_save_player_name()
+	elif player_name == before:
+		# the website name was taken away: your Discord name again
+		var du = Rhythia.discord_user if typeof(Rhythia.discord_user) == TYPE_DICTIONARY else {}
+		var nm := Globals.s(du.get("display_name", ""))
+		player_name = nm if nm != "" else Globals.s(du.get("username", "Player"))
+		_save_player_name()
+	Rhythia.emit_signal("discord_login_changed") # (the menu shows names again)
+
 func _handle_message(msg: Dictionary):
 	match Globals.s(msg.get("type", "")):
+		"auth_ok", "display_name_changed":
+			if msg.get("player_number") != null:
+				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
+			_apply_server_name(msg)
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))
@@ -1171,6 +1195,7 @@ func _handle_message(msg: Dictionary):
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
+			i_am_staff = bool(msg.get("you_staff", false))
 			emit_signal("online_players_received", online_players, my_player_number)
 		"spectate_denied":
 			if watch_mode and not lobby_active:
@@ -1322,6 +1347,7 @@ var presence_supported: int = -1 # -1 not known yet, 0 no, 1 yes
 var online_players: Array = []
 var my_player_number: int = -1
 var watch_mode: bool = false
+var i_am_staff: bool = false # Owner / Administrator: may watch players with spectators off (Spectate anyway)
 var lobby_spectators: Array = [] # lobby_state.spectators: {peer_id, name, target}
 var watch_target_name: String = ""
 var watchers_count: int = 0

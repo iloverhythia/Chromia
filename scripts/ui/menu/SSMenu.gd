@@ -945,7 +945,9 @@ class PlayerCard extends RoundedBox:
 				c.queue_free()
 		var du: Dictionary = Rhythia.discord_user if typeof(Rhythia.discord_user) == TYPE_DICTIONARY else {}
 		var logged_in := du.has("id") and String(du.get("id", "")) != ""
-		var nm := String(du.get("display_name", ""))
+		var nm := String(Rhythia.website_name) # (the name set on the website first)
+		if nm == "":
+			nm = String(du.get("display_name", ""))
 		if nm == "":
 			nm = String(du.get("username", ""))
 		var nf = ui.font(ui.BOLD, 30, 2, Color(0.1, 0.1, 0.1))
