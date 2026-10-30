@@ -7,3 +7,4 @@ in scripts/Savia.gd and empties this list.
 - Fixed: the retry key after leaving a map now starts it again (it only highlighted the Start button)
 - Update boxes have a new Remind me in a day button: no update pop-ups for a day (Settings > Check for Updates still works)
 - Settings > UI: Hide Spectators List (no list of who's watching in the top left)
+- Test builds say clearly that scores go to the test leaderboards, not the real ones (when the menu first opens and after each pass)
