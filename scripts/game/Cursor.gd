@@ -117,9 +117,18 @@ func _predicted_mouse() -> Vector2:
 	var m := get_viewport().get_mouse_position()
 	if not _pred:
 		return m
-	var fps: float = max(Engine.get_frames_per_second(), 30.0)
-	var lead: float = clamp(1.0 / fps, 0.004, 0.017) # one frame
-	var ahead := _pred_vel * lead
+	# The touch sample is a little behind your finger, so lead the cursor by the
+	# chosen time. We also add however long it's been since the last sample, so
+	# the cursor keeps gliding between samples instead of freezing until the next
+	# one (smooth on 120 Hz screens). A real touch event snaps it back to truth,
+	# and once the finger pauses or lifts we sit on the real spot and don't drift.
+	var fr: float = 1.0 / max(Engine.get_frames_per_second(), 30.0)
+	var lead: float = Rhythia.mobile_predict_ms / 1000.0
+	var age: float = (float(OS.get_ticks_usec() - _pred_t) / 1000000.0) if _pred_t > 0 else 1.0
+	if age > 1.5 * fr:
+		_pred_ahead = false
+		return m
+	var ahead := _pred_vel * (age + lead)
 	var cap: float = get_viewport().get_visible_rect().size.y * 0.04 # never far off
 	if ahead.length() > cap:
 		ahead = ahead.normalized() * cap
@@ -213,11 +222,11 @@ func check_debug_mouse_toggle():
 			mt = 0
 
 func _process(delta):
-	# touch prediction: finger stopped -> back on the real spot
-	if _pred and _pred_ahead and Rhythia.absolute_mode and not Rhythia.replaying:
-		if float(OS.get_ticks_usec() - _pred_t) / 1000000.0 > 1.5 / max(Engine.get_frames_per_second(), 30.0):
-			_pred_vel = Vector2.ZERO
-			move_cursor_abs(get_absolute_position() * (-1 if Rhythia.invert_mouse else 1))
+	# touch prediction: re-place the cursor every drawn frame so it keeps gliding
+	# between touch samples and settles on the real spot when your finger stops
+	# (get_absolute_position() leads while moving and snaps back once it pauses).
+	if _pred and Rhythia.absolute_mode and not Rhythia.replaying:
+		move_cursor_abs(get_absolute_position() * (-1 if Rhythia.invert_mouse else 1))
 	check_debug_mouse_toggle()
 	frame = Engine.get_frames_drawn()
 	if Rhythia.cursor_spin != 0 and not Rhythia.cursor_face_velocity:
