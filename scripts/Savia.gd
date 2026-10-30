@@ -193,6 +193,9 @@ var in_map: bool = false
 var discord_user: Dictionary = {}
 var discord_login_error: String = ""
 signal discord_login_changed()
+# the name set on the website ("" when none): shown over the Discord name
+# (LobbyManager._apply_server_name sets it from the server)
+var website_name: String = ""
 signal jp_changed(awarded)
 signal sp_changed(awarded)
 signal leaderboard_received(entries)

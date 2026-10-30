@@ -1037,8 +1037,30 @@ func _sort_players_for_first(a, b) -> bool:
 	return String(a.get("name", "")) < String(b.get("name", ""))
 
 
+# The name set on the website (savia_web profile.js): the server sends it when
+# the game connects and again when it changes. It's the name in lobbies, chat
+# and the menu; with none set, your Discord name comes back.
+func _apply_server_name(msg: Dictionary):
+	var custom := Globals.s(msg.get("custom_name", "")).strip_edges()
+	var before := Globals.s(Rhythia.website_name)
+	if custom == before:
+		return
+	Rhythia.website_name = custom
+	if custom != "":
+		player_name = custom
+		_save_player_name()
+	elif player_name == before:
+		# the website name was taken away: your Discord name again
+		var du = Rhythia.discord_user if typeof(Rhythia.discord_user) == TYPE_DICTIONARY else {}
+		var nm := Globals.s(du.get("display_name", ""))
+		player_name = nm if nm != "" else Globals.s(du.get("username", "Player"))
+		_save_player_name()
+	Rhythia.emit_signal("discord_login_changed") # (the menu shows names again)
+
 func _handle_message(msg: Dictionary):
 	match Globals.s(msg.get("type", "")):
+		"auth_ok", "display_name_changed":
+			_apply_server_name(msg)
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))
