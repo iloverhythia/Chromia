@@ -248,6 +248,11 @@ func load_profile():
 		if number != null:
 			break
 
+	# not found by Discord or name (a name or picture changed on the website):
+	# this game's own player number, from the server
+	if number == null and lm != null and int(lm.my_player_number) > 0:
+		number = int(lm.my_player_number)
+
 	if number == null:
 		_loading = false
 		name_label.text = String(Rhythia.website_name) if String(Rhythia.website_name) != "" else String(Rhythia.discord_user.get("display_name", Rhythia.discord_user.get("username", "Your Profile")))

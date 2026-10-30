@@ -1060,6 +1060,8 @@ func _apply_server_name(msg: Dictionary):
 func _handle_message(msg: Dictionary):
 	match Globals.s(msg.get("type", "")):
 		"auth_ok", "display_name_changed":
+			if msg.get("player_number") != null:
+				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
