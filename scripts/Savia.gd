@@ -875,11 +875,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h"
 ]
 
 
 const VERSION_NOTES = {
+	"oct29-2026-h": "- Tester accounts that switch to the stable version stay on it (the game no longer updates them back to a test build on start)\n- The game can no longer get stuck updating back and forth between two versions: an automatic update that would undo the one just made is stopped (Settings > Update channel still switches any time)",
 	"oct29-2026-g": "- Score history (map screen > History) is bigger and easier to read, and shows Discord profile pictures instead of a letter (yours, and whoever played on this device)\n- NEW: click an attempt in your score history to watch its replay (works for older attempts too, when Record Replays was on)\n- Spectating with their settings: you see their cursor picture too (it goes to the server with your settings when you play)\n- The retry key works like Space on the map screen: press it after leaving a map to start it again\n- Tester accounts can switch between test and stable builds with Settings > Update channel (they start on test builds)",
 	"oct29-2026-e": "- Scores now remember if they were played in VR or on a phone/tablet (the website shows VR / Mobile / Spin badges)\n- Settings > Update channel: switch to test builds (new things first, on the test server) or back to stable\n- Ranked passes are sent with their replay (needed for XP now, and anyone can watch them on the website). Replays are recorded even with Record Replays off; those are deleted again when you're back in the menu\n- Spectators list in the top left: the player and everyone watching see who is spectating (hidden when nobody is)\n- Watching someone from the Spectate tab no longer shows the one-player leaderboard on the left\n- VR: hitboxes feel like on PC. Your hand is closer to the grid than your eyes, so notes took a bigger turn of the controller to cross than they looked and felt a bit bigger. Turning the controller now moves the cursor as far as that turn looks from your eyes (the hitbox itself is the same size). Settings > VR > Pointer > Hitboxes feel like on PC (on by default)\n- Spectate tab: the # on each player is their leaderboard rank (SP), not their player number\n- Map list: a small TOP button above UP takes you straight back to the top of your map list\n- NEW: Colorset HUD (Settings > UI, under Rainbow HUD): the HUD's text, numbers and bars take the colour of the notes you hit\n- Settings > Update channel is shown to anyone who has run a test build once (also in stable builds), so you can switch between stable and test without downloading again\n- The retry key no longer jumps into the map search box in the menu",
 	"LEGACY": "- Added Update Notifications\n- Added 360 mod (duuhh)\n- Added arcw\n- Added Strobe mod!\n- Added Nyo to testers\n- Added Vanfi to testers\n- Added Dylan Jarvis to patreon (joke)\n- Fixed Online maps (partially)\n- Brrecken's gay!",
@@ -3441,6 +3442,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			tried_test_builds = true
 		if data.has("tester_channel") and (data.tester_channel == "stable" or data.tester_channel == "test"):
 			tester_channel = data.tester_channel
+		_load_update_channel() # (this device's choice wins over a profile's copy)
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
@@ -4139,7 +4141,33 @@ func get_startup_settings_path() -> String:
 	var active := get_active_profile_path()
 	return active if active != "" else Globals.p("user://settings.json")
 
+# The update channel belongs to this device, not to a settings profile: kept
+# in user://update_channel.json too (Online.gd reads it before anything loads).
+func save_update_channel():
+	var f := File.new()
+	if f.open(Globals.p("user://update_channel.json"), File.WRITE) == OK:
+		f.store_string(JSON.print({"update_channel": update_channel, "tester_channel": tester_channel, "tried_test_builds": tried_test_builds or update_channel == "test"}))
+		f.close()
+
+func _load_update_channel():
+	var f := File.new()
+	var path: String = Globals.p("user://update_channel.json")
+	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+		return
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return
+	var d: Dictionary = parsed.result
+	if d.get("update_channel") is String and (d.update_channel == "stable" or d.update_channel == "test"):
+		update_channel = d.update_channel
+	if d.get("tester_channel") is String and (d.tester_channel == "stable" or d.tester_channel == "test"):
+		tester_channel = d.tester_channel
+	if bool(d.get("tried_test_builds", false)):
+		tried_test_builds = true
+
 func save_settings(saveFile: String = Globals.p("user://settings.json")):
+	save_update_channel()
 	# spectating with someone else's settings: yours are what gets written
 	var spec = load("res://scripts/SpectateSettings.gd")
 	var theirs = spec.swap_out()
@@ -5469,9 +5497,11 @@ func do_init(_ud = null):
 						_pending_update_notice = latest_version
 					elif Online.update_blocked_reason != "":
 						Globals.call_deferred("notify", Globals.NOTIFY_WARN, Online.update_blocked_reason, "Update needs a reinstall")
-				else:
+				elif Online.update_installed:
 					restart_game()
 					return
+				elif Online.update_blocked_reason != "":
+					Globals.call_deferred("notify", Globals.NOTIFY_WARN, Online.update_blocked_reason, "Update stopped")
 		var rdir = Directory.new()
 		if rdir.file_exists(Online.local_pck_path() + ".old"):
 			rdir.remove(Online.local_pck_path() + ".old")
