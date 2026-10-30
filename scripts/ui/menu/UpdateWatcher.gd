@@ -67,18 +67,24 @@ func _check():
 		return
 	var data = Online.latest_version_data if typeof(Online.latest_version_data) == TYPE_DICTIONARY else {}
 	var silent := String(data.get("body", "")).begins_with("-a") or Online.is_tester() # (testers: test builds without asking)
+	if not silent and Online.update_snoozed(): # ("Remind me in a day")
+		_busy = false
+		return
 	if not silent:
 		Globals.confirm_prompt.open(
 			"Version %s just came out (you have %s).\nUpdate now? The game restarts when it's done." % [latest, current]
 				if not Online.updates_by_pack() else
 			"Version %s just came out (you have %s).\nDownload it now? It loads the next time you open Chromia." % [latest, current],
 			"Update Available",
-			[{text = "Later", wait = 0}, {text = "Update", wait = 0}]
+			[{text = "Later", wait = 0}, {text = "Remind me in a day", wait = 0}, {text = "Update", wait = 0}]
 		)
 		var sel = yield(Globals.confirm_prompt, "option_selected")
 		Globals.confirm_prompt.close()
 		yield(Globals.confirm_prompt, "done_closing")
-		if not bool(sel):
+		if int(sel) != 2:
+			if int(sel) == 1:
+				Online.snooze_updates()
+				Globals.notify(Globals.NOTIFY_INFO, "No update reminders for a day. Settings > Check for Updates still works.", "Updates")
 			_skip = latest
 			_busy = false
 			return

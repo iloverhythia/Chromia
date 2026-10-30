@@ -5491,12 +5491,17 @@ func do_init(_ud = null):
 		if ProjectSettings.get_setting("application/config/version") != latest_version:
 			var sel = 1
 			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest") and not Online.is_tester():
+				if Online.update_snoozed():
+					sel = 0 # ("Remind me in a day": no box until then)
+				else:
+					Globals.confirm_prompt.open("loud sound = gone\nYou are on an outdated version of the game! Would you like to automatically update?", "Outdated", [{text = "Ignore", wait = 0}, {text = "Remind me in a day", wait = 0}, {text = "Update", wait = 1}])
+					sel = yield(Globals.confirm_prompt, "option_selected")
 
-				Globals.confirm_prompt.open("loud sound = gone\nYou are on an outdated version of the game! Would you like to automatically update?", "Outdated", [{text = "Ignore", wait = 0}, {text = "Update", wait = 1}])
-				sel = yield(Globals.confirm_prompt, "option_selected")
-
-				Globals.confirm_prompt.close()
-				yield(Globals.confirm_prompt, "done_closing")
+					Globals.confirm_prompt.close()
+					yield(Globals.confirm_prompt, "done_closing")
+					if int(sel) == 1:
+						Online.snooze_updates()
+					sel = 1 if int(sel) == 2 else 0
 			if bool(sel):
 				emit_signal("init_stage_reached", "Updating the game")
 				Online.attempt_update()
