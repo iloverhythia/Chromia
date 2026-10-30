@@ -3441,6 +3441,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			tried_test_builds = true
 		if data.has("tester_channel") and (data.tester_channel == "stable" or data.tester_channel == "test"):
 			tester_channel = data.tester_channel
+		_load_update_channel() # (this device's choice wins over a profile's copy)
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
@@ -4139,7 +4140,33 @@ func get_startup_settings_path() -> String:
 	var active := get_active_profile_path()
 	return active if active != "" else Globals.p("user://settings.json")
 
+# The update channel belongs to this device, not to a settings profile: kept
+# in user://update_channel.json too (Online.gd reads it before anything loads).
+func save_update_channel():
+	var f := File.new()
+	if f.open(Globals.p("user://update_channel.json"), File.WRITE) == OK:
+		f.store_string(JSON.print({"update_channel": update_channel, "tester_channel": tester_channel, "tried_test_builds": tried_test_builds or update_channel == "test"}))
+		f.close()
+
+func _load_update_channel():
+	var f := File.new()
+	var path: String = Globals.p("user://update_channel.json")
+	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+		return
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return
+	var d: Dictionary = parsed.result
+	if d.get("update_channel") is String and (d.update_channel == "stable" or d.update_channel == "test"):
+		update_channel = d.update_channel
+	if d.get("tester_channel") is String and (d.tester_channel == "stable" or d.tester_channel == "test"):
+		tester_channel = d.tester_channel
+	if bool(d.get("tried_test_builds", false)):
+		tried_test_builds = true
+
 func save_settings(saveFile: String = Globals.p("user://settings.json")):
+	save_update_channel()
 	# spectating with someone else's settings: yours are what gets written
 	var spec = load("res://scripts/SpectateSettings.gd")
 	var theirs = spec.swap_out()
