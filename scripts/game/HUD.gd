@@ -1161,7 +1161,7 @@ func _on_lobby_state_changed_for_spectators_list():
 	if _spectators_banner == null:
 		return
 	var names := _spectator_names()
-	if names.empty():
+	if names.empty() or Rhythia.hide_spectators_list: # (Settings > UI > Hide Spectators List)
 		_spectators_banner.visible = false
 		return
 	var lines := ["👁 Spectators (%d)" % names.size()]

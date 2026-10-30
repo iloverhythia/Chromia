@@ -2888,6 +2888,7 @@ var show_fc_grade: bool = true
 var attach_hp_to_grid: bool = false
 var attach_timer_to_grid: bool = false
 var simple_hud: bool = false
+var hide_spectators_list: bool = false # (Settings > UI: no Spectators list in the top left)
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
 var rainbow_hud: bool = false
@@ -3665,6 +3666,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			show_fc_grade = data.show_fc_grade
 		if data.has("simple_hud"):
 			simple_hud = data.simple_hud
+		if data.has("hide_spectators_list"):
+			hide_spectators_list = bool(data.hide_spectators_list)
 		if data.has("faraway_hud"):
 			faraway_hud = data.faraway_hud
 		if data.has("music_offset"):
@@ -4307,6 +4310,7 @@ func _write_settings_file(saveFile: String):
 			show_letter_grade = show_letter_grade,
 			show_fc_grade = show_fc_grade,
 			simple_hud = simple_hud,
+			hide_spectators_list = hide_spectators_list,
 			faraway_hud = faraway_hud,
 			music_offset = music_offset,
 			auto_maximize = auto_maximize,
