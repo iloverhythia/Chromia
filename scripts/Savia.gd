@@ -1711,8 +1711,9 @@ func quit_game():
 	get_tree().quit()
 
 # Textures kept in Engine's meta for the whole session (avatars). Engine
-# outlives the renderer, so a texture still there when the game closes is freed
-# too late and crashes it ("Chromia crashed" on the next start): drop them here.
+# outlives the renderer, so if the engine ever shuts down normally (quit_game
+# ends the process before that; tools and tests don't) a texture still there
+# is freed too late and segfaults: drop them here.
 const SESSION_TEXTURE_METAS = ["score_history_avatars", "ss_menu_discord_avatar"]
 
 func _exit_tree():
