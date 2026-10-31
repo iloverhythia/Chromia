@@ -10,3 +10,6 @@ in scripts/Savia.gd and empties this list.
 - Test builds say clearly that scores go to the test leaderboards, not the real ones (when the menu first opens and after each pass)
 - Fixed: spectating someone with a custom speed (or joining a lobby whose host has one) used your own custom speed instead of theirs, so the notes went out of sync
 - Fixed: the Spectate tab showed the wrong difficulty on maps (one step too high: most showed Logic)
+- Map editor: LOAD MAP now also opens Rewrite (.phxm), Novastra (.npk / .nch), SSQE (.qem / .qemz), Pulsus (.phz) and Vulnus (.zip) maps, with their lyrics, beats, glides, mines, fevers, bookmarks and effects (Vulnus maps with several difficulties become one map each)
+- Map editor: EXPORT can now make Novastra (.npk) charts, with cover, profile icon, song offset and preview, and SSQE (.qemz) maps that keep everything in the map
+- Map editor: Rewrite (.phxm) exports now include the part of the file other editors expect after the notes

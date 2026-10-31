@@ -522,6 +522,9 @@ static func write_phxm(map, meta: Dictionary, audio: PoolByteArray, cover: PoolB
 		else:
 			ow.put_float(1.0 - n.x)
 			ow.put_float(n.y - 1.0)
+	# object types 2-12: none (PHXM.Write writes 11 empty counts)
+	for _i in range(11):
+		ow.put_32(0)
 	var obj := ow.data_array
 	var mappers: PoolStringArray = SSQEMap.ss(meta.mappers).split("\n")
 	var json := {
@@ -534,5 +537,279 @@ static func write_phxm(map, meta: Dictionary, audio: PoolByteArray, cover: PoolB
 	}
 	var files := [["metadata.json", JSON.print(json, "  ").to_utf8()], ["objects.phxmo", obj], ["audio." + ext, audio]]
 	if cover.size() > 0:
+		files.append(["cover.png", cover])
+	return zip_files(files)
+
+# ---------------------------------------------------------------- Novastra .npk (NPK.Write)
+
+const GLIDE_NAMES = ["up", "right", "down", "left"]
+
+# NPK.WriteNCH: the chart (song offset in ms, minus the export offset)
+static func write_nch(map, song_offset: int) -> String:
+	map.notes.sort()
+	map.special_objects.sort()
+	var notes := []
+	for n in map.notes.items:
+		var nd := {"x": 1.0 - n.x, "y": n.y - 1.0, "t": n.ms}
+		if n.enable_easing:
+			nd["e"] = {"s": n.style, "d": n.direction}
+		notes.append(nd)
+	var last_ms := 0
+	if not map.notes.items.empty():
+		last_ms = map.notes.items[-1].ms
+	for o in map.special_objects.items:
+		if o.id in [12, 13, 14]:
+			last_ms = int(max(last_ms, o.ms))
+	var beats := []
+	var glides := []
+	var events := []
+	var prev_fever_end = null
+	for o in map.special_objects.items:
+		match o.id:
+			12:
+				beats.append({"t": o.ms})
+			13:
+				glides.append({"t": o.ms, "d": GLIDE_NAMES[o.direction] if o.direction >= 0 and o.direction < 4 else "none"})
+			14:
+				notes.append({"x": 1.0 - o.x, "y": o.y - 1.0, "t": o.ms, "m": true})
+			16:
+				if o.ms >= last_ms:
+					continue
+				var cur: int = int(max(prev_fever_end if prev_fever_end != null else 0, o.ms))
+				prev_fever_end = o.ms + o.duration
+				events.append({"type": "fever", "t": cur, "active": true})
+				events.append({"type": "fever", "t": int(min(o.ms + o.duration, last_ms)), "active": false})
+	for t in map.timing_points:
+		events.append({"type": "tempo", "t": t.ms, "bpm": t.bpm})
+	var chart := {
+		"songOffset": song_offset - int(map.props.exportOffset),
+		"notes": _by_t(notes), "beats": _by_t(beats), "glides": _by_t(glides), "events": _by_t(events),
+	}
+	return JSON.print(chart, "  ")
+
+class _ByT:
+	static func less(a, b) -> bool:
+		if a.t != b.t:
+			return a.t < b.t
+		return a._i < b._i
+
+# stable sort on "t" (like LINQ OrderBy)
+static func _by_t(list: Array) -> Array:
+	for i in range(list.size()):
+		list[i]["_i"] = i
+	list.sort_custom(_ByT, "less")
+	for d in list:
+		d.erase("_i")
+	return list
+
+# NPK.WriteNLR: "ms|properties|text" per lyric ("" when there are none)
+static func write_nlr(map) -> String:
+	var lines := PoolStringArray()
+	for o in map.special_objects.items:
+		if o.id != 15:
+			continue
+		var text: String = o.text
+		var props := ""
+		if text.strip_edges() == "" and not o.fade_out:
+			props += "r"
+		if text.begins_with("-"):
+			props += "r"
+			text = text.substr(1)
+		if text.ends_with("-"):
+			props += "n"
+			text = text.substr(0, text.length() - 1)
+		if o.fade_in:
+			props += "i"
+		if o.fade_out:
+			props += "o"
+		if props == "":
+			props = "x"
+		lines.append("%d|%s|%s" % [o.ms, props, text])
+	return lines.join("\n")
+
+static func image_ext(b: PoolByteArray) -> String:
+	if b.size() > 3 and b[0] == 0xff and b[1] == 0xd8:
+		return ".jpg"
+	return ".png"
+
+# meta: songTitle, songArtist, mapCreator, mapCreatorPersonalLink, songOffset,
+# previewStartTime, previewDuration (ms). audio_ext: "mp3" or "ogg".
+static func write_npk(map, meta: Dictionary, audio: PoolByteArray, audio_ext: String, cover: PoolByteArray, icon: PoolByteArray) -> PoolByteArray:
+	var id := SSQEMap.ss(map.sound_id)
+	if id == "" or id == "-1":
+		id = fix_id("%s - %s" % [meta.songArtist, meta.songTitle])
+	var files := []
+	if not cover.empty():
+		files.append([id + image_ext(cover), cover])
+	if not icon.empty():
+		files.append(["profile" + image_ext(icon), icon])
+	files.append([id + "." + audio_ext, audio])
+	files.append(["chart.nch", write_nch(map, int(meta.get("songOffset", 0))).to_utf8()])
+	var md := {
+		"songTitle": meta.songTitle, "songArtist": meta.songArtist,
+		"mapCreator": meta.mapCreator, "mapCreatorPersonalLink": meta.mapCreatorPersonalLink,
+		"previewStartTime": float(meta.get("previewStartTime", 0)) / 1000.0,
+		"previewDuration": float(meta.get("previewDuration", 0)) / 1000.0,
+		"formatVersion": 2, "ssqeVersion": "1.0.0.0",
+	}
+	files.append(["metadata.json", JSON.print(md, "  ").to_utf8()])
+	var nlr := write_nlr(map)
+	if nlr != "":
+		files.append(["lyrics.nlr", nlr.to_utf8()])
+	return zip_files(files)
+
+# ---------------------------------------------------------------- SSQE .qem / .qemz (QEM.Write)
+
+static func _qem_str(w: StreamPeerBuffer, s: String):
+	# the byte length (SSQE+ writes the character count, which breaks non-English text)
+	_str16(w, s)
+
+static func _qem_str_array(w: StreamPeerBuffer, name: String, items: Array):
+	_qem_str(w, name)
+	w.put_u8(0x0e)
+	w.put_16(items.size())
+	w.put_u8(0x0a)
+	for it in items:
+		_qem_str(w, SSQEMap.ss(it))
+
+static func _qem_lines(s) -> Array:
+	return Array(SSQEMap.ss(s).split("\n"))
+
+# a block of objects: [id, field types, objects, fields of one object -> Array]
+static func _qem_block(w: StreamPeerBuffer, id: int, types: Array, objs: Array):
+	w.put_u8(id)
+	_qem_str(w, "")
+	w.put_u8(types.size())
+	for t in types:
+		w.put_u8(t)
+	w.put_32(objs.size())
+	for o in objs:
+		w.put_double(float(o.ms))
+		var vals: Array = _qem_fields(id, o)
+		for i in range(types.size()):
+			_qem_put(w, types[i], vals[i])
+
+static func _qem_fields(id: int, o) -> Array:
+	match id:
+		0: return _qf_note(o)
+		1: return _qf_point(o)
+		7: return _qf_tint(o)
+		8: return _qf_pos(o)
+		11: return _qf_text(o)
+		13: return _qf_glide(o)
+		14: return _qf_mine(o)
+		15: return _qf_lyric(o)
+		16: return _qf_fever(o)
+		17: return _qf_bookmark(o)
+	if id >= 2 and id <= 10:
+		return _qf_vfx(o)
+	return []
+
+static func _qem_put(w: StreamPeerBuffer, t: int, v):
+	match t:
+		0: w.put_u8(int(v))
+		3: w.put_32(int(v))
+		7: w.put_float(float(v))
+		8: w.put_double(float(v))
+		9: w.put_u8(1 if v else 0)
+		10: _qem_str(w, SSQEMap.ss(v))
+
+static func _qf_note(o) -> Array: return [o.x, o.y, o.enable_easing, o.style, o.direction]
+static func _qf_point(o) -> Array: return [o.bpm, 4, 4]
+static func _qf_vfx(o) -> Array:
+	var d: Array = o.data
+	return [o.duration, int(_dv(d, 1)), int(_dv(d, 2)), float(_dv(d, 3))]
+static func _qf_tint(o) -> Array:
+	var d: Array = o.data
+	return [o.duration, int(_dv(d, 1)), int(_dv(d, 2)), 255, int(_dv(d, 3)), int(_dv(d, 4)), int(_dv(d, 5))]
+static func _qf_pos(o) -> Array:
+	var d: Array = o.data
+	return [o.duration, int(_dv(d, 1)), int(_dv(d, 2)), float(_dv(d, 3)), float(_dv(d, 4)), float(_dv(d, 5))]
+static func _qf_text(o) -> Array:
+	var d: Array = o.data
+	return [o.duration, SSQEMap.ss(d[1]) if d.size() > 1 else "", int(_dv(d, 2))]
+static func _qf_none(_o) -> Array: return []
+static func _qf_glide(o) -> Array: return [o.direction]
+static func _qf_mine(o) -> Array: return [o.x, o.y]
+static func _qf_lyric(o) -> Array: return [o.text, o.fade_in, o.fade_out]
+static func _qf_fever(o) -> Array: return [o.duration]
+static func _qf_bookmark(o) -> Array: return [o.end_ms - o.ms, o.text]
+
+static func _dv(d: Array, i: int):
+	return d[i] if i < d.size() and SSQEMap.ss(d[i]).strip_edges() != "" else 0
+
+# the map as a .qem; paths: {"audio": ..., "cover": ...} as written in the file
+static func write_qem(map, paths: Dictionary) -> PoolByteArray:
+	var p: Dictionary = map.props
+	var w := _writer()
+	w.put_data("IQEM".to_ascii())
+	w.put_16(0)
+	w.put_16(paths.size())
+	for k in paths:
+		_qem_str(w, k)
+		_qem_str(w, paths[k])
+	var artists := _qem_lines(p.songArtist)
+	var mappers := _qem_lines(p.mappers)
+	var rartists := _qem_lines(p.romanizedArtist if SSQEMap.ss(p.romanizedArtist) != "" else p.songArtist)
+	w.put_16(12)
+	_qem_str(w, "title"); w.put_u8(0x0a); _qem_str(w, SSQEMap.ss(p.songTitle))
+	_qem_str(w, "romanizedTitle"); w.put_u8(0x0a); _qem_str(w, SSQEMap.ss(p.romanizedTitle) if SSQEMap.ss(p.romanizedTitle) != "" else SSQEMap.ss(p.songTitle))
+	_qem_str_array(w, "artists", artists)
+	_qem_str_array(w, "romanizedArtists", rartists)
+	_qem_str_array(w, "mappers", mappers)
+	_qem_str(w, "difficulty"); w.put_u8(0x00); w.put_u8(int(max(0, SSQEMap.DIFFICULTIES.find(SSQEMap.ss(p.difficulty)))))
+	_qem_str(w, "difficultyStars"); w.put_u8(0x07); w.put_float(float(p.rating))
+	_qem_str(w, "difficultyName"); w.put_u8(0x0a); _qem_str(w, SSQEMap.ss(p.customDifficulty))
+	_qem_str_array(w, "songLinks", map.song_links if map.song_links is Array else [])
+	var links := {}
+	if map.artist_links is Dictionary:
+		for k in map.artist_links:
+			if SSQEMap.ss(k) in artists:
+				links[SSQEMap.ss(k)] = SSQEMap.ss(map.artist_links[k])
+	_qem_str(w, "artistLinks"); w.put_u8(0x10); w.put_16(links.size()); w.put_u8(0x0a); w.put_u8(0x0a)
+	for k in links:
+		_qem_str(w, k)
+		_qem_str(w, links[k])
+	var ids := {}
+	if map.mapper_ids is Dictionary:
+		for k in map.mapper_ids:
+			if SSQEMap.ss(k) in mappers:
+				ids[SSQEMap.ss(k)] = int(map.mapper_ids[k])
+	_qem_str(w, "mapperIds"); w.put_u8(0x10); w.put_16(ids.size()); w.put_u8(0x0a); w.put_u8(0x05)
+	for k in ids:
+		_qem_str(w, k)
+		w.put_64(ids[k])
+	_qem_str(w, "mapId"); w.put_u8(0x0a)
+	_qem_str(w, fix_id("%s - %s - %s" % [mappers[0] if mappers.size() > 0 and mappers[0] != "" else "none", artists[0] if artists.size() > 0 and artists[0] != "" else "unknown", SSQEMap.ss(p.songTitle)]))
+	# objects, by id
+	var by_id := []
+	for i in range(18):
+		by_id.append([])
+	map.notes.sort()
+	by_id[0] = map.notes.items.duplicate()
+	by_id[1] = map.timing_points.duplicate()
+	for o in map.vfx_objects.items + map.special_objects.items + map.bookmarks:
+		if o.id >= 2 and o.id < 18:
+			by_id[o.id].append(o)
+	w.put_u8(18)
+	for id in range(18):
+		_qem_block(w, id, QEM_BLOCKS[id], by_id[id])
+	return w.data_array
+
+# per object id: the field types after the time (QEM.ParseObj's order)
+const QEM_BLOCKS = [
+	[7, 7, 9, 0, 0], [7, 0, 0],
+	[8, 0, 0, 7], [8, 0, 0, 7], [8, 0, 0, 7], [8, 0, 0, 7], [8, 0, 0, 7],
+	[8, 0, 0, 0, 0, 0, 0], [8, 0, 0, 7, 7, 7], [8, 0, 0, 7], [8, 0, 0, 7],
+	[8, 10, 3], [], [0], [7, 7], [10, 9, 9], [8], [8, 10],
+]
+
+# a .qemz: the .qem with its song and cover beside it (QEMZ.Write)
+static func write_qemz(map, audio: PoolByteArray, cover: PoolByteArray) -> PoolByteArray:
+	var paths := {"audio": "audio.asset"}
+	if not cover.empty():
+		paths["cover"] = "cover.png"
+	var files := [["data.qem", write_qem(map, paths)], ["audio.asset", audio]]
+	if not cover.empty():
 		files.append(["cover.png", cover])
 	return zip_files(files)

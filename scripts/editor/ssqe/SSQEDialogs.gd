@@ -8,6 +8,8 @@ extends Control
 const SSQEMap = preload("res://scripts/editor/ssqe/SSQEMap.gd")
 const F = preload("res://scripts/editor/ssqe/SSQEFormats.gd")
 const SSQESettings = preload("res://scripts/editor/ssqe/SSQESettings.gd")
+const SSQEImport = preload("res://scripts/editor/ssqe/SSQEImport.gd")
+const EditorProject = preload("res://scripts/editor/EditorProject.gd")
 const TEXT = Color(0.898039, 0.94902, 1)
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const ACCENT = Color(1, 0.756863, 0.960784)
@@ -1119,6 +1121,136 @@ func _x_finish_phxm():
 	var id := F.fix_id("%s - %s - %s" % [SSQEMap.ss(meta.mappers).split("\n")[0], title, meta.artist])
 	_save_bytes(bytes, id + ".phxm", "*.phxm ; Rewrite map")
 	close("export_phxm")
+
+# ================================================================== Novastra export (ExportNOVA)
+
+func export_nova():
+	var p: Dictionary = ed.map.props
+	var X := 12.0
+	var Y := 12.0
+	var W := 236.0
+	var info := floating("export_nova", "Export NOVA", 364, 330)
+	_x = {"info": info, "format": "npk", "cover_path": "", "icon_path": SSQEMap.ss(p.novaIcon)}
+	var split := SSQEMap.ss(p.songName).split(" - ")
+	var title := SSQEMap.ss(p.songTitle)
+	if title == "":
+		title = PoolStringArray(Array(split).slice(1, split.size() - 1)).join(" - ") if split.size() > 1 else SSQEMap.ss(p.songName)
+	var artist := SSQEMap.ss(p.songArtist).replace("\n", ", ")
+	if artist == "" and split.size() > 1:
+		artist = split[0]
+	var mapper := SSQEMap.ss(p.mapCreator)
+	if mapper == "":
+		mapper = SSQEMap.ss(p.mappers).split("\n")[0]
+	a_label(info, "Title", X, Y, 104, 20)
+	_x.title = a_box(info, X + 104, Y, W, 20, title)
+	a_label(info, "Artist", X, Y + 25, 104, 20)
+	_x.artist = a_box(info, X + 104, Y + 25, W, 20, artist)
+	a_label(info, "Mapper", X, Y + 50, 104, 20)
+	_x.mapper = a_box(info, X + 104, Y + 50, W, 20, mapper)
+	a_label(info, "Social Link (Optional)", X, Y + 75, 150, 20)
+	_x.link = a_box(info, X + 154, Y + 75, W - 50, 20, SSQEMap.ss(p.mapCreatorPersonalLink))
+	a_label(info, "Cover Image", X, Y + 103, 104, 20)
+	_x.cover = a_box(info, X + 104, Y + 100.5, W - 60, 25, "Map cover" if ed.page and ed.page.has_cover() else "None")
+	_x.cover.editable = false
+	a_button(info, "Select", X + 285, Y + 100.5, 55, 25, "_x_select_cover")
+	_x.use_cover = a_check(info, "Use Cover", bool(p.useCover) or (ed.page != null and ed.page.has_cover()), X + 104, Y + 130, W, 20)
+	a_label(info, "Profile Icon", X, Y + 158, 104, 20)
+	_x.icon = a_box(info, X + 104, Y + 155.5, W - 60, 25, _x.icon_path.get_file() if _x.icon_path != "" else "None")
+	_x.icon.editable = false
+	a_button(info, "Select", X + 285, Y + 155.5, 55, 25, "_x_select_icon")
+	a_label(info, "Song Offset (ms)", X, Y + 188, 140, 20)
+	_x.offset = a_box(info, X + 144, Y + 188, 110, 20, str(int(float(SSQEMap.ss(p.songOffset)))) if SSQEMap.ss(p.songOffset).is_valid_float() else "0")
+	a_button(info, "Current Pos", X + 260, Y + 186, 80, 24, "_x_nova_pos", ["offset"])
+	a_label(info, "Preview Start (ms)", X, Y + 216, 140, 20)
+	_x.pstart = a_box(info, X + 144, Y + 216, 110, 20, SSQEMap.ss(p.previewStartTime) if SSQEMap.ss(p.previewStartTime) != "" else "0")
+	a_button(info, "Current Pos", X + 260, Y + 214, 80, 24, "_x_nova_pos", ["start"])
+	a_label(info, "Preview Duration (ms)", X, Y + 244, 140, 20)
+	_x.pdur = a_box(info, X + 144, Y + 244, 110, 20, SSQEMap.ss(p.previewDuration) if SSQEMap.ss(p.previewDuration) != "" else "0")
+	a_button(info, "Current Pos", X + 260, Y + 242, 80, 24, "_x_nova_pos", ["duration"])
+	a_button(info, "Finish", X, Y + 274, 340, 36, "_x_finish_nova")
+
+func _x_nova_pos(which: String):
+	if _x.empty():
+		return
+	var now := int(ed.current_time())
+	var start := int(_x.pstart.text) if _x.pstart.text.is_valid_integer() else 0
+	var dur := int(_x.pdur.text) if _x.pdur.text.is_valid_integer() else 0
+	match which:
+		"offset":
+			_x.offset.text = str(now)
+		"start":
+			# keep the preview's end where it was
+			_x.pstart.text = str(now)
+			_x.pdur.text = str(max(0, dur + start - now))
+		"duration":
+			_x.pdur.text = str(max(0, now - start))
+
+func _x_select_icon():
+	Globals.file_sel.raise()
+	Globals.file_sel.open_file(self, "_x_icon_picked", PoolStringArray(["*.png, *.jpg, *.jpeg ; Images"]), false, _start_dir())
+
+func _x_icon_picked(files):
+	var path := _first(files)
+	if path == "" or _x.empty():
+		return
+	_x.icon_path = path
+	_x.icon.text = path.get_file()
+
+func _x_finish_nova():
+	var map = ed.map
+	var p: Dictionary = map.props
+	var audio: PoolByteArray = ed.page.audio_bytes() if ed.page else PoolByteArray()
+	if audio.empty():
+		message("No audio is loaded for this map.", "Error")
+		return
+	var ext: String = EditorProject.audio_ext(audio)
+	if ext == "":
+		message("Novastra needs the song as an MP3 or OGG. Use CONVERT TO MP3 (TIMING) first.", "Error")
+		return
+	var title: String = _x.title.text.strip_edges()
+	if title == "":
+		title = "Untitled Song"
+	var meta := {
+		"songTitle": title, "songArtist": _x.artist.text.strip_edges(), "mapCreator": _x.mapper.text.strip_edges(),
+		"mapCreatorPersonalLink": _x.link.text.strip_edges(),
+		"songOffset": int(_x.offset.text) if _x.offset.text.is_valid_integer() else 0,
+		"previewStartTime": int(_x.pstart.text) if _x.pstart.text.is_valid_integer() else 0,
+		"previewDuration": int(_x.pdur.text) if _x.pdur.text.is_valid_integer() else 0,
+	}
+	p.songTitle = meta.songTitle
+	p.romanizedTitle = SSQEImport.fix_ascii(meta.songTitle)
+	p.songArtist = meta.songArtist
+	p.romanizedArtist = SSQEImport.fix_ascii(meta.songArtist)
+	p.mapCreator = meta.mapCreator
+	p.mapCreatorPersonalLink = meta.mapCreatorPersonalLink
+	p.songOffset = str(meta.songOffset)
+	p.previewStartTime = str(meta.previewStartTime)
+	p.previewDuration = str(meta.previewDuration)
+	p.novaIcon = _x.icon_path
+	p.useCover = _x.use_cover.pressed
+	ed.on_map_changed()
+	var cover := PoolByteArray()
+	if _x.use_cover.pressed:
+		cover = _read_bytes(_x.cover_path) if _x.cover_path != "" else (ed.page.cover_bytes() if ed.page else PoolByteArray())
+	var icon := _read_bytes(_x.icon_path) if _x.icon_path != "" else PoolByteArray()
+	var bytes := F.write_npk(map, meta, audio, ext, cover, icon)
+	var id := F.fix_id("%s_-_%s_-_%s" % [meta.mapCreator.to_lower().replace(" ", "_"), meta.songArtist.to_lower().replace(" ", "_"), title.to_lower().replace(" ", "_")])
+	_save_bytes(bytes, id + ".npk", "*.npk ; Novastra chart")
+	close("export_nova")
+
+# ================================================================== SSQE export (QEMZ.Export)
+
+func export_qemz():
+	var map = ed.map
+	var audio: PoolByteArray = ed.page.audio_bytes() if ed.page else PoolByteArray()
+	if audio.empty():
+		message("No audio is loaded for this map.", "Error")
+		return
+	var cover: PoolByteArray = ed.page.cover_bytes() if ed.page and bool(map.props.useCover) else PoolByteArray()
+	var mappers := SSQEMap.ss(map.props.mappers).split("\n")
+	var artists := SSQEMap.ss(map.props.songArtist).split("\n")
+	var id := F.fix_id("%s - %s - %s" % [mappers[0] if mappers[0] != "" else "none", artists[0] if artists[0] != "" else "unknown", SSQEMap.ss(map.props.songTitle)])
+	_save_bytes(F.write_qemz(map, audio, cover), id + ".qemz", "*.qemz ; Quantum Editor map")
 
 # ================================================================== saving files
 

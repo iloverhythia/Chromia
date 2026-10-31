@@ -7,6 +7,7 @@ extends ReferenceRect
 
 const EditorProject = preload("res://scripts/editor/EditorProject.gd")
 const SSQEMap = preload("res://scripts/editor/ssqe/SSQEMap.gd")
+const SSQEImport = preload("res://scripts/editor/ssqe/SSQEImport.gd")
 const F = preload("res://scripts/editor/ssqe/SSQEFormats.gd")
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const ACCENT = Color(1, 0.756863, 0.960784)
@@ -239,7 +240,7 @@ func _refresh_home():
 		c.queue_free()
 	var list: Array = EditorProject.list_projects()
 	if list.empty():
-		var l = _label("No maps yet. CREATE NEW MAP starts one from a song; LOAD MAP opens a .txt, .sspm, .osu or .rhm map; EDIT SELECTED MAP opens a map from your list.", f_lbl, DIM)
+		var l = _label("No maps yet. CREATE NEW MAP starts one from a song; LOAD MAP opens a map file (SSQE .txt/.qem/.qemz, .sspm, .rhm, Rewrite .phxm, Novastra .npk, osu!, Pulsus or Vulnus); EDIT SELECTED MAP opens a map from your list.", f_lbl, DIM)
 		l.autowrap = true
 		projects_box.add_child(l)
 		return
@@ -344,13 +345,17 @@ func edit_song(s):
 	_open(res)
 	_notify("Saving makes a new copy in your map list. To find its BPM, use TIMING > DETECT BPM.", "Editing " + Globals.s(s.name))
 
-# ---- LOAD MAP (.txt with its .ini, .sspm, .osu, .rhm)
+# ---- LOAD MAP (.txt with its .ini, .sspm, .osu, .rhm, and SSQEImport's formats)
 var _pending_map = null
 var _pending_cover := PoolByteArray()
 
 func _on_load_map():
 	Globals.file_sel.raise()
-	Globals.file_sel.open_file(self, "_on_map_file_picked", PoolStringArray(["*.txt, *.sspm, *.osu, *.rhm ; Maps", "*.txt ; Map data", "*.sspm ; Sound Space maps", "*.osu ; osu! maps", "*.rhm ; Rhythia maps"]), false, _start_dir())
+	Globals.file_sel.open_file(self, "_on_map_file_picked", PoolStringArray([
+		"*.txt, *.sspm, *.osu, *.rhm, *.phxm, *.npk, *.nch, *.qem, *.qemz, *.phz, *.zip, *.json ; All maps",
+		"*.txt ; Map data (SSQE)", "*.qem, *.qemz ; SSQE maps", "*.sspm ; Sound Space maps", "*.rhm ; Rhythia maps",
+		"*.phxm ; Rewrite maps", "*.npk, *.nch ; Novastra maps", "*.osu ; osu! maps", "*.phz ; Pulsus maps",
+		"*.zip, *.json ; Vulnus maps"]), false, _start_dir())
 
 func _on_map_file_picked(files):
 	var path := _first(files)
@@ -383,7 +388,71 @@ func _on_map_file_picked(files):
 		"rhm":
 			_load_rhm(path)
 		_:
-			_notify("Pick a .txt, .sspm, .osu or .rhm map.", "Map Editor", Globals.NOTIFY_WARN)
+			if ext in SSQEImport.EXTENSIONS:
+				_import_other(path)
+			else:
+				_notify("This kind of file isn't a map the editor can open.", "Map Editor", Globals.NOTIFY_WARN)
+
+# ---- the other formats SSQE+ opens (scripts/editor/ssqe/SSQEImport.gd)
+var _pending_import = null # an import still waiting for its song
+
+func _import_other(path: String):
+	var r: Dictionary = SSQEImport.read(path)
+	if r.error != "":
+		_notify(r.error, "Can't open this map", Globals.NOTIFY_WARN)
+		return
+	if r.audio.empty() and r.audio_url != "":
+		_download_song(r)
+		return
+	_finish_import(r)
+
+# Pulsus maps name their song by id: fetch it, or ask for it
+func _download_song(r: Dictionary):
+	_notify("Downloading the song...", "Load map")
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.timeout = 30
+	http.connect("request_completed", self, "_on_song_downloaded", [http, r])
+	if http.request(r.audio_url) != OK:
+		_on_song_downloaded(HTTPRequest.RESULT_CANT_CONNECT, 0, PoolStringArray(), PoolByteArray(), http, r)
+
+func _on_song_downloaded(result: int, code: int, _headers, body: PoolByteArray, http: HTTPRequest, r: Dictionary):
+	http.queue_free()
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and EditorProject.audio_ext(body) != "":
+		r.audio = body
+	else:
+		_notify("The song couldn't be downloaded.", "Load map", Globals.NOTIFY_WARN)
+	_finish_import(r)
+
+func _finish_import(r: Dictionary):
+	if r.audio.empty():
+		_pending_import = r
+		_notify("Now pick the song for this map.", "Load map")
+		_pick_song("_on_import_song_picked")
+		return
+	var first = null
+	for e in r.maps:
+		var p = _create_from(e.map, e.title, r.audio, r.cover, false, r.icon)
+		if p == null:
+			return
+		if first == null:
+			first = p
+	if first != null:
+		_open(first)
+	if r.maps.size() > 1:
+		_notify("This file had %d maps. They're all in YOUR MAPS; the first one is open." % r.maps.size(), "Load map")
+
+func _on_import_song_picked(files):
+	var path := _first(files)
+	if path == "" or _pending_import == null:
+		return
+	var r: Dictionary = _pending_import
+	_pending_import = null
+	r.audio = _read_bytes(path)
+	if r.audio.empty():
+		_notify("That song couldn't be read.", "Load map", Globals.NOTIFY_WARN)
+		return
+	_finish_import(r)
 
 static func _read_text(path: String) -> String:
 	var f := File.new()
@@ -424,14 +493,17 @@ func _on_pending_song_picked(files):
 	var path := _first(files)
 	if path == "" or _pending_map == null:
 		return
-	_create_from(_pending_map[0], _pending_map[1], _read_bytes(path), PoolByteArray())
+	_create_from(_pending_map[0], _pending_map[1], _read_bytes(path), _pending_cover)
 	_pending_map = null
+	_pending_cover = PoolByteArray()
 
-func _create_from(m, title: String, song: PoolByteArray, cover: PoolByteArray):
+# A new project from a map, its song and cover (and Novastra's mapper icon).
+# Opens it unless open is false; returns it, or null when it couldn't be made.
+func _create_from(m, title: String, song: PoolByteArray, cover: PoolByteArray, open := true, icon := PoolByteArray()):
 	var res = EditorProject.create_from_bytes(song, SSQEMap.ss(m.props.songName) if SSQEMap.ss(m.props.songName) != "" else title, SSQEMap.ss(m.props.mappers).replace("\n", ", "))
 	if res is String:
 		_notify(res, "Map Editor", Globals.NOTIFY_WARN)
-		return
+		return null
 	res.difficulty = EditorProject.diff_from_name(SSQEMap.ss(m.props.difficulty))
 	if SSQEMap.ss(m.sound_id) == "" or m.sound_id == "-1":
 		m.sound_id = F.fix_id(res.title)
@@ -439,9 +511,16 @@ func _create_from(m, title: String, song: PoolByteArray, cover: PoolByteArray):
 		var img: Image = Globals.imageLoader.load_buffer_image(cover)
 		if img and not img.is_empty() and img.save_png(res.cover_path()) == OK:
 			res.has_cover = true
+			m.props.useCover = true
+	if not icon.empty():
+		var ic: Image = Globals.imageLoader.load_buffer_image(icon)
+		if ic and not ic.is_empty() and ic.save_png(res.dir().plus_file("icon.png")) == OK:
+			m.props.novaIcon = res.dir().plus_file("icon.png")
 	res.store_map(m)
 	res.save()
-	_open(res)
+	if open:
+		_open(res)
+	return res
 
 func _load_rhm(path: String):
 	var files := _read_zip(_read_bytes(path))
