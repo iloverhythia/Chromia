@@ -157,7 +157,7 @@ func _on_vr_status_checked():
 
 # Pages made here rather than in menu2.tscn: a copy of the Online button plus a
 # page under Main. Map Browser (download maps from rhythia.com), Map Editor
-# (in-game editor, scripts/editor/) and Spectate (who's online, SpectatePage.gd).
+# (in-game editor, scripts/editor/). Spectate is the eye button (_add_spectate).
 func _add_page(node_name: String, script_path: String, icon_path: String, label: String, below: Node) -> Button:
 	var main = get_node_or_null("../Main")
 	var online_btn = get_node_or_null("L/OnlineTab")
@@ -191,9 +191,21 @@ func _add_page(node_name: String, script_path: String, icon_path: String, label:
 # (a moment after the menu opens: it picks its first page itself)
 func _reopen_spectate():
 	yield(get_tree().create_timer(0.3), "timeout")
-	var sp = get_node_or_null("../Main/Spectate")
-	if sp != null and is_inside_tree():
-		press_page(sp)
+	if spectate != null and is_inside_tree():
+		spectate.open()
+
+# Spectate: the round eye button in the bottom-right corner and the window it
+# opens (SpectatePage.gd), on a layer above the menu (under notifications)
+var spectate = null
+func _add_spectate():
+	var layer := CanvasLayer.new()
+	layer.name = "SpectateLayer"
+	layer.layer = 95
+	add_child(layer)
+	spectate = Control.new()
+	spectate.name = "Spectate"
+	spectate.set_script(load("res://scripts/ui/menu/SpectatePage.gd"))
+	layer.add_child(spectate)
 
 func _add_extra_pages():
 	# the content manager's black backdrop hid the menu background (waves...)
@@ -202,8 +214,8 @@ func _add_extra_pages():
 		cm.color = Color(0, 0, 0, 0)
 	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/MapBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Map Browser", null)
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
-	# everyone online and what they play, with a Spectate button (right under Online)
-	_add_page("Spectate", "res://scripts/ui/menu/SpectatePage.gd", "res://assets/images/ui/spectate.png", "Spectate", null)
+	# everyone online and what they play, and the global chat: the eye button
+	_add_spectate()
 	if ed != null and (Rhythia.vr or OS.has_feature("Android") or OS.has_feature("iOS")):
 		ed.visible = false # needs a keyboard
 	# browser version: a new player has no maps yet; point them to the Map Browser
