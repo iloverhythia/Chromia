@@ -21,3 +21,4 @@ in scripts/Savia.gd and empties this list.
 - Editor: the waveform is drawn as a picture once and reused, so playing the song in the editor no longer lags
 - New colorset: Seaside
 - Map editor: map together! COLLABORATE on the editor's start screen invites someone who's online (up to 5 people, with your Chromia accounts). The host's map and its song go to everyone, and every edit is live: notes, timing points, bookmarks and objects. You see where the others are in the song, their mouse over the grid, and the notes they placed in their colour. Turn invites off in the editor's Settings > Other (needs the updated server)
+- Mapping together: leaving no longer leaves the other person's line and name on the screen, and when someone is in another part of the song an arrow at the edge of the track shows their name and where they are; their marker sits on the song bar at the bottom with their name

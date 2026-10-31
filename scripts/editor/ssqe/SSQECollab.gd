@@ -336,6 +336,9 @@ func leave(quiet := false):
 	invites.clear()
 	_shown.clear()
 	_refresh_ui()
+	# (the overlay only redraws while mapping together: cleared now, or the
+	# others' last lines and names stayed on the screen)
+	overlay.update()
 
 func _confirm_leave():
 	if s == null:
@@ -1065,26 +1068,44 @@ func _draw_overlay():
 	var ms_to_px: float = ed.ms_to_px()
 	var cur: float = ed.current_time()
 	var total: float = max(ed.total_time(), 1.0)
-	var tl: Rect2 = ed.timeline.get_global_rect() if ed.timeline else Rect2()
 	var g: Rect2 = ed.grid.get_global_rect() if ed.grid else Rect2()
 	var px_to_ms: float = ed.px_to_ms()
 	var view_from: float = cur - (cursor_x - tr.position.x) * px_to_ms
 	var view_to: float = cur + (tr.end.x - cursor_x) * px_to_ms
+	var row := 0
 	for n in s.peers:
 		var p: Dictionary = s.peers[n]
 		if p.other == null:
 			continue
 		var col := _color_of(n)
 		var t := peer_time(p)
-		# on the track
+		var label := "%s  %s" % [p.name, _time_text(t)]
+		# on the track: a line where they are, or (in another part of the song)
+		# an arrow at the edge pointing their way, with where they are
 		var x: float = cursor_x + (t - cur) * ms_to_px
+		var ay: float = tr.position.y + 14 + row * 18
 		if x >= tr.position.x and x <= tr.end.x:
 			overlay.draw_line(Vector2(x, tr.position.y), Vector2(x, tr.position.y + th), col, 2.0)
 			overlay.draw_string(f_bold, Vector2(x + 4, tr.position.y + th - 6), p.name, col)
-		# on the timeline
-		if tl.size.x > 0:
-			var tx: float = tl.position.x + tl.size.x * clamp(t / total, 0.0, 1.0)
-			overlay.draw_line(Vector2(tx, tl.position.y), Vector2(tx, tl.end.y), col, 2.0)
+		elif x < tr.position.x:
+			var ax: float = tr.position.x + 4
+			overlay.draw_colored_polygon(PoolVector2Array([Vector2(ax, ay), Vector2(ax + 9, ay - 6), Vector2(ax + 9, ay + 6)]), col)
+			overlay.draw_string(f_bold, Vector2(ax + 13, ay + 5), label, col)
+		else:
+			var ax2: float = tr.end.x - 4
+			var w: float = f_bold.get_string_size(label).x
+			overlay.draw_colored_polygon(PoolVector2Array([Vector2(ax2, ay), Vector2(ax2 - 9, ay - 6), Vector2(ax2 - 9, ay + 6)]), col)
+			overlay.draw_string(f_bold, Vector2(ax2 - 13 - w, ay + 5), label, col)
+		# on the timeline: a marker on the song's bar, with their name
+		if ed.timeline and ed.timeline.has_method("line_rect"):
+			var lr: Rect2 = ed.timeline.line_rect()
+			var lp: Vector2 = ed.timeline.get_global_transform().xform(lr.position)
+			var tx: float = lp.x + lr.size.x * clamp(t / total, 0.0, 1.0)
+			var ty: float = lp.y + lr.size.y / 2.0
+			overlay.draw_line(Vector2(tx, ty - 9), Vector2(tx, ty + 9), col, 3.0)
+			overlay.draw_colored_polygon(PoolVector2Array([Vector2(tx, ty - 9), Vector2(tx - 6, ty - 17), Vector2(tx + 6, ty - 17)]), col)
+			overlay.draw_string(f_bold, Vector2(tx - f_bold.get_string_size(p.name).x / 2.0, ty - 21 - row * 16), p.name, col)
+		row += 1
 		# their mouse, while they're in the part of the song on this screen
 		var o: Dictionary = p.other
 		if o.has("gx") and g.size.x > 0 and now - int(o.at) < 10000 and t >= view_from and t <= view_to:
@@ -1094,6 +1115,10 @@ func _draw_overlay():
 			_draw_cursor(at, col, p.name, int(o.get("b", 0)) != 0)
 		else:
 			_shown.erase(n)
+
+static func _time_text(ms: float) -> String:
+	var sec := int(max(ms, 0.0) / 1000.0)
+	return "%d:%02d" % [sec / 60, sec % 60]
 
 func _draw_cursor(at: Vector2, col: Color, name: String, down: bool):
 	var k := 1.0
