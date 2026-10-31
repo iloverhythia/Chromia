@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating: a bar at the bottom while you're joining someone, their song is loading, or you're following them to their next song, with a Stop button
 - Fixed: when the player you were about to watch finished or failed while their song was loading, you ended up playing the map yourself with their settings; now you go back to the menu
 - Fixed: the Grid (Rhythia) background showed a bright circle above and below you that changed colour with your hits
+- Smoother play: uploads and downloads for spectating (cursor pictures, borders, meshes, backgrounds) run in the background instead of on the game's main thread, and slow frames while playing are written to the trail log so stutters can be traced

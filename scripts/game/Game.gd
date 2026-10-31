@@ -762,6 +762,7 @@ func _ready():
 	black_fade_target = false
 	$ForceMatLoad.visible = false
 	Rhythia.start_log("playing")
+	add_child(load("res://scripts/game/HitchLog.gd").new()) # (slow frames go to the trail)
 
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	var is_late_join = lobby_manager != null and lobby_manager.consume_late_join_pending()

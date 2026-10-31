@@ -712,6 +712,7 @@ func upload_spectate_assets():
 		f.close()
 		_assets_sent[kind] = sha
 		var http := HTTPRequest.new()
+		http.use_threads = true # (big files: never on the game's main thread)
 		add_child(http)
 		http.connect("request_completed", self, "_on_asset_uploaded", [http, kind])
 		var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
@@ -736,6 +737,7 @@ func _upload_asset_file(kind: String, file: String, sha: String):
 	f.close()
 	_assets_sent[key] = sha
 	var http := HTTPRequest.new()
+	http.use_threads = true # (big files: never on the game's main thread)
 	add_child(http)
 	http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
 	var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
@@ -799,6 +801,7 @@ func _download_asset(kind: String, sha: String, ext: String):
 	var dir_path: String = Globals.p(spec.ASSET_CACHE)
 	Directory.new().make_dir_recursive(dir_path)
 	var http := HTTPRequest.new()
+	http.use_threads = true # (big files: never on the game's main thread)
 	http.download_file = dir_path.plus_file("%s.%s.part" % [sha, ext])
 	add_child(http)
 	http.connect("request_completed", self, "_on_asset_downloaded", [http, kind, sha, ext])
@@ -872,6 +875,7 @@ func upload_cursor_picture():
 		return
 	_cursor_sent = sha
 	var http := HTTPRequest.new()
+	http.use_threads = true # (big files: never on the game's main thread)
 	add_child(http)
 	http.connect("request_completed", self, "_on_cursor_uploaded", [http])
 	var url: String = "%s?client_id=%s" % [CURSOR_URL, String(Rhythia._ensure_client_id()).http_escape()]

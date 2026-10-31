@@ -1081,6 +1081,7 @@ func _spectate_cursor_picture():
 	if _cursor_pic_http != null and is_instance_valid(_cursor_pic_http):
 		_cursor_pic_http.queue_free()
 	_cursor_pic_http = HTTPRequest.new()
+	_cursor_pic_http.use_threads = true # (big files: never on the game's main thread)
 	_cursor_pic_http.timeout = 15
 	add_child(_cursor_pic_http)
 	_cursor_pic_http.connect("request_completed", self, "_on_cursor_picture", [sha, _cursor_pic_http])
