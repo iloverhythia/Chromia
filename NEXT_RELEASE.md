@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - Settings scrolls smoothly with the mouse wheel (it glides instead of jumping)
 - Spectating: you see the player's own custom border and note mesh with their settings (sent through the server like cursor pictures), and when they pause it shows Paused and waits, then picks up smoothly instead of stuttering (needs the updated server)
 - Fixed: resetting your cursor (or other custom picture) to default no longer opens a file picker
+- Spectating: a small Report button (top left) to report the player's skin, chat or something else. Staff get a screenshot, their skin settings and the chat

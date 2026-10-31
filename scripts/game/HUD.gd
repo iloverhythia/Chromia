@@ -958,6 +958,36 @@ func _create_spectate_banner():
 		stop.text = "Stop watching" if Rhythia.vr else "Stop watching (hold %s)" % _give_up_key_name()
 		stop.connect("pressed", get_parent(), "leave_watching")
 		box.add_child(stop)
+	# a small Report button: skin, chat or other, with a screenshot (SpectateReport.gd)
+	if not Rhythia.vr:
+		var report := Button.new()
+		report.focus_mode = Control.FOCUS_NONE
+		var small_font = DynamicFont.new()
+		small_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+		small_font.size = 13
+		report.add_font_override("font", small_font)
+		report.text = "Report"
+		report.hint_tooltip = "Report this player (skin, chat, other)"
+		report.size_flags_horizontal = 0 # (as small as its text)
+		report.modulate = Color(1, 1, 1, 0.75)
+		report.connect("pressed", self, "_open_report")
+		box.add_child(report)
+
+func _open_report():
+	var lm = _get_lobby_manager()
+	if lm == null or not spectating:
+		return
+	var number := 0
+	var pname := ""
+	for p in lm.players:
+		if p is Dictionary and int(p.get("peer_id", -1)) == spectate_peer_id:
+			number = int(p.get("player_number", 0)) if p.get("player_number") != null else 0
+			pname = Globals.s(p.get("name", ""))
+	if number <= 0:
+		Globals.notify(Globals.NOTIFY_WARN, "This player can't be reported from here (no player number). Report them on Discord.", "Report")
+		return
+	var s = lm.player_view_settings.get(spectate_peer_id, {})
+	load("res://scripts/game/SpectateReport.gd").open_for(self, number, pname, s if s is Dictionary else {}, Globals.s(lm.lobby_state.get("song_name", "")))
 
 static func _give_up_key_name() -> String:
 	for e in InputMap.get_action_list("give_up"):
