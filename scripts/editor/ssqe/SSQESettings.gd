@@ -27,6 +27,7 @@ const KEYBINDS = {
 	"anchorNode": [KEY_A, false, false, true],
 	"exportSSPM": [KEY_E, true, true, false],
 	"createBPM": [KEY_B, true, false, true],
+	"openDirectory": [KEY_D, true, false, true],
 }
 
 const KEYBIND_LABELS = {
@@ -35,11 +36,46 @@ const KEYBIND_LABELS = {
 	"switchClickTool": "Switch Click Tool", "quantum": "Toggle Quantum", "openTimings": "Open BPM Setup",
 	"openBookmarks": "Open Bookmarks", "storeNodes": "Store Bezier Nodes", "drawBezier": "Draw Bezier",
 	"anchorNode": "Anchor Node", "exportSSPM": "Export SSPM", "createBPM": "Create BPM From Selection",
+	"openDirectory": "Open Editor Folder",
 }
 
 const GRID_KEYS = [KEY_Q, KEY_W, KEY_E, KEY_A, KEY_S, KEY_D, KEY_Z, KEY_X, KEY_C]
 const NUMPAD_KEYS = [KEY_KP_7, KEY_KP_8, KEY_KP_9, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_1, KEY_KP_2, KEY_KP_3]
 const PATTERN_KEYS = [KEY_0, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9]
+
+# Settings > Graphics > Show Control Gradients: GuiButton's Gradient, a white
+# shade from clear at the top to 11/255 at the bottom, laid over a button
+const GRADIENT_GROUP = "ssqe_gradient"
+
+# holder: a node that lives as long as the buttons (the editor) keeps the one
+# texture they share. (Not Engine's meta: that outlives the renderer and
+# crashes the game on quit.)
+static func add_gradient(b: Control, on: bool, holder: Node):
+	var t := TextureRect.new()
+	t.name = "Gradient"
+	if not holder.has_meta("ssqe_gradient_tex"):
+		var img := Image.new()
+		img.create(1, 16, false, Image.FORMAT_RGBA8)
+		img.lock()
+		for y in range(16):
+			img.set_pixel(0, y, Color(1, 1, 1, 11.0 / 255.0 * y / 15.0))
+		img.unlock()
+		var tex := ImageTexture.new()
+		tex.create_from_image(img, Texture.FLAG_FILTER)
+		holder.set_meta("ssqe_gradient_tex", tex)
+	t.texture = holder.get_meta("ssqe_gradient_tex")
+	t.expand = true
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.anchor_right = 1
+	t.anchor_bottom = 1
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.visible = on
+	t.add_to_group(GRADIENT_GROUP)
+	b.add_child(t)
+
+static func show_gradients(tree: SceneTree, on: bool):
+	for t in tree.get_nodes_in_group(GRADIENT_GROUP):
+		t.visible = on
 
 static func defaults() -> Dictionary:
 	return {
@@ -70,6 +106,14 @@ static func defaults() -> Dictionary:
 		"muteMusic": false,
 		"smoothAutoplay": true,
 		"gridSquircles": true,
+		"gridSquircleRadius": 0.125, # of the note's size (0..0.5)
+		"gridSquircleDetail": 8,      # points per rounded corner
+		"waveformDetail": 5.0,        # waveform points per 10 ms
+		"monoAudio": false,
+		"controlGradients": true,     # buttons shaded top to bottom
+		# SSQE+'s own note colours, used instead of the game's colour set when on
+		"customNoteColors": false,
+		"noteColors": [[255, 0, 255], [0, 255, 200]],
 		"oldQuantumSnap": false,
 		"scaleMetronome": false,
 		"moveOnGridKey": false,

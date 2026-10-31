@@ -200,6 +200,9 @@ func _handle_post_game_results():
 	var is_best: bool = Rhythia.do_pb_check_and_set()
 	if is_best: $NewBest.play()
 
+	if Rhythia.song_end_type == Globals.END_PASS and not Rhythia.was_replay and Online.build_channel() == "test":
+		Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Test build: this score went to the TEST leaderboards, not the real ones.", "Test build")
+
 	if Rhythia.song_end_type == Globals.END_PASS:
 		if Rhythia.was_replay: $Result.text = "Replay passed"
 		elif is_best: $Result.text = "New best!"

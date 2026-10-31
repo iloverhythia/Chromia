@@ -185,6 +185,7 @@ func _finish_capture():
 		if is_instance_valid(sg.player):
 			sg.player.queue_free()
 	_segments = []
+	_wave_raw = raw
 	waveform = _make_waveform(raw)
 	if page:
 		page.on_waveform(waveform)
@@ -224,9 +225,28 @@ func _analysed(r):
 	_result = r
 	_state = "ready"
 
-# Waveform.Load: one left/right sample pair every 2 ms, normalised to the peak
+var _wave_raw := PoolVector2Array() # the recording, for a new level of detail
+
+# Settings > Graphics > Waveform Level of Detail changed: make it again
+func remake_waveform():
+	if _wave_raw.empty():
+		return
+	var d := _wave_detail()
+	if waveform is Dictionary and abs(float(waveform.res) - 1.0 / d / 100.0) < 0.0000001:
+		return
+	waveform = _make_waveform(_wave_raw)
+	if page:
+		page.on_waveform(waveform)
+
+func _wave_detail() -> float:
+	if page and page.ed and page.ed.s is Dictionary:
+		return clamp(float(page.ed.s.get("waveformDetail", 5.0)), 1.0, 20.0)
+	return 5.0
+
+# Waveform.Load: a left/right sample pair every 1 / detail / 100 s (2 ms at
+# the default 5), normalised to the peak
 func _make_waveform(raw: PoolVector2Array) -> Dictionary:
-	var res := 0.002
+	var res := 1.0 / _wave_detail() / 100.0
 	var per := _rate * res
 	var length := raw.size()
 	var count := int(floor(length / per))

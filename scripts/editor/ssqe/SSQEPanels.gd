@@ -11,7 +11,7 @@ const SSQESlider = preload("res://scripts/editor/ssqe/SSQESlider.gd")
 const RM = SSQEMap.RenderMode
 
 const CAMERA_MODES = ["half lock", "full lock", "spin"]
-const EXPORT_TYPES = ["Nightly (SSPM)", "Rhythia (RHM)", "Rewrite (PHXM)", "Novastra (NPK)"]
+const EXPORT_TYPES = ["Nightly (SSPM)", "Rhythia (RHM)", "Rewrite (PHXM)", "Novastra (NPK)", "SSQE (QEMZ)"]
 const GAMES = ["Rhythia", "Novastra"]
 const LEFT_NAVS = ["OPTIONS", "TIMING", "PATTERNS", "PLAYTEST"]
 const RIGHT_NAVS = ["SNAPPING", "GRAPHICS", "EXPORT"]
@@ -92,6 +92,7 @@ func _btn(x: float, y: float, w: float, h: float, text: String, ts: float, metho
 	b.clip_text = true
 	if method != "":
 		b.connect("pressed", self, method, args)
+	SSQESettings.add_gradient(b, bool(ed.s.get("controlGradients", true)), ed)
 	_add(b, x, y, w, h, ts, group)
 	return b
 
@@ -1003,8 +1004,10 @@ func _export_map():
 		ed.dialogs.export_sspm("rhm")
 	elif t == EXPORT_TYPES[2]:
 		ed.dialogs.export_phxm()
-	else:
-		ed.dialogs.message("Novastra maps (.npk) can't be made in Chromia. Export to SSPM, Rhythia or Rewrite instead.")
+	elif t == EXPORT_TYPES[3]:
+		ed.dialogs.export_nova()
+	elif t == EXPORT_TYPES[4]:
+		ed.dialogs.export_qemz()
 
 func _replace_id():
 	var id := replace_id_box.text.strip_edges()

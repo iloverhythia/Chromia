@@ -124,6 +124,11 @@ func _setup_audio():
 		var ps := AudioEffectPitchShift.new()
 		AudioServer.add_bus_effect(_music_bus, ps)
 		AudioServer.set_bus_effect_enabled(_music_bus, 0, false)
+	# Settings > Audio > Mono Audio: left and right averaged (pan pullout 0)
+	if AudioServer.get_bus_effect_count(_music_bus) < 2:
+		var mono := AudioEffectStereoEnhance.new()
+		mono.pan_pullout = 0.0
+		AudioServer.add_bus_effect(_music_bus, mono)
 	music = AudioStreamPlayer.new()
 	music.bus = "EditorMusic"
 	add_child(music)
@@ -190,10 +195,15 @@ func open_map(m, stream: AudioStream):
 func settings_changed():
 	SSQESettings.save_settings(s)
 	update_volume()
+	SSQESettings.show_gradients(get_tree(), bool(s.get("controlGradients", true)))
+	if page and page.audio and page.audio.has_method("remake_waveform"):
+		page.audio.remake_waveform()
 
 func update_volume():
 	if music == null:
 		return
+	if _music_bus != -1 and AudioServer.get_bus_effect_count(_music_bus) >= 2:
+		AudioServer.set_bus_effect_enabled(_music_bus, 1, bool(s.get("monoAudio", false)))
 	var mv: float = 0.0 if s.muteMusic else clamp(s.masterVolume * 2.0, 0.0, 2.0)
 	music.volume_db = linear2db(max(mv, 0.0001))
 	var sv: float = 0.0 if s.muteSfx else clamp(s.sfxVolume * 2.0, 0.0, 2.0)
@@ -697,6 +707,8 @@ func run_keybind(bind: String):
 			dialogs.timings()
 		"openBookmarks":
 			dialogs.bookmarks()
+		"openDirectory":
+			dialogs._st_folder()
 		"storeNodes":
 			store_nodes()
 		"drawBezier":

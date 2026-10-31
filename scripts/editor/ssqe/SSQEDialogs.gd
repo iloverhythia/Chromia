@@ -8,6 +8,8 @@ extends Control
 const SSQEMap = preload("res://scripts/editor/ssqe/SSQEMap.gd")
 const F = preload("res://scripts/editor/ssqe/SSQEFormats.gd")
 const SSQESettings = preload("res://scripts/editor/ssqe/SSQESettings.gd")
+const SSQEImport = preload("res://scripts/editor/ssqe/SSQEImport.gd")
+const EditorProject = preload("res://scripts/editor/EditorProject.gd")
 const TEXT = Color(0.898039, 0.94902, 1)
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const ACCENT = Color(1, 0.756863, 0.960784)
@@ -167,6 +169,7 @@ func a_button(info: Dictionary, text: String, x: float, y: float, w: float, h: f
 	b.clip_text = true
 	if method != "":
 		b.connect("pressed", self, method, args)
+	SSQESettings.add_gradient(b, bool(ed.s.get("controlGradients", true)), ed)
 	_place(info, b, x, y, w, h, 12)
 	if text.find("\n") == -1:
 		b.text = text
@@ -1120,6 +1123,136 @@ func _x_finish_phxm():
 	_save_bytes(bytes, id + ".phxm", "*.phxm ; Rewrite map")
 	close("export_phxm")
 
+# ================================================================== Novastra export (ExportNOVA)
+
+func export_nova():
+	var p: Dictionary = ed.map.props
+	var X := 12.0
+	var Y := 12.0
+	var W := 236.0
+	var info := floating("export_nova", "Export NOVA", 364, 330)
+	_x = {"info": info, "format": "npk", "cover_path": "", "icon_path": SSQEMap.ss(p.novaIcon)}
+	var split := SSQEMap.ss(p.songName).split(" - ")
+	var title := SSQEMap.ss(p.songTitle)
+	if title == "":
+		title = PoolStringArray(Array(split).slice(1, split.size() - 1)).join(" - ") if split.size() > 1 else SSQEMap.ss(p.songName)
+	var artist := SSQEMap.ss(p.songArtist).replace("\n", ", ")
+	if artist == "" and split.size() > 1:
+		artist = split[0]
+	var mapper := SSQEMap.ss(p.mapCreator)
+	if mapper == "":
+		mapper = SSQEMap.ss(p.mappers).split("\n")[0]
+	a_label(info, "Title", X, Y, 104, 20)
+	_x.title = a_box(info, X + 104, Y, W, 20, title)
+	a_label(info, "Artist", X, Y + 25, 104, 20)
+	_x.artist = a_box(info, X + 104, Y + 25, W, 20, artist)
+	a_label(info, "Mapper", X, Y + 50, 104, 20)
+	_x.mapper = a_box(info, X + 104, Y + 50, W, 20, mapper)
+	a_label(info, "Social Link (Optional)", X, Y + 75, 150, 20)
+	_x.link = a_box(info, X + 154, Y + 75, W - 50, 20, SSQEMap.ss(p.mapCreatorPersonalLink))
+	a_label(info, "Cover Image", X, Y + 103, 104, 20)
+	_x.cover = a_box(info, X + 104, Y + 100.5, W - 60, 25, "Map cover" if ed.page and ed.page.has_cover() else "None")
+	_x.cover.editable = false
+	a_button(info, "Select", X + 285, Y + 100.5, 55, 25, "_x_select_cover")
+	_x.use_cover = a_check(info, "Use Cover", bool(p.useCover) or (ed.page != null and ed.page.has_cover()), X + 104, Y + 130, W, 20)
+	a_label(info, "Profile Icon", X, Y + 158, 104, 20)
+	_x.icon = a_box(info, X + 104, Y + 155.5, W - 60, 25, _x.icon_path.get_file() if _x.icon_path != "" else "None")
+	_x.icon.editable = false
+	a_button(info, "Select", X + 285, Y + 155.5, 55, 25, "_x_select_icon")
+	a_label(info, "Song Offset (ms)", X, Y + 188, 140, 20)
+	_x.offset = a_box(info, X + 144, Y + 188, 110, 20, str(int(float(SSQEMap.ss(p.songOffset)))) if SSQEMap.ss(p.songOffset).is_valid_float() else "0")
+	a_button(info, "Current Pos", X + 260, Y + 186, 80, 24, "_x_nova_pos", ["offset"])
+	a_label(info, "Preview Start (ms)", X, Y + 216, 140, 20)
+	_x.pstart = a_box(info, X + 144, Y + 216, 110, 20, SSQEMap.ss(p.previewStartTime) if SSQEMap.ss(p.previewStartTime) != "" else "0")
+	a_button(info, "Current Pos", X + 260, Y + 214, 80, 24, "_x_nova_pos", ["start"])
+	a_label(info, "Preview Duration (ms)", X, Y + 244, 140, 20)
+	_x.pdur = a_box(info, X + 144, Y + 244, 110, 20, SSQEMap.ss(p.previewDuration) if SSQEMap.ss(p.previewDuration) != "" else "0")
+	a_button(info, "Current Pos", X + 260, Y + 242, 80, 24, "_x_nova_pos", ["duration"])
+	a_button(info, "Finish", X, Y + 274, 340, 36, "_x_finish_nova")
+
+func _x_nova_pos(which: String):
+	if _x.empty():
+		return
+	var now := int(ed.current_time())
+	var start := int(_x.pstart.text) if _x.pstart.text.is_valid_integer() else 0
+	var dur := int(_x.pdur.text) if _x.pdur.text.is_valid_integer() else 0
+	match which:
+		"offset":
+			_x.offset.text = str(now)
+		"start":
+			# keep the preview's end where it was
+			_x.pstart.text = str(now)
+			_x.pdur.text = str(max(0, dur + start - now))
+		"duration":
+			_x.pdur.text = str(max(0, now - start))
+
+func _x_select_icon():
+	Globals.file_sel.raise()
+	Globals.file_sel.open_file(self, "_x_icon_picked", PoolStringArray(["*.png, *.jpg, *.jpeg ; Images"]), false, _start_dir())
+
+func _x_icon_picked(files):
+	var path := _first(files)
+	if path == "" or _x.empty():
+		return
+	_x.icon_path = path
+	_x.icon.text = path.get_file()
+
+func _x_finish_nova():
+	var map = ed.map
+	var p: Dictionary = map.props
+	var audio: PoolByteArray = ed.page.audio_bytes() if ed.page else PoolByteArray()
+	if audio.empty():
+		message("No audio is loaded for this map.", "Error")
+		return
+	var ext: String = EditorProject.audio_ext(audio)
+	if ext == "":
+		message("Novastra needs the song as an MP3 or OGG. Use CONVERT TO MP3 (TIMING) first.", "Error")
+		return
+	var title: String = _x.title.text.strip_edges()
+	if title == "":
+		title = "Untitled Song"
+	var meta := {
+		"songTitle": title, "songArtist": _x.artist.text.strip_edges(), "mapCreator": _x.mapper.text.strip_edges(),
+		"mapCreatorPersonalLink": _x.link.text.strip_edges(),
+		"songOffset": int(_x.offset.text) if _x.offset.text.is_valid_integer() else 0,
+		"previewStartTime": int(_x.pstart.text) if _x.pstart.text.is_valid_integer() else 0,
+		"previewDuration": int(_x.pdur.text) if _x.pdur.text.is_valid_integer() else 0,
+	}
+	p.songTitle = meta.songTitle
+	p.romanizedTitle = SSQEImport.fix_ascii(meta.songTitle)
+	p.songArtist = meta.songArtist
+	p.romanizedArtist = SSQEImport.fix_ascii(meta.songArtist)
+	p.mapCreator = meta.mapCreator
+	p.mapCreatorPersonalLink = meta.mapCreatorPersonalLink
+	p.songOffset = str(meta.songOffset)
+	p.previewStartTime = str(meta.previewStartTime)
+	p.previewDuration = str(meta.previewDuration)
+	p.novaIcon = _x.icon_path
+	p.useCover = _x.use_cover.pressed
+	ed.on_map_changed()
+	var cover := PoolByteArray()
+	if _x.use_cover.pressed:
+		cover = _read_bytes(_x.cover_path) if _x.cover_path != "" else (ed.page.cover_bytes() if ed.page else PoolByteArray())
+	var icon := _read_bytes(_x.icon_path) if _x.icon_path != "" else PoolByteArray()
+	var bytes := F.write_npk(map, meta, audio, ext, cover, icon)
+	var id := F.fix_id("%s_-_%s_-_%s" % [meta.mapCreator.to_lower().replace(" ", "_"), meta.songArtist.to_lower().replace(" ", "_"), title.to_lower().replace(" ", "_")])
+	_save_bytes(bytes, id + ".npk", "*.npk ; Novastra chart")
+	close("export_nova")
+
+# ================================================================== SSQE export (QEMZ.Export)
+
+func export_qemz():
+	var map = ed.map
+	var audio: PoolByteArray = ed.page.audio_bytes() if ed.page else PoolByteArray()
+	if audio.empty():
+		message("No audio is loaded for this map.", "Error")
+		return
+	var cover: PoolByteArray = ed.page.cover_bytes() if ed.page and bool(map.props.useCover) else PoolByteArray()
+	var mappers := SSQEMap.ss(map.props.mappers).split("\n")
+	var artists := SSQEMap.ss(map.props.songArtist).split("\n")
+	var id := F.fix_id("%s - %s - %s" % [mappers[0] if mappers[0] != "" else "none", artists[0] if artists[0] != "" else "unknown", SSQEMap.ss(map.props.songTitle)])
+	_save_bytes(F.write_qemz(map, audio, cover), id + ".qemz", "*.qemz ; Quantum Editor map")
+
 # ================================================================== saving files
 
 var _pending_bytes := PoolByteArray()
@@ -1356,12 +1489,12 @@ func _st_tab(t: String):
 	_st.c = c
 	match t:
 		"COLORS":
-			_st_color(c, "Color 1 (1/X beat ticks, primary)", "color1", 0)
-			_st_color(c, "Color 2 (1/1 beat ticks, secondary)", "color2", 1)
-			_st_color(c, "Color 3 (1/2 beat ticks, preview)", "color3", 2)
-			_st_color(c, "Color 4 (waveform)", "color4", 3)
-			_st_color(c, "Color 5 (special objects)", "color5", 4)
-			a_label(c, "Notes use the colours of your colour set (Settings > Notes in the game).", 0, 330, 585, 40)
+			_st_color(c, "Color 1 (1/X BPM + Primary)", "color1", 0)
+			_st_color(c, "Color 2 (1/1 BPM + Secondary)", "color2", 1)
+			_st_color(c, "Color 3 (1/2 BPM + Preview)", "color3", 2)
+			_st_color(c, "Color 4 (Waveform)", "color4", 3)
+			_st_color(c, "Color 5 (Special Objects)", "color5", 4)
+			_st_note_colors(c)
 		"GRAPHICS":
 			var y := 0.0
 			y = _st_slider(c, "Editor Background Opacity", "editorBGOpacity", 0, 255, 1, y)
@@ -1369,10 +1502,13 @@ func _st_tab(t: String):
 			y = _st_slider(c, "Track Opacity", "trackOpacity", 0, 255, 1, y)
 			y = _st_slider(c, "Grid Zoom (%)", "gridZoom", 25, 200, 1, y)
 			y = _st_slider(c, "Grid Note Size (%)", "gridNoteSize", 25, 200, 1, y)
+			y = _st_slider(c, "Grid Squircle Corner Radius", "gridSquircleRadius", 0, 0.5, 0.005, y)
+			y = _st_slider(c, "Grid Squircle Corner Detail", "gridSquircleDetail", 1, 20, 1, y)
+			y = _st_slider(c, "Waveform Level of Detail", "waveformDetail", 1, 20, 1, y)
 			y += 6
 			y = _st_checks(c, [["Enable Waveform", "waveform"], ["Use Classic Waveform", "classicWaveform"], ["Grid Squircles", "gridSquircles"],
 				["Grid Letters", "gridLetters"], ["Grid Numbers", "gridNumbers"], ["Approach Squares", "approachSquares"], ["Quantum Grid Lines", "quantumGridLines"],
-				["3D Mode", "mode3D"], ["3D Hit Effect", "mode3DHitEffect"]], y)
+				["3D Mode", "mode3D"], ["3D Hit Effect", "mode3DHitEffect"], ["Show Control Gradients", "controlGradients"]], y)
 		"MAPPING":
 			var y2 := _st_checks(c, [["Correct Errors on Copy", "correctOnCopy"], ["Reverse Scroll Direction", "reverseScroll"], ["Pause When Scrolling", "pauseScroll"],
 				["Separate Click Tools", "separateClickTools"], ["Auto-Advance", "autoAdvance"], ["Snap to Quantum Grid", "quantumGridSnap"], ["Old Quantum Snapping", "oldQuantumSnap"],
@@ -1391,7 +1527,8 @@ func _st_tab(t: String):
 			y4 = _st_slider(c, "Hit Sound Offset (ms)", "sfxOffset", -200, 200, 1, y4)
 			y4 = _st_slider(c, "Music Offset (ms)", "musicOffset", -500, 500, 1, y4)
 			y4 = _st_slider(c, "Maximum Polyphony", "maxPolyphony", 1, 16, 1, y4)
-			y4 = _st_checks(c, [["Metronome", "metronome"], ["Scale Metronome With Divisor", "scaleMetronome"], ["Mute Hit Sounds", "muteSfx"], ["Mute Music", "muteMusic"]], y4 + 6)
+			y4 = _st_checks(c, [["Metronome", "metronome"], ["Scale Metronome With Divisor", "scaleMetronome"], ["Mute Hit Sounds", "muteSfx"], ["Mute Music", "muteMusic"],
+				["Mono Audio", "monoAudio"]], y4 + 6)
 		"KEYBINDS":
 			_st_keybinds(c)
 		"OTHER":
@@ -1437,7 +1574,7 @@ func _st_slid(v: float, key: String, vl: Label, step: float):
 
 func _st_color(c: Dictionary, label: String, key: String, row: int):
 	var y := row * 62.0
-	a_label(c, label, 0, y, 400, 24)
+	a_label(c, label, 0, y, 290, 24)
 	var p := ColorPickerButton.new()
 	p.theme = theme_res
 	p.edit_alpha = false
@@ -1446,6 +1583,101 @@ func _st_color(c: Dictionary, label: String, key: String, row: int):
 	_place(c, p, 0, y + 26, 160, 30, 0)
 	p.connect("color_changed", self, "_st_color_set", [key])
 	a_button(c, "DEFAULT", 170, y + 26, 100, 30, "_st_color_default", [key, p])
+
+# SSQE+'s note colour list (the notes cycle through it): a swatch per colour,
+# PICK COLOR chooses one and ADD COLOR adds it. Left click a swatch to remove
+# it, right click to move it left. Used when "Use These Note Colors" is on;
+# otherwise the notes take the game's colour set.
+const MAX_NOTE_COLORS = 32
+
+func _st_note_colors(c: Dictionary):
+	var X := 300.0
+	a_label(c, "Note Colors:", X, 0, 285, 24)
+	var use := a_check(c, "Use These Note Colors", bool(ed.s.get("customNoteColors", false)), X, 26, 285, 26)
+	use.hint_tooltip = "Off: the notes use your colour set from the game's settings."
+	use.connect("toggled", self, "_st_set", ["customNoteColors"])
+	var box := Control.new()
+	box.mouse_filter = MOUSE_FILTER_PASS
+	_place(c, box, X, 58, 285, 200, 0)
+	_st.note_box = box
+	_st.note_k = c.k
+	_st_note_swatches()
+	var pick := ColorPickerButton.new()
+	pick.theme = theme_res
+	pick.edit_alpha = false
+	pick.focus_mode = FOCUS_NONE
+	pick.color = Color8(255, 255, 255)
+	_place(c, pick, X, 266, 90, 30, 0)
+	_st.note_pick = pick
+	a_button(c, "PICK COLOR", X + 95, 266, 92, 30, "_st_note_pick")
+	a_button(c, "ADD COLOR", X + 192, 266, 93, 30, "_st_note_add")
+	var hint := a_label(c, "LMB: Remove\nRMB: Move left", X, 302, 285, 44)
+	hint.valign = Label.VALIGN_TOP
+
+func _st_note_swatches():
+	var box: Control = _st.get("note_box")
+	if box == null or not is_instance_valid(box):
+		return
+	for ch in box.get_children():
+		ch.queue_free()
+	var k: float = _st.note_k
+	var cols: Array = ed.s.get("noteColors", [])
+	var size := 30.0 * k
+	var gap := 5.0 * k
+	var per_row := int(max(1, floor((box.rect_size.x + gap) / (size + gap))))
+	for i in range(cols.size()):
+		var col: Array = cols[i]
+		var sw := Panel.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color8(int(col[0]), int(col[1]), int(col[2]))
+		sb.set_border_width_all(1)
+		sb.border_color = Color(1, 1, 1, 0.35)
+		sb.set_corner_radius_all(int(4 * k))
+		sw.add_stylebox_override("panel", sb)
+		sw.rect_position = Vector2((i % per_row) * (size + gap), int(i / per_row) * (size + gap))
+		sw.rect_size = Vector2(size, size)
+		sw.hint_tooltip = "Colour %d: left click removes it, right click moves it left" % (i + 1)
+		sw.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+		sw.connect("gui_input", self, "_st_note_click", [i])
+		box.add_child(sw)
+
+func _st_note_click(ev: InputEvent, i: int):
+	if not (ev is InputEventMouseButton) or not ev.pressed:
+		return
+	var cols: Array = ed.s.get("noteColors", []).duplicate(true)
+	if i >= cols.size():
+		return
+	if ev.button_index == BUTTON_LEFT:
+		if cols.size() <= 1:
+			message("Keep at least one note colour.", "Note Colors")
+			return
+		cols.remove(i)
+	elif ev.button_index == BUTTON_RIGHT and i > 0:
+		var t = cols[i - 1]
+		cols[i - 1] = cols[i]
+		cols[i] = t
+	else:
+		return
+	ed.s["noteColors"] = cols
+	ed.settings_changed()
+	call_deferred("_st_note_swatches")
+
+func _st_note_pick():
+	if _st.has("note_pick") and is_instance_valid(_st.note_pick):
+		var pp: PopupPanel = _st.note_pick.get_popup()
+		pp.rect_global_position = _st.note_pick.rect_global_position + Vector2(0, _st.note_pick.rect_size.y)
+		pp.popup()
+
+func _st_note_add():
+	var cols: Array = ed.s.get("noteColors", []).duplicate(true)
+	if cols.size() >= MAX_NOTE_COLORS:
+		message("There can be up to %d note colours." % MAX_NOTE_COLORS, "Note Colors")
+		return
+	var col: Color = _st.note_pick.color if _st.has("note_pick") and is_instance_valid(_st.note_pick) else Color(1, 1, 1)
+	cols.append([int(round(col.r * 255)), int(round(col.g * 255)), int(round(col.b * 255))])
+	ed.s["noteColors"] = cols
+	ed.settings_changed()
+	_st_note_swatches()
 
 func _st_color_set(col: Color, key: String):
 	ed.s[key] = [int(round(col.r * 255)), int(round(col.g * 255)), int(round(col.b * 255))]

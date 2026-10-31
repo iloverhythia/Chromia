@@ -618,6 +618,28 @@ static func _read_text(path: String) -> String:
 	f.close()
 	return t
 
+# "Remind me in a day" on the Update boxes: no update boxes (at startup or in
+# the menu) until then. Settings > Check for Updates still works.
+const SNOOZE_FILE := "user://update_snooze.json"
+
+func snooze_updates(seconds: int = 86400):
+	var f := File.new()
+	if f.open(SNOOZE_FILE, File.WRITE) == OK:
+		f.store_string(JSON.print({"until": OS.get_unix_time() + seconds}))
+		f.close()
+
+func update_snoozed() -> bool:
+	var f := File.new()
+	if not f.file_exists(SNOOZE_FILE) or f.open(SNOOZE_FILE, File.READ) != OK:
+		return false
+	var parsed = JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return false
+	var until := int(parsed.result.get("until", 0))
+	# (a clock set far back mustn't hide updates for weeks)
+	return until > OS.get_unix_time() and until - OS.get_unix_time() <= 86400 * 2
+
 # manual: Settings > Check for Updates / Update channel (always allowed);
 # otherwise the automatic checks, which never undo an update they just made
 func attempt_update(manual: bool = false):

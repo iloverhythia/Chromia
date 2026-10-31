@@ -56,6 +56,46 @@ func _add_touch_toggle():
 		parent.move_child(t, after.get_index() + 1)
 		t.connect("pressed", self, "_mobile_tuning_pressed", [t, opt[0]])
 		after = t
+	_add_predict_slider(parent)
+
+# A small "Prediction" slider under No Touch Delay: how far ahead of the finger
+# the cursor is placed (ms). 0 turns the leading off. Saved on close like the rest.
+func _add_predict_slider(parent: Node):
+	if parent == null or not parent.has_node("mobile_no_delay") or parent.has_node("TouchPredict"):
+		return
+	var nd: Node = parent.get_node("mobile_no_delay")
+	var row := HBoxContainer.new()
+	row.name = "TouchPredict"
+	row.rect_min_size = Vector2(rect_size.x, 36)
+	row.hint_tooltip = "With No Touch Delay on: how far ahead of your finger the cursor is placed. Higher feels snappier but can overshoot. 0 turns leading off."
+	var lbl := Label.new()
+	lbl.text = "    Prediction"
+	lbl.add_font_override("font", get_font("font"))
+	lbl.size_flags_horizontal = SIZE_EXPAND_FILL
+	lbl.valign = Label.VALIGN_CENTER
+	row.add_child(lbl)
+	var sld := HSlider.new()
+	sld.min_value = 0
+	sld.max_value = 45
+	sld.step = 1
+	sld.value = Rhythia.mobile_predict_ms
+	sld.rect_min_size = Vector2(150, 0)
+	sld.size_flags_vertical = SIZE_SHRINK_CENTER
+	row.add_child(sld)
+	var val := Label.new()
+	val.add_font_override("font", get_font("font"))
+	val.valign = Label.VALIGN_CENTER
+	val.align = Label.ALIGN_RIGHT
+	val.rect_min_size = Vector2(60, 0)
+	val.text = "%d ms" % int(Rhythia.mobile_predict_ms)
+	row.add_child(val)
+	sld.connect("value_changed", self, "_on_predict_changed", [val])
+	parent.add_child(row)
+	parent.move_child(row, nd.get_index() + 1)
+
+func _on_predict_changed(v: float, val: Label):
+	Rhythia.mobile_predict_ms = v
+	val.text = "%d ms" % int(v)
 
 # iPhone: say when the app needs reinstalling for these
 func _mobile_tuning_pressed(box: CheckBox, key: String):
