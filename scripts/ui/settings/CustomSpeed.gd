@@ -14,8 +14,20 @@ func upd():
 func _process(_d):
 	if not is_equal_approx(value, _shown):
 		upd() # you changed the box
-	elif not is_equal_approx(Rhythia.custom_speed * 100, value):
-		value = Rhythia.custom_speed * 100 # the speed changed elsewhere: show it
+		return
+	# never while you're typing in it (setting it rewrites the text and moves
+	# the caret, so clicking in and typing didn't work)
+	if get_line_edit().has_focus():
+		return
+	# the speed changed elsewhere: show it. Only when it differs by more than
+	# the box can show (rounded to its step, kept inside its range), or it
+	# would be set again every frame
+	var target: float = Rhythia.custom_speed * 100
+	target = max(target, min_value)
+	if not allow_greater:
+		target = min(target, max_value)
+	if abs(target - value) > max(step, 0.0001) * 0.5:
+		value = target
 		_shown = value # (what the box shows, rounded: so it isn't taken as your edit)
 
 func _ready():
