@@ -44,6 +44,7 @@ const VIEW_KEYS := [
 	"cursor_face_velocity", "cursor_color_type", "cursor_color",
 	"cursor_glow", "cursor_glow_size", "cursor_glow_strength", "cursor_glow_pulse", "cursor_glow_trail",
 	"cursor_glow_custom_color", "cursor_glow_color",
+	"sound_space_mode",
 	"enable_grid", "enable_border", "border_color", "rainbow_grid", "custombg_color",
 	"disable_bg_effects",
 	"show_hp_bar", "show_timer", "show_left_panel", "show_right_panel", "attach_hp_to_grid",
@@ -316,6 +317,9 @@ static func apply(their: Dictionary, peer_id: int):
 	var mpath := cached_asset(String(their.get("mesh_file", "")), "obj")
 	if mpath != "":
 		_assign("selected_mesh", NoteMesh.new("spectate_mesh", "Their mesh", mpath, ""))
+	# Sound Space Mode is theirs too (off if their game doesn't say): yours on
+	# top would turn their glow, bloom and cursor effects off every song
+	_assign("sound_space_mode", bool(their.get("sound_space_mode", false)))
 	_apply_backgrounds(their)
 	for k in FORCED:
 		_assign(k, FORCED[k])

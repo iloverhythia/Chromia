@@ -8,3 +8,4 @@ in scripts/Savia.gd and empties this list.
 - Spectate: the search box is the same height as the favourites heart
 - Happy Halloween: on 31 October the menu waves turn orange and purple, with bats and embers (Settings > Replays & Misc > Seasonal Themes turns it off)
 - Chat while spectating: the global chat sits in the bottom-left corner while you watch someone; press Enter (or click it) to type
+- Spectating: the player's glow, bloom and cursor bloom show even if you use Sound Space Mode (it follows their setting while you watch)
