@@ -62,7 +62,7 @@ const VIEW_KEYS := [
 	"grade_ss_value", "grade_ss_shine", "grade_s_color", "grade_s_shine", "grade_a_color",
 	"grade_b_color", "grade_c_color", "grade_d_color", "grade_f_color",
 	"sound_space_mode", "ss_score_popups", "ss_health_y", "ss_health_w", "ss_progress_y",
-	"ss_progress_w", "ss_hud",
+	"ss_progress_w", "ss_hud", "hud_font",
 ]
 # content, sent as its id and looked up in your registries
 const ID_KEYS := {
@@ -140,6 +140,10 @@ static func collect() -> Dictionary:
 	var mfile := own_mesh_file(backup.get("selected_mesh", Rhythia.selected_mesh))
 	if mfile != "":
 		out["mesh_file"] = File.new().get_sha256(mfile)
+	# your own HUD font (Settings > Fonts), as "<sha256>.<ttf|otf>"
+	var ffile := own_font_file(String(backup.get("hud_font", Rhythia.hud_font)))
+	if ffile != "":
+		out["hud_font_file"] = "%s.%s" % [File.new().get_sha256(ffile), ffile.get_extension().to_lower()]
 	# your backgrounds: the Custom Background picture / panorama and the
 	# Background Editor's layers ("none": spectators see none of theirs either)
 	for a in own_background_assets():
@@ -275,6 +279,21 @@ static func own_mesh_file(m = null) -> String:
 		return ""
 	return p if _small_enough(p) else ""
 
+# your own font file when the HUD uses it, else ""
+static func own_font_file(font_id: String) -> String:
+	if font_id != "custom":
+		return ""
+	var p: String = load("res://scripts/HudFont.gd").custom_file()
+	return p if p != "" and _small_enough(p) else ""
+
+# a spectated player's font file name ("<sha256>.<ext>") -> [sha, ext] or []
+static func font_file_parts(v: String) -> Array:
+	v = v.to_lower()
+	if v.find(".") != 64:
+		return []
+	var ext := v.right(65)
+	return [v.left(64), ext] if ext in ["ttf", "otf"] else []
+
 static func _small_enough(p: String) -> bool:
 	var f := File.new()
 	if f.open(p, File.READ) != OK:
@@ -338,6 +357,11 @@ static func apply(their: Dictionary, peer_id: int):
 	# top would turn their glow, bloom and cursor effects off every song
 	_assign("sound_space_mode", bool(their.get("sound_space_mode", false)))
 	_apply_backgrounds(their)
+	# their own HUD font (downloaded: LobbyManager.fetch_spectate_assets)
+	var fp := font_file_parts(String(their.get("hud_font_file", "")))
+	var fpath: String = cached_asset(fp[0], fp[1]) if not fp.empty() else ""
+	if fpath != "":
+		Rhythia.set_meta("spec_hud_font", fpath)
 	for k in FORCED:
 		_assign(k, FORCED[k])
 	Rhythia.set_meta("spec_for", peer_id)
@@ -375,7 +399,7 @@ static func _apply_backgrounds(their: Dictionary):
 					Rhythia.set_meta("spec_bg_dir", Globals.p(ASSET_CACHE))
 
 static func _clear_backgrounds():
-	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir"]:
+	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font"]:
 		if Rhythia.has_meta(k):
 			Rhythia.remove_meta(k)
 

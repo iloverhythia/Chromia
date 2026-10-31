@@ -703,7 +703,7 @@ func upload_spectate_assets():
 	for a in spec.own_background_assets():
 		for u in a.uploads:
 			_upload_asset_file(u[0], u[1], u[2])
-	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()]]
+	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()], ["font", "font", spec.own_font_file(String(Rhythia.hud_font))]]
 	if String(Rhythia.vr_hand) == "custom":
 		for hf in spec.own_hand_files():
 			sends.append([hf[0], "mesh", hf[1]]) # (VR hand models: .obj like a note mesh)
@@ -768,6 +768,9 @@ func fetch_spectate_assets(settings):
 	var wanted := []
 	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"], ["mesh", "vr_hand_file", "obj"], ["mesh", "vr_hand_left_file", "obj"]]:
 		wanted.append([pair[0], String(settings.get(pair[1], "")).to_lower(), pair[2]])
+	var fp: Array = spec.font_file_parts(String(settings.get("hud_font_file", "")))
+	if not fp.empty() and String(settings.get("hud_font", "")) == "custom":
+		wanted.append(["font", fp[0], fp[1]])
 	for k in ["custombg_image", "panobg_image"]:
 		var v: String = String(settings.get(k, "")).to_lower()
 		if v.find(".") == 64:
