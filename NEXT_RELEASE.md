@@ -12,3 +12,8 @@ in scripts/Savia.gd and empties this list.
 - Spectating: you see the player's own custom border and note mesh with their settings (sent through the server like cursor pictures), and when they pause it shows Paused and waits, then picks up smoothly instead of stuttering (needs the updated server)
 - Fixed: resetting your cursor (or other custom picture) to default no longer opens a file picker
 - Spectating: a small Report button (top left) to report the player's skin, chat or something else. Staff get a screenshot, their skin settings and the chat
+- Spectate window: each player shows how many are watching them (when anyone is)
+- Spectating follows the player: when they finish or fail, you watch them again as soon as they start their next song (stops when you press Stop watching, play yourself, or they turn spectators off)
+- No more pop-up when someone starts watching you (the Spectators list shows it)
+- Discord status: Spectating <player> while you watch someone; the menu says Listening to music
+- The Report window while spectating is simpler and uses the game's own look

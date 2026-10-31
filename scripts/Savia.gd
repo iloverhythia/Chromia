@@ -2530,6 +2530,17 @@ func console_cmd_error(body: String):
 	yield(Globals.confirm_prompt, "option_selected")
 	Globals.confirm_prompt.s_back.play()
 	Globals.confirm_prompt.close()
+# Discord while spectating: "Spectating <player>", and the song
+func update_rpc_spectating(who: String):
+	var activity = Discord.Activity.new()
+	activity.set_type(Discord.ActivityType.Playing)
+	activity.set_details(("Spectating %s" % who) if who != "" else "Spectating")
+	if selected_song != null:
+		activity.set_state(String(selected_song.name))
+	var assets = activity.get_assets()
+	assets.set_large_image(Globals.DISCORD_ICON)
+	Discord.activity_manager.update_activity(activity)
+
 func update_rpc_song():
 	if not ProjectSettings.get_setting("application/config/discord_rpc") or selected_song == null: return
 	var txt = ""

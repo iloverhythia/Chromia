@@ -881,8 +881,17 @@ func _make_card() -> Dictionary:
 	heart.margin_top = -20 * _k
 	box.add_child(heart)
 
+	# bottom left: how many are watching them (hidden at 0)
+	var watching := _label("", font_tiny, DIM)
+	watching.anchor_top = 1.0
+	watching.anchor_bottom = 1.0
+	watching.grow_vertical = GROW_DIRECTION_BEGIN
+	watching.mouse_filter = MOUSE_FILTER_IGNORE
+	watching.visible = false
+	box.add_child(watching)
+
 	var c := {"card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
-		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "url": "", "number": -1,
+		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
 	card.connect("gui_input", self, "_on_card_input", [c])
@@ -955,6 +964,9 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	else:
 		c.status_full = "Idle" if status == "menu" or status == "" else status.capitalize()
 		c.status.add_color_override("font_color", DIM)
+	var n_watch := int(p.get("watchers", 0))
+	c.watching.visible = n_watch > 0
+	c.watching.text = "%d watching" % n_watch
 	c.device.text = DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")
 	# the rest in a tooltip
 	var tip := [nm]

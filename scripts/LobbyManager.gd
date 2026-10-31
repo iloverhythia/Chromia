@@ -1322,11 +1322,14 @@ func _handle_message(msg: Dictionary):
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
 			i_am_staff = bool(msg.get("you_staff", false))
 			emit_signal("online_players_received", online_players, my_player_number)
+			_check_follow(online_players)
 		"spectate_denied":
 			if watch_mode and not lobby_active:
 				_finish_watch_locally()
 			emit_signal("spectate_denied", Globals.s(msg.get("reason", "You can't watch them right now.")))
 		"watch_ended":
+			if Globals.s(msg.get("reason", "")) == "disabled":
+				follow_number = -1 # (they don't want spectators: no following either)
 			end_watch(Globals.s(msg.get("text", "They stopped playing.")))
 		"watchers_changed":
 			var was := watchers_count
@@ -1339,7 +1342,7 @@ func _handle_message(msg: Dictionary):
 				if game != null and game.has_method("_sync_lobby_stats"):
 					game._sync_lobby_stats()
 			if watchers_count > was and not watcher_names.empty():
-				Globals.notify(Globals.NOTIFY_INFO, "%s is watching you" % String(watcher_names[watcher_names.size() - 1]), "Spectator")
+				pass # (no pop-up: the Spectators list in the top left shows who's watching)
 			emit_signal("watchers_changed", watchers_count, watcher_names)
 		"round_ended":
 			if watch_mode:
@@ -1600,6 +1603,48 @@ func _send_presence(force: bool):
 func update_presence():
 	_send_presence(false)
 
+# Following: after a watch ends (they finished, failed or left the map) you
+# watch them again as soon as they start playing, while you're in the menu.
+# It stops when you leave (Stop watching), when you play a map yourself, when
+# they turn spectators off, or after FOLLOW_GIVE_UP_MSEC without them playing.
+var follow_number: int = -1
+var _follow_ended_at: int = 0
+var _follow_last_seen: int = 0
+var _follow_tried_at: int = 0
+const FOLLOW_GIVE_UP_MSEC := 15 * 60 * 1000
+
+func _check_follow(list: Array):
+	if follow_number <= 0 or watch_mode or lobby_active:
+		return
+	var now := OS.get_ticks_msec()
+	if Rhythia.in_map:
+		# (right after a watch ends the game is still on its way back to the menu)
+		if now - _follow_ended_at > 8000:
+			follow_number = -1 # you're playing yourself
+		return
+	if now - _follow_last_seen > FOLLOW_GIVE_UP_MSEC:
+		follow_number = -1
+		return
+	if now - _follow_tried_at < 3000:
+		return
+	for p in list:
+		if not (p is Dictionary) or int(p.get("number", -1)) != follow_number:
+			continue
+		if Globals.s(p.get("status", "")) != "playing":
+			_follow_last_seen = now
+			return
+		# a song they started after the last watch ended (not the one that just ended)
+		var since_ms: int = int(p.get("since_s", 0)) * 1000
+		if since_ms > now - _follow_ended_at:
+			return
+		var can: bool = bool(p.get("can_spectate", false)) or (i_am_staff and bool(p.get("can_spectate_staff", false)))
+		if not can:
+			return
+		_follow_tried_at = now
+		Globals.notify(Globals.NOTIFY_INFO, "%s is playing again: watching." % Globals.s(p.get("name", "They")), "Spectating")
+		spectate_player(follow_number)
+		return
+
 func subscribe_online():
 	_online_subscribed = true
 	if presence_supported == 1 and _connected():
@@ -1621,11 +1666,15 @@ func spectate_player(number: int) -> bool:
 		return false
 	if _watch_mods_backup == null:
 		_watch_mods_backup = _collect_current_mods()
+	if follow_number != number:
+		follow_number = number
+	_follow_last_seen = OS.get_ticks_msec()
 	_send({"type": "spectate_player", "number": number, "name": _presence_name() if _presence_name() != "" else player_name, "client_id": Rhythia.cid})
 	return true
 
 # you leave (back to the menu)
 func stop_watching():
+	follow_number = -1 # (you left: no following)
 	if not watch_mode:
 		return
 	if _connected():
@@ -1640,6 +1689,11 @@ func end_watch(text: String):
 	if _connected():
 		_send({"type": "stop_watching"}) # (out of their lobby, if it was one)
 	_finish_watch_locally()
+	_follow_ended_at = OS.get_ticks_msec()
+	_follow_last_seen = _follow_ended_at
+	if follow_number > 0:
+		subscribe_online() # (to see when they play again)
+		text += " You'll watch them again when they play."
 	Globals.notify(Globals.NOTIFY_INFO, text, "Spectating")
 	if in_song:
 		get_tree().paused = false

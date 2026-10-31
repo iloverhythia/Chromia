@@ -2363,24 +2363,24 @@ func idle_status():
 		if lobby_active:
 			if is_host:
 				activity.set_details("Main Menu - Developing and hosting a lobby")
-				activity.set_state("Idle while listening to furry ASMR")
+				activity.set_state("Listening to music")
 			else:
 				activity.set_details("Main Menu - Developing and in a lobby")
-				activity.set_state("Idle while listening to furry ASMR")
+				activity.set_state("Listening to music")
 		else:
 			activity.set_details("Main Menu - Developing")
-			activity.set_state("Idle while listening to furry ASMR")
+			activity.set_state("Listening to music")
 	else:
 		if lobby_active:
 			if is_host:
 				activity.set_details("Main Menu - Hosting a lobby")
-				activity.set_state("Idle while listening to furry ASMR")
+				activity.set_state("Listening to music")
 			else:
 				activity.set_details("Main Menu - In a lobby")
-				activity.set_state("Idle while listening to furry ASMR")
+				activity.set_state("Listening to music")
 		else:
 			activity.set_details("Main Menu")
-			activity.set_state("Idle while listening to furry ASMR")
+			activity.set_state("Listening to music")
 
 	var assets = activity.get_assets()
 	assets.set_large_image(Globals.DISCORD_ICON)

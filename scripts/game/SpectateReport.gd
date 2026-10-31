@@ -47,45 +47,38 @@ func _ready():
 	layer = 60
 	pause_mode = PAUSE_MODE_PROCESS
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# the game's own look (uitheme.tres, like its other windows)
+	var root := Control.new()
+	root.anchor_right = 1.0
+	root.anchor_bottom = 1.0
+	root.theme = load("res://uitheme.tres")
+	add_child(root)
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(0, 0, 0, 0.4)
 	dim.anchor_right = 1.0
 	dim.anchor_bottom = 1.0
-	add_child(dim)
+	root.add_child(dim)
 	var center := CenterContainer.new()
 	center.anchor_right = 1.0
 	center.anchor_bottom = 1.0
-	add_child(center)
+	root.add_child(center)
 	var panel := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#16171b")
-	sb.border_color = Color(1, 1, 1, 0.12)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(10)
-	sb.content_margin_left = 18
-	sb.content_margin_right = 18
-	sb.content_margin_top = 14
-	sb.content_margin_bottom = 14
-	panel.add_stylebox_override("panel", sb)
-	panel.rect_min_size = Vector2(420, 0)
+	panel.rect_min_size = Vector2(360, 0)
 	center.add_child(panel)
+	var m := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_constant_override("margin_" + side, 12)
+	panel.add_child(m)
 	var v := VBoxContainer.new()
-	v.add_constant_override("separation", 10)
-	panel.add_child(v)
+	v.add_constant_override("separation", 8)
+	m.add_child(v)
 
 	var title := Label.new()
-	title.add_font_override("font", _font(20))
+	title.add_font_override("font", _font(18))
 	title.text = "Report %s" % target_name
 	v.add_child(title)
-	var sub := Label.new()
-	sub.add_font_override("font", _font(13))
-	sub.add_color_override("font_color", Color(1, 1, 1, 0.6))
-	sub.autowrap = true
-	sub.text = "Staff get a screenshot of your screen, their skin settings and the chat."
-	v.add_child(sub)
 
 	var row := HBoxContainer.new()
-	row.add_constant_override("separation", 8)
 	v.add_child(row)
 	for c in CATEGORIES:
 		var b := Button.new()
@@ -93,42 +86,32 @@ func _ready():
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.rect_min_size = Vector2(0, 34)
-		b.add_font_override("font", _font(15))
 		b.connect("pressed", self, "_pick", [c[0]])
 		row.add_child(b)
 		_cat_buttons[c[0]] = b
 	_pick(_cat)
 
 	_note = LineEdit.new()
-	_note.placeholder_text = "What happened? (optional)"
+	_note.placeholder_text = "Details"
 	_note.max_length = 500
-	_note.rect_min_size = Vector2(0, 34)
-	_note.add_font_override("font", _font(14))
 	v.add_child(_note)
 
 	_status = Label.new()
-	_status.add_font_override("font", _font(13))
 	_status.autowrap = true
 	_status.visible = false
 	v.add_child(_status)
 
 	var btns := HBoxContainer.new()
 	btns.alignment = BoxContainer.ALIGN_END
-	btns.add_constant_override("separation", 8)
 	v.add_child(btns)
 	var cancel := Button.new()
 	cancel.text = "Cancel"
 	cancel.focus_mode = Control.FOCUS_NONE
-	cancel.rect_min_size = Vector2(90, 34)
-	cancel.add_font_override("font", _font(15))
 	cancel.connect("pressed", self, "_close")
 	btns.add_child(cancel)
 	_send = Button.new()
-	_send.text = "Send report"
+	_send.text = "Send"
 	_send.focus_mode = Control.FOCUS_NONE
-	_send.rect_min_size = Vector2(120, 34)
-	_send.add_font_override("font", _font(15))
 	_send.connect("pressed", self, "_submit")
 	btns.add_child(_send)
 
@@ -178,17 +161,17 @@ func _submit():
 		_http.queue_free()
 		_http = null
 		_send.disabled = false
-		_say("Couldn't send it. Check your internet and try again.", true)
+		_say("Couldn't send it.", true)
 
 func _on_sent(result, code, _headers, body):
 	_http.queue_free()
 	_http = null
 	var j = JSON.parse(body.get_string_from_utf8()).result if result == HTTPRequest.RESULT_SUCCESS else null
 	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and j is Dictionary and bool(j.get("ok", false)):
-		_say("Sent. Thanks, staff will look at it.", false)
+		_say("Report sent.", false)
 		yield(get_tree().create_timer(1.4), "timeout")
 		_close()
 		return
 	_send.disabled = false
 	var why: String = Globals.s(j.get("error", "")) if j is Dictionary else ""
-	_say(why if why != "" else "Couldn't send it (the server may need updating). Try again later.", true)
+	_say(why if why != "" else "Couldn't send it.", true)

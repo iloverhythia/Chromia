@@ -494,6 +494,7 @@ func _spec_settings():
 
 func enter_spectate_mode(peer_id: int):
 	spectating = true
+	call_deferred("_spectate_discord_status", peer_id)
 	process_priority = -10 # the watched time is set before the notes move this frame
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
@@ -565,6 +566,18 @@ func _pick_next_target():
 		_end_spectate_and_return_to_lobby()
 	elif next != spectate_peer_id:
 		_set_spectate_target(next)
+
+# Discord: Spectating <their name>
+func _spectate_discord_status(peer_id: int):
+	var lm = _get_lobby_manager()
+	var who := ""
+	if lm != null:
+		for p in lm.players:
+			if p is Dictionary and int(p.get("peer_id", -1)) == peer_id:
+				who = Globals.s(p.get("name", ""))
+		if who == "":
+			who = Globals.s(lm.get("watch_target_name"))
+	Rhythia.update_rpc_spectating(who)
 
 func exit_spectate_mode():
 	spectating = false
