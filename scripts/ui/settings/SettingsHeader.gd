@@ -33,7 +33,7 @@ static func install(settings: Control):
 	if top != null:
 		f.remove_child(top)
 		h.add_child(top)
-		top.size_flags_horizontal = SIZE_EXPAND_FILL
+		top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(h._tabs)
 
 func _ready():
