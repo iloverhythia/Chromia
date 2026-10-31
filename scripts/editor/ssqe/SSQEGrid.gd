@@ -183,7 +183,8 @@ func _draw():
 	for d in drawn:
 		var c = d[0].by_color if d[0].by_color != null else d[1]
 		var lw := max(1.0, 2.0 * d[4] / note_size) if mode3d else 2.0
-		var nc: Color = note_col(c, 1.0)
+		# (by_color: a colour index, or a colour itself: who placed it, mapping together)
+		var nc: Color = c if c is Color else note_col(c, 1.0)
 		var p: float = clamp(d[5], 0, 1)
 		_squircle(Rect2(d[2], d[3], d[4], d[4]), Color(nc.r, nc.g, nc.b, 0.15 * p), Color(nc.r, nc.g, nc.b, p), lw)
 		if s.approachSquares and not mode3d:
