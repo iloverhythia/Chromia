@@ -305,6 +305,9 @@ static func apply(their: Dictionary, peer_id: int):
 	if mpath != "":
 		_assign("selected_mesh", NoteMesh.new("spectate_mesh", "Their mesh", mpath, ""))
 	_apply_backgrounds(their)
+	for k in FORCED:
+		_assign(k, FORCED[k])
+	Rhythia.set_meta("spec_for", peer_id)
 
 # Their backgrounds (worlds/custom/custombg.gd and BgLayers.gd read these):
 # "none" = they have none (so you don't see yours); not downloaded = yours stay.
@@ -342,9 +345,6 @@ static func _clear_backgrounds():
 	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir"]:
 		if Rhythia.has_meta(k):
 			Rhythia.remove_meta(k)
-	for k in FORCED:
-		_assign(k, FORCED[k])
-	Rhythia.set_meta("spec_for", peer_id)
 
 static func restore():
 	_clear_backgrounds()
