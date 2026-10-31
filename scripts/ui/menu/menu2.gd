@@ -2409,6 +2409,7 @@ func _ready():
 	Rhythia._star_paused = false # paused while a song loads/plays (songload.gd)
 	_build_keybinds_settings_tab()
 	preload("res://scripts/ui/settings/BgEditor.gd").install(self)
+	load("res://scripts/ui/menu/Seasonal.gd").install(self) # (Halloween bats and embers, on the day)
 	load("res://scripts/ui/settings/MeshesTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # note meshes grid + Note Builder
 	load("res://scripts/ui/settings/GeneratorTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Settings Generator (learns from how you play)
 	load("res://scripts/ui/settings/VRTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # VR: controller grip and buttons (in VR only)

@@ -6,3 +6,4 @@ in scripts/Savia.gd and empties this list.
 - Test builds no longer install themselves for tester accounts: you get the Update / Remind me in a day / Later box like everyone else
 - New Cursor Bloom setting (World & Cursor): real bloom on just the cursor (and its trail if you want), with size, strength, colour and a pulse on hits
 - Spectate: the search box is the same height as the favourites heart
+- Happy Halloween: on 31 October the menu waves turn orange and purple, with bats and embers (Settings > Replays & Misc > Seasonal Themes turns it off)

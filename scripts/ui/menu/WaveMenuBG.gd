@@ -20,6 +20,17 @@ const DEFAULT_COLORS = {
 	"color_count": 2.0,
 }
 
+# Halloween (Seasonal.gd): pumpkin orange, purple and slime green
+const HALLOWEEN_COLORS = {
+	"bg_color": Color(0.06, 0.02, 0.09, 1.0),
+	"minor_color": Color(0.34, 0.13, 0.42, 0.75),
+	"major_a": Color(1.0, 0.52, 0.08, 1.0),
+	"major_b": Color(0.68, 0.36, 1.0, 1.0),
+	"major_c": Color(0.5, 0.92, 0.28, 1.0),
+	"major_d": Color(1.0, 0.7, 0.2, 1.0),
+	"color_count": 4.0,
+}
+
 # Wave colours: the default pink/orange, or (option) the selected colorset.
 # In colorset mode the lines fade through every colour in the set over time.
 const COLOR_STEP_SECONDS = 3.0
@@ -32,6 +43,10 @@ func _apply_colors(_v = null):
 	for k in DEFAULT_COLORS.keys():
 		mat.set_shader_param(k, DEFAULT_COLORS[k])
 	_cs_colors = []
+	if not Rhythia.wave_menu_colorset and preload("res://scripts/ui/menu/Seasonal.gd").halloween():
+		for k in HALLOWEEN_COLORS.keys():
+			mat.set_shader_param(k, HALLOWEEN_COLORS[k])
+		return
 	if not Rhythia.wave_menu_colorset or Rhythia.selected_colorset == null:
 		return
 	for c in Rhythia.selected_colorset.real_colors:

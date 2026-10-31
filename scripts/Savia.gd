@@ -2847,6 +2847,12 @@ func _set_wave_menu(v: bool):
 	wave_menu = v
 	emit_signal("wave_menu_changed", v)
 # Wave Menu option: colour the waves with the selected colorset.
+# Seasonal themes (scripts/ui/menu/Seasonal.gd): Halloween on 31 October
+var seasonal_themes: bool = true setget _set_seasonal_themes
+func _set_seasonal_themes(v: bool):
+	seasonal_themes = v
+	emit_signal("wave_menu_changed", wave_menu) # (the menu redoes its colours)
+
 signal wave_menu_colorset_changed
 var wave_menu_colorset: bool = false setget _set_wave_menu_colorset
 func _set_wave_menu_colorset(v: bool):
@@ -3722,6 +3728,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			set_borderless_windowed(data.window_borderless)
 		if data.has("cursor_face_velocity"):
 			cursor_face_velocity = data.cursor_face_velocity
+		if data.has("seasonal_themes"):
+			self.seasonal_themes = bool(data.seasonal_themes)
 		if data.has("cursor_glow"):
 			cursor_glow = bool(data.cursor_glow)
 		if data.has("cursor_glow_size"):
@@ -4324,6 +4332,7 @@ func _write_settings_file(saveFile: String):
 			display_true_combo = display_true_combo,
 			cursor_face_velocity = cursor_face_velocity,
 			cursor_glow = cursor_glow,
+			seasonal_themes = seasonal_themes,
 			cursor_glow_size = cursor_glow_size,
 			cursor_glow_strength = cursor_glow_strength,
 			cursor_glow_pulse = cursor_glow_pulse,
