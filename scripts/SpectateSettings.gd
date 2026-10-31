@@ -175,6 +175,16 @@ static func _first_existing(base: String) -> String:
 
 # -> [{key, value, uploads: [[kind, file, sha]]}] for the settings and LobbyManager's upload
 static func own_background_assets() -> Array:
+	# (the settings and the upload both ask at a song's start: hashed once)
+	if Rhythia.has_meta("own_bg_assets"):
+		var cached: Dictionary = Rhythia.get_meta("own_bg_assets")
+		if OS.get_ticks_msec() - int(cached.t) < 5000:
+			return cached.value
+	var out := _own_background_assets()
+	Rhythia.set_meta("own_bg_assets", {"t": OS.get_ticks_msec(), "value": out})
+	return out
+
+static func _own_background_assets() -> Array:
 	var out := []
 	for pair in [["custombg_image", "user://custombg"], ["panobg_image", "user://panobg"]]:
 		var p := _first_existing(Globals.p(pair[1]))
@@ -305,6 +315,9 @@ static func apply(their: Dictionary, peer_id: int):
 	if mpath != "":
 		_assign("selected_mesh", NoteMesh.new("spectate_mesh", "Their mesh", mpath, ""))
 	_apply_backgrounds(their)
+	for k in FORCED:
+		_assign(k, FORCED[k])
+	Rhythia.set_meta("spec_for", peer_id)
 
 # Their backgrounds (worlds/custom/custombg.gd and BgLayers.gd read these):
 # "none" = they have none (so you don't see yours); not downloaded = yours stay.
@@ -342,9 +355,6 @@ static func _clear_backgrounds():
 	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir"]:
 		if Rhythia.has_meta(k):
 			Rhythia.remove_meta(k)
-	for k in FORCED:
-		_assign(k, FORCED[k])
-	Rhythia.set_meta("spec_for", peer_id)
 
 static func restore():
 	_clear_backgrounds()

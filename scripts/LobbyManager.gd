@@ -140,9 +140,14 @@ func _process(_delta):
 	_process_map_publish_step()
 	_presence_tick(_delta)
 
+	_update_stop_bar()
 	if _announcement_fade_timer > 0:
 		_announcement_fade_timer -= _delta
 		_announcement_bar.modulate.a = clamp(_announcement_fade_timer, 0.0, 1.0)
+		# slides down from above the screen (eased) when it appears
+		_announcement_slide = min(1.0, _announcement_slide + _delta / 0.35)
+		var ease_t: float = 1.0 - pow(1.0 - _announcement_slide, 3)
+		_announcement_bar.margin_top = lerp(-90.0, 18.0, ease_t)
 		if _announcement_fade_timer <= 0:
 			_announcement_canvas.visible = false
 
@@ -150,6 +155,21 @@ func _process(_delta):
 		_show_announcement_banner(_pending_announcement.text, _pending_announcement.from_name)
 		_pending_announcement = {}
 	_was_in_map = Rhythia.in_map
+
+# The announcement banner: a dark card at the top in the Spectate window's
+# look (its colours, and its Lato Black title font for the message), with who
+# sent it in small accent letters. It slides down, stays, then fades.
+const ANNOUNCE_ACCENT := Color(1, 0.756863, 0.960784)
+var _announcement_from: Label = null
+var _announcement_slide: float = 1.0
+
+static func _announce_font(path: String, size: int) -> DynamicFont:
+	var f := DynamicFont.new()
+	f.font_data = load(path)
+	f.size = size
+	f.use_filter = true
+	f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf"))
+	return f
 
 func _build_announcement_banner():
 	_announcement_canvas = CanvasLayer.new()
@@ -160,31 +180,54 @@ func _build_announcement_banner():
 
 	_announcement_bar = PanelContainer.new()
 	_announcement_bar.pause_mode = PAUSE_MODE_PROCESS
-	_announcement_bar.anchor_right = 1.0
+	_announcement_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_announcement_bar.anchor_left = 0.5
+	_announcement_bar.anchor_right = 0.5
+	_announcement_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color("#00b8ff")
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
+	style.bg_color = Color(0.075, 0.068, 0.1, 0.96)
+	style.border_color = Color(ANNOUNCE_ACCENT.r, ANNOUNCE_ACCENT.g, ANNOUNCE_ACCENT.b, 0.45)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.shadow_color = Color(0, 0, 0, 0.45)
+	style.shadow_size = 12
+	style.content_margin_left = 22
+	style.content_margin_right = 22
+	style.content_margin_top = 12
+	style.content_margin_bottom = 14
 	_announcement_bar.add_stylebox_override("panel", style)
 	_announcement_canvas.add_child(_announcement_bar)
 
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_constant_override("separation", 4)
+	_announcement_bar.add_child(v)
+	_announcement_from = Label.new()
+	_announcement_from.align = Label.ALIGN_CENTER
+	_announcement_from.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 13))
+	_announcement_from.add_color_override("font_color", ANNOUNCE_ACCENT)
+	v.add_child(_announcement_from)
 	_announcement_label = Label.new()
 	_announcement_label.align = Label.ALIGN_CENTER
 	_announcement_label.autowrap = true
-	_announcement_label.add_color_override("font_color", Color.white)
-	_announcement_label.add_color_override("font_color_shadow", Color(0, 0, 0, 0.6))
-	_announcement_label.add_constant_override("shadow_offset_x", 1)
-	_announcement_label.add_constant_override("shadow_offset_y", 1)
-	_announcement_bar.add_child(_announcement_label)
+	_announcement_label.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Black.ttf", 22))
+	_announcement_label.add_color_override("font_color", Color(0.898039, 0.94902, 1, 1))
+	v.add_child(_announcement_label)
 
 func _show_announcement_banner(text: String, from_name: String):
 	if not is_instance_valid(_announcement_canvas):
 		_build_announcement_banner()
-	_announcement_label.text = "%s: %s" % [from_name, text]
+	_announcement_from.text = ("ANNOUNCEMENT  ·  %s" % from_name.to_upper()) if from_name != "" else "ANNOUNCEMENT"
+	_announcement_label.text = text
+	# as wide as the message needs, at most most of the screen
+	var screen: Vector2 = get_viewport().get_visible_rect().size
+	var width: float = clamp(_announcement_label.get_font("font").get_string_size(text).x + 44.0, 320.0, min(820.0, screen.x - 40.0))
+	_announcement_bar.rect_min_size = Vector2(width, 0)
+	_announcement_bar.margin_left = -width / 2.0
+	_announcement_bar.margin_right = width / 2.0
 	_announcement_canvas.visible = true
 	_announcement_bar.modulate.a = 1.0
+	_announcement_slide = 0.0
 	_announcement_fade_timer = ANNOUNCEMENT_DISPLAY_SEC
 
 
@@ -669,6 +712,7 @@ func upload_spectate_assets():
 		f.close()
 		_assets_sent[kind] = sha
 		var http := HTTPRequest.new()
+		http.use_threads = true # (big files: never on the game's main thread)
 		add_child(http)
 		http.connect("request_completed", self, "_on_asset_uploaded", [http, kind])
 		var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
@@ -693,6 +737,7 @@ func _upload_asset_file(kind: String, file: String, sha: String):
 	f.close()
 	_assets_sent[key] = sha
 	var http := HTTPRequest.new()
+	http.use_threads = true # (big files: never on the game's main thread)
 	add_child(http)
 	http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
 	var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
@@ -756,6 +801,7 @@ func _download_asset(kind: String, sha: String, ext: String):
 	var dir_path: String = Globals.p(spec.ASSET_CACHE)
 	Directory.new().make_dir_recursive(dir_path)
 	var http := HTTPRequest.new()
+	http.use_threads = true # (big files: never on the game's main thread)
 	http.download_file = dir_path.plus_file("%s.%s.part" % [sha, ext])
 	add_child(http)
 	http.connect("request_completed", self, "_on_asset_downloaded", [http, kind, sha, ext])
@@ -829,6 +875,7 @@ func upload_cursor_picture():
 		return
 	_cursor_sent = sha
 	var http := HTTPRequest.new()
+	http.use_threads = true # (big files: never on the game's main thread)
 	add_child(http)
 	http.connect("request_completed", self, "_on_cursor_uploaded", [http])
 	var url: String = "%s?client_id=%s" % [CURSOR_URL, String(Rhythia._ensure_client_id()).http_escape()]
@@ -1263,6 +1310,14 @@ func _handle_message(msg: Dictionary):
 				watch_target_name = Globals.s(msg.get("target_name", ""))
 				_spectate_load_target = int(msg.get("target_peer", -1))
 				_watch_first_load = true
+				_watch_requested_at = 0
+				if watch_target_name != "":
+					follow_name = watch_target_name
+				if _watch_cancelled:
+					_watch_cancelled = false
+					_send({"type": "stop_watching"})
+					_finish_watch_locally()
+					return
 			emit_signal("lobby_joined", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_state":
@@ -1379,6 +1434,8 @@ func _handle_message(msg: Dictionary):
 			emit_signal("online_players_received", online_players, my_player_number)
 			_check_follow(online_players)
 		"spectate_denied":
+			_watch_requested_at = 0
+			_watch_cancelled = false
 			if watch_mode and not lobby_active:
 				_finish_watch_locally()
 			emit_signal("spectate_denied", Globals.s(msg.get("reason", "You can't watch them right now.")))
@@ -1723,7 +1780,13 @@ func spectate_player(number: int) -> bool:
 		_watch_mods_backup = _collect_current_mods()
 	if follow_number != number:
 		follow_number = number
+		follow_name = ""
+	for p in online_players:
+		if p is Dictionary and int(p.get("number", -1)) == number:
+			follow_name = Globals.s(p.get("name", ""))
 	_follow_last_seen = OS.get_ticks_msec()
+	_watch_requested_at = OS.get_ticks_msec()
+	_watch_cancelled = false
 	_send({"type": "spectate_player", "number": number, "name": _presence_name() if _presence_name() != "" else player_name, "client_id": Rhythia.cid})
 	return true
 
@@ -1731,10 +1794,97 @@ func spectate_player(number: int) -> bool:
 func stop_watching():
 	follow_number = -1 # (you left: no following)
 	if not watch_mode:
+		if _watch_requested_at > 0:
+			# asked but not in yet: leave as soon as the server puts you in
+			_watch_requested_at = 0
+			_watch_cancelled = true
+			if _connected():
+				_send({"type": "stop_watching"})
 		return
 	if _connected():
 		_send({"type": "stop_watching"})
+	var loading: bool = not Rhythia.in_map
 	_finish_watch_locally()
+	if loading:
+		# their song was loading: back to the menu instead
+		var scene = get_tree().current_scene
+		if scene != null and scene.name != "Menu" and scene.name != "VRMenuHolder":
+			get_tree().paused = false
+			get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
+# --- the bar while you spectate outside a map ---------------------------------------
+# (joining, their song loading, or following them to their next song): what's
+# happening and a Stop button. In a map the HUD has its own Stop watching.
+var follow_name: String = ""
+var _watch_requested_at: int = 0
+var _watch_cancelled: bool = false
+var _stop_canvas: CanvasLayer = null
+var _stop_label: Label = null
+
+func _stop_bar_text() -> String:
+	if Rhythia.in_map:
+		return ""
+	var who: String = watch_target_name if watch_target_name != "" else (follow_name if follow_name != "" else "them")
+	if watch_mode:
+		return "Loading %s's song..." % who
+	if _watch_requested_at > 0 and OS.get_ticks_msec() - _watch_requested_at < 20000:
+		return "Joining %s..." % who
+	if follow_number > 0:
+		return "Following %s: you'll watch their next song" % who
+	return ""
+
+func _update_stop_bar():
+	var text := _stop_bar_text()
+	if text == "":
+		if _stop_canvas != null:
+			_stop_canvas.visible = false
+		return
+	if _stop_canvas == null:
+		_build_stop_bar()
+	_stop_label.text = text
+	_stop_canvas.visible = true
+
+func _build_stop_bar():
+	_stop_canvas = CanvasLayer.new()
+	_stop_canvas.layer = 140
+	_stop_canvas.pause_mode = PAUSE_MODE_PROCESS
+	add_child(_stop_canvas)
+	var bar := PanelContainer.new()
+	bar.anchor_left = 0.5
+	bar.anchor_right = 0.5
+	bar.anchor_top = 1.0
+	bar.anchor_bottom = 1.0
+	bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bar.margin_bottom = -18
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.075, 0.068, 0.1, 0.96)
+	style.border_color = Color(ANNOUNCE_ACCENT.r, ANNOUNCE_ACCENT.g, ANNOUNCE_ACCENT.b, 0.4)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.shadow_color = Color(0, 0, 0, 0.4)
+	style.shadow_size = 10
+	style.content_margin_left = 16
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	bar.add_stylebox_override("panel", style)
+	_stop_canvas.add_child(bar)
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 14)
+	bar.add_child(h)
+	_stop_label = Label.new()
+	_stop_label.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 16))
+	_stop_label.add_color_override("font_color", Color(0.898039, 0.94902, 1, 1))
+	_stop_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(_stop_label)
+	var stop := Button.new()
+	stop.text = "Stop"
+	stop.focus_mode = Control.FOCUS_NONE
+	stop.theme = load("res://uitheme.tres")
+	stop.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 15))
+	stop.connect("pressed", self, "stop_watching")
+	h.add_child(stop)
 
 # the server ended it (they finished, failed, left, turned spectators off)
 func end_watch(text: String):
@@ -1750,7 +1900,10 @@ func end_watch(text: String):
 		subscribe_online() # (to see when they play again)
 		text += " You'll watch them again when they play."
 	Globals.notify(Globals.NOTIFY_INFO, text, "Spectating")
-	if in_song:
+	# back to the menu, also when their song was still loading (that load
+	# would otherwise go on and start the map for you to play)
+	var scene = get_tree().current_scene
+	if in_song or (scene != null and scene.name != "Menu" and scene.name != "VRMenuHolder"):
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 

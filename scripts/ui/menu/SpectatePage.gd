@@ -733,6 +733,17 @@ func _on_list(lst: Array, you: int):
 	_rebuild()
 	_update_info()
 
+static func _rank_of(p: Dictionary) -> int:
+	var r = p.get("rank", null)
+	return int(r) if (typeof(r) == TYPE_INT or typeof(r) == TYPE_REAL) and int(r) > 0 else 1 << 30
+
+func _by_rank(a: Dictionary, b: Dictionary) -> bool:
+	var ra := _rank_of(a)
+	var rb := _rank_of(b)
+	if ra != rb:
+		return ra < rb
+	return String(a.get("name", "")).to_lower() < String(b.get("name", "")).to_lower()
+
 func _on_filter_changed(_v = null):
 	_rebuild()
 	_update_info()
@@ -775,18 +786,14 @@ func _rebuild():
 		return
 	var keep := {}
 	var order := []
-	# you, then the server's order (playing first, then by name). (Favourites
-	# don't jump to the front: cards moved under the pointer when hearted.)
-	var you := []
-	var rest := []
+	# in leaderboard order (SP rank; unranked players after, by name).
+	# (Favourites don't jump to the front: cards moved under the pointer when hearted.)
+	var shown := []
 	for p in _list:
-		if not (p is Dictionary) or not _matches(p):
-			continue
-		if int(p.get("number", -1)) == _you:
-			you.append(p)
-		else:
-			rest.append(p)
-	for p in you + rest:
+		if p is Dictionary and _matches(p):
+			shown.append(p)
+	shown.sort_custom(self, "_by_rank")
+	for p in shown:
 		var n := int(p.get("number", -1))
 		keep[n] = true
 		var c = _cards.get(n)

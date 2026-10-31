@@ -154,6 +154,7 @@ func _submit():
 		"screenshot": Marshalls.raw_to_base64(shot_png),
 	}
 	_http = HTTPRequest.new()
+	_http.use_threads = true # (big files: never on the game's main thread)
 	add_child(_http)
 	_http.connect("request_completed", self, "_on_sent")
 	var url := "%s?client_id=%s" % [REPORT_URL, String(Rhythia._ensure_client_id()).http_escape()]

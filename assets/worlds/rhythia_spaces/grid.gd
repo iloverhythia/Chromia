@@ -10,9 +10,12 @@ var uv_off := 0.0
 func _build():
 	# Godot 4 fogs the background too, so the sky ends up the fog colour.
 	env.background_color = FOG
+	# (the fog starts at 0, not 10: the floor and ceiling are 10 away, so the
+	# patch straight above and below you had no fog at all and, with the steep
+	# fog curve, showed as a sharp bright circle in the hit colour)
 	mat = surface_material(load("res://assets/worlds/rhythia_spaces/grid/grid_tile.png"), {
 		"color": note_hit_color, "uv_scale": Vector2(34, 34),
-		"fog": [FOG, 10.0, 60.0, 0.15],
+		"fog": [FOG, 0.0, 60.0, 0.15],
 	})
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(120, 120)
