@@ -23,7 +23,7 @@ var leaderboard_list_box: VBoxContainer
 var _leaderboard_loaded: bool = false
 var leaderboard_mode_additive_btn: Button
 var leaderboard_mode_weighted_btn: Button
-var _leaderboard_mode: int = 0
+var _leaderboard_mode: int = 1 # 1 Weighted (SP, shown first), 0 Additive (XP)
 var _leaderboard_weighted_loaded: bool = false
 var _leaderboard_entries_additive: Array = []
 var _leaderboard_entries_weighted: Array = []
@@ -528,12 +528,13 @@ func _build_profile_ui():
 
 	var mode_hbox = HBoxContainer.new()
 	mode_hbox.add_constant_override("separation", 8)
-	leaderboard_mode_additive_btn = _make_button("Additive", ui_theme)
-	leaderboard_mode_additive_btn.connect("pressed", self, "_on_leaderboard_mode_pressed", [0])
-	mode_hbox.add_child(leaderboard_mode_additive_btn)
+	# Weighted (SP) first, as on the website
 	leaderboard_mode_weighted_btn = _make_button("Weighted", ui_theme)
 	leaderboard_mode_weighted_btn.connect("pressed", self, "_on_leaderboard_mode_pressed", [1])
 	mode_hbox.add_child(leaderboard_mode_weighted_btn)
+	leaderboard_mode_additive_btn = _make_button("Additive", ui_theme)
+	leaderboard_mode_additive_btn.connect("pressed", self, "_on_leaderboard_mode_pressed", [0])
+	mode_hbox.add_child(leaderboard_mode_additive_btn)
 	lvbox.add_child(mode_hbox)
 	_update_leaderboard_mode_buttons()
 
@@ -568,7 +569,10 @@ func _on_profile_tab_changed(tab_index: int):
 	if tab_index == 1 and not _leaderboard_loaded:
 		_leaderboard_loaded = true
 		_update_leaderboard_mode_buttons()
-		Rhythia.fetch_leaderboard()
+		Rhythia.fetch_leaderboard() # (both: switching shows the other at once)
+		if not _leaderboard_weighted_loaded:
+			_leaderboard_weighted_loaded = true
+			Rhythia.fetch_leaderboard_sp()
 
 func _on_refresh_leaderboard_pressed():
 	if _leaderboard_mode == 1:

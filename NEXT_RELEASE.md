@@ -5,3 +5,4 @@ update log). Publishing to production turns them into the new version's notes
 in scripts/Savia.gd and empties this list.
 - Fixed: spectating looped (the map reloaded over and over) and spectate settings didn't load in oct30-2026-c
 - Spectate window: players are in leaderboard order
+- Profile > Leaderboard: Weighted (SP) comes first and is shown by default
