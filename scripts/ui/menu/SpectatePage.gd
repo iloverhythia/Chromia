@@ -1,9 +1,10 @@
 extends Control
 # Spectate: a round eye button in the bottom-right corner of the menu (on its
 # own layer, above everything but notifications) opens the Spectate window:
-# everyone online in a grid (picture, name, what they're doing, leaderboard
-# place), a search box, a favourites filter, and the global chat underneath.
-# Click someone who's playing to watch them.
+# everyone online as square cards (picture, name, what they're doing,
+# leaderboard place, device), a search box and favourites filter at the top,
+# and the global chat in a column on the right. Click someone who's playing
+# to watch them.
 #
 # The list comes from the server (LobbyManager: online_players, about once a
 # second while the window is open); watching goes through
@@ -41,7 +42,7 @@ var font_initial: DynamicFont
 var font_chat: DynamicFont
 var font_chat_bold: DynamicFont
 
-var eye: Button
+var eye: Control
 var overlay: Control
 var window: Panel
 var header: Label
@@ -50,6 +51,7 @@ var fav_filter: Button
 var info: Label
 var scroll: ScrollContainer
 var grid: GridContainer
+var chat_panel: PanelContainer
 var chat: RichTextLabel
 var chat_input: LineEdit
 var chat_send: Button
@@ -67,6 +69,7 @@ var _img_waiting := {} # url -> [TextureRect]
 var _pending_number := -1
 var _pending_t := 0.0
 var _chat_lines := 0
+var _cw := 0.0 # a card's width
 
 # ------------------------------------------------------------------ helpers
 
@@ -124,6 +127,20 @@ func _style_field(e: LineEdit):
 	e.add_stylebox_override("focus", _pad(_flat(FIELD_BG, 8, LILAC, 1), 14, 8))
 	e.add_stylebox_override("read_only", _pad(_flat(FIELD_BG, 8), 14, 8))
 
+# text cut to fit a width, with "…" (centred labels clip both ends)
+static func _fit(text: String, font: Font, width: float) -> String:
+	if width <= 0 or font.get_string_size(text).x <= width:
+		return text
+	var lo := 0
+	var hi := text.length()
+	while lo < hi:
+		var mid := (lo + hi + 1) / 2
+		if font.get_string_size(text.substr(0, mid) + "…").x <= width:
+			lo = mid
+		else:
+			hi = mid - 1
+	return text.substr(0, lo).strip_edges() + "…"
+
 static func _fmt_dur(s: int) -> String:
 	if s < 60:
 		return "just now"
@@ -156,6 +173,78 @@ class HeartIcon extends Control:
 			pts.append(pts[0])
 			draw_polyline(pts, color, max(1.5, s / 11.0), true)
 
+# The eye button, drawn (smooth at any size): a dark glass circle with a
+# lilac ring and eye, a soft shadow, glowing while pointed at
+class EyeButton extends Control:
+	signal pressed
+	const RING = Color(0.764706, 0.65098, 0.8)
+	const RING_HOVER = Color(1, 0.756863, 0.960784)
+	var hover := false
+	var down := false
+	var _bg := StyleBoxFlat.new()
+	var _dot := StyleBoxFlat.new()
+
+	func _init():
+		mouse_default_cursor_shape = CURSOR_POINTING_HAND
+		_bg.anti_aliasing = true
+		_dot.anti_aliasing = true
+		connect("mouse_entered", self, "_set_hover", [true])
+		connect("mouse_exited", self, "_set_hover", [false])
+
+	func _set_hover(on: bool):
+		hover = on
+		if not on:
+			down = false
+		update()
+
+	func _gui_input(ev):
+		if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
+			if ev.pressed:
+				down = true
+				update()
+			elif down:
+				down = false
+				update()
+				if Rect2(Vector2(), rect_size).has_point(ev.position):
+					emit_signal("pressed")
+			accept_event()
+
+	func _circle(c: Vector2, r: float, col: Color):
+		_dot.bg_color = col
+		_dot.set_corner_radius_all(int(ceil(r)))
+		draw_style_box(_dot, Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0))
+
+	func _draw():
+		var s: float = min(rect_size.x, rect_size.y) * (0.94 if down else 1.0)
+		var c := rect_size / 2.0
+		var r := s / 2.0
+		var ring := RING_HOVER if hover else RING
+		# glass circle, ring and shadow (a lilac glow while pointed at)
+		_bg.bg_color = Color(0.11, 0.095, 0.15, 0.96) if hover else Color(0.075, 0.065, 0.1, 0.94)
+		_bg.set_corner_radius_all(int(ceil(r)))
+		_bg.border_color = ring
+		_bg.set_border_width_all(int(max(2, round(s * 0.045))))
+		_bg.shadow_color = Color(ring.r, ring.g, ring.b, 0.35) if hover else Color(0, 0, 0, 0.5)
+		_bg.shadow_size = int(max(4, s * (0.22 if hover else 0.16)))
+		_bg.shadow_offset = Vector2(0, 0 if hover else s * 0.04)
+		draw_style_box(_bg, Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0))
+		# the eye: an almond outline, iris, pupil and a glint
+		var w := r * 0.56
+		var h := r * 0.34
+		var pts := PoolVector2Array()
+		var n := 24
+		for i in range(n + 1):
+			var t := float(i) / n
+			pts.append(c + Vector2((t * 2.0 - 1.0) * w, -sin(PI * t) * h))
+		for i in range(n - 1, 0, -1):
+			var t := float(i) / n
+			pts.append(c + Vector2((t * 2.0 - 1.0) * w, sin(PI * t) * h))
+		pts.append(pts[0])
+		draw_polyline(pts, ring, max(1.5, s * 0.055), true)
+		_circle(c, r * 0.21, ring)
+		_circle(c, r * 0.095, Color(0.075, 0.065, 0.1))
+		_circle(c + Vector2(r * 0.07, -r * 0.07), r * 0.04, Color(1, 1, 1, 0.9))
+
 # ------------------------------------------------------------------ build
 
 func _ready():
@@ -179,39 +268,11 @@ func _ready():
 	set_process(true)
 
 func _build_eye():
-	eye = Button.new()
+	eye = EyeButton.new()
 	eye.name = "SpectateButton"
-	eye.focus_mode = FOCUS_NONE
 	eye.hint_tooltip = "Spectate: who's online, and the global chat"
-	eye.mouse_default_cursor_shape = CURSOR_POINTING_HAND
-	for st in ["normal", "hover", "pressed"]:
-		var sb := _flat(LILAC if st == "normal" else (ACCENT_HOVER if st == "hover" else ACCENT), 100)
-		sb.shadow_color = Color(0, 0, 0, 0.45)
-		sb.shadow_size = 10
-		sb.shadow_offset = Vector2(0, 3)
-		sb.border_color = Color(1, 1, 1, 0.55)
-		sb.set_border_width_all(2)
-		eye.add_stylebox_override(st, sb)
-	eye.add_stylebox_override("focus", StyleBoxEmpty.new())
-	var icon := TextureRect.new()
-	icon.name = "Icon"
-	icon.texture = load("res://assets/images/ui/spectate.png")
-	icon.expand = true
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.anchor_right = 1.0
-	icon.anchor_bottom = 1.0
-	icon.margin_left = 0.22
-	icon.mouse_filter = MOUSE_FILTER_IGNORE
-	icon.modulate = Color(0.12, 0.08, 0.15)
-	eye.add_child(icon)
 	eye.connect("pressed", self, "open")
-	eye.connect("mouse_entered", self, "_eye_hover", [true])
-	eye.connect("mouse_exited", self, "_eye_hover", [false])
 	add_child(eye)
-
-func _eye_hover(on: bool):
-	eye.rect_pivot_offset = eye.rect_size / 2.0
-	eye.rect_scale = Vector2(1.06, 1.06) if on else Vector2(1, 1)
 
 func _build_window():
 	overlay = Control.new()
@@ -238,48 +299,32 @@ func _build_window():
 	root.add_constant_override("separation", 12)
 	window.add_child(root)
 
-	# header: how many are online, and close
+	# header: title and count, search, favourites filter, close
 	var head := HBoxContainer.new()
+	head.add_constant_override("separation", 10)
 	root.add_child(head)
-	header = _label("Currently online", font_title, TEXT)
-	header.size_flags_horizontal = SIZE_EXPAND_FILL
-	header.valign = Label.VALIGN_CENTER
-	head.add_child(header)
-	var close := Button.new()
-	close.text = "×"
-	close.flat = true
-	close.focus_mode = FOCUS_NONE
-	close.hint_tooltip = "Close (Esc)"
-	close.mouse_default_cursor_shape = CURSOR_POINTING_HAND
-	close.add_font_override("font", font_rank)
-	close.add_color_override("font_color", DIM)
-	close.add_color_override("font_color_hover", TEXT)
-	close.add_color_override("font_color_pressed", ACCENT)
-	close.connect("pressed", self, "close")
-	head.add_child(close)
-
-	# players: search, favourites filter, the grid
-	var players := PanelContainer.new()
-	players.size_flags_vertical = SIZE_EXPAND_FILL
-	players.size_flags_stretch_ratio = 2.2
-	players.add_stylebox_override("panel", _pad(_flat(SECTION_BG, 12), 12, 12))
-	root.add_child(players)
-	var pv := VBoxContainer.new()
-	pv.add_constant_override("separation", 10)
-	players.add_child(pv)
-	var bar := HBoxContainer.new()
-	bar.add_constant_override("separation", 8)
-	pv.add_child(bar)
+	var titles := VBoxContainer.new()
+	titles.add_constant_override("separation", 0)
+	titles.size_flags_vertical = SIZE_SHRINK_CENTER
+	head.add_child(titles)
+	titles.add_child(_label("Spectate", font_title, TEXT))
+	header = _label("Connecting...", font_small, DIM)
+	titles.add_child(header)
+	var gap := Control.new()
+	gap.rect_min_size = Vector2(12, 0)
+	head.add_child(gap)
 	search = LineEdit.new()
 	search.placeholder_text = "Search players or maps..."
 	search.size_flags_horizontal = SIZE_EXPAND_FILL
+	search.size_flags_vertical = SIZE_SHRINK_CENTER
 	search.clear_button_enabled = true
 	_style_field(search)
 	search.connect("text_changed", self, "_on_filter_changed")
-	bar.add_child(search)
+	head.add_child(search)
 	fav_filter = Button.new()
 	fav_filter.toggle_mode = true
 	fav_filter.focus_mode = FOCUS_NONE
+	fav_filter.size_flags_vertical = SIZE_SHRINK_CENTER
 	fav_filter.hint_tooltip = "Only your favourites (heart someone on their card)"
 	fav_filter.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	fav_filter.add_stylebox_override("normal", _flat(FIELD_BG, 8))
@@ -298,7 +343,34 @@ func _build_window():
 	fh.color = DIM
 	fav_filter.add_child(fh)
 	fav_filter.connect("toggled", self, "_on_fav_filter")
-	bar.add_child(fav_filter)
+	head.add_child(fav_filter)
+	var close := Button.new()
+	close.text = "×"
+	close.flat = true
+	close.focus_mode = FOCUS_NONE
+	close.size_flags_vertical = SIZE_SHRINK_CENTER
+	close.hint_tooltip = "Close (Esc)"
+	close.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	close.add_font_override("font", font_rank)
+	close.add_color_override("font_color", DIM)
+	close.add_color_override("font_color_hover", TEXT)
+	close.add_color_override("font_color_pressed", ACCENT)
+	close.connect("pressed", self, "close")
+	head.add_child(close)
+
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = SIZE_EXPAND_FILL
+	body.add_constant_override("separation", 12)
+	root.add_child(body)
+
+	# players: square cards
+	var players := PanelContainer.new()
+	players.size_flags_horizontal = SIZE_EXPAND_FILL
+	players.add_stylebox_override("panel", _pad(_flat(SECTION_BG, 12), 12, 12))
+	body.add_child(players)
+	var pv := VBoxContainer.new()
+	pv.add_constant_override("separation", 10)
+	players.add_child(pv)
 	info = _label("", font_bold, DIM)
 	info.autowrap = true
 	info.visible = false
@@ -314,14 +386,14 @@ func _build_window():
 	scroll.add_child(grid)
 	scroll.connect("resized", self, "_relayout")
 
-	# the global chat
-	var chat_panel := PanelContainer.new()
-	chat_panel.size_flags_vertical = SIZE_EXPAND_FILL
+	# the global chat, a column on the right
+	chat_panel = PanelContainer.new()
 	chat_panel.add_stylebox_override("panel", _pad(_flat(SECTION_BG, 12), 14, 12))
-	root.add_child(chat_panel)
+	body.add_child(chat_panel)
 	var cv := VBoxContainer.new()
 	cv.add_constant_override("separation", 8)
 	chat_panel.add_child(cv)
+	cv.add_child(_label("Global chat", font_bold, TEXT))
 	chat = RichTextLabel.new()
 	chat.size_flags_vertical = SIZE_EXPAND_FILL
 	chat.scroll_following = true
@@ -331,6 +403,7 @@ func _build_window():
 	chat.add_color_override("default_color", TEXT)
 	cv.add_child(chat)
 	chat_muted = _label("Global chat is muted (Settings > Online).", font_small, DIM)
+	chat_muted.autowrap = true
 	chat_muted.visible = false
 	cv.add_child(chat_muted)
 	var row := HBoxContainer.new()
@@ -365,15 +438,11 @@ func _resize():
 	font_chat.size = int(16 * _k)
 	font_chat_bold.size = int(16 * _k)
 	# the eye: bottom right, clear of the edges
-	var d := 62.0 * _k
-	var m := 22.0 * _k
+	var d := 46.0 * _k
+	var m := 20.0 * _k
 	eye.rect_size = Vector2(d, d)
 	eye.rect_position = vp - Vector2(d + m, d + m)
-	var icon = eye.get_node("Icon")
-	icon.margin_left = d * 0.22
-	icon.margin_top = d * 0.22
-	icon.margin_right = -d * 0.22
-	icon.margin_bottom = -d * 0.22
+	eye.update()
 	# the window: most of the screen
 	var mx: float = max(16.0, vp.x * 0.045)
 	var my: float = max(12.0, vp.y * 0.035)
@@ -386,6 +455,7 @@ func _resize():
 	root.margin_right = -p
 	root.margin_bottom = -p
 	fav_filter.rect_min_size = Vector2(38, 38) * _k
+	chat_panel.rect_min_size.x = clamp(window.rect_size.x * 0.3, 260, 520)
 	_relayout()
 
 # the button hides where it would cover something (the map editor's own
@@ -474,7 +544,7 @@ func _on_list(lst: Array, you: int):
 	for p in lst:
 		if p is Dictionary and String(p.get("status", "")) == "playing":
 			playing += 1
-	header.text = "Currently online: %d   ·   %d playing" % [lst.size(), playing]
+	header.text = "%d online   ·   %d playing" % [lst.size(), playing]
 	_rebuild()
 	_update_info()
 
@@ -503,11 +573,17 @@ func _relayout():
 	if grid == null:
 		return
 	var w: float = scroll.rect_size.x - 12
-	var min_w := 300.0 * _k
-	grid.columns = int(clamp(floor((w + 10) / (min_w + 10)), 1, 4))
-	var cw: float = (w - 10 * (grid.columns - 1)) / grid.columns
+	var min_w := 168.0 * _k
+	grid.columns = int(clamp(floor((w + 10) / (min_w + 10)), 1, 8))
+	var cw: float = floor((w - 10 * (grid.columns - 1)) / grid.columns)
+	var refit: bool = cw != _cw
+	_cw = cw
 	for c in grid.get_children():
-		c.rect_min_size = Vector2(cw, 64 * _k)
+		c.rect_min_size = Vector2(cw, cw)
+		c.rect_size = Vector2(cw, cw)
+	if refit:
+		for n in _cards:
+			_card_style(_cards[n])
 
 func _rebuild():
 	if grid == null:
@@ -546,18 +622,26 @@ func _rebuild():
 		grid.move_child(order[i], i)
 	_relayout()
 
+# a square card: heart and device in the top corners, the picture, name,
+# what they're doing, and their leaderboard place
 func _make_card() -> Dictionary:
 	var card := PanelContainer.new()
 	card.mouse_filter = MOUSE_FILTER_STOP
-	var h := HBoxContainer.new()
-	h.add_constant_override("separation", int(12 * _k))
-	h.mouse_filter = MOUSE_FILTER_IGNORE
-	card.add_child(h)
+	var box := Control.new()
+	box.mouse_filter = MOUSE_FILTER_IGNORE
+	card.add_child(box)
+	var v := VBoxContainer.new()
+	v.anchor_right = 1.0
+	v.anchor_bottom = 1.0
+	v.alignment = BoxContainer.ALIGN_CENTER
+	v.add_constant_override("separation", int(4 * _k))
+	v.mouse_filter = MOUSE_FILTER_IGNORE
+	box.add_child(v)
 	var av := Control.new()
-	av.rect_min_size = Vector2(46, 46) * _k
-	av.size_flags_vertical = SIZE_SHRINK_CENTER
+	av.rect_min_size = Vector2(64, 64) * _k
+	av.size_flags_horizontal = SIZE_SHRINK_CENTER
 	av.mouse_filter = MOUSE_FILTER_IGNORE
-	h.add_child(av)
+	v.add_child(av)
 	var circle := Panel.new()
 	circle.anchor_right = 1.0
 	circle.anchor_bottom = 1.0
@@ -577,51 +661,51 @@ func _make_card() -> Dictionary:
 	pic.mouse_filter = MOUSE_FILTER_IGNORE
 	pic.visible = false
 	av.add_child(pic)
-
-	var who := VBoxContainer.new()
-	who.size_flags_horizontal = SIZE_EXPAND_FILL
-	who.alignment = BoxContainer.ALIGN_CENTER
-	who.add_constant_override("separation", 1)
-	who.mouse_filter = MOUSE_FILTER_IGNORE
-	h.add_child(who)
-	var name_row := HBoxContainer.new()
-	name_row.add_constant_override("separation", 6)
-	name_row.mouse_filter = MOUSE_FILTER_IGNORE
-	who.add_child(name_row)
+	var gap := Control.new()
+	gap.rect_min_size = Vector2(0, 2 * _k)
+	gap.mouse_filter = MOUSE_FILTER_IGNORE
+	v.add_child(gap)
 	var name_l = _label("", font_name, TEXT)
+	name_l.align = Label.ALIGN_CENTER
 	name_l.clip_text = true
-	name_l.size_flags_horizontal = SIZE_EXPAND_FILL
-	name_row.add_child(name_l)
+	v.add_child(name_l)
 	var tag = _label("", font_small, ACCENT)
-	name_row.add_child(tag)
+	tag.align = Label.ALIGN_CENTER
+	v.add_child(tag)
 	var status_l = _label("", font_small, DIM)
+	status_l.align = Label.ALIGN_CENTER
 	status_l.clip_text = true
-	who.add_child(status_l)
+	v.add_child(status_l)
+	var rank_l = _label("", font_rank, FAINT)
+	rank_l.align = Label.ALIGN_CENTER
+	v.add_child(rank_l)
 
 	var heart := Button.new()
 	heart.flat = true
 	heart.focus_mode = FOCUS_NONE
-	heart.rect_min_size = Vector2(26, 26) * _k
-	heart.size_flags_vertical = SIZE_SHRINK_CENTER
+	heart.rect_size = Vector2(26, 26) * _k
 	heart.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	var hi := HeartIcon.new()
 	hi.anchor_right = 1.0
 	hi.anchor_bottom = 1.0
-	hi.margin_left = 4
-	hi.margin_top = 4
-	hi.margin_right = -4
-	hi.margin_bottom = -4
+	hi.margin_left = 3
+	hi.margin_top = 3
+	hi.margin_right = -3
+	hi.margin_bottom = -3
 	heart.add_child(hi)
-	h.add_child(heart)
+	box.add_child(heart)
 
-	var rank_l = _label("", font_rank, FAINT)
-	rank_l.size_flags_vertical = SIZE_SHRINK_CENTER
-	rank_l.align = Label.ALIGN_RIGHT
-	h.add_child(rank_l)
+	var device := _label("", font_small, DIM)
+	device.anchor_left = 1.0
+	device.anchor_right = 1.0
+	device.grow_horizontal = GROW_DIRECTION_BEGIN
+	device.add_stylebox_override("normal", _pad(_flat(FIELD_BG, 6), 7 * _k, 2 * _k))
+	box.add_child(device)
 
 	var c := {"card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
-		"status": status_l, "heart": heart, "heart_icon": hi, "rank": rank_l, "url": "", "number": -1,
-		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false}
+		"status": status_l, "heart": heart, "heart_icon": hi, "rank": rank_l, "device": device, "url": "", "number": -1,
+		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
+		"name_full": "", "status_full": ""}
 	card.connect("gui_input", self, "_on_card_input", [c])
 	card.connect("mouse_entered", self, "_on_card_hover", [c, true])
 	card.connect("mouse_exited", self, "_on_card_hover", [c, false])
@@ -629,8 +713,9 @@ func _make_card() -> Dictionary:
 	return c
 
 func _card_style(c: Dictionary):
-	var bg := CARD_HOVER if c.hover and c.can else CARD_BG
-	var sb := _pad(_flat(bg, 10, LILAC, 1 if c.is_you else 0), 12 * _k, 9 * _k)
+	var lit: bool = c.hover and c.can
+	var border := ACCENT if c.is_you else (LILAC if lit else Color(1, 1, 1, 0.04))
+	var sb := _pad(_flat(CARD_HOVER if lit else CARD_BG, 12, border, 2 if (c.is_you or lit) else 1), 10 * _k, 10 * _k)
 	c.card.add_stylebox_override("panel", sb)
 	c.card.mouse_default_cursor_shape = CURSOR_POINTING_HAND if c.can else CURSOR_ARROW
 	var fav := _is_fav(int(c.number))
@@ -639,14 +724,18 @@ func _card_style(c: Dictionary):
 	c.heart_icon.update()
 	# the heart shows on a favourite, or while you point at the card
 	c.heart.visible = not c.is_you and (fav or c.hover)
-	if c.hover and c.can:
-		c.rank.text = "Joining..." if _pending_number == int(c.number) else ("Spectate anyway" if c.anyway else "Spectate")
+	var tw := _cw - 22.0 * _k
+	c.name.text = _fit(c.name_full, font_name, tw)
+	c.status.text = _fit(c.status_full, font_small, tw)
+	var joining := _pending_number == int(c.number)
+	if joining or lit:
+		c.rank.text = "Joining..." if joining else ("Spectate anyway" if c.anyway else "Spectate")
 		c.rank.add_font_override("font", font_bold)
 		c.rank.add_color_override("font_color", ACCENT)
 	else:
-		c.rank.text = "Joining..." if _pending_number == int(c.number) else c.rank_text
-		c.rank.add_font_override("font", font_rank if _pending_number != int(c.number) else font_bold)
-		c.rank.add_color_override("font_color", ACCENT if _pending_number == int(c.number) else FAINT)
+		c.rank.text = c.rank_text if c.rank_text != "" else "Unranked"
+		c.rank.add_font_override("font", font_rank if c.rank_text != "" else font_small)
+		c.rank.add_color_override("font_color", FAINT)
 
 func _fill_card(c: Dictionary, p: Dictionary):
 	var n := int(p.get("number", -1))
@@ -656,7 +745,7 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	if nm == "":
 		nm = "Player #%d" % n
 	c.nm = nm
-	c.name.text = nm + ("  (you)" if c.is_you else "")
+	c.name_full = nm + ("  (you)" if c.is_you else "")
 	var tag_text := String(p.get("tag_text", ""))
 	c.tag.visible = tag_text != ""
 	if tag_text != "":
@@ -681,14 +770,15 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var playing := status == "playing"
 	var song := String(p.get("song_name", ""))
 	if playing:
-		c.status.text = "Playing " + (song if song != "" else "a map")
+		c.status_full = "Playing " + (song if song != "" else "a map")
 		c.status.add_color_override("font_color", PLAYING)
 	elif status == "afk" or status == "away":
-		c.status.text = "AFK"
+		c.status_full = "AFK"
 		c.status.add_color_override("font_color", DIM)
 	else:
-		c.status.text = "Idle" if status == "menu" or status == "" else status.capitalize()
+		c.status_full = "Idle" if status == "menu" or status == "" else status.capitalize()
 		c.status.add_color_override("font_color", DIM)
+	c.device.text = DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")
 	# the rest in a tooltip
 	var tip := [nm]
 	tip.append("%s  ·  %s" % [c.rank_text if c.rank_text != "" else "Unranked", DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")])
