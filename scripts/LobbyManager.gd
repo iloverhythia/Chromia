@@ -140,6 +140,7 @@ func _process(_delta):
 	_process_map_publish_step()
 	_presence_tick(_delta)
 
+	_update_stop_bar()
 	if _announcement_fade_timer > 0:
 		_announcement_fade_timer -= _delta
 		_announcement_bar.modulate.a = clamp(_announcement_fade_timer, 0.0, 1.0)
@@ -1305,6 +1306,14 @@ func _handle_message(msg: Dictionary):
 				watch_target_name = Globals.s(msg.get("target_name", ""))
 				_spectate_load_target = int(msg.get("target_peer", -1))
 				_watch_first_load = true
+				_watch_requested_at = 0
+				if watch_target_name != "":
+					follow_name = watch_target_name
+				if _watch_cancelled:
+					_watch_cancelled = false
+					_send({"type": "stop_watching"})
+					_finish_watch_locally()
+					return
 			emit_signal("lobby_joined", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_state":
@@ -1421,6 +1430,8 @@ func _handle_message(msg: Dictionary):
 			emit_signal("online_players_received", online_players, my_player_number)
 			_check_follow(online_players)
 		"spectate_denied":
+			_watch_requested_at = 0
+			_watch_cancelled = false
 			if watch_mode and not lobby_active:
 				_finish_watch_locally()
 			emit_signal("spectate_denied", Globals.s(msg.get("reason", "You can't watch them right now.")))
@@ -1765,7 +1776,13 @@ func spectate_player(number: int) -> bool:
 		_watch_mods_backup = _collect_current_mods()
 	if follow_number != number:
 		follow_number = number
+		follow_name = ""
+	for p in online_players:
+		if p is Dictionary and int(p.get("number", -1)) == number:
+			follow_name = Globals.s(p.get("name", ""))
 	_follow_last_seen = OS.get_ticks_msec()
+	_watch_requested_at = OS.get_ticks_msec()
+	_watch_cancelled = false
 	_send({"type": "spectate_player", "number": number, "name": _presence_name() if _presence_name() != "" else player_name, "client_id": Rhythia.cid})
 	return true
 
@@ -1773,10 +1790,97 @@ func spectate_player(number: int) -> bool:
 func stop_watching():
 	follow_number = -1 # (you left: no following)
 	if not watch_mode:
+		if _watch_requested_at > 0:
+			# asked but not in yet: leave as soon as the server puts you in
+			_watch_requested_at = 0
+			_watch_cancelled = true
+			if _connected():
+				_send({"type": "stop_watching"})
 		return
 	if _connected():
 		_send({"type": "stop_watching"})
+	var loading: bool = not Rhythia.in_map
 	_finish_watch_locally()
+	if loading:
+		# their song was loading: back to the menu instead
+		var scene = get_tree().current_scene
+		if scene != null and scene.name != "Menu" and scene.name != "VRMenuHolder":
+			get_tree().paused = false
+			get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
+# --- the bar while you spectate outside a map ---------------------------------------
+# (joining, their song loading, or following them to their next song): what's
+# happening and a Stop button. In a map the HUD has its own Stop watching.
+var follow_name: String = ""
+var _watch_requested_at: int = 0
+var _watch_cancelled: bool = false
+var _stop_canvas: CanvasLayer = null
+var _stop_label: Label = null
+
+func _stop_bar_text() -> String:
+	if Rhythia.in_map:
+		return ""
+	var who: String = watch_target_name if watch_target_name != "" else (follow_name if follow_name != "" else "them")
+	if watch_mode:
+		return "Loading %s's song..." % who
+	if _watch_requested_at > 0 and OS.get_ticks_msec() - _watch_requested_at < 20000:
+		return "Joining %s..." % who
+	if follow_number > 0:
+		return "Following %s: you'll watch their next song" % who
+	return ""
+
+func _update_stop_bar():
+	var text := _stop_bar_text()
+	if text == "":
+		if _stop_canvas != null:
+			_stop_canvas.visible = false
+		return
+	if _stop_canvas == null:
+		_build_stop_bar()
+	_stop_label.text = text
+	_stop_canvas.visible = true
+
+func _build_stop_bar():
+	_stop_canvas = CanvasLayer.new()
+	_stop_canvas.layer = 140
+	_stop_canvas.pause_mode = PAUSE_MODE_PROCESS
+	add_child(_stop_canvas)
+	var bar := PanelContainer.new()
+	bar.anchor_left = 0.5
+	bar.anchor_right = 0.5
+	bar.anchor_top = 1.0
+	bar.anchor_bottom = 1.0
+	bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bar.margin_bottom = -18
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.075, 0.068, 0.1, 0.96)
+	style.border_color = Color(ANNOUNCE_ACCENT.r, ANNOUNCE_ACCENT.g, ANNOUNCE_ACCENT.b, 0.4)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.shadow_color = Color(0, 0, 0, 0.4)
+	style.shadow_size = 10
+	style.content_margin_left = 16
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	bar.add_stylebox_override("panel", style)
+	_stop_canvas.add_child(bar)
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 14)
+	bar.add_child(h)
+	_stop_label = Label.new()
+	_stop_label.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 16))
+	_stop_label.add_color_override("font_color", Color(0.898039, 0.94902, 1, 1))
+	_stop_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(_stop_label)
+	var stop := Button.new()
+	stop.text = "Stop"
+	stop.focus_mode = Control.FOCUS_NONE
+	stop.theme = load("res://uitheme.tres")
+	stop.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 15))
+	stop.connect("pressed", self, "stop_watching")
+	h.add_child(stop)
 
 # the server ended it (they finished, failed, left, turned spectators off)
 func end_watch(text: String):
