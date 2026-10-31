@@ -397,11 +397,17 @@ func _draw_object_icon(o, c: Vector2, r: float, color: Color):
 		_:
 			draw_circle(c, r * 0.25, color)
 
-# The waveform's points are worked out once per zoom level (for the whole
-# song, at most ~2 a pixel), in pieces of WAVE_CHUNK points, and moved with
-# the scroll: only the pieces on screen are drawn. Working them out every
-# frame was slow zoomed out.
+# The waveform is drawn as one upright bar a pixel, from the lowest to the
+# highest point the song reaches in that pixel. The bars are worked out once
+# per zoom level, in pieces of WAVE_CHUNK bars, and moved with the scroll:
+# only the pieces on screen are drawn. Working them out every frame was slow
+# zoomed out.
 const WAVE_CHUNK := 512
+# how many samples a bar looks at to find its lowest and highest point. A bar
+# can cover hundreds of samples zoomed out, and reading every one of them
+# would make each new piece slow to build, which is what zooming has to wait
+# for; a handful spread across the bar gives the same shape.
+const WAVE_SCAN := 2
 var _wave_key := ""
 var _wave_cache := {} # piece index -> PoolVector2Array (for _wave_key)
 
@@ -413,11 +419,12 @@ func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms:
 	if last <= first:
 		return
 	var classic: bool = ed.s.classicWaveform
-	# at most ~2 points a pixel, from the zoom alone: worked out from what's on
-	# screen it could flip between two values while playing, and every flip
-	# made the whole song's waveform again (frames of 100+ ms)
+	# one bar a pixel, from the zoom alone: worked out from what's on screen it
+	# could flip between two values while playing, and every flip made the whole
+	# song's waveform again (frames of 100+ ms). Anything finer than a pixel
+	# cannot be seen on screen.
 	var stride := 1
-	while step_ms * ms_to_px * stride < 0.5:
+	while step_ms * ms_to_px * stride < 1.0:
 		stride *= 2
 	var key := "%f|%f|%f|%d|%s|%d" % [step_ms, ms_to_px, H, stride, str(classic), wave.count]
 	if key != _wave_key:
@@ -433,23 +440,62 @@ func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms:
 			pts = _wave_piece(wave, ci * span, span, stride, step_ms * ms_to_px, H, classic)
 			_wave_cache[ci] = pts
 		if pts.size() >= 2:
-			draw_polyline(pts, c, 1.0)
+			if classic:
+				draw_polyline(pts, c, 1.0)
+			else:
+				# upright bars: one line a pixel, none of them overlapping. The
+				# old zigzag drew twice as many lines, on top of each other, for
+				# the same picture.
+				draw_multiline(pts, c, 1.0)
 	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 # one piece of the waveform: samples start .. start + span (plus the next
-# piece's first one, so they join up), every stride-th
+# piece's first one, so the bars join up), a bar every stride-th. Each bar
+# reaches the lowest and highest point of the samples it covers, so skipping
+# samples doesn't flatten the loud parts; in classic mode it's the one peak
+# line the original SSQE draws instead.
 static func _wave_piece(wave, start: int, span: int, stride: int, px_per_sample: float, H: float, classic: bool) -> PoolVector2Array:
 	var left: PoolRealArray = wave.left
 	var right: PoolRealArray = wave.right
+	var n: int = wave.count
+	var end: int = min(n - 1, start + span)
+	if end < start:
+		return PoolVector2Array()
+	# the room is taken in one go and filled in by index: growing the array a
+	# point at a time was most of the rebuild, and the rebuild is what made
+	# zooming stutter
+	var bars: int = (end - start) / stride + 1
 	var pts := PoolVector2Array()
-	var end: int = min(wave.count - 1, start + span)
+	pts.resize(bars if classic else bars * 2)
+	var half: float = H / 2
+	var scan: int = max(1, stride / WAVE_SCAN)
 	var i := start
-	while i <= end:
-		var x := i * px_per_sample
+	var k := 0
+	for _b in range(bars):
+		var x: float = i * px_per_sample
+		# the samples this bar covers, up to and including the next bar's first
+		# one so neighbours meet; only every scan-th of them is looked at
+		var last_j: int = min(n - 1, i + stride)
+		var lo := 1.0
+		var hi := -1.0
+		var j := i
+		while true:
+			var l: float = left[j]
+			var r: float = right[j]
+			if l < lo: lo = l
+			if r < lo: lo = r
+			if l > hi: hi = l
+			if r > hi: hi = r
+			if j >= last_j:
+				break
+			j = min(last_j, j + scan)
 		if classic:
-			pts.append(Vector2(x, (2.0 - max(abs(left[i]), abs(right[i])) * 2.0) * H / 2))
+			var peak: float = max(abs(lo), abs(hi))
+			pts[k] = Vector2(x, (2.0 - peak * 2.0) * half)
+			k += 1
 		else:
-			pts.append(Vector2(x, (left[i] + 1.0) * H / 2))
-			pts.append(Vector2(x, (right[i] + 1.0) * H / 2))
+			pts[k] = Vector2(x, (lo + 1.0) * half)
+			pts[k + 1] = Vector2(x, (hi + 1.0) * half)
+			k += 2
 		i += stride
 	return pts
