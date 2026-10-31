@@ -53,6 +53,7 @@ var lobby_chat_box: VBoxContainer
 var lobby_chat_log_box: VBoxContainer
 var lobby_chat_scroll: ScrollContainer
 var lobby_chat_input: LineEdit
+var lobby_chat_send: Button = null # (grey while banned from chat: ChatBan.gd)
 const LOBBY_CHAT_MAX_LINES: int = 200
 
 var global_chat_box: VBoxContainer
@@ -295,6 +296,11 @@ func _build_lobby_ui():
 	var chat_send_button = _make_button("Send", ui_theme)
 	chat_send_button.connect("pressed", self, "_on_lobby_chat_send_pressed")
 	chat_row.add_child(chat_send_button)
+	lobby_chat_send = chat_send_button
+	var lm_ban = get_node_or_null("/root/LobbyManager")
+	if lm_ban != null:
+		lm_ban.connect("chat_ban_changed", self, "_apply_chat_ban")
+	_apply_chat_ban()
 	lobby_chat_box.add_child(chat_row)
 
 	vbox.add_child(HSeparator.new())
@@ -1747,6 +1753,9 @@ func _on_copy_code_pressed():
 	if lobby_manager != null and lobby_manager.lobby_code != "":
 		OS.clipboard = lobby_manager.lobby_code
 		lobby_status_label.text = "● Code copied!"
+
+func _apply_chat_ban(_b = null):
+	preload("res://scripts/ui/ChatBan.gd").apply(lobby_chat_input, lobby_chat_send, preload("res://scripts/ui/ChatBan.gd").banned())
 
 func _on_lobby_chat_send_pressed():
 	_send_lobby_chat_from_input()

@@ -508,11 +508,16 @@ func enter_spectate_mode(peer_id: int):
 			lobby_manager.connect("player_settings_received", self, "_on_spectate_settings_received")
 	_create_ghost_cursor()
 	_create_spectate_banner()
-	if not Rhythia.vr and _spec_chat == null:
-		# global chat in the corner (Enter to type)
-		_spec_chat = load("res://scripts/game/SpectateChat.gd").new()
-		_spec_chat.setup(lobby_manager)
-		add_child(_spec_chat)
+	if not Rhythia.vr and _spec_page_layer == null:
+		# the Spectate window (eye button, bottom right): who's online and the
+		# global chat, the same as in the menu
+		_spec_page_layer = CanvasLayer.new()
+		_spec_page_layer.layer = 95
+		add_child(_spec_page_layer)
+		_spec_page = Control.new()
+		_spec_page.name = "Spectate"
+		_spec_page.set_script(load("res://scripts/ui/menu/SpectatePage.gd"))
+		_spec_page_layer.add_child(_spec_page)
 	if not Rhythia.vr:
 		# the switch button and the scoreboard are clicked with the mouse
 		Input.set_custom_mouse_cursor(null)
@@ -605,9 +610,10 @@ func exit_spectate_mode():
 		_spectate_ui = null
 		_spectate_banner = null
 		_spectate_view_button = null
-	if _spec_chat != null:
-		_spec_chat.queue_free()
-		_spec_chat = null
+	if _spec_page_layer != null:
+		_spec_page_layer.queue_free()
+		_spec_page_layer = null
+		_spec_page = null
 	if _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.visible = true
 		_real_cursor.set_process(true)
@@ -928,7 +934,15 @@ func toggle_spectate_view():
 	_check_view_settings()
 
 func _input(event):
-	if not spectating or (_spec_chat != null and _spec_chat.typing()):
+	if not spectating:
+		return
+	if _spec_page != null and is_instance_valid(_spec_page) and _spec_page.is_open():
+		# the Spectate window is open (typing in its chat...): the keys stay
+		# away from the game (R gives up, Space / Esc skip or pause, Tab switches)
+		if event is InputEventKey:
+			for a in ["give_up", "pause"]:
+				if event.is_action(a):
+					Input.action_release(a)
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_TAB:
 		toggle_spectate_view()
@@ -937,7 +951,8 @@ func _input(event):
 		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
 
 var _spectate_ui: Control = null
-var _spec_chat: CanvasLayer = null # SpectateChat.gd
+var _spec_page_layer: CanvasLayer = null # the Spectate window while watching
+var _spec_page: Control = null # (SpectatePage.gd)
 var _spectate_banner: Label = null
 var _spectate_view_button: Button = null
 

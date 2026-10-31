@@ -41,6 +41,9 @@ signal spectate_denied(reason)
 signal watch_ended(text)
 signal presence_support_changed(supported)
 signal watchers_changed(count, names)
+# banned from chat (the server says so on connect and when it changes): chat boxes go grey (ChatBan.gd)
+signal chat_ban_changed(banned)
+var chat_banned := false
 signal unpublished_ranked_maps_received(song_ids)
 
 var _live_state_cache: Dictionary = {}
@@ -1286,6 +1289,13 @@ func _handle_message(msg: Dictionary):
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
+			if msg.has("chat_banned") and bool(msg.get("chat_banned")) != chat_banned:
+				chat_banned = bool(msg.get("chat_banned"))
+				emit_signal("chat_ban_changed", chat_banned)
+		"chat_ban":
+			if bool(msg.get("banned", false)) != chat_banned:
+				chat_banned = bool(msg.get("banned", false))
+				emit_signal("chat_ban_changed", chat_banned)
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))

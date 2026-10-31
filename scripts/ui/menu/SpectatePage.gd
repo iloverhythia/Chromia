@@ -313,6 +313,7 @@ func _ready():
 	_build_window()
 	if _lm != null:
 		_lm.connect("global_chat_message_received", self, "_on_chat_message")
+		_lm.connect("chat_ban_changed", self, "_on_chat_ban")
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -1064,8 +1065,11 @@ func _fill_chat():
 	var muted: bool = Rhythia.mute_global_chat
 	chat_muted.visible = muted
 	chat.visible = not muted
-	chat_input.editable = not muted
-	chat_send.disabled = muted
+	var banned: bool = _lm != null and bool(_lm.get("chat_banned"))
+	preload("res://scripts/ui/ChatBan.gd").apply(chat_input, chat_send, banned)
+	if muted:
+		chat_input.editable = false
+		chat_send.disabled = true
 	if muted or _lm == null:
 		return
 	if _lm.global_chat_history.empty():
@@ -1076,6 +1080,10 @@ func _fill_chat():
 		return
 	for e in _lm.global_chat_history:
 		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)))
+
+func _on_chat_ban(_banned):
+	if chat_input != null:
+		_fill_chat()
 
 func _on_chat_message(client_id: String, name: String, text: String, ts: float):
 	if Rhythia.mute_global_chat:
