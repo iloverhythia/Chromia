@@ -409,7 +409,13 @@ const WAVE_CHUNK := 512
 # for; a handful spread across the bar gives the same shape.
 const WAVE_SCAN := 2
 var _wave_key := ""
-var _wave_cache := {} # piece index -> PoolVector2Array (for _wave_key)
+var _wave_cache := {} # piece index -> [ImageTexture, x] (for _wave_key)
+# Each piece is drawn once into a small picture when it first comes on screen,
+# and then only that picture is drawn each frame. Drawing the bars as lines
+# every frame (thousands of them, the track redraws every frame while the song
+# plays) is what made the editor lag while playing.
+const WAVE_KEEP := 24 # pieces kept (the ones near the screen)
+var _wave_solid: Image = null
 
 func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms: float, H: float):
 	var offset: float = ed.music_offset() - 15.0
@@ -430,24 +436,67 @@ func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms:
 	if key != _wave_key:
 		_wave_key = key
 		_wave_cache = {}
+		# a white block the bars are copied from (as wide as one bar, as tall as the track)
+		_wave_solid = Image.new()
+		_wave_solid.create(int(ceil(step_ms * ms_to_px * stride)) + 2, int(ceil(H)) + 2, false, Image.FORMAT_LA8)
+		_wave_solid.fill(Color(1, 1, 1, 1))
 	# only the pieces on screen are made (and kept while the zoom stays)
 	var span := WAVE_CHUNK * stride
 	draw_set_transform(Vector2(base_x + offset * ms_to_px, 0), 0, Vector2.ONE)
 	var c := col(2)
-	for ci in range(int(first / span), int(last / span) + 1):
-		var pts = _wave_cache.get(ci)
-		if pts == null:
-			pts = _wave_piece(wave, ci * span, span, stride, step_ms * ms_to_px, H, classic)
-			_wave_cache[ci] = pts
-		if pts.size() >= 2:
-			if classic:
-				draw_polyline(pts, c, 1.0)
-			else:
-				# upright bars: one line a pixel, none of them overlapping. The
-				# old zigzag drew twice as many lines, on top of each other, for
-				# the same picture.
-				draw_multiline(pts, c, 1.0)
+	var first_ci := int(first / span)
+	var last_ci := int(last / span)
+	for ci in range(first_ci, last_ci + 1):
+		var piece = _wave_cache.get(ci)
+		if piece == null:
+			var pts := _wave_piece(wave, ci * span, span, stride, step_ms * ms_to_px, H, classic)
+			piece = _wave_picture(pts, H, classic)
+			_wave_cache[ci] = piece
+		if piece.size() == 2 and piece[0] != null:
+			draw_texture(piece[0], Vector2(piece[1], 0), c)
+	# pieces far from the screen go (a long song played through would keep them all)
+	if _wave_cache.size() > WAVE_KEEP:
+		for k in _wave_cache.keys():
+			if k < first_ci - 4 or k > last_ci + 4:
+				_wave_cache.erase(k)
 	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+# a piece's bars (or classic peak line) drawn into a picture, white on
+# see-through (tinted when drawn): [ImageTexture, its left edge]. The bars are
+# copied from _wave_solid, which the engine does natively.
+func _wave_picture(pts: PoolVector2Array, H: float, classic: bool) -> Array:
+	var n := pts.size()
+	if n < 2 or _wave_solid == null:
+		return [null, 0.0]
+	var x0: float = floor(pts[0].x)
+	var w: int = int(ceil(pts[n - 1].x - x0)) + 2
+	var h: int = int(ceil(H)) + 1
+	var img := Image.new()
+	img.create(max(1, w), max(1, h), false, Image.FORMAT_LA8) # (starts see-through)
+	var sh: int = _wave_solid.get_height()
+	if classic:
+		# the peak line: each step down/up as a 1 px column, then along to the next point
+		for k in range(n - 1):
+			var a: Vector2 = pts[k]
+			var b: Vector2 = pts[k + 1]
+			var x := int(a.x - x0)
+			var y0: int = int(clamp(min(a.y, b.y), 0, h - 1))
+			var y1: int = int(clamp(ceil(max(a.y, b.y)), 0, h - 1))
+			img.blit_rect(_wave_solid, Rect2(0, 0, 1, min(y1 - y0 + 1, sh)), Vector2(x, y0))
+			var run: int = int(b.x - x0) - x
+			if run > 1:
+				img.blit_rect(_wave_solid, Rect2(0, 0, min(run, _wave_solid.get_width()), 1), Vector2(x, int(clamp(b.y, 0, h - 1))))
+	else:
+		# upright 1 px bars from the lowest to the highest point
+		for k in range(n / 2):
+			var lo: Vector2 = pts[2 * k]
+			var hi: Vector2 = pts[2 * k + 1]
+			var y0: int = int(clamp(min(lo.y, hi.y), 0, h - 1))
+			var y1: int = int(clamp(ceil(max(lo.y, hi.y)), 0, h - 1))
+			img.blit_rect(_wave_solid, Rect2(0, 0, 1, min(y1 - y0 + 1, sh)), Vector2(int(lo.x - x0), y0))
+	var tex := ImageTexture.new()
+	tex.create_from_image(img, 0) # (no filtering: crisp 1 px bars)
+	return [tex, x0]
 
 # one piece of the waveform: samples start .. start + span (plus the next
 # piece's first one, so the bars join up), a bar every stride-th. Each bar
