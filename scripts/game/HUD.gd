@@ -1265,6 +1265,42 @@ var _spectators_banner: Label = null
 var _top_left_ui: CanvasLayer = null
 var _top_left_box: VBoxContainer = null
 const SPECTATORS_SHOWN := 8
+# In VR a screen overlay only reaches the desktop window: the list is drawn in
+# its own viewport, shown above the left panel like the rest of the HUD.
+var _spectators_vr_vp: Viewport = null
+var _spectators_vr_sprite: Sprite3D = null
+
+func _make_spectators_vr(label: Label) -> bool:
+	var left = get_node_or_null("LeftHud")
+	if left == null:
+		return false
+	var vp := Viewport.new()
+	vp.size = Vector2(300, 360)
+	vp.transparent_bg = true
+	vp.hdr = false
+	vp.usage = Viewport.USAGE_2D
+	vp.msaa = Viewport.MSAA_DISABLED
+	vp.render_target_update_mode = Viewport.UPDATE_ONCE
+	add_child(vp)
+	label.anchor_right = 1.0
+	label.anchor_bottom = 1.0
+	label.margin_left = 8
+	label.margin_right = -8
+	label.valign = Label.VALIGN_BOTTOM # (grows upward from the panel)
+	label.clip_text = true
+	label.get_font("font").size = 30
+	vp.add_child(label)
+	var s: Sprite3D = left.duplicate(0)
+	s.name = "SpectatorsHud"
+	s.texture = vp.get_texture()
+	var h: float = vp.size.y * s.pixel_size
+	var panel_h: float = 900.0 * left.pixel_size
+	s.transform.origin = left.transform.origin + Vector3(0, panel_h / 2.0 + h / 2.0 + 0.03, 0)
+	s.visible = false
+	add_child(s)
+	_spectators_vr_vp = vp
+	_spectators_vr_sprite = s
+	return true
 
 func _top_left() -> VBoxContainer:
 	if _top_left_box == null:
@@ -1291,7 +1327,8 @@ func _create_spectators_banner():
 	_spectators_banner.add_constant_override("shadow_offset_x", 2)
 	_spectators_banner.add_constant_override("shadow_offset_y", 2)
 	_spectators_banner.visible = false
-	_top_left().add_child(_spectators_banner)
+	if not (Rhythia.vr and _make_spectators_vr(_spectators_banner)):
+		_top_left().add_child(_spectators_banner)
 	var t := Timer.new() # (also follows switching who you watch)
 	t.wait_time = 0.5
 	t.pause_mode = PAUSE_MODE_PROCESS
@@ -1346,6 +1383,8 @@ func _on_lobby_state_changed_for_spectators_list():
 	# someone still shows who else is watching them)
 	if names.empty() or (Rhythia.hide_spectators_list and not spectating):
 		_spectators_banner.visible = false
+		if _spectators_vr_sprite != null:
+			_spectators_vr_sprite.visible = false
 		return
 	var lines := ["👁 Spectators (%d)" % names.size()]
 	var unnamed := 0
@@ -1358,7 +1397,11 @@ func _on_lobby_state_changed_for_spectators_list():
 			unnamed += 1
 	if unnamed > 0:
 		lines.append("   + %d more" % unnamed)
-	_spectators_banner.text = "\n".join(lines)
+	var txt := "\n".join(lines)
+	if _spectators_vr_sprite != null and (txt != _spectators_banner.text or not _spectators_vr_sprite.visible):
+		_spectators_vr_sprite.visible = true
+		_spectators_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE # (redrawn only when it changes)
+	_spectators_banner.text = txt
 	_spectators_banner.visible = true
 
 func _ready():

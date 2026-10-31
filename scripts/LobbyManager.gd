@@ -979,7 +979,7 @@ func _check_map_readiness():
 	if song_id == "" or song_id == _map_readiness_checked_song_id or is_host:
 		return
 	_map_readiness_checked_song_id = song_id
-	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
+	var song = Rhythia.registry_song.get_song_loose(song_id) if Rhythia.registry_song else false
 	if song:
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
@@ -1017,7 +1017,7 @@ func _start_map_upload(song_id: String):
 	if not is_host and watchers_count <= 0:
 		print("[furria] upload aborted: this client isn't the host (server shouldn't have asked)")
 		return
-	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
+	var song = Rhythia.registry_song.get_song_loose(song_id) if Rhythia.registry_song else false
 	if not song or not ("filePath" in song):
 		print("[furria] upload aborted: song not found in local registry for id ", song_id)
 		return
@@ -1105,7 +1105,7 @@ func _advance_publish_queue():
 	_start_map_publish(_publish_queue.pop_front())
 
 func _start_map_publish(song_id: String):
-	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
+	var song = Rhythia.registry_song.get_song_loose(song_id) if Rhythia.registry_song else false
 	if not song or not ("filePath" in song):
 		emit_signal("lobby_error", "Couldn't find that map locally to publish it.")
 		_advance_publish_queue()
@@ -1242,6 +1242,8 @@ func _finish_map_download(song_id: String):
 		Rhythia.registry_song.check_and_remove_id(song_id)
 	var song = Rhythia.registry_song.add_sspm_map(path) if Rhythia.registry_song else null
 	print("[furria] add_sspm_map(", path, ") -> ", "OK" if song else "FAILED")
+	if song and _map_download_watch_only and not _watch_only_maps.empty():
+		_watch_only_maps[-1][0] = String(song.id) # (it's listed under the id in the file, which can differ from the one sent)
 	if song:
 		emit_signal("map_download_complete", song_id)
 
@@ -1591,7 +1593,7 @@ func _scene_transition_now():
 		if spec.prefer_theirs() and first != -1 and has_player_settings(first):
 			spec.apply(player_view_settings[first], first)
 	if lobby_state.has("song_id") and lobby_state.song_id != "":
-		var song = Rhythia.registry_song.get_item(lobby_state.song_id, Globals.SEARCH_ID) if Rhythia.registry_song else null
+		var song = Rhythia.registry_song.get_song_loose(String(lobby_state.song_id)) if Rhythia.registry_song else null
 		var _n_notes: int = -1
 		if song:
 			Rhythia.lock_song_notes(song) # the star rater may be reading this map's notes

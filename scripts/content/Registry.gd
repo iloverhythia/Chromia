@@ -291,6 +291,38 @@ func get_item(value, searchType: int = Globals.SEARCH_ID, checkSubRegistries: bo
 	_mutex.unlock()
 	return found
 
+# A map by id, or else by the server's form of its id (lowercase, anything
+# outside a-z 0-9 _ - as _): the same map can have "x_~(a)" here and "x___a_"
+# in someone else's game (theirs came from the server), and the server sees
+# them as one map.
+func get_song_loose(value):
+	if typeof(value) != TYPE_STRING or value == "":
+		return false
+	var found = get_item(value, Globals.SEARCH_ID)
+	if found:
+		return found
+	var re := RegEx.new()
+	re.compile("[^a-z0-9_-]")
+	var want := canon_id(value, re)
+	_mutex.lock()
+	for i in range(idx_id.size()):
+		if idx_type[i] != "Song" or idx_id[i] == null:
+			continue
+		var id := String(idx_id[i]).strip_edges()
+		if abs(id.length() - want.length()) > 1: # (the canonical form keeps the length; quick skip)
+			continue
+		if canon_id(id, re) == want:
+			found = items[i]
+			break
+	_mutex.unlock()
+	return found
+
+static func canon_id(id: String, re: RegEx) -> String:
+	var s := re.sub(id.strip_edges().to_lower(), "_", true)
+	if s == "" or s.begins_with("_"):
+		s = "m" + s
+	return s.substr(0, 200)
+
 func search(value, searchType: int = Globals.SEARCH_ALLTEXT, checkSubRegistries: bool = true) -> Array:
 	match searchType:
 		Globals.SEARCH_ALLTEXT:
