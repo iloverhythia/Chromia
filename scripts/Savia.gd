@@ -226,6 +226,7 @@ func save_jp():
 const REPORT_COMPLETION_URL = "https://savia.nysr.host/savia-report-completion"
 # a ranked pass sent with its replay (the server only gives XP with one)
 const SUBMIT_PASS_URL = "https://savia.nysr.host/savia-submit-pass"
+const PASS_ENV_URL = "https://savia.nysr.host/savia-pass-env" # (ProcessScan.gd: DLLs, Cheat Engine)
 const PLAYER_XP_URL = "https://savia.nysr.host/savia-player-xp"
 const LEADERBOARD_URL = "https://savia.nysr.host/savia-leaderboard"
 const LEADERBOARD_SP_URL = "https://savia.nysr.host/savia-leaderboard-sp"
@@ -478,6 +479,8 @@ func report_map_completion(song_id: String):
 		SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
 		str(song_end_misses), str(song_end_total_notes), str(hitwindow_ms), mods_json.http_escape(), get_hardware_id().http_escape()
 	]
+	if replay_b64 != "":
+		yield(_send_pass_env(cid), "completed")
 	var error
 	if replay_b64 != "":
 		error = http_request.request(url, ["Content-Type: text/plain"], true, HTTPClient.METHOD_POST, replay_b64)
@@ -485,6 +488,29 @@ func report_map_completion(song_id: String):
 		error = http_request.request(url)
 	if error != OK:
 		http_request.queue_free()
+
+# Before a ranked pass: a fresh scan (ProcessScan.gd, up to 4 s) combined
+# with the one from the song's start goes to the server, which keeps it for
+# the pass that follows (Cheat Engine: the pass is refused). An older server
+# without /savia-pass-env just answers 404 and the pass goes as before.
+func _send_pass_env(for_cid: String):
+	yield(get_tree(), "idle_frame") # (always a coroutine, for the yield above)
+	var scan = load("res://scripts/ProcessScan.gd")
+	if not scan.supported() or for_cid == "":
+		return
+	var s = scan.instance()
+	s.start()
+	var waited := 0.0
+	while s.busy and waited < 4.0:
+		yield(get_tree(), "idle_frame")
+		waited += get_process_delta_time()
+	var req := HTTPRequest.new()
+	req.timeout = 6
+	add_child(req)
+	var err = req.request("%s?client_id=%s" % [PASS_ENV_URL, for_cid.http_escape()], ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(s.env()))
+	if err == OK:
+		yield(req, "request_completed")
+	req.queue_free()
 
 const XP_REJECT_REASONS := {
 	"hash_mismatch": "your copy of the map doesn't match the ranked version",

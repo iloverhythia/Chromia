@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating: the player's glow, bloom and cursor bloom show even if you use Sound Space Mode (it follows their setting while you watch)
 - The custom speed box can be clicked and typed in again
 - Settings: the buttons and tabs at the top stay put while the page scrolls
+- Ranked passes send the list of DLLs loaded into Chromia, and aren't accepted while Cheat Engine is running (you get a warning when a song starts)

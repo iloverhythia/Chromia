@@ -763,6 +763,8 @@ func _ready():
 	$ForceMatLoad.visible = false
 	Rhythia.start_log("playing")
 	add_child(load("res://scripts/game/HitchLog.gd").new()) # (slow frames go to the trail)
+	if not Rhythia.replaying:
+		load("res://scripts/ProcessScan.gd").song_started() # DLLs / Cheat Engine, for the score (on a thread)
 
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	var is_late_join = lobby_manager != null and lobby_manager.consume_late_join_pending()
