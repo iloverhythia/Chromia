@@ -2436,6 +2436,7 @@ func _ready():
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
 		settings_tab_container.move_child(settings_tab_container.get_node("Online"), settings_tab_container.get_node("Keybinds").get_index() + 1)
+	load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings")) # buttons and tabs stay put; only the page scrolls
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		if lobby_manager.lobby_active and lobby_manager.lobby_state.get("started", false):
