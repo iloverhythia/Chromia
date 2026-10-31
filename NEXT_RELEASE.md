@@ -19,3 +19,4 @@ in scripts/Savia.gd and empties this list.
 - Settings > Online > Share My Maps With Spectators: turn it off and people watching you aren't sent maps they don't have (unreleased maps stay yours)
 - The Map Browser is now the Content Browser, with tabs for Maps, Colorsets, Note Meshes, Settings Profiles and Cursors. Maps come from rhythia.com or from other Chromia players; everything else is shared by players. Press Add / Use / Download to get it straight into the game (great on a standalone VR headset), and upload your own files or share the colorset, mesh, cursor or settings you use now (size limits: maps 30 MB, meshes 6 MB, cursors 2 MB, profiles 512 KB, colorsets 64 KB; needs the updated server)
 - Editor: the waveform is drawn as a picture once and reused, so playing the song in the editor no longer lags
+- New colorset: Seaside
