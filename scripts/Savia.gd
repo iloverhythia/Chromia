@@ -1489,6 +1489,8 @@ func _star_req_done(song):
 		request_star_rating(next)
 
 func _notification(what):
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		_alt_down = false # (Alt-Tab: the game never sees Alt let go)
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
 		quit_game()
 	elif what == MainLoop.NOTIFICATION_APP_PAUSED:
@@ -2453,8 +2455,21 @@ var volume_label: Label
 var volume_percent: float = 1.0
 var volume_fade_timer: float = 0.0
 
+# Alt held, for Alt + scroll (volume). Not Input.is_key_pressed(KEY_ALT): after
+# Alt-Tab the game misses Alt being let go and that stays on, so every scroll
+# changed the volume (up to very loud) and lists wouldn't scroll. Pressed
+# after the window got focus, and the scroll itself says Alt is down.
+var _alt_down := false
+
+func alt_held(event = null) -> bool:
+	if event is InputEventWithModifiers and not event.alt:
+		return false
+	return _alt_down
+
 func _input(event):
-	if Input.is_key_pressed(KEY_ALT):
+	if event is InputEventKey and event.scancode == KEY_ALT and not event.echo:
+		_alt_down = event.pressed
+	if alt_held(event):
 		if event is InputEventMouseButton and event.pressed:
 			if event.button_index == BUTTON_WHEEL_UP:
 				_change_volume(0.05)

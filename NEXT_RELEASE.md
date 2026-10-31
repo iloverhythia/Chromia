@@ -26,3 +26,4 @@ in scripts/Savia.gd and empties this list.
 - VR: you can type in the global chat (the keyboard showed up behind the Spectate window), the menu screen looks smoother (less jagged, shimmering text), foveated rendering defaults to Low (Medium made the edges of your view pixelated; Settings > VR changes it), Reload Content shows its progress on a panel in front of you instead of leaving you in the dark, and the Spectate eye no longer covers the screen's resize handle
 - Spectating someone on a map you already have no longer downloads it again (and again): the same map saved under a slightly different name (one that came from the server) is now recognised
 - VR: the Spectators list now shows in the headset, above the left panel (it was only on the desktop window)
+- Alt + scroll volume no longer gets stuck on after Alt-Tab (every scroll changed the volume, sometimes to very loud, and the map list wouldn't scroll)
