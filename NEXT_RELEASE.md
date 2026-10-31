@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - Drag colorsets (.txt) and note meshes (.obj, with or without .mtl) onto the game to add them
 - Dragging a settings profile (.json) onto the game adds it as a new profile instead of loading it over your settings
 - Editor: the waveform on the track draws half as many lines, so the editor runs smoother with it on and zooming is less jumpy
+- Emoji in chat: they show as pictures (Twemoji) in the Spectate window's global chat and in lobby chat

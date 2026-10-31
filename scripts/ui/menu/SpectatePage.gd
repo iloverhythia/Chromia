@@ -1131,7 +1131,7 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float):
 			chat.pop()
 			chat.add_text(sep)
 		else:
-			chat.add_text(w + sep)
+			preload("res://scripts/ui/Emoji.gd").add_text(chat, w + sep, 18) # (emoji as pictures)
 	_chat_lines += 1
 	if _chat_lines > CHAT_MAX_LINES:
 		chat.remove_line(0)

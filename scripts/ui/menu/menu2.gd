@@ -1778,11 +1778,19 @@ func _on_chat_message_received(peer_id: int, name: String, text: String, _ts: fl
 		return
 	var lobby_manager = _get_lobby_manager()
 	var is_you = lobby_manager != null and peer_id == lobby_manager.local_peer_id
-	var line = Label.new()
-	line.text = "%s: %s" % [name, text]
-	line.autowrap = true
-	if is_you:
-		line.add_color_override("font_color", Color(0.65, 0.85, 1.0))
+	# (a RichTextLabel, so emoji show as pictures: Emoji.gd)
+	var line = RichTextLabel.new()
+	line.fit_content_height = true
+	line.scroll_active = false
+	line.selection_enabled = true
+	line.mouse_filter = Control.MOUSE_FILTER_PASS
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_color_override("default_color", Color(0.65, 0.85, 1.0) if is_you else Color(1, 1, 1))
+	var lf = lobby_chat_input.get_font("font") if lobby_chat_input != null else null
+	if lf != null:
+		line.add_font_override("normal_font", lf)
+	line.add_text(name + ": ")
+	preload("res://scripts/ui/Emoji.gd").add_text(line, text, int(lf.get_height()) if lf != null else 18)
 	lobby_chat_log_box.add_child(line)
 	while lobby_chat_log_box.get_child_count() > LOBBY_CHAT_MAX_LINES:
 		lobby_chat_log_box.get_child(0).queue_free()
