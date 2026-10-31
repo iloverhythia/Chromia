@@ -32,12 +32,29 @@ func col(i: int, a := 1.0) -> Color:
 		10: return SSQESettings.color(s, "color5", a)
 	return Color(1, 1, 1, a)
 
+# the notes' colours: SSQE+'s own list (Settings > Colors) or the game's colour set
 func _note_cols() -> Array:
+	var s: Dictionary = ed.s
+	if s.get("customNoteColors", false) and s.get("noteColors") is Array and not s.noteColors.empty():
+		var out := []
+		for c in s.noteColors:
+			if c is Array and c.size() >= 3:
+				out.append(Color8(int(c[0]), int(c[1]), int(c[2])))
+		if not out.empty():
+			return out
 	var cols: Array = Rhythia.selected_colorset.colors if Rhythia.selected_colorset else []
 	return cols if not cols.empty() else [Color8(255, 0, 255), Color8(0, 255, 200)]
 
+var _cols_frame := -1
+var _cols_cache: Array = []
+
 func note_col(i, a := 1.0) -> Color:
-	var cols: Array = Rhythia.selected_colorset.colors if Rhythia.selected_colorset else [Color8(255, 0, 255), Color8(0, 255, 200)]
+	# worked out once a frame (called for every object drawn)
+	var fr := Engine.get_frames_drawn()
+	if fr != _cols_frame:
+		_cols_frame = fr
+		_cols_cache = _note_cols()
+	var cols: Array = _cols_cache
 	var c: Color = cols[int(i) % int(max(cols.size(), 1))] if not cols.empty() else Color(1, 1, 1)
 	return Color(c.r, c.g, c.b, a)
 

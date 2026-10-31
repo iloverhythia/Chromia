@@ -169,6 +169,7 @@ func a_button(info: Dictionary, text: String, x: float, y: float, w: float, h: f
 	b.clip_text = true
 	if method != "":
 		b.connect("pressed", self, method, args)
+	SSQESettings.add_gradient(b, bool(ed.s.get("controlGradients", true)), ed)
 	_place(info, b, x, y, w, h, 12)
 	if text.find("\n") == -1:
 		b.text = text
@@ -1488,12 +1489,12 @@ func _st_tab(t: String):
 	_st.c = c
 	match t:
 		"COLORS":
-			_st_color(c, "Color 1 (1/X beat ticks, primary)", "color1", 0)
-			_st_color(c, "Color 2 (1/1 beat ticks, secondary)", "color2", 1)
-			_st_color(c, "Color 3 (1/2 beat ticks, preview)", "color3", 2)
-			_st_color(c, "Color 4 (waveform)", "color4", 3)
-			_st_color(c, "Color 5 (special objects)", "color5", 4)
-			a_label(c, "Notes use the colours of your colour set (Settings > Notes in the game).", 0, 330, 585, 40)
+			_st_color(c, "Color 1 (1/X BPM + Primary)", "color1", 0)
+			_st_color(c, "Color 2 (1/1 BPM + Secondary)", "color2", 1)
+			_st_color(c, "Color 3 (1/2 BPM + Preview)", "color3", 2)
+			_st_color(c, "Color 4 (Waveform)", "color4", 3)
+			_st_color(c, "Color 5 (Special Objects)", "color5", 4)
+			_st_note_colors(c)
 		"GRAPHICS":
 			var y := 0.0
 			y = _st_slider(c, "Editor Background Opacity", "editorBGOpacity", 0, 255, 1, y)
@@ -1501,10 +1502,13 @@ func _st_tab(t: String):
 			y = _st_slider(c, "Track Opacity", "trackOpacity", 0, 255, 1, y)
 			y = _st_slider(c, "Grid Zoom (%)", "gridZoom", 25, 200, 1, y)
 			y = _st_slider(c, "Grid Note Size (%)", "gridNoteSize", 25, 200, 1, y)
+			y = _st_slider(c, "Grid Squircle Corner Radius", "gridSquircleRadius", 0, 0.5, 0.005, y)
+			y = _st_slider(c, "Grid Squircle Corner Detail", "gridSquircleDetail", 1, 20, 1, y)
+			y = _st_slider(c, "Waveform Level of Detail", "waveformDetail", 1, 20, 1, y)
 			y += 6
 			y = _st_checks(c, [["Enable Waveform", "waveform"], ["Use Classic Waveform", "classicWaveform"], ["Grid Squircles", "gridSquircles"],
 				["Grid Letters", "gridLetters"], ["Grid Numbers", "gridNumbers"], ["Approach Squares", "approachSquares"], ["Quantum Grid Lines", "quantumGridLines"],
-				["3D Mode", "mode3D"], ["3D Hit Effect", "mode3DHitEffect"]], y)
+				["3D Mode", "mode3D"], ["3D Hit Effect", "mode3DHitEffect"], ["Show Control Gradients", "controlGradients"]], y)
 		"MAPPING":
 			var y2 := _st_checks(c, [["Correct Errors on Copy", "correctOnCopy"], ["Reverse Scroll Direction", "reverseScroll"], ["Pause When Scrolling", "pauseScroll"],
 				["Separate Click Tools", "separateClickTools"], ["Auto-Advance", "autoAdvance"], ["Snap to Quantum Grid", "quantumGridSnap"], ["Old Quantum Snapping", "oldQuantumSnap"],
@@ -1523,7 +1527,8 @@ func _st_tab(t: String):
 			y4 = _st_slider(c, "Hit Sound Offset (ms)", "sfxOffset", -200, 200, 1, y4)
 			y4 = _st_slider(c, "Music Offset (ms)", "musicOffset", -500, 500, 1, y4)
 			y4 = _st_slider(c, "Maximum Polyphony", "maxPolyphony", 1, 16, 1, y4)
-			y4 = _st_checks(c, [["Metronome", "metronome"], ["Scale Metronome With Divisor", "scaleMetronome"], ["Mute Hit Sounds", "muteSfx"], ["Mute Music", "muteMusic"]], y4 + 6)
+			y4 = _st_checks(c, [["Metronome", "metronome"], ["Scale Metronome With Divisor", "scaleMetronome"], ["Mute Hit Sounds", "muteSfx"], ["Mute Music", "muteMusic"],
+				["Mono Audio", "monoAudio"]], y4 + 6)
 		"KEYBINDS":
 			_st_keybinds(c)
 		"OTHER":
@@ -1569,7 +1574,7 @@ func _st_slid(v: float, key: String, vl: Label, step: float):
 
 func _st_color(c: Dictionary, label: String, key: String, row: int):
 	var y := row * 62.0
-	a_label(c, label, 0, y, 400, 24)
+	a_label(c, label, 0, y, 290, 24)
 	var p := ColorPickerButton.new()
 	p.theme = theme_res
 	p.edit_alpha = false
@@ -1578,6 +1583,101 @@ func _st_color(c: Dictionary, label: String, key: String, row: int):
 	_place(c, p, 0, y + 26, 160, 30, 0)
 	p.connect("color_changed", self, "_st_color_set", [key])
 	a_button(c, "DEFAULT", 170, y + 26, 100, 30, "_st_color_default", [key, p])
+
+# SSQE+'s note colour list (the notes cycle through it): a swatch per colour,
+# PICK COLOR chooses one and ADD COLOR adds it. Left click a swatch to remove
+# it, right click to move it left. Used when "Use These Note Colors" is on;
+# otherwise the notes take the game's colour set.
+const MAX_NOTE_COLORS = 32
+
+func _st_note_colors(c: Dictionary):
+	var X := 300.0
+	a_label(c, "Note Colors:", X, 0, 285, 24)
+	var use := a_check(c, "Use These Note Colors", bool(ed.s.get("customNoteColors", false)), X, 26, 285, 26)
+	use.hint_tooltip = "Off: the notes use your colour set from the game's settings."
+	use.connect("toggled", self, "_st_set", ["customNoteColors"])
+	var box := Control.new()
+	box.mouse_filter = MOUSE_FILTER_PASS
+	_place(c, box, X, 58, 285, 200, 0)
+	_st.note_box = box
+	_st.note_k = c.k
+	_st_note_swatches()
+	var pick := ColorPickerButton.new()
+	pick.theme = theme_res
+	pick.edit_alpha = false
+	pick.focus_mode = FOCUS_NONE
+	pick.color = Color8(255, 255, 255)
+	_place(c, pick, X, 266, 90, 30, 0)
+	_st.note_pick = pick
+	a_button(c, "PICK COLOR", X + 95, 266, 92, 30, "_st_note_pick")
+	a_button(c, "ADD COLOR", X + 192, 266, 93, 30, "_st_note_add")
+	var hint := a_label(c, "LMB: Remove\nRMB: Move left", X, 302, 285, 44)
+	hint.valign = Label.VALIGN_TOP
+
+func _st_note_swatches():
+	var box: Control = _st.get("note_box")
+	if box == null or not is_instance_valid(box):
+		return
+	for ch in box.get_children():
+		ch.queue_free()
+	var k: float = _st.note_k
+	var cols: Array = ed.s.get("noteColors", [])
+	var size := 30.0 * k
+	var gap := 5.0 * k
+	var per_row := int(max(1, floor((box.rect_size.x + gap) / (size + gap))))
+	for i in range(cols.size()):
+		var col: Array = cols[i]
+		var sw := Panel.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color8(int(col[0]), int(col[1]), int(col[2]))
+		sb.set_border_width_all(1)
+		sb.border_color = Color(1, 1, 1, 0.35)
+		sb.set_corner_radius_all(int(4 * k))
+		sw.add_stylebox_override("panel", sb)
+		sw.rect_position = Vector2((i % per_row) * (size + gap), int(i / per_row) * (size + gap))
+		sw.rect_size = Vector2(size, size)
+		sw.hint_tooltip = "Colour %d: left click removes it, right click moves it left" % (i + 1)
+		sw.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+		sw.connect("gui_input", self, "_st_note_click", [i])
+		box.add_child(sw)
+
+func _st_note_click(ev: InputEvent, i: int):
+	if not (ev is InputEventMouseButton) or not ev.pressed:
+		return
+	var cols: Array = ed.s.get("noteColors", []).duplicate(true)
+	if i >= cols.size():
+		return
+	if ev.button_index == BUTTON_LEFT:
+		if cols.size() <= 1:
+			message("Keep at least one note colour.", "Note Colors")
+			return
+		cols.remove(i)
+	elif ev.button_index == BUTTON_RIGHT and i > 0:
+		var t = cols[i - 1]
+		cols[i - 1] = cols[i]
+		cols[i] = t
+	else:
+		return
+	ed.s["noteColors"] = cols
+	ed.settings_changed()
+	call_deferred("_st_note_swatches")
+
+func _st_note_pick():
+	if _st.has("note_pick") and is_instance_valid(_st.note_pick):
+		var pp: PopupPanel = _st.note_pick.get_popup()
+		pp.rect_global_position = _st.note_pick.rect_global_position + Vector2(0, _st.note_pick.rect_size.y)
+		pp.popup()
+
+func _st_note_add():
+	var cols: Array = ed.s.get("noteColors", []).duplicate(true)
+	if cols.size() >= MAX_NOTE_COLORS:
+		message("There can be up to %d note colours." % MAX_NOTE_COLORS, "Note Colors")
+		return
+	var col: Color = _st.note_pick.color if _st.has("note_pick") and is_instance_valid(_st.note_pick) else Color(1, 1, 1)
+	cols.append([int(round(col.r * 255)), int(round(col.g * 255)), int(round(col.b * 255))])
+	ed.s["noteColors"] = cols
+	ed.settings_changed()
+	_st_note_swatches()
 
 func _st_color_set(col: Color, key: String):
 	ed.s[key] = [int(round(col.r * 255)), int(round(col.g * 255)), int(round(col.b * 255))]

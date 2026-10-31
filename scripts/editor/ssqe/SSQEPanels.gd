@@ -92,6 +92,7 @@ func _btn(x: float, y: float, w: float, h: float, text: String, ts: float, metho
 	b.clip_text = true
 	if method != "":
 		b.connect("pressed", self, method, args)
+	SSQESettings.add_gradient(b, bool(ed.s.get("controlGradients", true)), ed)
 	_add(b, x, y, w, h, ts, group)
 	return b
 

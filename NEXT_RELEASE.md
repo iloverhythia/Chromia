@@ -13,3 +13,6 @@ in scripts/Savia.gd and empties this list.
 - Map editor: LOAD MAP now also opens Rewrite (.phxm), Novastra (.npk / .nch), SSQE (.qem / .qemz), Pulsus (.phz) and Vulnus (.zip) maps, with their lyrics, beats, glides, mines, fevers, bookmarks and effects (Vulnus maps with several difficulties become one map each)
 - Map editor: EXPORT can now make Novastra (.npk) charts, with cover, profile icon, song offset and preview, and SSQE (.qemz) maps that keep everything in the map
 - Map editor: Rewrite (.phxm) exports now include the part of the file other editors expect after the notes
+- Map editor settings from SSQE+: Grid Squircle Corner Radius and Corner Detail, Waveform Level of Detail and Show Control Gradients (Graphics), Mono Audio (Audio), and SSQE+'s own note colour list (Colors: pick, add, remove and reorder colours; turn on Use These Note Colors to use it instead of your colour set)
+- Map editor: EDIT LAST MAP on the editor's home opens the map you edited last, and a new keybind opens the editor folder (Ctrl+Shift+D)
+- Fixed: the game could crash while closing after Score History or the Sound Space menu had shown Discord pictures (the next start then said Chromia crashed)

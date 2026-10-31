@@ -29,9 +29,12 @@ func _squircle(r: Rect2, fill, stroke, w := 2.0):
 	var s: Dictionary = ed.s
 	if s.gridSquircles:
 		var sb := _sb
-		var rad := int(min(r.size.x, r.size.y) * 0.125 * 1.5)
+		# GLVerts.Squircle: radius as a share of the size, at most half of it
+		# (x1.5 so Godot's corner curve looks like SSQE+'s at the same setting)
+		var mn: float = min(r.size.x, r.size.y)
+		var rad := int(min(float(s.get("gridSquircleRadius", 0.125)) * mn * 1.5, mn / 2.0))
 		sb.set_corner_radius_all(rad)
-		sb.corner_detail = 6
+		sb.corner_detail = int(clamp(float(s.get("gridSquircleDetail", 8)), 1, 20))
 		sb.anti_aliasing = true
 		sb.draw_center = fill is Color
 		sb.bg_color = fill if fill is Color else Color(0, 0, 0, 0)

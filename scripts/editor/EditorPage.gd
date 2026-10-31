@@ -24,6 +24,7 @@ var audio = null # SSQEAudio (song analysis: waveform, BPM, auto mapper)
 var home: Control
 var projects_box: VBoxContainer
 var edit_selected_btn: Button
+var edit_last_btn = null
 var f_btn: DynamicFont
 var f_lbl: DynamicFont
 var f_val: DynamicFont
@@ -195,13 +196,16 @@ func _build_home():
 	col.add_constant_override("separation", 10)
 	home.add_child(col)
 	for it in [["CREATE NEW MAP", "_on_new_map"], ["LOAD MAP", "_on_load_map"], ["PASTE MAP", "_on_paste_new"],
-			["EDIT SELECTED MAP", "_on_edit_selected"]]:
+			["EDIT LAST MAP", "_on_edit_last"], ["EDIT SELECTED MAP", "_on_edit_selected"]]:
 		var b = _btn(it[0], it[1])
 		b.add_font_override("font", f_title)
 		b.size_flags_vertical = SIZE_EXPAND_FILL
+		b.clip_text = true
 		col.add_child(b)
 		if it[1] == "_on_edit_selected":
 			edit_selected_btn = b
+		elif it[1] == "_on_edit_last":
+			edit_last_btn = b
 	home.connect("resized", self, "_layout_home")
 
 func _layout_home():
@@ -222,7 +226,7 @@ func _layout_home():
 	panel.rect_size = Vector2(w * 0.5 - 23 * s, h - 120 * s - 40 * s)
 	var col = home.get_node("Buttons")
 	col.rect_position = Vector2(w * 0.5 + 40 * s, 120 * s)
-	col.rect_size = Vector2(w * 0.5 - 80 * s, min(4 * 64 * s + 30, h - 160 * s))
+	col.rect_size = Vector2(w * 0.5 - 80 * s, min(5 * 64 * s + 40, h - 160 * s))
 	f_title.size = int(clamp(22 * s, 14, 48))
 	f_btn.size = int(clamp(15 * s, 11, 32))
 
@@ -239,6 +243,9 @@ func _refresh_home():
 	for c in projects_box.get_children():
 		c.queue_free()
 	var list: Array = EditorProject.list_projects()
+	# (newest first: the last map you edited)
+	edit_last_btn.disabled = list.empty()
+	edit_last_btn.text = "EDIT LAST MAP" if list.empty() else "EDIT LAST: " + Globals.s(list[0].title).to_upper()
 	if list.empty():
 		var l = _label("No maps yet. CREATE NEW MAP starts one from a song; LOAD MAP opens a map file (SSQE .txt/.qem/.qemz, .sspm, .rhm, Rewrite .phxm, Novastra .npk, osu!, Pulsus or Vulnus); EDIT SELECTED MAP opens a map from your list.", f_lbl, DIM)
 		l.autowrap = true
@@ -331,6 +338,14 @@ func _on_new_song_picked(files):
 	_notify("Set up the BPM in TIMING > OPEN BPM SETUP (or DETECT BPM), then place notes with Q W E / A S D / Z X C or the mouse.", "New map")
 
 # ---- EDIT SELECTED MAP
+# EDIT LAST MAP (SSQE+: Settings.lastFile): the map edited most recently
+func _on_edit_last():
+	var list: Array = EditorProject.list_projects()
+	if list.empty():
+		_notify("No maps yet.", "Map Editor")
+		return
+	open_project(list[0].pid)
+
 func _on_edit_selected():
 	edit_song(Rhythia.selected_song)
 

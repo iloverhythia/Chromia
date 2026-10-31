@@ -1710,7 +1710,15 @@ func quit_game():
 		OS.kill(OS.get_process_id())
 	get_tree().quit()
 
+# Textures kept in Engine's meta for the whole session (avatars). Engine
+# outlives the renderer, so a texture still there when the game closes is freed
+# too late and crashes it ("Chromia crashed" on the next start): drop them here.
+const SESSION_TEXTURE_METAS = ["score_history_avatars", "ss_menu_discord_avatar"]
+
 func _exit_tree():
+	for m in SESSION_TEXTURE_METAS:
+		if Engine.has_meta(m):
+			Engine.remove_meta(m)
 	_star_quit = true
 	_thumb_quit = true
 	if _thumb_thread and _thumb_thread.is_active():
