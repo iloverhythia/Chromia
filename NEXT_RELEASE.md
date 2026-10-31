@@ -14,3 +14,4 @@ in scripts/Savia.gd and empties this list.
 - Emoji in chat: they show as pictures (Twemoji) in the Spectate window's global chat and in lobby chat
 - Your attempts list (History) shows your profile picture instead of your first letter (your Chromia picture if you don't use Discord), with bigger, clearer rows: the top three get a ring in their colour and the rank sits on a badge under the picture
 - Map editor: a SETTINGS button on the editor's start screen opens the editor settings without opening a map first, and long mapper names no longer push your map list under the buttons
+- Settings: all the Sound Space settings moved to their own Sound Space section in the UI tab, with a new Sound Space HUD option: the side panels, time and health bar look like Sound Space's (pixel font, multiplier box, COMBO, misses and notes) while everything else stays yours. Spectators see it too

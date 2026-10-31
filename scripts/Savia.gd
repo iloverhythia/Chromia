@@ -3047,6 +3047,7 @@ var always_show_crash_log: bool = false # Experimental: show the last session's 
 func ss_menus_on() -> bool:
 	return sound_space_mode and not ss_gameplay_only
 var ss_score_popups: bool = true # Sound Space Mode: points pop up under the grid on each hit
+var ss_hud: bool = false # Sound Space HUD: the side panels, time and health bar look like Sound Space (without the rest of Sound Space Mode)
 var ss_health_y: float = 0.0     # Sound Space Mode: health bar moved up (+) / down (-)
 var ss_health_w: float = 100.0   # Sound Space Mode: health bar width, %
 var ss_progress_y: float = 0.0   # Sound Space Mode: song progress bar moved up (+) / down (-)
@@ -3908,6 +3909,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			always_show_crash_log = bool(data.always_show_crash_log)
 		if data.has("ss_score_popups"):
 			ss_score_popups = bool(data.ss_score_popups)
+		if data.has("ss_hud"):
+			ss_hud = bool(data.ss_hud)
 		for k in ["ss_health_y", "ss_health_w", "ss_progress_y", "ss_progress_w"]:
 			if data.has(k):
 				set(k, float(data[k]))
@@ -4483,6 +4486,7 @@ func _write_settings_file(saveFile: String):
 			always_show_crash_log = always_show_crash_log,
 			track_plays = track_plays,
 			ss_score_popups = ss_score_popups,
+			ss_hud = ss_hud,
 			ss_health_y = ss_health_y,
 			ss_health_w = ss_health_w,
 			ss_progress_y = ss_progress_y,
