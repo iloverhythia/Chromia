@@ -1,0 +1,26 @@
+{
+ "updated": 1793474487,
+ "dbs": [
+  {
+   "source": "https://cdn.rhythia.net/index.json",
+   "ok": true,
+   "maps": 2182,
+   "mirrored": 2181,
+   "blocked": 1
+  },
+  {
+   "source": "https://savvyscripter-gh.github.io/savia_db/index.json",
+   "ok": true,
+   "maps": 195,
+   "mirrored": 0,
+   "blocked": 0
+  },
+  {
+   "source": "https://savia.nysr.host/ranked-maps/index.json",
+   "ok": true,
+   "maps": 474,
+   "mirrored": 0,
+   "blocked": 474
+  }
+ ]
+}
