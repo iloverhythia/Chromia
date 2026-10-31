@@ -119,8 +119,15 @@ var _map_download_song_id: String = ""
 var _map_download_chunks: Array = []
 var _map_download_total_bytes: int = 0
 var _map_download_chars_received: int = 0
+# A map the player doesn't share (watch_only): kept in a hidden temporary folder
+# for the watch, out of your maps folder, and deleted when the watch ends (and
+# at the next start, after a crash). [[song id, file]]
+const WATCH_ONLY_DIR := "user://.watch_only"
+var _map_download_watch_only := false
+var _watch_only_maps := []
 
 func _ready():
+	_clear_watch_only_dir()
 	_client.connect("connection_established", self, "_on_connected")
 	_client.connect("connection_closed", self, "_on_closed")
 	_client.connect("connection_error", self, "_on_conn_error")
@@ -1217,8 +1224,13 @@ func _finish_map_download(song_id: String):
 		emit_signal("lobby_error", "The map download was incomplete — try again.")
 		return
 	var dir = Directory.new()
-	dir.make_dir_recursive("user://maps")
 	var path = "user://maps/%s.sspm" % song_id
+	if _map_download_watch_only:
+		dir.make_dir_recursive(WATCH_ONLY_DIR)
+		path = "%s/%d%d.sspm" % [WATCH_ONLY_DIR, OS.get_unix_time(), randi() % 100000]
+		_watch_only_maps.append([song_id, path])
+	else:
+		dir.make_dir_recursive("user://maps")
 	var f = File.new()
 	if f.open(path, File.WRITE) != OK:
 		emit_signal("lobby_error", "Couldn't save the downloaded map.")
@@ -1426,9 +1438,11 @@ func _handle_message(msg: Dictionary):
 		"request_map_upload":
 			var upload_song_id = Globals.s(msg.get("song_id", ""))
 			print("[furria] received request_map_upload for ", upload_song_id)
-			if upload_song_id != "" and bool(msg.get("watch", false)) and not bool(Rhythia.get("share_maps_with_spectators")):
+			if upload_song_id != "" and bool(msg.get("watch", false)) and not bool(Rhythia.get("share_maps_with_spectators")) and not bool(msg.get("private", false)):
 				# someone watching from the Spectate tab doesn't have the map:
-				# not sent (Settings > Online > Share My Maps With Spectators)
+				# not sent (Settings > Online > Share My Maps With Spectators).
+				# A newer server asks for a private copy instead ("private"): it
+				# keeps that in memory for the watch only, so that one is sent.
 				_send({"type": "decline_map_upload", "song_id": upload_song_id})
 			elif upload_song_id != "":
 				_start_map_upload(upload_song_id)
@@ -1437,6 +1451,7 @@ func _handle_message(msg: Dictionary):
 			_map_download_chunks = []
 			_map_download_chars_received = 0
 			_map_download_total_bytes = int(msg.get("total_bytes", 0))
+			_map_download_watch_only = bool(msg.get("watch_only", false))
 			print("[furria] map_download_start ", _map_download_song_id, " (", _map_download_total_bytes, " bytes)")
 			emit_signal("map_download_started", _map_download_song_id)
 			emit_signal("map_download_progress", _map_download_song_id, 0, _map_download_total_bytes)
@@ -1949,7 +1964,38 @@ func end_watch(text: String):
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+# the watch-only maps go (a moment later: the song may still be closing)
+func _forget_watch_only_maps():
+	if _watch_only_maps.empty():
+		return
+	var gone := _watch_only_maps.duplicate()
+	_watch_only_maps = []
+	yield(get_tree().create_timer(3.0), "timeout")
+	for m in gone:
+		# (only if it's still this copy: following them into the same map
+		# again within these seconds downloads a new one)
+		var item = Rhythia.registry_song.get_item(String(m[0]), Globals.SEARCH_ID) if Rhythia.registry_song else null
+		if item and String(item.get("filePath")) == String(m[1]):
+			Rhythia.registry_song.check_and_remove_id(String(m[0]))
+		Directory.new().remove(String(m[1]))
+	var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
+	if list != null and list.has_method("refresh_songs"):
+		list.refresh_songs()
+
+# at start: anything left from a watch that didn't end normally
+func _clear_watch_only_dir():
+	var d := Directory.new()
+	if d.open(WATCH_ONLY_DIR) != OK:
+		return
+	d.list_dir_begin(true, true)
+	var n := d.get_next()
+	while n != "":
+		d.remove(WATCH_ONLY_DIR.plus_file(n))
+		n = d.get_next()
+	d.list_dir_end()
+
 func _finish_watch_locally():
+	call_deferred("_forget_watch_only_maps")
 	if watch_mode:
 		reopen_spectate_tab = true
 	watch_mode = false
