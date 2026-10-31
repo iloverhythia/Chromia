@@ -1724,6 +1724,9 @@ func _presence_now() -> Dictionary:
 		"type": "presence", "client_id": Rhythia.cid, "name": _presence_name(),
 		"status": "playing" if playing else "menu",
 		"allow_spectate": bool(Rhythia.allow_spectators),
+		# Settings > Online > Share My Maps With Spectators: the server sends
+		# nobody watching you your map (not even a copy it already has)
+		"share_maps": bool(Rhythia.get("share_maps_with_spectators")),
 		"device": _presence_device(),
 	}
 	if playing:
