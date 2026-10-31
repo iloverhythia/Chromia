@@ -337,6 +337,9 @@ func _ready():
 	elif Rhythia.cursor_color_type == Globals.CURSOR_CUSTOM_COLOR:
 		recolor(Rhythia.cursor_color)
 
+	if Rhythia.get("cursor_glow"):
+		load("res://scripts/game/CursorGlow.gd").add_to($Mesh, get_parent())
+
 	if Rhythia.cursor_trail:
 		if Rhythia.smart_trail:
 			yield(get_tree(), "idle_frame")

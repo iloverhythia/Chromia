@@ -61,7 +61,7 @@ var _saved := {}
 const LOOK := {
 	"fov": 75.0, "hit_fov": false,
 	"cursor_trail": false, "enable_drift_cursor": false, "follow_drift_cursor": false,
-	"cursor_spin": 0.0, "cursor_face_velocity": false, "cursor_scale": 1.1,
+	"cursor_spin": 0.0, "cursor_face_velocity": false, "cursor_scale": 1.1, "cursor_glow": false,
 	"show_hit_effect": false, "show_miss_effect": false, "note_spawn_effect": false,
 	"note_visual_approach": false, "note_spin_x": 0.0, "note_spin_y": 0.0, "note_spin_z": 0.0,
 	"glow": 0.0, "bloom": 0.0, "vhs_shader": false,

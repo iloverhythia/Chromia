@@ -2898,6 +2898,13 @@ var enable_drift_cursor: bool = true
 var follow_drift_cursor: bool = false
 var cursor_spin: float = 0
 var cursor_face_velocity: bool = false
+# Cursor Bloom: a glow behind the cursor only (scripts/game/CursorGlow.gd)
+var cursor_glow: bool = false
+var cursor_glow_size: float = 3.0
+var cursor_glow_strength: float = 0.8
+var cursor_glow_pulse: bool = false
+var cursor_glow_custom_color: bool = false
+var cursor_glow_color: Color = Color(1, 1, 1)
 
 
 var display_true_combo: bool = true
@@ -3714,6 +3721,16 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			set_borderless_windowed(data.window_borderless)
 		if data.has("cursor_face_velocity"):
 			cursor_face_velocity = data.cursor_face_velocity
+		if data.has("cursor_glow"):
+			cursor_glow = bool(data.cursor_glow)
+		if data.has("cursor_glow_size"):
+			cursor_glow_size = clamp(float(data.cursor_glow_size), 1.0, 10.0)
+		if data.has("cursor_glow_strength"):
+			cursor_glow_strength = clamp(float(data.cursor_glow_strength), 0.0, 3.0)
+		if data.has("cursor_glow_pulse"):
+			cursor_glow_pulse = bool(data.cursor_glow_pulse)
+		if data.has("cursor_glow_custom_color"):
+			cursor_glow_custom_color = bool(data.cursor_glow_custom_color)
 		if data.has("note_visual_approach"):
 			note_visual_approach = data.note_visual_approach
 		if data.has("visual_approach_follow"):
@@ -3927,6 +3944,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		lcol(data, "grade_d_color")
 		lcol(data, "grade_f_color")
 		lcol(data, "cursor_color")
+		lcol(data, "cursor_glow_color")
 		lcol(data, "border_color")
 
 		if data.has("glow"):
@@ -4302,6 +4320,11 @@ func _write_settings_file(saveFile: String):
 			custom_speed = custom_speed,
 			display_true_combo = display_true_combo,
 			cursor_face_velocity = cursor_face_velocity,
+			cursor_glow = cursor_glow,
+			cursor_glow_size = cursor_glow_size,
+			cursor_glow_strength = cursor_glow_strength,
+			cursor_glow_pulse = cursor_glow_pulse,
+			cursor_glow_custom_color = cursor_glow_custom_color,
 			ui_parallax = ui_parallax,
 			grid_parallax = grid_parallax,
 			fade_length = fade_length,
@@ -4425,6 +4448,7 @@ func _write_settings_file(saveFile: String):
 			pb_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("PBSound")), -80, 1000000)),
 
 			cursor_color = scol(cursor_color),
+			cursor_glow_color = scol(cursor_glow_color),
 			border_color = scol(border_color),
 			panel_bg = scol(panel_bg),
 			panel_text = scol(panel_text),

@@ -4,3 +4,4 @@ Add one line per change, starting with "- " (players read these in the
 update log). Publishing to production turns them into the new version's notes
 in scripts/Savia.gd and empties this list.
 - Test builds no longer install themselves for tester accounts: you get the Update / Remind me in a day / Later box like everyone else
+- New Cursor Bloom setting (World & Cursor): a glow around just the cursor, with size, strength, colour and a pulse on hits

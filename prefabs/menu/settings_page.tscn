@@ -2618,6 +2618,161 @@ flat = true
 script = ExtResource( 54 )
 target = "cursor_face_velocity"
 
+[node name="CursorGlow" type="CheckBox" parent="TabContainer/World & Cursor/Cursor/Group/H"]
+margin_right = 316.0
+margin_bottom = 28.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "a soft glow around the cursor only (nothing else blooms)"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Cursor Bloom"
+flat = true
+script = ExtResource( 54 )
+target = "cursor_glow"
+
+[node name="CursorGlowSize" type="HBoxContainer" parent="TabContainer/World & Cursor/Cursor/Group/H"]
+margin_right = 316.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 3x] how far the glow spreads, compared to the cursor"
+
+[node name="CursorGlowSize" type="SpinBox" parent="TabContainer/World & Cursor/Cursor/Group/H/CursorGlowSize"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 3x] how far the glow spreads, compared to the cursor"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = 1.0
+max_value = 10.0
+step = 0.1
+value = 3.0
+suffix = "x"
+script = ExtResource( 50 )
+target = "cursor_glow_size"
+
+[node name="Label" type="Label" parent="TabContainer/World & Cursor/Cursor/Group/H/CursorGlowSize"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 316.0
+margin_bottom = 26.0
+focus_mode = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Bloom Size"
+align = 2
+valign = 1
+
+[node name="CursorGlowStrength" type="HBoxContainer" parent="TabContainer/World & Cursor/Cursor/Group/H"]
+margin_right = 316.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 0.8] how bright the glow is (above 1 gets brighter)"
+
+[node name="CursorGlowStrength" type="SpinBox" parent="TabContainer/World & Cursor/Cursor/Group/H/CursorGlowStrength"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 0.8] how bright the glow is (above 1 gets brighter)"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = 0.0
+max_value = 3.0
+step = 0.05
+value = 0.8
+suffix = ""
+script = ExtResource( 50 )
+target = "cursor_glow_strength"
+
+[node name="Label" type="Label" parent="TabContainer/World & Cursor/Cursor/Group/H/CursorGlowStrength"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 316.0
+margin_bottom = 26.0
+focus_mode = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Bloom Strength"
+align = 2
+valign = 1
+
+[node name="CursorGlowPulse" type="CheckBox" parent="TabContainer/World & Cursor/Cursor/Group/H"]
+margin_right = 316.0
+margin_bottom = 28.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "the glow flares up a little when you hit a note"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Bloom Pulse on Hit"
+flat = true
+script = ExtResource( 54 )
+target = "cursor_glow_pulse"
+
+[node name="CursorGlowCustomColor" type="CheckBox" parent="TabContainer/World & Cursor/Cursor/Group/H"]
+margin_right = 316.0
+margin_bottom = 28.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "off: the glow uses the cursor's color (rainbow and note color too). on: uses Bloom Color"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Custom Bloom Color"
+flat = true
+script = ExtResource( 54 )
+target = "cursor_glow_custom_color"
+
+[node name="cursor_glow_color" type="HBoxContainer" parent="TabContainer/World & Cursor/Cursor/Group/H"]
+margin_right = 316.0
+margin_bottom = 32.0
+hint_tooltip = "[def. #ffffff] bloom color used when Custom Bloom Color is on"
+
+[node name="Color" type="ColorPickerButton" parent="TabContainer/World & Cursor/Cursor/Group/H/cursor_glow_color"]
+margin_right = 100.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 100, 32 )
+hint_tooltip = "[def. #ffffff] bloom color used when Custom Bloom Color is on"
+theme = ExtResource( 1 )
+custom_styles/hover = SubResource( 50 )
+custom_styles/pressed = SubResource( 51 )
+custom_styles/focus = SubResource( 52 )
+custom_styles/disabled = SubResource( 53 )
+custom_styles/normal = SubResource( 54 )
+script = ExtResource( 51 )
+target = "cursor_glow_color"
+
+[node name="Label" type="Label" parent="TabContainer/World & Cursor/Cursor/Group/H/cursor_glow_color"]
+margin_left = 104.0
+margin_top = 6.0
+margin_right = 200.0
+margin_bottom = 26.0
+focus_mode = 2
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Bloom Color"
+align = 2
+valign = 1
+
 [node name="SEPARATOR7" type="HSeparator" parent="TabContainer/World & Cursor/Cursor/Group/H"]
 margin_top = 212.0
 margin_right = 316.0
