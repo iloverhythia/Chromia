@@ -569,6 +569,7 @@ func _pick_next_target():
 func exit_spectate_mode():
 	spectating = false
 	spectate_peer_id = -1
+	_set_spec_paused(false)
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		lobby_manager.report_spectate_target(-1)
@@ -610,8 +611,49 @@ func _end_spectate_and_return_to_lobby():
 	get_parent().black_fade_target = true
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+# The watched player paused (or is counting back in): their position stays
+# put, Paused shows, the music waits. When they go on, the clock starts over
+# from their new positions (before, it kept timing off the ones from before
+# the pause and the notes and music stuttered for seconds).
+var spec_paused: bool = false
+var _spec_paused_label: Label = null
+
+func _set_spec_paused(p: bool):
+	if p == spec_paused:
+		return
+	spec_paused = p
+	if p and _spec_paused_label == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 50
+		add_child(layer)
+		_spec_paused_label = Label.new()
+		var f = DynamicFont.new()
+		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+		f.size = 42
+		_spec_paused_label.add_font_override("font", f)
+		_spec_paused_label.add_color_override("font_color", Color(1, 1, 1, 0.92))
+		_spec_paused_label.add_color_override("font_color_shadow", Color(0, 0, 0, 0.7))
+		_spec_paused_label.add_constant_override("shadow_offset_x", 3)
+		_spec_paused_label.add_constant_override("shadow_offset_y", 3)
+		_spec_paused_label.text = "Paused"
+		_spec_paused_label.align = Label.ALIGN_CENTER
+		_spec_paused_label.valign = Label.VALIGN_CENTER
+		_spec_paused_label.anchor_right = 1.0
+		_spec_paused_label.anchor_bottom = 1.0
+		_spec_paused_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(_spec_paused_label)
+	if _spec_paused_label != null:
+		_spec_paused_label.visible = p
+	if not p:
+		_spec_reset_clock() # (their time jumped by the pause)
+
 func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, misses, total_notes, energy_pct, lvl_progress_pct, chart_ms):
 	if not spectating or peer_id != spectate_peer_id:
+		return
+	var lm_p = _get_lobby_manager()
+	var paused_now: bool = lm_p != null and bool(lm_p._live_state_cache.get(peer_id, {}).get("paused", false))
+	_set_spec_paused(paused_now)
+	if paused_now:
 		return
 	if not _spec_samples.empty():
 		var last_ms: float = _spec_samples[_spec_samples.size() - 1].ms

@@ -123,7 +123,58 @@ static func collect() -> Dictionary:
 	var pic := own_cursor_file()
 	if pic != "":
 		out["cursor_image"] = File.new().get_sha256(pic)
+	# your own border picture and note mesh (built-in ones every game has):
+	# uploaded by LobbyManager.upload_spectate_assets, named here by hash
+	var bfile := own_border_file(backup.get("selected_border", Rhythia.selected_border))
+	if bfile != "":
+		out["border_image"] = File.new().get_sha256(bfile)
+	var mfile := own_mesh_file(backup.get("selected_mesh", Rhythia.selected_mesh))
+	if mfile != "":
+		out["mesh_file"] = File.new().get_sha256(mfile)
 	return out
+
+const ASSET_MAX_BYTES := 6 * 1024 * 1024
+const ASSET_CACHE := "user://spectate_cache"
+
+# your border's picture file, "" for a built-in border (or none)
+static func own_border_file(b = null) -> String:
+	if b == null:
+		b = Rhythia.selected_border
+	if b == null or not ("path" in b) or String(b.path) == "" or String(b.path).begins_with("res://"):
+		return ""
+	var base: String = Globals.p(String(b.path))
+	var f := File.new()
+	for p in [base, base + ".png", base + ".jpg", base + ".jpeg", base + ".webp", base + ".bmp"]:
+		if f.file_exists(p) and not Directory.new().dir_exists(p):
+			return p if _small_enough(p) else ""
+	return ""
+
+# your note mesh's .obj file, "" for a built-in mesh
+static func own_mesh_file(m = null) -> String:
+	if m == null:
+		m = Rhythia.selected_mesh
+	if m == null or not ("path" in m) or String(m.path) == "" or String(m.path).begins_with("res://"):
+		return ""
+	var p: String = Globals.p(String(m.path))
+	if p.get_extension().to_lower() != "obj" or not File.new().file_exists(p):
+		return ""
+	return p if _small_enough(p) else ""
+
+static func _small_enough(p: String) -> bool:
+	var f := File.new()
+	if f.open(p, File.READ) != OK:
+		return false
+	var n := f.get_len()
+	f.close()
+	return n > 0 and n <= ASSET_MAX_BYTES
+
+# where a spectator keeps a downloaded one ("" when it isn't here yet)
+static func cached_asset(sha: String, ext: String) -> String:
+	sha = sha.to_lower()
+	if sha.length() != 64 or not sha.is_valid_hex_number():
+		return ""
+	var p: String = Globals.p(ASSET_CACHE).plus_file("%s.%s" % [sha, ext])
+	return p if File.new().file_exists(p) else ""
 
 # your custom cursor picture (Settings: cursor), "" when it's the default one
 # (an animated .gif cursor isn't sent)
@@ -160,6 +211,14 @@ static func apply(their: Dictionary, peer_id: int):
 			var item = _lookup(k, their[k])
 			if item != null:
 				_assign(k, item)
+	# their own border picture / mesh, once downloaded (LobbyManager fetches
+	# them when their settings arrive); not here yet: the lookup above stands
+	var bpath := cached_asset(String(their.get("border_image", "")), "png")
+	if bpath != "":
+		_assign("selected_border", Border.new("spectate_border", "Their border", "", bpath))
+	var mpath := cached_asset(String(their.get("mesh_file", "")), "obj")
+	if mpath != "":
+		_assign("selected_mesh", NoteMesh.new("spectate_mesh", "Their mesh", mpath, ""))
 	for k in FORCED:
 		_assign(k, FORCED[k])
 	Rhythia.set_meta("spec_for", peer_id)

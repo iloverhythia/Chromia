@@ -931,7 +931,7 @@ func _process(delta: float):
 			var cursor_pos = _n_cursor.transform.origin
 			var energy_pct = (get_parent().energy / get_parent().max_energy) if get_parent().max_energy > 0 else 0.0
 			var lvl_progress_pct = get_parent().lvl_progress / 10.0
-			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null)
+			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0)
 
 	if active and notes_loaded:
 		if not notes_loaded: return
@@ -1141,6 +1141,11 @@ func _vr_pose_for_spectators():
 
 # Spectating: ms comes from the watched player (HUD.gd), the music keeps up.
 func _spectate_music():
+	if Grid != null and Grid.get("spec_paused"):
+		if music_started:
+			_n_music.stop()
+			music_started = false # (starts again where they are when they go on)
+		return
 	var at: float = ms + Rhythia.music_offset
 	if at >= Rhythia.start_offset:
 		if not music_started:

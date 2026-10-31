@@ -592,7 +592,7 @@ func _apply_mods_locally(mods: Dictionary):
 	if Rhythia.has_signal("mods_changed"):
 		Rhythia.emit_signal("mods_changed")
 
-func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null):
+func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false):
 	if not broadcasting():
 		return
 	var msg := {
@@ -601,6 +601,8 @@ func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pc
 	}
 	if vr_pose is Array:
 		msg["vr"] = vr_pose # in VR: head and hands, for spectators
+	if paused:
+		msg["paused"] = true # (paused or counting back in: spectators show Paused and wait)
 	_send(msg)
 func notify_passed():
 	if not broadcasting():
@@ -637,12 +639,127 @@ func send_view_settings():
 	if not broadcasting():
 		return
 	upload_cursor_picture()
+	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
 
 # Your cursor picture to the server once (it keeps it by the file's hash), so
 # spectators watching with your settings see your cursor.
 const CURSOR_URL := "https://savia.nysr.host/savia-cursor"
 var _cursor_sent: String = ""
+# your own border picture and note mesh, for spectators (sent once each; the
+# server keeps them by hash: savia_web src/spectateassets.js)
+const SPECTATE_ASSET_URL := "https://savia.nysr.host/savia-spectate-asset"
+var _assets_sent := {} # kind -> sha256 sent
+
+func upload_spectate_assets():
+	var spec = load("res://scripts/SpectateSettings.gd")
+	for kind in ["border", "mesh"]:
+		var file: String = spec.own_border_file() if kind == "border" else spec.own_mesh_file()
+		if file == "":
+			continue
+		var f := File.new()
+		var sha: String = f.get_sha256(file)
+		if sha == "" or _assets_sent.get(kind, "") == sha or f.open(file, File.READ) != OK:
+			continue
+		var data: PoolByteArray = f.get_buffer(f.get_len())
+		f.close()
+		_assets_sent[kind] = sha
+		var http := HTTPRequest.new()
+		add_child(http)
+		http.connect("request_completed", self, "_on_asset_uploaded", [http, kind])
+		var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
+		if http.request_raw(url, ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, data) != OK:
+			http.queue_free()
+			_assets_sent.erase(kind)
+
+func _on_asset_uploaded(result, code, _headers, _body, http, kind):
+	http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		_assets_sent.erase(kind) # (tried again next song)
+
+# Watching someone: their border picture / mesh downloaded into the cache
+# (tried a few times: they may still be uploading it). The first load of a
+# watch waits for them a moment (spectate_assets_ready).
+var _asset_downloads := {} # "sha.ext" -> tries left
+var _asset_cache_tidied := false
+
+func fetch_spectate_assets(settings):
+	if not (settings is Dictionary):
+		return
+	var spec = load("res://scripts/SpectateSettings.gd")
+	_tidy_asset_cache()
+	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"]]:
+		var sha: String = String(settings.get(pair[1], "")).to_lower()
+		if sha.length() != 64 or not sha.is_valid_hex_number() or spec.cached_asset(sha, pair[2]) != "":
+			continue
+		var key: String = "%s.%s" % [sha, pair[2]]
+		if _asset_downloads.has(key):
+			continue
+		_asset_downloads[key] = 4
+		_download_asset(pair[0], sha, pair[2])
+
+func _download_asset(kind: String, sha: String, ext: String):
+	var spec = load("res://scripts/SpectateSettings.gd")
+	var dir_path: String = Globals.p(spec.ASSET_CACHE)
+	Directory.new().make_dir_recursive(dir_path)
+	var http := HTTPRequest.new()
+	http.download_file = dir_path.plus_file("%s.%s.part" % [sha, ext])
+	add_child(http)
+	http.connect("request_completed", self, "_on_asset_downloaded", [http, kind, sha, ext])
+	if http.request("%s/%s/%s.%s" % [SPECTATE_ASSET_URL, kind, sha, ext]) != OK:
+		http.queue_free()
+		_asset_downloads.erase("%s.%s" % [sha, ext])
+
+func _on_asset_downloaded(result, code, _headers, _body, http, kind, sha, ext):
+	http.queue_free()
+	var key: String = "%s.%s" % [sha, ext]
+	var dir_path: String = Globals.p(load("res://scripts/SpectateSettings.gd").ASSET_CACHE)
+	var part: String = dir_path.plus_file(key + ".part")
+	var d := Directory.new()
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and File.new().get_sha256(part) == sha:
+		d.rename(part, dir_path.plus_file(key))
+		_asset_downloads.erase(key)
+		_assets_arrived()
+		return
+	d.remove(part)
+	var left: int = int(_asset_downloads.get(key, 0)) - 1
+	if left <= 0:
+		_asset_downloads.erase(key)
+		_assets_arrived() # (given up: load without it)
+		return
+	_asset_downloads[key] = left
+	yield(get_tree().create_timer(1.5), "timeout")
+	_download_asset(kind, sha, ext)
+
+func spectate_assets_ready() -> bool:
+	return _asset_downloads.empty()
+
+# the first load of a watch was waiting for them
+func _assets_arrived():
+	if _watch_wait_t > 0.0 and watch_mode and spectate_assets_ready() and has_player_settings(_spectate_load_target):
+		_watch_wait_t = 0.0
+		_scene_transition_now()
+
+# old downloads (a week) go, so the cache doesn't grow forever
+func _tidy_asset_cache():
+	if _asset_cache_tidied:
+		return
+	_asset_cache_tidied = true
+	var dir_path: String = Globals.p(load("res://scripts/SpectateSettings.gd").ASSET_CACHE)
+	var d := Directory.new()
+	if d.open(dir_path) != OK:
+		return
+	var f := File.new()
+	var now := OS.get_unix_time()
+	d.list_dir_begin(true, true)
+	var n := d.get_next()
+	while n != "":
+		var p: String = dir_path.plus_file(n)
+		if not d.current_is_dir() and (n.ends_with(".part") or now - f.get_modified_time(p) > 7 * 86400):
+			d.remove(p)
+		n = d.get_next()
+	d.list_dir_end()
+
 func upload_cursor_picture():
 	var pic: String = load("res://scripts/SpectateSettings.gd").own_cursor_file()
 	if pic == "":
@@ -676,6 +793,7 @@ func send_solo_view_settings():
 	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
 	upload_cursor_picture()
+	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
 
 func request_player_settings(peer_id: int):
@@ -736,6 +854,9 @@ func _check_map_readiness():
 	if song:
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
+			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and has_player_settings(_spectate_load_target) and not spectate_assets_ready():
+				_watch_wait_t = 4.0 # their border / mesh are downloading: load once they're here
+				return
 			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and not has_player_settings(_spectate_load_target):
 				# Spectate tab: their settings are on the way (they send them
 				# when someone starts watching); load once with them
@@ -1135,10 +1256,14 @@ func _handle_message(msg: Dictionary):
 			var sp = int(msg.get("peer_id", -1))
 			var ss = msg.get("settings", null)
 			player_view_settings[sp] = ss if ss is Dictionary else {}
+			fetch_spectate_assets(player_view_settings[sp])
 			emit_signal("player_settings_received", sp)
 			if _watch_wait_t > 0.0 and watch_mode and sp == _spectate_load_target and has_player_settings(sp):
-				_watch_wait_t = 0.0
-				_scene_transition_now()
+				if spectate_assets_ready():
+					_watch_wait_t = 0.0
+					_scene_transition_now()
+				else:
+					_watch_wait_t = max(_watch_wait_t, 4.0) # (their border / mesh downloading)
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
