@@ -9,11 +9,22 @@ extends Control
 const SSQEMap = preload("res://scripts/editor/ssqe/SSQEMap.gd")
 const SSQESettings = preload("res://scripts/editor/ssqe/SSQESettings.gd")
 const RM = SSQEMap.RenderMode
+const SSQEAudio = preload("res://scripts/editor/ssqe/SSQEAudio.gd")
 
 var ed
 
 func _ready():
 	mouse_filter = MOUSE_FILTER_IGNORE
+	# the background and the waveform: one quad drawn by a shader, behind the
+	# notes (SSQEAudio works out the waveform's levels on its thread)
+	_wave = WaveLayer.new()
+	_wave.name = "Waveform"
+	_wave.show_behind_parent = true
+	_wave.mouse_filter = MOUSE_FILTER_IGNORE
+	var m := ShaderMaterial.new()
+	m.shader = WAVE_SHADER
+	_wave.material = m
+	add_child(_wave)
 
 # palette: [color1, color2, color3, color4, white, green, blue, light grey, red, grey, color5]
 func col(i: int, a := 1.0) -> Color:
@@ -118,13 +129,9 @@ func _draw():
 	ed.track_start_rel = max(0.0, (-cursor_pos * px_to_ms + current_time) / max(total_time, 1))
 	ed.track_end_rel = min(1.0, ((W - cursor_pos) * px_to_ms + current_time) / max(total_time, 1))
 
-	# background
-	draw_rect(Rect2(0, 0, W, H), Color8(39, 39, 39, int(s.trackOpacity)))
+	# background and waveform (their own layer, behind this one), and the edge
+	_sync_wave(ed.waveform if s.waveform else null, base_x, ms_to_px, W, H)
 	_stroke_box(0, 0, W, H, Color8(52, 52, 52))
-
-	# waveform
-	if s.waveform and ed.waveform:
-		_draw_waveform(ed.waveform, base_x, ms_to_px, min_ms, max_ms, H)
 
 	ed.hovering_object = null
 	ed.hovering_duration = null
@@ -397,154 +404,65 @@ func _draw_object_icon(o, c: Vector2, r: float, color: Color):
 		_:
 			draw_circle(c, r * 0.25, color)
 
-# The waveform is drawn as one upright bar a pixel, from the lowest to the
-# highest point the song reaches in that pixel. The bars are worked out once
-# per zoom level, in pieces of WAVE_CHUNK bars, and moved with the scroll:
-# only the pieces on screen are drawn. Working them out every frame was slow
-# zoomed out.
-const WAVE_CHUNK := 512
-# how many samples a bar looks at to find its lowest and highest point. A bar
-# can cover hundreds of samples zoomed out, and reading every one of them
-# would make each new piece slow to build, which is what zooming has to wait
-# for; a handful spread across the bar gives the same shape.
-const WAVE_SCAN := 2
-var _wave_key := ""
-var _wave_cache := {} # piece index -> [ImageTexture, x] (for _wave_key)
-# Each piece is drawn once into a small picture when it first comes on screen,
-# and then only that picture is drawn each frame. Drawing the bars as lines
-# every frame (thousands of them, the track redraws every frame while the song
-# plays) is what made the editor lag while playing.
-const WAVE_KEEP := 24 # pieces kept (the ones near the screen)
-var _wave_solid: Image = null
+# The waveform: a shader draws the track's background and the waveform's
+# bars (one a pixel, from the lowest to the highest point there) straight
+# from the levels SSQEAudio works out on its thread when the song loads, one
+# level for each zoom. Each frame only says where the song is and how far it's
+# zoomed: nothing is built while you play, scroll or zoom. (Building the bars,
+# as lines and then as pictures of each piece as it scrolled into view, is
+# what made the editor stutter.)
+const WAVE_SHADER = preload("res://scripts/editor/ssqe/waveform.shader")
 
-func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms: float, H: float):
-	var offset: float = ed.music_offset() - 15.0
-	var step_ms: float = wave.res * 1000.0
-	var first := int(max(0, floor((min_ms - offset) / step_ms) - 1))
-	var last := int(min(wave.count - 1, ceil((max_ms - offset) / step_ms) + 1))
-	if last <= first:
+class WaveLayer extends Control:
+	var _white: ImageTexture
+	func _ready():
+		var img := Image.new()
+		img.create(1, 1, false, Image.FORMAT_RGBA8)
+		img.fill(Color(1, 1, 1, 1))
+		_white = ImageTexture.new()
+		_white.create_from_image(img, 0)
+		connect("resized", self, "update")
+	func _draw():
+		draw_texture_rect(_white, Rect2(Vector2.ZERO, rect_size), false)
+
+var _wave: WaveLayer
+var _wave_tex: ImageTexture = null
+var _wave_tex_id := -1
+
+func _sync_wave(wave, base_x: float, ms_to_px: float, W: float, H: float):
+	if _wave == null:
 		return
-	var classic: bool = ed.s.classicWaveform
-	# one bar a pixel, from the zoom alone: worked out from what's on screen it
-	# could flip between two values while playing, and every flip made the whole
-	# song's waveform again (frames of 100+ ms). Anything finer than a pixel
-	# cannot be seen on screen.
-	var stride := 1
-	while step_ms * ms_to_px * stride < 1.0:
-		stride *= 2
-	var key := "%f|%f|%f|%d|%s|%d" % [step_ms, ms_to_px, H, stride, str(classic), wave.count]
-	if key != _wave_key:
-		_wave_key = key
-		_wave_cache = {}
-		# a white block the bars are copied from (as wide as one bar, as tall as the track)
-		_wave_solid = Image.new()
-		_wave_solid.create(int(ceil(step_ms * ms_to_px * stride)) + 2, int(ceil(H)) + 2, false, Image.FORMAT_LA8)
-		_wave_solid.fill(Color(1, 1, 1, 1))
-	# only the pieces on screen are made (and kept while the zoom stays)
-	var span := WAVE_CHUNK * stride
-	draw_set_transform(Vector2(base_x + offset * ms_to_px, 0), 0, Vector2.ONE)
-	var c := col(2)
-	var first_ci := int(first / span)
-	var last_ci := int(last / span)
-	for ci in range(first_ci, last_ci + 1):
-		var piece = _wave_cache.get(ci)
-		if piece == null:
-			var pts := _wave_piece(wave, ci * span, span, stride, step_ms * ms_to_px, H, classic)
-			piece = _wave_picture(pts, H, classic)
-			_wave_cache[ci] = piece
-		if piece.size() == 2 and piece[0] != null:
-			draw_texture(piece[0], Vector2(piece[1], 0), c)
-	# pieces far from the screen go (a long song played through would keep them all)
-	if _wave_cache.size() > WAVE_KEEP:
-		for k in _wave_cache.keys():
-			if k < first_ci - 4 or k > last_ci + 4:
-				_wave_cache.erase(k)
-	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
-
-# a piece's bars (or classic peak line) drawn into a picture, white on
-# see-through (tinted when drawn): [ImageTexture, its left edge]. The bars are
-# copied from _wave_solid, which the engine does natively.
-func _wave_picture(pts: PoolVector2Array, H: float, classic: bool) -> Array:
-	var n := pts.size()
-	if n < 2 or _wave_solid == null:
-		return [null, 0.0]
-	var x0: float = floor(pts[0].x)
-	var w: int = int(ceil(pts[n - 1].x - x0)) + 2
-	var h: int = int(ceil(H)) + 1
-	var img := Image.new()
-	img.create(max(1, w), max(1, h), false, Image.FORMAT_LA8) # (starts see-through)
-	var sh: int = _wave_solid.get_height()
-	if classic:
-		# the peak line: each step down/up as a 1 px column, then along to the next point
-		for k in range(n - 1):
-			var a: Vector2 = pts[k]
-			var b: Vector2 = pts[k + 1]
-			var x := int(a.x - x0)
-			var y0: int = int(clamp(min(a.y, b.y), 0, h - 1))
-			var y1: int = int(clamp(ceil(max(a.y, b.y)), 0, h - 1))
-			img.blit_rect(_wave_solid, Rect2(0, 0, 1, min(y1 - y0 + 1, sh)), Vector2(x, y0))
-			var run: int = int(b.x - x0) - x
-			if run > 1:
-				img.blit_rect(_wave_solid, Rect2(0, 0, min(run, _wave_solid.get_width()), 1), Vector2(x, int(clamp(b.y, 0, h - 1))))
-	else:
-		# upright 1 px bars from the lowest to the highest point
-		for k in range(n / 2):
-			var lo: Vector2 = pts[2 * k]
-			var hi: Vector2 = pts[2 * k + 1]
-			var y0: int = int(clamp(min(lo.y, hi.y), 0, h - 1))
-			var y1: int = int(clamp(ceil(max(lo.y, hi.y)), 0, h - 1))
-			img.blit_rect(_wave_solid, Rect2(0, 0, 1, min(y1 - y0 + 1, sh)), Vector2(int(lo.x - x0), y0))
-	var tex := ImageTexture.new()
-	tex.create_from_image(img, 0) # (no filtering: crisp 1 px bars)
-	return [tex, x0]
-
-# one piece of the waveform: samples start .. start + span (plus the next
-# piece's first one, so the bars join up), a bar every stride-th. Each bar
-# reaches the lowest and highest point of the samples it covers, so skipping
-# samples doesn't flatten the loud parts; in classic mode it's the one peak
-# line the original SSQE draws instead.
-static func _wave_piece(wave, start: int, span: int, stride: int, px_per_sample: float, H: float, classic: bool) -> PoolVector2Array:
-	var left: PoolRealArray = wave.left
-	var right: PoolRealArray = wave.right
-	var n: int = wave.count
-	var end: int = min(n - 1, start + span)
-	if end < start:
-		return PoolVector2Array()
-	# the room is taken in one go and filled in by index: growing the array a
-	# point at a time was most of the rebuild, and the rebuild is what made
-	# zooming stutter
-	var bars: int = (end - start) / stride + 1
-	var pts := PoolVector2Array()
-	pts.resize(bars if classic else bars * 2)
-	var half: float = H / 2
-	var scan: int = max(1, stride / WAVE_SCAN)
-	var i := start
-	var k := 0
-	for _b in range(bars):
-		var x: float = i * px_per_sample
-		# the samples this bar covers, up to and including the next bar's first
-		# one so neighbours meet; only every scan-th of them is looked at
-		var last_j: int = min(n - 1, i + stride)
-		var lo := 1.0
-		var hi := -1.0
-		var j := i
-		while true:
-			var l: float = left[j]
-			var r: float = right[j]
-			if l < lo: lo = l
-			if r < lo: lo = r
-			if l > hi: hi = l
-			if r > hi: hi = r
-			if j >= last_j:
-				break
-			j = min(last_j, j + scan)
-		if classic:
-			var peak: float = max(abs(lo), abs(hi))
-			pts[k] = Vector2(x, (2.0 - peak * 2.0) * half)
-			k += 1
-		else:
-			pts[k] = Vector2(x, (lo + 1.0) * half)
-			pts[k + 1] = Vector2(x, (hi + 1.0) * half)
-			k += 2
-		i += stride
-	return pts
+	if _wave.rect_size != Vector2(W, H) or _wave.rect_position != Vector2.ZERO:
+		_wave.rect_position = Vector2.ZERO
+		_wave.rect_size = Vector2(W, H)
+	var m: ShaderMaterial = _wave.material
+	m.set_shader_param("bg", Color8(39, 39, 39, int(ed.s.trackOpacity)))
+	m.set_shader_param("width", W)
+	m.set_shader_param("height", H)
+	if not (wave is Dictionary) or not wave.has("levels"):
+		m.set_shader_param("on", 0.0)
+		return
+	# the levels, as a picture, once for each waveform (a new song or detail)
+	if _wave_tex_id != wave.level_id:
+		_wave_tex_id = wave.level_id
+		var img := Image.new()
+		img.create_from_data(SSQEAudio.LEVEL_W, int(wave.level_rows), false, Image.FORMAT_LA8, wave.level_data)
+		_wave_tex = ImageTexture.new()
+		_wave_tex.create_from_image(img, 0) # (no filtering: each texel is a bar)
+		m.set_shader_param("data", _wave_tex)
+		m.set_shader_param("tex_w", float(SSQEAudio.LEVEL_W))
+		m.set_shader_param("tex_h", float(wave.level_rows))
+	# one bar a pixel at most: the level for this zoom
+	var step_ms: float = wave.res * 1000.0
+	var levels: Array = wave.levels
+	var li := 0
+	while step_ms * ms_to_px * pow(2, li) < 1.0 and li < levels.size() - 1:
+		li += 1
+	var offset: float = ed.music_offset() - 15.0
+	m.set_shader_param("on", 1.0)
+	m.set_shader_param("row0", float(levels[li][0]))
+	m.set_shader_param("count", float(levels[li][1]))
+	m.set_shader_param("origin", base_x + offset * ms_to_px)
+	m.set_shader_param("step", step_ms * ms_to_px * pow(2, li))
+	m.set_shader_param("classic", 1.0 if ed.s.classicWaveform else 0.0)
+	m.set_shader_param("tint", col(2))

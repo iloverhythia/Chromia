@@ -256,7 +256,29 @@ func remake_waveform():
 	var d := _wave_detail()
 	if waveform is Dictionary and abs(float(waveform.res) - 1.0 / d / 100.0) < 0.0000001:
 		return
+	if OS.can_use_threads():
+		# (in the background, like the first one: the editor keeps going)
+		if _remake_thread and _remake_thread.is_active():
+			_remake_thread.wait_to_finish()
+		_remake_thread = Thread.new()
+		_remake_thread.start(self, "_remake_job", [_wave_raw, _rate, d, _token], Thread.PRIORITY_LOW)
+		return
 	waveform = _make_waveform(_wave_raw)
+	if page:
+		page.on_waveform(waveform)
+
+var _remake_thread: Thread = null
+
+func _remake_job(args: Array):
+	call_deferred("_remade", _make_waveform_at(args[0], args[1], args[2]), int(args[3]))
+
+func _remade(wave, token: int):
+	if _remake_thread:
+		_remake_thread.wait_to_finish()
+		_remake_thread = null
+	if token != _token:
+		return
+	waveform = wave
 	if page:
 		page.on_waveform(waveform)
 
@@ -290,7 +312,77 @@ static func _make_waveform_at(raw: PoolVector2Array, rate: float, detail: float)
 		for i in range(count):
 			left[i] = left[i] / peak
 			right[i] = right[i] / peak
-	return {"res": res, "left": left, "right": right, "count": count}
+	var wave := {"res": res, "left": left, "right": right, "count": count}
+	_add_levels(wave)
+	return wave
+
+# For the track's waveform shader (SSQETrack.gd, waveform.shader): the lowest
+# and highest point of each sample and the next one (so neighbouring bars
+# meet), then every other one of those, and so on: one level for each zoom (a
+# level a bar a pixel). Each level starts on a new row of a LEVEL_W-wide
+# picture, L = lowest and A = highest (0..255 for -1..1). Made here, with the
+# waveform, on the analysis thread: drawing then costs nothing while you play
+# or zoom (building pictures of the waveform as it scrolled into view stalled
+# the editor).
+const LEVEL_W := 2048
+
+static func _q(v: float) -> int:
+	return int(clamp((v + 1.0) * 127.5 + 0.5, 0.0, 255.0))
+
+static func _add_levels(wave: Dictionary):
+	var left: PoolRealArray = wave.left
+	var right: PoolRealArray = wave.right
+	var count: int = wave.count
+	if count <= 0:
+		return
+	var lo := PoolRealArray()
+	var hi := PoolRealArray()
+	lo.resize(count)
+	hi.resize(count)
+	for i in range(count):
+		var j: int = i + 1 if i + 1 < count else i
+		var a: float = left[i]
+		var b: float = right[i]
+		var c: float = left[j]
+		var d: float = right[j]
+		lo[i] = min(min(a, b), min(c, d))
+		hi[i] = max(max(a, b), max(c, d))
+	var levels := []
+	var rows := 0
+	var n := count
+	var all := []
+	while true:
+		levels.append([rows, n])
+		all.append([lo, hi])
+		rows += int(ceil(float(n) / LEVEL_W))
+		if n <= 1 or levels.size() >= 24:
+			break
+		var m: int = (n + 1) / 2
+		var lo2 := PoolRealArray()
+		var hi2 := PoolRealArray()
+		lo2.resize(m)
+		hi2.resize(m)
+		for k in range(m):
+			# (every other bar of the level below, as the waveform always looked
+			# zoomed out: the full range of each pixel made one solid band)
+			lo2[k] = lo[2 * k]
+			hi2[k] = hi[2 * k]
+		lo = lo2
+		hi = hi2
+		n = m
+	var data := PoolByteArray()
+	data.resize(rows * LEVEL_W * 2)
+	for li in range(levels.size()):
+		var at: int = int(levels[li][0]) * LEVEL_W * 2
+		var llo: PoolRealArray = all[li][0]
+		var lhi: PoolRealArray = all[li][1]
+		for e in range(int(levels[li][1])):
+			data[at + 2 * e] = _q(llo[e])
+			data[at + 2 * e + 1] = _q(lhi[e])
+	wave["level_data"] = data
+	wave["level_rows"] = rows
+	wave["levels"] = levels
+	wave["level_id"] = randi()
 
 # ------------------------------------------------------------------ the drums, in 10 ms frames
 
@@ -912,3 +1004,6 @@ func _exit_tree():
 	if _thread:
 		_thread.wait_to_finish()
 		_thread = null
+	if _remake_thread:
+		_remake_thread.wait_to_finish()
+		_remake_thread = null
