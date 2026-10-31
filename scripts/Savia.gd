@@ -4684,6 +4684,13 @@ func register_colorsets():
 		[Color("#008cff"), Color("#ed3434"), Color("#10bd0d"), Color("#ffb300")],
 		"ssp_wii", "Wii Players", "balt"
 	))
+	registry_colorset.add_item(ColorSet.new(
+		[
+			Color("#d6fffa"), Color("#d1fffd"), Color("#ccf5ff"), Color("#bde9ff"),
+			Color("#b4defd"), Color("#b8d8fe"), Color("#c3d1fe"),
+		],
+		"ssp_seaside", "Seaside", ""
+	))
 
 func register_worlds():
 
