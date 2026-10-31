@@ -78,13 +78,13 @@ func _font(data, size: int) -> DynamicFont:
 
 func _ready():
 	theme = UI_THEME
-	_f_name = _font(FONT_BOLD, 17)
-	_f_small = _font(FONT_REGULAR, 14)
-	_f_rank = _font(FONT_BLACK, 13)
-	_f_grade = _font(FONT_BLACK, 28)
+	_f_name = _font(FONT_BOLD, 19)
+	_f_small = _font(FONT_REGULAR, 15)
+	_f_rank = _font(FONT_BLACK, 15)
+	_f_grade = _font(FONT_BLACK, 32)
 	_f_tab = _font(FONT_BOLD, 15)
-	_f_avatar = _font(FONT_BLACK, 15)
-	_f_acc = _font(FONT_BOLD, 14)
+	_f_avatar = _font(FONT_BLACK, 19)
+	_f_acc = _font(FONT_BOLD, 15)
 
 	size_flags_horizontal = SIZE_EXPAND_FILL
 	size_flags_vertical = SIZE_EXPAND_FILL
@@ -333,11 +333,14 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 		sb.bg_color = sb.bg_color.linear_interpolate(rank_col, 0.12)
 		sb.border_color = rank_col
 		sb.border_width_left = 3
-	sb.set_corner_radius_all(8)
-	sb.content_margin_left = 7
-	sb.content_margin_right = 7
-	sb.content_margin_top = 7
-	sb.content_margin_bottom = 7
+	else:
+		sb.border_color = Color(1, 1, 1, 0.07)
+		sb.border_width_left = 3
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 10
+	sb.content_margin_top = 9
+	sb.content_margin_bottom = 9
 	panel.add_stylebox_override("panel", sb)
 	# hover: a little lighter, and a click watches the replay
 	var sbh: StyleBoxFlat = sb.duplicate()
@@ -350,22 +353,12 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	var h := HBoxContainer.new()
-	h.add_constant_override("separation", 6)
+	h.add_constant_override("separation", 9)
 	h.mouse_filter = MOUSE_FILTER_IGNORE
 	panel.add_child(h)
 
-	# left: the rank above the avatar
-	var left := VBoxContainer.new()
-	left.mouse_filter = MOUSE_FILTER_IGNORE
-	left.add_constant_override("separation", 0)
-	left.size_flags_vertical = SIZE_SHRINK_CENTER
-	h.add_child(left)
-	var rl := _label("#%d" % rank, _f_rank, rank_col)
-	rl.align = Label.ALIGN_CENTER
-	left.add_child(rl)
-
-	# Avatar: their Discord picture (saved with the attempt; yours for older
-	# attempts with your name), else their initial in a round badge.
+	# Avatar: their picture (Discord, or their Chromia profile picture), else
+	# their initial in a round badge. The top three get a ring in their colour.
 	var nm := Globals.s(e.get("nm", "You"))
 	var av := Panel.new()
 	av.rect_min_size = Vector2(AVATAR, AVATAR)
@@ -374,6 +367,10 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	var avs := StyleBoxFlat.new()
 	avs.bg_color = C_LILAC
 	avs.set_corner_radius_all(AVATAR / 2)
+	avs.anti_aliasing = true
+	if top:
+		avs.border_color = rank_col
+		avs.set_border_width_all(2)
 	av.add_stylebox_override("panel", avs)
 	var ini := _label(nm.substr(0, 1).to_upper() if nm != "" else "?", _f_avatar, Color(0.12, 0.08, 0.16))
 	ini.align = Label.ALIGN_CENTER
@@ -385,16 +382,43 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	pic.mouse_filter = MOUSE_FILTER_IGNORE
 	pic.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	var inset := 3 if top else 0 # (inside the ring)
+	pic.margin_left = inset
+	pic.margin_top = inset
+	pic.margin_right = -inset
+	pic.margin_bottom = -inset
 	pic.visible = false
 	av.add_child(pic)
 	var url := _avatar_url_for(e, nm)
-	if url != "":
+	if url == "?me":
+		_me_pics.append(pic)
+		_ask_my_avatar()
+	elif url != "":
 		_show_avatar(url, pic)
-	left.add_child(av)
+	# the rank: a small tag across the bottom of the avatar (beside it, it
+	# took the room the name needs)
+	var tag := PanelContainer.new()
+	tag.mouse_filter = MOUSE_FILTER_IGNORE
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Color(0.07, 0.05, 0.09, 0.95)
+	ts.border_color = rank_col if top else Color(1, 1, 1, 0.18)
+	ts.set_border_width_all(1)
+	ts.set_corner_radius_all(3)
+	ts.content_margin_left = 3
+	ts.content_margin_right = 3
+	ts.content_margin_top = 0
+	ts.content_margin_bottom = 0
+	tag.add_stylebox_override("panel", ts)
+	tag.add_child(_label("#%d" % rank, _f_rank, rank_col if top else C_TEXT))
+	av.add_child(tag)
+	var tw: float = _f_rank.get_string_size("#%d" % rank).x + 8
+	tag.rect_position = Vector2((AVATAR - tw) / 2, AVATAR - 10)
+	h.add_child(av)
 
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
-	v.add_constant_override("separation", -2)
+	v.size_flags_vertical = SIZE_SHRINK_CENTER
+	v.add_constant_override("separation", 0)
 	v.mouse_filter = MOUSE_FILTER_IGNORE
 	h.add_child(v)
 
@@ -464,19 +488,88 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	return panel
 
 # --- avatars ----------------------------------------------------------------------
-const AVATAR = 30
+const AVATAR = 42
 const AVATAR_CACHE_META = "score_history_avatars" # url -> texture (for the whole session)
+const SITE = "https://savia.nysr.host"
 var _avatar_waiting := {} # url -> [TextureRect]
+# your own picture on the Chromia website (asked for once a session, for
+# players without Discord: their attempts only had their first letter)
+var _me_pics: Array = [] # TextureRects waiting for it
+var _me_asked := false
+
+static func _abs_url(url: String) -> String:
+	return SITE + url if url.begins_with("/") else url
+
+func _is_me(nm: String) -> bool:
+	var n := nm.strip_edges().to_lower()
+	if n == "" or n == "you":
+		return true
+	for k in [ScoreHistory.player_name(), Rhythia.website_name]:
+		if String(k).strip_edges().to_lower() == n:
+			return true
+	var du = Rhythia.discord_user
+	if typeof(du) == TYPE_DICTIONARY:
+		for k in ["display_name", "username"]:
+			if String(du.get(k, "")).strip_edges().to_lower() == n:
+				return true
+	var lm = get_node_or_null("/root/LobbyManager")
+	return lm != null and String(lm.player_name).strip_edges().to_lower() == n
 
 func _avatar_url_for(e: Dictionary, nm: String) -> String:
 	var url := Globals.s(e.get("av", ""))
 	if url != "":
-		return url
+		return _abs_url(url)
+	var me := _is_me(nm)
 	var du = Rhythia.discord_user
-	if typeof(du) == TYPE_DICTIONARY and String(du.get("avatar_url", "")) != "":
-		if nm == ScoreHistory.player_name() or nm == String(du.get("display_name", "")) or nm == String(du.get("username", "")):
-			return String(du.get("avatar_url", ""))
-	return ""
+	if me and typeof(du) == TYPE_DICTIONARY and String(du.get("avatar_url", "")) != "":
+		return String(du.get("avatar_url", ""))
+	if me and Engine.has_meta("ss_my_site_avatar"):
+		return String(Engine.get_meta("ss_my_site_avatar"))
+	# someone online right now with that name (the server sends their picture)
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null:
+		var n := nm.strip_edges().to_lower()
+		for p in lm.online_players:
+			if p is Dictionary and Globals.s(p.get("name", "")).strip_edges().to_lower() == n:
+				var u := _abs_url(Globals.s(p.get("avatar_url", "")))
+				if u != "":
+					return u
+				if int(p.get("number", -1)) == int(lm.my_player_number):
+					me = true
+	return "?me" if me else ""
+
+# your picture from your Chromia profile (the one the website shows)
+func _ask_my_avatar():
+	if _me_asked:
+		return
+	_me_asked = true
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm == null or int(lm.my_player_number) <= 0:
+		_me_asked = false # (not online yet: asked again next time the list is built)
+		return
+	var r := HTTPRequest.new()
+	r.timeout = 15
+	add_child(r)
+	r.connect("request_completed", self, "_on_my_profile", [r])
+	if r.request(SITE + "/savia-public/api/player/%d" % int(lm.my_player_number)) != OK:
+		r.queue_free()
+
+func _on_my_profile(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest):
+	r.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		return
+	var p := JSON.parse(body.get_string_from_utf8())
+	if p.error != OK or not (p.result is Dictionary):
+		return
+	var url := _abs_url(Globals.s(p.result.get("avatar_url", "")))
+	if url == "":
+		return
+	Engine.set_meta("ss_my_site_avatar", url)
+	var pics := _me_pics
+	_me_pics = []
+	for pic in pics:
+		if is_instance_valid(pic):
+			_show_avatar(url, pic)
 
 static func _small_png(url: String) -> String:
 	if url.find("cdn.discordapp.com") == -1 and url.find("media.discordapp.net") == -1:
@@ -484,7 +577,7 @@ static func _small_png(url: String) -> String:
 	var base := url.split("?")[0]
 	if base.get_extension().to_lower() in ["gif", "webp", "jpg", "jpeg", "png"]:
 		base = base.get_basename() + ".png"
-	return base + "?size=64"
+	return base + "?size=128"
 
 func _show_avatar(url: String, pic: TextureRect):
 	var cache: Dictionary = Engine.get_meta(AVATAR_CACHE_META) if Engine.has_meta(AVATAR_CACHE_META) else {}
@@ -516,7 +609,7 @@ func _on_avatar(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRe
 		err = img.load_jpg_from_buffer(body)
 	if err != OK or img.is_empty():
 		return
-	img.resize(64, 64, Image.INTERPOLATE_BILINEAR)
+	img.resize(96, 96, Image.INTERPOLATE_CUBIC)
 	img.convert(Image.FORMAT_RGBA8)
 	load("res://scripts/ui/menu/ProfilePage.gd")._round_mask(img)
 	var tex := ImageTexture.new()
