@@ -19,10 +19,28 @@ render_mode blend_add;
 uniform float use_tint = 0.0;
 uniform float intensity = 1.0;
 uniform vec4 tint : hint_color = vec4(1.0);
+// the wide haze, worked out per pixel so it's perfectly round (the engine's
+// widest glow levels are blurred at a very low resolution and come out square)
+uniform vec2 center = vec2(0.5);      // the cursor, 0..1 across the screen
+uniform float aspect = 1.0;           // screen width / height
+uniform float radius = 0.05;          // in screen heights
+uniform vec3 haze_col = vec3(1.0);
+uniform float haze = 0.0;             // 0 = none (cursor hidden)
 void fragment() {
 	vec3 c = texture(TEXTURE, UV).rgb;
+	vec2 d = UV - center;
+	d.x *= aspect;
+	float r2 = dot(d, d) / (radius * radius);
+	// soft layers, each twice as wide and fainter: a bright middle with a
+	// long, slow falloff
+	float h = 0.40 * exp(-r2) + 0.25 * exp(-r2 / 4.0) + 0.15 * exp(-r2 / 16.0)
+		+ 0.08 * exp(-r2 / 64.0) + 0.04 * exp(-r2 / 256.0);
+	c += haze_col * h * haze;
 	vec3 tinted = tint.rgb * max(c.r, max(c.g, c.b));
-	COLOR = vec4(mix(c, tinted, use_tint) * intensity, 1.0);
+	vec3 rgb = mix(c, tinted, use_tint) * intensity;
+	// a little noise so the dark end of the fade doesn't show steps
+	float n = fract(sin(dot(FRAGCOORD.xy, vec2(12.9898, 78.233))) * 43758.5453);
+	COLOR = vec4(max(rgb + (n - 0.5) / 255.0, vec3(0.0)), 1.0);
 }
 """
 
@@ -131,16 +149,32 @@ func _update(delta: float):
 	_cam.h_offset = main_cam.h_offset
 	_cam.v_offset = main_cam.v_offset
 
-	# Size: how far the soft haze reaches. Every glow level is a wider blur;
-	# adding them up gives a bright core with a long, slow falloff. Size 1
-	# uses levels 1-3, 3 (default) 1-5, 5 and up all 7.
-	# Strength: how bright, scaled evenly (0.01 steps)
-	var size: float = clamp(float(Rhythia.get("cursor_glow_size")), 1.0, 10.0)
-	var levels: int = int(clamp(round(2.0 + size), 3, 7))
-	if levels != _levels:
-		_levels = levels
+	# The engine's glow: only its tight levels (1-3), the halo that follows the
+	# cursor's (and trail's) shape. The wide haze is the shader's, round.
+	if _levels != 3:
+		_levels = 3
 		for i in range(1, 8):
-			_env.set("glow_levels/%d" % i, i <= levels)
+			_env.set("glow_levels/%d" % i, i <= 3)
+	# Size: how far the haze reaches (compared to the cursor on screen)
+	var size: float = clamp(float(Rhythia.get("cursor_glow_size")), 1.0, 10.0)
+	var mesh: Spatial = _cursor.get_node_or_null("Mesh")
+	var at: Vector3 = mesh.global_transform.origin if mesh != null else _cursor.global_transform.origin
+	var shown: bool = _cursor.is_visible_in_tree() and not main_cam.is_position_behind(at)
+	var px: Vector2 = main_cam.unproject_position(at)
+	# the cursor's size on screen: its plane (0.263 wide) at its scale
+	var side: Vector3 = main_cam.global_transform.basis.x.normalized() * 0.263 * 0.5 * float(Rhythia.cursor_scale)
+	var cursor_px: float = (main_cam.unproject_position(at + side) - px).length()
+	var h: float = max(1.0, full.y)
+	_mat.set_shader_param("center", px / full)
+	_mat.set_shader_param("aspect", full.x / h)
+	_mat.set_shader_param("radius", max(2.0, cursor_px * (0.35 + size * 0.25) * (1.0 + 0.3 * _pulse)) / h)
+	var col := Color(1, 1, 1)
+	var m = mesh.get("material/0") if mesh is MeshInstance else null
+	if m is SpatialMaterial:
+		col = m.albedo_color
+	_mat.set_shader_param("haze_col", Vector3(col.r, col.g, col.b))
+	_mat.set_shader_param("haze", 1.0 if shown else 0.0)
+	# Strength: how bright, scaled evenly (0.01 steps)
 	var strength: float = max(0.0, float(Rhythia.get("cursor_glow_strength")))
 	_mat.set_shader_param("intensity", strength * 0.25 * (1.0 + 0.8 * _pulse))
 	_mat.set_shader_param("use_tint", 1.0 if Rhythia.get("cursor_glow_custom_color") else 0.0)
