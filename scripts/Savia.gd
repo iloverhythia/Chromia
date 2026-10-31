@@ -2810,6 +2810,9 @@ var mute_global_chat: bool = false
 # Settings > Online: others can watch you from their Spectate tab (the server
 # refuses anyone when this is off; LobbyManager sends it with your presence)
 var allow_spectators: bool = true
+# Settings > Online > Share My Maps With Spectators: off, a spectator without
+# the map isn't sent it (unreleased maps); they can still watch on maps they have
+var share_maps_with_spectators: bool = true
 # Spectate window: the players you hearted (player numbers), for its favorites filter
 var spectate_favorites: Array = []
 # Settings > Online > Chat Notifications: new global chat messages show next to the eye
@@ -3636,6 +3639,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mute_global_chat = data.mute_global_chat
 		if data.has("allow_spectators"):
 			allow_spectators = bool(data.allow_spectators)
+		if data.has("share_maps_with_spectators"):
+			share_maps_with_spectators = bool(data.share_maps_with_spectators)
 		if data.has("spectate_chat_notify"):
 			spectate_chat_notify = bool(data.spectate_chat_notify)
 		if data.has("spectate_favorites") and data.spectate_favorites is Array:
@@ -4397,6 +4402,7 @@ func _write_settings_file(saveFile: String):
 			lead_in_ms = lead_in_ms,
 			mute_global_chat = mute_global_chat,
 			allow_spectators = allow_spectators,
+			share_maps_with_spectators = share_maps_with_spectators,
 			spectate_favorites = spectate_favorites,
 			spectate_chat_notify = spectate_chat_notify,
 			mute_lobby_chat = mute_lobby_chat,

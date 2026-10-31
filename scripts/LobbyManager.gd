@@ -1415,7 +1415,11 @@ func _handle_message(msg: Dictionary):
 		"request_map_upload":
 			var upload_song_id = Globals.s(msg.get("song_id", ""))
 			print("[furria] received request_map_upload for ", upload_song_id)
-			if upload_song_id != "":
+			if upload_song_id != "" and bool(msg.get("watch", false)) and not bool(Rhythia.get("share_maps_with_spectators")):
+				# someone watching from the Spectate tab doesn't have the map:
+				# not sent (Settings > Online > Share My Maps With Spectators)
+				_send({"type": "decline_map_upload", "song_id": upload_song_id})
+			elif upload_song_id != "":
 				_start_map_upload(upload_song_id)
 		"map_download_start":
 			_map_download_song_id = Globals.s(msg.get("song_id", ""))

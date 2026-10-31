@@ -16,3 +16,4 @@ in scripts/Savia.gd and empties this list.
 - Map editor: a SETTINGS button on the editor's start screen opens the editor settings without opening a map first, and long mapper names no longer push your map list under the buttons
 - Settings: all the Sound Space settings moved to their own Sound Space section in the UI tab, with a new Sound Space HUD option: the side panels, time and health bar look like Sound Space's (pixel font, multiplier box, COMBO, misses and notes) while everything else stays yours. Spectators see it too
 - Settings > Fonts (new tab): pick the font of the HUD while you play (Lato, Roboto, Ubuntu Mono, two pixel fonts, Noto Sans JP) or use your own .ttf / .otf font. The people spectating you see your font too (needs the updated server)
+- Settings > Online > Share My Maps With Spectators: turn it off and people watching you aren't sent maps they don't have (unreleased maps stay yours)
