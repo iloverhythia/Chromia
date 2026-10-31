@@ -2841,7 +2841,7 @@ var edge_drift: float = 0
 var disable_intro: bool = false
 # Experimental: animated contour-line background in the menu.
 signal wave_menu_changed
-var wave_menu: bool = false setget _set_wave_menu
+var wave_menu: bool = true setget _set_wave_menu
 func _set_wave_menu(v: bool):
 	wave_menu = v
 	emit_signal("wave_menu_changed", v)
@@ -3748,10 +3748,17 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			Engine.target_fps = data.target_fps
 		if data.has("disable_intro"):
 			disable_intro = data.disable_intro
-		if data.has("wave_menu"):
+		# The Wave Menu became the default (oct31-2026): turned on once for
+		# everyone (its own colours, not the colorset's); after that it's
+		# whatever you pick
+		if data.has("wave_menu") and data.has("wave_menu_default_v1"):
 			self.wave_menu = bool(data.wave_menu)
-		if data.has("wave_menu_colorset"):
+		else:
+			self.wave_menu = true
+		if data.has("wave_menu_colorset") and data.has("wave_menu_default_v1"):
 			self.wave_menu_colorset = bool(data.wave_menu_colorset)
+		else:
+			self.wave_menu_colorset = false
 		if data.has("ignore_controller_detection"):
 			ignore_controller_detection = data.ignore_controller_detection
 		if data.has("expand_hud_onhr"):
@@ -4361,6 +4368,7 @@ func _write_settings_file(saveFile: String):
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
 			wave_menu_colorset = wave_menu_colorset,
+			wave_menu_default_v1 = true, # (the Wave Menu default was applied: your choice from now on)
 			ignore_controller_detection = ignore_controller_detection,
 			expand_hud_onhr = expand_hud_onhr,
 			last_search_incl_online = last_search_incl_online,

@@ -143,6 +143,10 @@ func _process(_delta):
 	if _announcement_fade_timer > 0:
 		_announcement_fade_timer -= _delta
 		_announcement_bar.modulate.a = clamp(_announcement_fade_timer, 0.0, 1.0)
+		# slides down from above the screen (eased) when it appears
+		_announcement_slide = min(1.0, _announcement_slide + _delta / 0.35)
+		var ease_t: float = 1.0 - pow(1.0 - _announcement_slide, 3)
+		_announcement_bar.margin_top = lerp(-90.0, 18.0, ease_t)
 		if _announcement_fade_timer <= 0:
 			_announcement_canvas.visible = false
 
@@ -150,6 +154,21 @@ func _process(_delta):
 		_show_announcement_banner(_pending_announcement.text, _pending_announcement.from_name)
 		_pending_announcement = {}
 	_was_in_map = Rhythia.in_map
+
+# The announcement banner: a dark card at the top in the Spectate window's
+# look (its colours, and its Lato Black title font for the message), with who
+# sent it in small accent letters. It slides down, stays, then fades.
+const ANNOUNCE_ACCENT := Color(1, 0.756863, 0.960784)
+var _announcement_from: Label = null
+var _announcement_slide: float = 1.0
+
+static func _announce_font(path: String, size: int) -> DynamicFont:
+	var f := DynamicFont.new()
+	f.font_data = load(path)
+	f.size = size
+	f.use_filter = true
+	f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf"))
+	return f
 
 func _build_announcement_banner():
 	_announcement_canvas = CanvasLayer.new()
@@ -160,31 +179,54 @@ func _build_announcement_banner():
 
 	_announcement_bar = PanelContainer.new()
 	_announcement_bar.pause_mode = PAUSE_MODE_PROCESS
-	_announcement_bar.anchor_right = 1.0
+	_announcement_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_announcement_bar.anchor_left = 0.5
+	_announcement_bar.anchor_right = 0.5
+	_announcement_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	var style = StyleBoxFlat.new()
-	style.bg_color = Color("#00b8ff")
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 10
-	style.content_margin_bottom = 10
+	style.bg_color = Color(0.075, 0.068, 0.1, 0.96)
+	style.border_color = Color(ANNOUNCE_ACCENT.r, ANNOUNCE_ACCENT.g, ANNOUNCE_ACCENT.b, 0.45)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.shadow_color = Color(0, 0, 0, 0.45)
+	style.shadow_size = 12
+	style.content_margin_left = 22
+	style.content_margin_right = 22
+	style.content_margin_top = 12
+	style.content_margin_bottom = 14
 	_announcement_bar.add_stylebox_override("panel", style)
 	_announcement_canvas.add_child(_announcement_bar)
 
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_constant_override("separation", 4)
+	_announcement_bar.add_child(v)
+	_announcement_from = Label.new()
+	_announcement_from.align = Label.ALIGN_CENTER
+	_announcement_from.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 13))
+	_announcement_from.add_color_override("font_color", ANNOUNCE_ACCENT)
+	v.add_child(_announcement_from)
 	_announcement_label = Label.new()
 	_announcement_label.align = Label.ALIGN_CENTER
 	_announcement_label.autowrap = true
-	_announcement_label.add_color_override("font_color", Color.white)
-	_announcement_label.add_color_override("font_color_shadow", Color(0, 0, 0, 0.6))
-	_announcement_label.add_constant_override("shadow_offset_x", 1)
-	_announcement_label.add_constant_override("shadow_offset_y", 1)
-	_announcement_bar.add_child(_announcement_label)
+	_announcement_label.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Black.ttf", 22))
+	_announcement_label.add_color_override("font_color", Color(0.898039, 0.94902, 1, 1))
+	v.add_child(_announcement_label)
 
 func _show_announcement_banner(text: String, from_name: String):
 	if not is_instance_valid(_announcement_canvas):
 		_build_announcement_banner()
-	_announcement_label.text = "%s: %s" % [from_name, text]
+	_announcement_from.text = ("ANNOUNCEMENT  ·  %s" % from_name.to_upper()) if from_name != "" else "ANNOUNCEMENT"
+	_announcement_label.text = text
+	# as wide as the message needs, at most most of the screen
+	var screen: Vector2 = get_viewport().get_visible_rect().size
+	var width: float = clamp(_announcement_label.get_font("font").get_string_size(text).x + 44.0, 320.0, min(820.0, screen.x - 40.0))
+	_announcement_bar.rect_min_size = Vector2(width, 0)
+	_announcement_bar.margin_left = -width / 2.0
+	_announcement_bar.margin_right = width / 2.0
 	_announcement_canvas.visible = true
 	_announcement_bar.modulate.a = 1.0
+	_announcement_slide = 0.0
 	_announcement_fade_timer = ANNOUNCEMENT_DISPLAY_SEC
 
 
