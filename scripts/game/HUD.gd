@@ -508,6 +508,11 @@ func enter_spectate_mode(peer_id: int):
 			lobby_manager.connect("player_settings_received", self, "_on_spectate_settings_received")
 	_create_ghost_cursor()
 	_create_spectate_banner()
+	if not Rhythia.vr and _spec_chat == null:
+		# global chat in the corner (Enter to type)
+		_spec_chat = load("res://scripts/game/SpectateChat.gd").new()
+		_spec_chat.setup(lobby_manager)
+		add_child(_spec_chat)
 	if not Rhythia.vr:
 		# the switch button and the scoreboard are clicked with the mouse
 		Input.set_custom_mouse_cursor(null)
@@ -600,6 +605,9 @@ func exit_spectate_mode():
 		_spectate_ui = null
 		_spectate_banner = null
 		_spectate_view_button = null
+	if _spec_chat != null:
+		_spec_chat.queue_free()
+		_spec_chat = null
 	if _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.visible = true
 		_real_cursor.set_process(true)
@@ -920,7 +928,7 @@ func toggle_spectate_view():
 	_check_view_settings()
 
 func _input(event):
-	if not spectating:
+	if not spectating or (_spec_chat != null and _spec_chat.typing()):
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_TAB:
 		toggle_spectate_view()
@@ -929,6 +937,7 @@ func _input(event):
 		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
 
 var _spectate_ui: Control = null
+var _spec_chat: CanvasLayer = null # SpectateChat.gd
 var _spectate_banner: Label = null
 var _spectate_view_button: Button = null
 
