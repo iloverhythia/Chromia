@@ -17,11 +17,12 @@ const ADD_SHADER := """
 shader_type canvas_item;
 render_mode blend_add;
 uniform float use_tint = 0.0;
+uniform float intensity = 1.0;
 uniform vec4 tint : hint_color = vec4(1.0);
 void fragment() {
 	vec3 c = texture(TEXTURE, UV).rgb;
 	vec3 tinted = tint.rgb * max(c.r, max(c.g, c.b));
-	COLOR = vec4(mix(c, tinted, use_tint), 1.0);
+	COLOR = vec4(mix(c, tinted, use_tint) * intensity, 1.0);
 }
 """
 
@@ -71,7 +72,9 @@ func _ready():
 	_env.glow_enabled = true
 	_env.glow_blend_mode = Environment.GLOW_BLEND_MODE_REPLACE
 	_env.glow_hdr_threshold = 0.0
-	_env.glow_hdr_scale = 2.0
+	_env.glow_hdr_scale = 1.0
+	_env.glow_intensity = 1.0
+	_env.glow_strength = 1.0
 	_env.glow_bloom = 0.0
 	_env.glow_high_quality = true
 	_env.glow_bicubic_upscale = true
@@ -128,16 +131,17 @@ func _update(delta: float):
 	_cam.h_offset = main_cam.h_offset
 	_cam.v_offset = main_cam.v_offset
 
-	# Size: how far it spreads (the glow's levels: 1-2 at the smallest,
-	# 1-7 at the largest), Strength: how bright
+	# Size: how far the soft haze reaches. Every glow level is a wider blur;
+	# adding them up gives a bright core with a long, slow falloff. Size 1
+	# uses levels 1-3, 3 (default) 1-5, 5 and up all 7.
+	# Strength: how bright, scaled evenly (0.01 steps)
 	var size: float = clamp(float(Rhythia.get("cursor_glow_size")), 1.0, 10.0)
-	var levels: int = int(clamp(round(1.0 + size * 0.6), 2, 7))
+	var levels: int = int(clamp(round(2.0 + size), 3, 7))
 	if levels != _levels:
 		_levels = levels
 		for i in range(1, 8):
 			_env.set("glow_levels/%d" % i, i <= levels)
-	_env.glow_strength = clamp(0.6 + size * 0.14, 0.6, 2.0) * (1.0 + 0.25 * _pulse)
 	var strength: float = max(0.0, float(Rhythia.get("cursor_glow_strength")))
-	_env.glow_intensity = clamp(strength * 1.5 * (1.0 + 0.8 * _pulse), 0.0, 8.0)
+	_mat.set_shader_param("intensity", strength * 0.25 * (1.0 + 0.8 * _pulse))
 	_mat.set_shader_param("use_tint", 1.0 if Rhythia.get("cursor_glow_custom_color") else 0.0)
 	_mat.set_shader_param("tint", Rhythia.get("cursor_glow_color"))

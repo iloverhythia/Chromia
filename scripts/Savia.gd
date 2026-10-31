@@ -2907,7 +2907,7 @@ var cursor_face_velocity: bool = false
 # Cursor Bloom: a glow behind the cursor only (scripts/game/CursorGlow.gd)
 var cursor_glow: bool = false
 var cursor_glow_size: float = 3.0
-var cursor_glow_strength: float = 0.8
+var cursor_glow_strength: float = 0.3
 var cursor_glow_pulse: bool = false
 var cursor_glow_trail: bool = true
 var cursor_glow_custom_color: bool = false
