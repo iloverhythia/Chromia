@@ -36,6 +36,7 @@ var font_regular: DynamicFont
 var font_bold: DynamicFont
 var font_title: DynamicFont
 var font_small: DynamicFont
+var font_tiny: DynamicFont
 var font_name: DynamicFont
 var font_rank: DynamicFont
 var font_initial: DynamicFont
@@ -51,6 +52,7 @@ var fav_filter: Button
 var info: Label
 var scroll: ScrollContainer
 var grid: GridContainer
+var grid_holder: CenterContainer
 var chat_panel: PanelContainer
 var chat: RichTextLabel
 var chat_input: LineEdit
@@ -119,6 +121,22 @@ func _style_button(b: Button, accent: bool = false):
 	b.add_stylebox_override("disabled", _pad(_flat(Color(0.09, 0.085, 0.11, 1), 8), 16, 6))
 	b.add_stylebox_override("focus", StyleBoxEmpty.new())
 
+# a thin lilac scrollbar instead of the theme's
+func _style_scroll(bar: ScrollBar):
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(1, 1, 1, 0.04)
+	track.set_corner_radius_all(4)
+	track.content_margin_left = 3
+	track.content_margin_right = 3
+	var grab := _flat(Color(LILAC.r, LILAC.g, LILAC.b, 0.45), 4)
+	var grab_hi := _flat(Color(LILAC.r, LILAC.g, LILAC.b, 0.75), 4)
+	bar.add_stylebox_override("scroll", track)
+	bar.add_stylebox_override("scroll_focus", track)
+	bar.add_stylebox_override("grabber", grab)
+	bar.add_stylebox_override("grabber_highlight", grab_hi)
+	bar.add_stylebox_override("grabber_pressed", grab_hi)
+	bar.rect_min_size.x = 8
+
 func _style_field(e: LineEdit):
 	e.add_font_override("font", font_regular)
 	e.add_color_override("font_color", TEXT)
@@ -174,7 +192,7 @@ class HeartIcon extends Control:
 			draw_polyline(pts, color, max(1.5, s / 11.0), true)
 
 # The eye button, drawn (smooth at any size): a dark glass circle with a
-# lilac ring and eye, a soft shadow, glowing while pointed at
+# lilac ring and eye and a soft shadow; the ring brightens while pointed at
 class EyeButton extends Control:
 	signal pressed
 	const RING = Color(0.764706, 0.65098, 0.8)
@@ -224,9 +242,9 @@ class EyeButton extends Control:
 		_bg.set_corner_radius_all(int(ceil(r)))
 		_bg.border_color = ring
 		_bg.set_border_width_all(int(max(2, round(s * 0.045))))
-		_bg.shadow_color = Color(ring.r, ring.g, ring.b, 0.35) if hover else Color(0, 0, 0, 0.5)
-		_bg.shadow_size = int(max(4, s * (0.22 if hover else 0.16)))
-		_bg.shadow_offset = Vector2(0, 0 if hover else s * 0.04)
+		_bg.shadow_color = Color(0, 0, 0, 0.5)
+		_bg.shadow_size = int(max(4, s * 0.16))
+		_bg.shadow_offset = Vector2(0, s * 0.04)
 		draw_style_box(_bg, Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0))
 		# the eye: an almond outline, iris, pupil and a glint
 		var w := r * 0.56
@@ -256,6 +274,7 @@ func _ready():
 	font_bold = _font("res://assets/font/Lato/Lato-Bold.ttf", 15)
 	font_title = _font("res://assets/font/Lato/Lato-Black.ttf", 20)
 	font_small = _font("res://assets/font/Lato/Lato-Bold.ttf", 13)
+	font_tiny = _font("res://assets/font/Lato/Lato-Bold.ttf", 11)
 	font_name = _font("res://assets/font/Lato/Lato-Black.ttf", 17)
 	font_rank = _font("res://assets/font/Lato/Lato-Black.ttf", 26)
 	font_initial = _font("res://assets/font/Lato/Lato-Black.ttf", 20)
@@ -379,12 +398,16 @@ func _build_window():
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	scroll.scroll_horizontal_enabled = false
 	pv.add_child(scroll)
+	# (the cards keep one size: centred in the space)
+	grid_holder = CenterContainer.new()
+	grid_holder.use_top_left = false
+	scroll.add_child(grid_holder)
 	grid = GridContainer.new()
-	grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	grid.add_constant_override("hseparation", 10)
 	grid.add_constant_override("vseparation", 10)
-	scroll.add_child(grid)
+	grid_holder.add_child(grid)
 	scroll.connect("resized", self, "_relayout")
+	_style_scroll(scroll.get_v_scrollbar())
 
 	# the global chat, a column on the right
 	chat_panel = PanelContainer.new()
@@ -401,6 +424,8 @@ func _build_window():
 	chat.add_font_override("normal_font", font_chat)
 	chat.add_font_override("bold_font", font_chat_bold)
 	chat.add_color_override("default_color", TEXT)
+	chat.add_constant_override("line_separation", 3)
+	_style_scroll(chat.get_v_scroll())
 	cv.add_child(chat)
 	chat_muted = _label("Global chat is muted (Settings > Online).", font_small, DIM)
 	chat_muted.autowrap = true
@@ -431,10 +456,11 @@ func _resize():
 	font_regular.size = int(16 * _k)
 	font_bold.size = int(16 * _k)
 	font_title.size = int(21 * _k)
-	font_small.size = int(14 * _k)
-	font_name.size = int(18 * _k)
-	font_rank.size = int(28 * _k)
-	font_initial.size = int(21 * _k)
+	font_small.size = int(13 * _k)
+	font_tiny.size = int(11 * _k)
+	font_name.size = int(16 * _k)
+	font_rank.size = int(22 * _k)
+	font_initial.size = int(18 * _k)
 	font_chat.size = int(16 * _k)
 	font_chat_bold.size = int(16 * _k)
 	# the eye: bottom right, clear of the edges
@@ -482,12 +508,46 @@ func _on_dim_input(ev):
 
 # ------------------------------------------------------------------ open / close
 
+# opening slides the window up into place and fades it in (the menu dims
+# behind it); closing does the same backwards, quicker
+const SLIDE_IN := 0.28
+const SLIDE_OUT := 0.16
+var _tween: Tween
+
+func _slide(opening: bool):
+	if _tween == null:
+		_tween = Tween.new()
+		add_child(_tween)
+	_tween.remove_all()
+	var home := window.rect_position
+	var away := home + Vector2(0, 46.0 * _k)
+	var dim = overlay.get_child(0)
+	if opening:
+		window.rect_position = away
+		window.modulate.a = 0.0
+		dim.modulate.a = 0.0
+		_tween.interpolate_property(window, "rect_position", away, home, SLIDE_IN, Tween.TRANS_CUBIC, Tween.EASE_OUT)
+		_tween.interpolate_property(window, "modulate:a", 0.0, 1.0, SLIDE_IN * 0.8, Tween.TRANS_SINE, Tween.EASE_OUT)
+		_tween.interpolate_property(dim, "modulate:a", 0.0, 1.0, SLIDE_IN, Tween.TRANS_SINE, Tween.EASE_OUT)
+	else:
+		_tween.interpolate_property(window, "rect_position", home, away, SLIDE_OUT, Tween.TRANS_CUBIC, Tween.EASE_IN)
+		_tween.interpolate_property(window, "modulate:a", window.modulate.a, 0.0, SLIDE_OUT, Tween.TRANS_SINE, Tween.EASE_IN)
+		_tween.interpolate_property(dim, "modulate:a", dim.modulate.a, 0.0, SLIDE_OUT, Tween.TRANS_SINE, Tween.EASE_IN)
+		_tween.interpolate_callback(self, SLIDE_OUT, "_closed")
+	_tween.start()
+
+func _closed():
+	if not _open:
+		overlay.visible = false
+		_resize() # (back where it belongs for next time)
+
 func open():
 	if _open:
 		return
 	_open = true
 	overlay.visible = true
 	_resize()
+	_slide(true)
 	if _lm != null:
 		if not _lm.is_connected("online_players_received", self, "_on_list"):
 			_lm.connect("online_players_received", self, "_on_list")
@@ -504,7 +564,7 @@ func close():
 	if not _open:
 		return
 	_open = false
-	overlay.visible = false
+	_slide(false)
 	if chat_input.has_focus():
 		chat_input.release_focus()
 	if search.has_focus():
@@ -569,18 +629,21 @@ func _matches(p: Dictionary) -> bool:
 		return true
 	return String(p.get("name", "")).to_lower().find(q) != -1 or String(p.get("song_name", "")).to_lower().find(q) != -1
 
+# square cards of one size (not stretched to the width), centred
+const CARD_SIDE := 160.0
+
 func _relayout():
 	if grid == null:
 		return
 	var w: float = scroll.rect_size.x - 12
-	var min_w := 168.0 * _k
-	grid.columns = int(clamp(floor((w + 10) / (min_w + 10)), 1, 8))
-	var cw: float = floor((w - 10 * (grid.columns - 1)) / grid.columns)
-	var refit: bool = cw != _cw
-	_cw = cw
+	var side := floor(CARD_SIDE * _k)
+	grid.columns = int(clamp(floor((w + 10) / (side + 10)), 1, 10))
+	grid_holder.rect_min_size.x = w
+	var refit: bool = side != _cw
+	_cw = side
 	for c in grid.get_children():
-		c.rect_min_size = Vector2(cw, cw)
-		c.rect_size = Vector2(cw, cw)
+		c.rect_min_size = Vector2(side, side)
+		c.rect_size = Vector2(side, side)
 	if refit:
 		for n in _cards:
 			_card_style(_cards[n])
@@ -622,8 +685,8 @@ func _rebuild():
 		grid.move_child(order[i], i)
 	_relayout()
 
-# a square card: heart and device in the top corners, the picture, name,
-# what they're doing, and their leaderboard place
+# a square card: the role tag and device in the top corners, the picture,
+# name, what they're doing and their leaderboard place, the heart bottom right
 func _make_card() -> Dictionary:
 	var card := PanelContainer.new()
 	card.mouse_filter = MOUSE_FILTER_STOP
@@ -633,12 +696,13 @@ func _make_card() -> Dictionary:
 	var v := VBoxContainer.new()
 	v.anchor_right = 1.0
 	v.anchor_bottom = 1.0
+	v.margin_top = 20 * _k # (under the corner tags)
 	v.alignment = BoxContainer.ALIGN_CENTER
-	v.add_constant_override("separation", int(4 * _k))
+	v.add_constant_override("separation", int(2 * _k))
 	v.mouse_filter = MOUSE_FILTER_IGNORE
 	box.add_child(v)
 	var av := Control.new()
-	av.rect_min_size = Vector2(64, 64) * _k
+	av.rect_min_size = Vector2(48, 48) * _k
 	av.size_flags_horizontal = SIZE_SHRINK_CENTER
 	av.mouse_filter = MOUSE_FILTER_IGNORE
 	v.add_child(av)
@@ -661,17 +725,10 @@ func _make_card() -> Dictionary:
 	pic.mouse_filter = MOUSE_FILTER_IGNORE
 	pic.visible = false
 	av.add_child(pic)
-	var gap := Control.new()
-	gap.rect_min_size = Vector2(0, 2 * _k)
-	gap.mouse_filter = MOUSE_FILTER_IGNORE
-	v.add_child(gap)
 	var name_l = _label("", font_name, TEXT)
 	name_l.align = Label.ALIGN_CENTER
 	name_l.clip_text = true
 	v.add_child(name_l)
-	var tag = _label("", font_small, ACCENT)
-	tag.align = Label.ALIGN_CENTER
-	v.add_child(tag)
 	var status_l = _label("", font_small, DIM)
 	status_l.align = Label.ALIGN_CENTER
 	status_l.clip_text = true
@@ -680,10 +737,25 @@ func _make_card() -> Dictionary:
 	rank_l.align = Label.ALIGN_CENTER
 	v.add_child(rank_l)
 
+	# corners: role tag (staff) top left, device top right, heart bottom right
+	var tag = _label("", font_tiny, ACCENT)
+	tag.add_stylebox_override("normal", _pad(_flat(FIELD_BG, 6), 6 * _k, 2 * _k))
+	box.add_child(tag)
+	var device := _label("", font_tiny, DIM)
+	device.anchor_left = 1.0
+	device.anchor_right = 1.0
+	device.grow_horizontal = GROW_DIRECTION_BEGIN
+	device.add_stylebox_override("normal", _pad(_flat(FIELD_BG, 6), 6 * _k, 2 * _k))
+	box.add_child(device)
 	var heart := Button.new()
 	heart.flat = true
 	heart.focus_mode = FOCUS_NONE
-	heart.rect_size = Vector2(26, 26) * _k
+	heart.anchor_left = 1.0
+	heart.anchor_top = 1.0
+	heart.anchor_right = 1.0
+	heart.anchor_bottom = 1.0
+	heart.margin_left = -24 * _k
+	heart.margin_top = -24 * _k
 	heart.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	var hi := HeartIcon.new()
 	hi.anchor_right = 1.0
@@ -694,13 +766,6 @@ func _make_card() -> Dictionary:
 	hi.margin_bottom = -3
 	heart.add_child(hi)
 	box.add_child(heart)
-
-	var device := _label("", font_small, DIM)
-	device.anchor_left = 1.0
-	device.anchor_right = 1.0
-	device.grow_horizontal = GROW_DIRECTION_BEGIN
-	device.add_stylebox_override("normal", _pad(_flat(FIELD_BG, 6), 7 * _k, 2 * _k))
-	box.add_child(device)
 
 	var c := {"card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "heart": heart, "heart_icon": hi, "rank": rank_l, "device": device, "url": "", "number": -1,
@@ -715,7 +780,7 @@ func _make_card() -> Dictionary:
 func _card_style(c: Dictionary):
 	var lit: bool = c.hover and c.can
 	var border := ACCENT if c.is_you else (LILAC if lit else Color(1, 1, 1, 0.04))
-	var sb := _pad(_flat(CARD_HOVER if lit else CARD_BG, 12, border, 2 if (c.is_you or lit) else 1), 10 * _k, 10 * _k)
+	var sb := _pad(_flat(CARD_HOVER if lit else CARD_BG, 10, border, 2 if (c.is_you or lit) else 1), 8 * _k, 8 * _k)
 	c.card.add_stylebox_override("panel", sb)
 	c.card.mouse_default_cursor_shape = CURSOR_POINTING_HAND if c.can else CURSOR_ARROW
 	var fav := _is_fav(int(c.number))
@@ -745,7 +810,7 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	if nm == "":
 		nm = "Player #%d" % n
 	c.nm = nm
-	c.name_full = nm + ("  (you)" if c.is_you else "")
+	c.name_full = nm + (" (you)" if c.is_you else "")
 	var tag_text := String(p.get("tag_text", ""))
 	c.tag.visible = tag_text != ""
 	if tag_text != "":
