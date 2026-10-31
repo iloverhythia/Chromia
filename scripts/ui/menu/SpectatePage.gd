@@ -585,6 +585,9 @@ func _resize():
 	var m := 20.0 * _k
 	eye.rect_size = Vector2(d, d)
 	eye.rect_position = vp - Vector2(d + m, d + m)
+	if Rhythia.vr:
+		# (the VR screen's resize handle is in that corner: the eye goes beside it)
+		eye.rect_position.x -= load("res://vr/MenuResize.gd").ICON + 12.0
 	var tpx := int(ceil(d * 2.0))
 	if tpx != _eye_px:
 		_eye_px = tpx

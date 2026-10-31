@@ -2100,7 +2100,7 @@ var vr_play_lock_pitch: float = 0.0
 # VR graphics (vr/VRPlayer.gd apply_xr_settings): Meta Quest foveated rendering
 # 0 off .. 3 high, display refresh rate (0 = the headset's own), render
 # resolution (applies when VR starts) and glow (-1 = off on Quest, on on PC)
-var vr_foveation: int = 2
+var vr_foveation: int = 1 # (was 2: the edges of the view looked pixelated)
 var vr_refresh: float = 0.0
 var vr_render_scale: float = 1.0
 var vr_glow: int = -1
@@ -3969,6 +3969,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_play_lock_pitch = clamp(float(data.vr_play_lock_pitch), -1.2, 1.2)
 		if data.has("vr_foveation"):
 			vr_foveation = int(clamp(int(data.vr_foveation), 0, 3))
+			# the old default (2, medium) made the edges of the view look
+			# pixelated: low instead, once (a level picked after this stays)
+			if vr_foveation == 2 and not data.has("vr_foveation_v2"):
+				vr_foveation = 1
 		if data.has("vr_refresh"):
 			vr_refresh = clamp(float(data.vr_refresh), 0.0, 144.0)
 		if data.has("vr_render_scale"):
@@ -4521,6 +4525,7 @@ func _write_settings_file(saveFile: String):
 			vr_play_lock_frame = vr_play_lock_frame,
 			vr_play_lock_pitch = vr_play_lock_pitch,
 			vr_foveation = vr_foveation,
+			vr_foveation_v2 = true,
 			vr_refresh = vr_refresh,
 			vr_render_scale = vr_render_scale,
 			vr_glow = vr_glow,
