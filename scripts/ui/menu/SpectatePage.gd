@@ -21,7 +21,9 @@ const CARD_MIN_W = 300
 const AVATAR = 52
 const MAX_IMG_CACHE = 120
 const DEVICE_NAMES = {"pc": "PC", "vr": "PC VR", "quest": "Quest", "mobile": "Phone", "web": "Browser"}
-const DIFF_NAMES = ["", "Easy", "Medium", "Hard", "Logic", "Tasukete"]
+# the game's difficulties (Globals.DIFF_EASY = 0 ... DIFF_AMOGUS = 4, the
+# map list's 助); -1 = none set, not shown
+const DIFF_NAMES = ["Easy", "Medium", "Hard", "Logic", "Tasukete"]
 
 var font_regular: DynamicFont
 var font_bold: DynamicFont
@@ -409,7 +411,7 @@ func _fill_card(c: Dictionary, p: Dictionary):
 		if creator != "":
 			bits.append("mapped by " + creator)
 		var d := int(p.get("difficulty", -1))
-		if d > 0 and d < DIFF_NAMES.size():
+		if d >= 0 and d < DIFF_NAMES.size():
 			bits.append(DIFF_NAMES[d])
 		c.extra.text = "  ·  ".join(bits)
 		c.extra.visible = not bits.empty()

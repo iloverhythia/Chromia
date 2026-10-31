@@ -8,3 +8,5 @@ in scripts/Savia.gd and empties this list.
 - Update boxes have a new Remind me in a day button: no update pop-ups for a day (Settings > Check for Updates still works)
 - Settings > UI: Hide Spectators List (no list of who's watching in the top left while you play a map)
 - Test builds say clearly that scores go to the test leaderboards, not the real ones (when the menu first opens and after each pass)
+- Fixed: spectating someone with a custom speed (or joining a lobby whose host has one) used your own custom speed instead of theirs, so the notes went out of sync
+- Fixed: the Spectate tab showed the wrong difficulty on maps (one step too high: most showed Logic)
