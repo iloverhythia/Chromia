@@ -9,3 +9,4 @@ in scripts/Savia.gd and empties this list.
 - Map editor: the Settings window has a new look: a tab list on the left, settings grouped in sections with a short note on each, on/off switches, sliders that show their value, keybinds in two columns, and it uses most of the screen so everything is easy to read
 - Settings scrolls smoothly with the mouse wheel (it glides instead of jumping)
 - Spectating: you see the player's own custom border and note mesh with their settings (sent through the server like cursor pictures), and when they pause it shows Paused and waits, then picks up smoothly instead of stuttering (needs the updated server)
+- Fixed: resetting your cursor (or other custom picture) to default no longer opens a file picker

@@ -101,6 +101,12 @@ func sel(files: Array):
 func _pressed():
 	if kind != KIND.IMAGE:
 		return
+	# the reset button sits on this one, and the settings page lets clicks pass
+	# through to what's under them (scenes/menu/S.gd): a click on reset isn't
+	# a click on "choose a file"
+	var clear = get_node_or_null("Clear")
+	if clear != null and clear.visible and clear.get_global_rect().has_point(get_global_mouse_position()):
+		return
 	Globals.file_sel.open_file(self, "sel", PoolStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp, *.gif ; Image files"]), false, OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS))
 
 func _ready():
