@@ -2769,6 +2769,8 @@ var mute_global_chat: bool = false
 var allow_spectators: bool = true
 # Spectate window: the players you hearted (player numbers), for its favorites filter
 var spectate_favorites: Array = []
+# Settings > Online > Chat Notifications: new global chat messages show next to the eye
+var spectate_chat_notify: bool = true
 var mute_lobby_chat: bool = false
 var do_note_pushback: bool = true
 var half_ghost: bool = false
@@ -3540,6 +3542,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mute_global_chat = data.mute_global_chat
 		if data.has("allow_spectators"):
 			allow_spectators = bool(data.allow_spectators)
+		if data.has("spectate_chat_notify"):
+			spectate_chat_notify = bool(data.spectate_chat_notify)
 		if data.has("spectate_favorites") and data.spectate_favorites is Array:
 			spectate_favorites = []
 			for n in data.spectate_favorites:
@@ -4272,6 +4276,7 @@ func _write_settings_file(saveFile: String):
 			mute_global_chat = mute_global_chat,
 			allow_spectators = allow_spectators,
 			spectate_favorites = spectate_favorites,
+			spectate_chat_notify = spectate_chat_notify,
 			mute_lobby_chat = mute_lobby_chat,
 			spawn_distance = spawn_distance,
 			custom_speed = custom_speed,
