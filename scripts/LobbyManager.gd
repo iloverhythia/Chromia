@@ -1775,6 +1775,10 @@ func subscribe_online():
 		_presence_retry_t = 0.0
 
 func unsubscribe_online():
+	# while following someone the list keeps coming: it's how following sees
+	# them start their next song (closing the Spectate window used to stop it)
+	if follow_number > 0 and not lobby_active:
+		return
 	_online_subscribed = false
 	if _connected():
 		_send({"type": "unsubscribe_online"})
