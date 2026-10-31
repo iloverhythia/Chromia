@@ -1896,7 +1896,10 @@ func end_watch(text: String):
 		subscribe_online() # (to see when they play again)
 		text += " You'll watch them again when they play."
 	Globals.notify(Globals.NOTIFY_INFO, text, "Spectating")
-	if in_song:
+	# back to the menu, also when their song was still loading (that load
+	# would otherwise go on and start the map for you to play)
+	var scene = get_tree().current_scene
+	if in_song or (scene != null and scene.name != "Menu" and scene.name != "VRMenuHolder"):
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 

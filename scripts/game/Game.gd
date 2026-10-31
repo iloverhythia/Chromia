@@ -766,6 +766,17 @@ func _ready():
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	var is_late_join = lobby_manager != null and lobby_manager.consume_late_join_pending()
 
+	# someone else's settings are on but this isn't spectating (the watch ended
+	# while this song was loading): never play it with their settings
+	var spec = load("res://scripts/SpectateSettings.gd")
+	if not is_late_join and spec.active() and (lobby_manager == null or not lobby_manager.lobby_active):
+		Rhythia.trail("watch ended while its song loaded: back to the menu")
+		spec.restore()
+		black_fade_target = true
+		get_tree().paused = false
+		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+		return
+
 	if lobby_manager != null and lobby_manager.lobby_active and not is_late_join:
 		lobby_manager.send_view_settings() # for anyone who spectates you
 		_wait_for_all_players_loaded(lobby_manager)
