@@ -2903,6 +2903,7 @@ var cursor_glow: bool = false
 var cursor_glow_size: float = 3.0
 var cursor_glow_strength: float = 0.8
 var cursor_glow_pulse: bool = false
+var cursor_glow_trail: bool = true
 var cursor_glow_custom_color: bool = false
 var cursor_glow_color: Color = Color(1, 1, 1)
 
@@ -3727,6 +3728,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			cursor_glow_size = clamp(float(data.cursor_glow_size), 1.0, 10.0)
 		if data.has("cursor_glow_strength"):
 			cursor_glow_strength = clamp(float(data.cursor_glow_strength), 0.0, 3.0)
+		if data.has("cursor_glow_trail"):
+			cursor_glow_trail = bool(data.cursor_glow_trail)
 		if data.has("cursor_glow_pulse"):
 			cursor_glow_pulse = bool(data.cursor_glow_pulse)
 		if data.has("cursor_glow_custom_color"):
@@ -4324,6 +4327,7 @@ func _write_settings_file(saveFile: String):
 			cursor_glow_size = cursor_glow_size,
 			cursor_glow_strength = cursor_glow_strength,
 			cursor_glow_pulse = cursor_glow_pulse,
+			cursor_glow_trail = cursor_glow_trail,
 			cursor_glow_custom_color = cursor_glow_custom_color,
 			ui_parallax = ui_parallax,
 			grid_parallax = grid_parallax,

@@ -42,7 +42,7 @@ const VIEW_KEYS := [
 	"trail_mode_scale", "trail_mode_opacity", "trail_gradient_enabled", "trail_gradient",
 	"smart_trail", "enable_drift_cursor", "follow_drift_cursor", "edge_drift", "cursor_spin",
 	"cursor_face_velocity", "cursor_color_type", "cursor_color",
-	"cursor_glow", "cursor_glow_size", "cursor_glow_strength", "cursor_glow_pulse",
+	"cursor_glow", "cursor_glow_size", "cursor_glow_strength", "cursor_glow_pulse", "cursor_glow_trail",
 	"cursor_glow_custom_color", "cursor_glow_color",
 	"enable_grid", "enable_border", "border_color", "rainbow_grid", "custombg_color",
 	"disable_bg_effects",
