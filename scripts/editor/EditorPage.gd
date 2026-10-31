@@ -126,6 +126,7 @@ func _on_visibility():
 		if ed and ed.playing:
 			ed.pause_music()
 		_pause_menu_music(false)
+		_close_home_settings()
 		if project != null and ed and ed.dirty:
 			_save_project_only()
 
@@ -196,7 +197,7 @@ func _build_home():
 	col.add_constant_override("separation", 10)
 	home.add_child(col)
 	for it in [["CREATE NEW MAP", "_on_new_map"], ["LOAD MAP", "_on_load_map"], ["PASTE MAP", "_on_paste_new"],
-			["EDIT LAST MAP", "_on_edit_last"], ["EDIT SELECTED MAP", "_on_edit_selected"]]:
+			["EDIT LAST MAP", "_on_edit_last"], ["EDIT SELECTED MAP", "_on_edit_selected"], ["SETTINGS", "_on_home_settings"]]:
 		var b = _btn(it[0], it[1])
 		b.add_font_override("font", f_title)
 		b.size_flags_vertical = SIZE_EXPAND_FILL
@@ -226,9 +227,24 @@ func _layout_home():
 	panel.rect_size = Vector2(w * 0.5 - 23 * s, h - 120 * s - 40 * s)
 	var col = home.get_node("Buttons")
 	col.rect_position = Vector2(w * 0.5 + 40 * s, 120 * s)
-	col.rect_size = Vector2(w * 0.5 - 80 * s, min(5 * 64 * s + 40, h - 160 * s))
+	col.rect_size = Vector2(w * 0.5 - 80 * s, min(6 * 64 * s + 50, h - 160 * s))
 	f_title.size = int(clamp(22 * s, 14, 48))
 	f_btn.size = int(clamp(15 * s, 11, 32))
+
+# the editor's Settings window, from the start screen (no map needs to be open)
+var settings_host = null
+
+func _on_home_settings():
+	if settings_host == null:
+		settings_host = load("res://scripts/editor/ssqe/SSQESettingsHost.gd").new()
+		settings_host.page = self
+		add_child(settings_host)
+	settings_host.visible = true
+	settings_host.open()
+
+func _close_home_settings():
+	if settings_host != null and settings_host.dialogs:
+		settings_host.dialogs.close_all()
 
 func _refresh_home():
 	if not _built:
@@ -284,7 +300,10 @@ func _project_row(p: Dictionary) -> Control:
 	if p.modified > 0:
 		var dt = OS.get_datetime_from_unix_time(p.modified)
 		when = "%04d-%02d-%02d" % [dt.year, dt.month, dt.day]
-	v.add_child(_label("%s%d notes · %s" % [(p.mapper + " · ") if p.mapper != "" else "", p.notes, when], f_small, LILAC))
+	var t2 = _label("%s%d notes · %s" % [(p.mapper + " · ") if p.mapper != "" else "", p.notes, when], f_small, LILAC)
+	t2.clip_text = true # (a long list of mappers made the list wider than its box)
+	t2.hint_tooltip = t2.text
+	v.add_child(t2)
 	var ob = _btn("OPEN", "open_project", [p.pid])
 	ob.rect_min_size = Vector2(70, 32)
 	ob.size_flags_vertical = SIZE_SHRINK_CENTER
@@ -617,6 +636,9 @@ func _open(pr):
 	if not (stream is AudioStream):
 		stream = null
 		_notify("Couldn't load this map's song.", "Map Editor", Globals.NOTIFY_WARN)
+	_close_home_settings()
+	if ed.s != null and settings_host != null:
+		ed.s = settings_host.s if settings_host.s is Dictionary and not settings_host.s.empty() else ed.s
 	home.visible = false
 	ed.visible = true
 	ed.open_map(map, stream)

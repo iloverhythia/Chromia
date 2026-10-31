@@ -13,3 +13,4 @@ in scripts/Savia.gd and empties this list.
 - Editor: the waveform on the track draws half as many lines, so the editor runs smoother with it on and zooming is less jumpy
 - Emoji in chat: they show as pictures (Twemoji) in the Spectate window's global chat and in lobby chat
 - Your attempts list (History) shows your profile picture instead of your first letter (your Chromia picture if you don't use Discord), with bigger, clearer rows: the top three get a ring in their colour and the rank sits on a badge under the picture
+- Map editor: a SETTINGS button on the editor's start screen opens the editor settings without opening a map first, and long mapper names no longer push your map list under the buttons
