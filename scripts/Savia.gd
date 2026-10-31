@@ -57,6 +57,7 @@ func set_client_id():
 	var client_id = _ensure_client_id()
 	Rhythia.cid = client_id
 	cid = client_id
+	call_deferred("_hook_level_reports")
 
 	detect_device()
 
@@ -226,6 +227,7 @@ func save_jp():
 const REPORT_COMPLETION_URL = "https://savia.nysr.host/savia-report-completion"
 # a ranked pass sent with its replay (the server only gives XP with one)
 const SUBMIT_PASS_URL = "https://savia.nysr.host/savia-submit-pass"
+const PASS_ENV_URL = "https://savia.nysr.host/savia-pass-env" # (ProcessScan.gd: DLLs, Cheat Engine)
 const PLAYER_XP_URL = "https://savia.nysr.host/savia-player-xp"
 const LEADERBOARD_URL = "https://savia.nysr.host/savia-leaderboard"
 const LEADERBOARD_SP_URL = "https://savia.nysr.host/savia-leaderboard-sp"
@@ -478,6 +480,8 @@ func report_map_completion(song_id: String):
 		SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
 		str(song_end_misses), str(song_end_total_notes), str(hitwindow_ms), mods_json.http_escape(), get_hardware_id().http_escape()
 	]
+	if replay_b64 != "":
+		yield(_send_pass_env(cid), "completed")
 	var error
 	if replay_b64 != "":
 		error = http_request.request(url, ["Content-Type: text/plain"], true, HTTPClient.METHOD_POST, replay_b64)
@@ -485,6 +489,29 @@ func report_map_completion(song_id: String):
 		error = http_request.request(url)
 	if error != OK:
 		http_request.queue_free()
+
+# Before a ranked pass: a fresh scan (ProcessScan.gd, up to 4 s) combined
+# with the one from the song's start goes to the server, which keeps it for
+# the pass that follows (Cheat Engine: the pass is refused). An older server
+# without /savia-pass-env just answers 404 and the pass goes as before.
+func _send_pass_env(for_cid: String):
+	yield(get_tree(), "idle_frame") # (always a coroutine, for the yield above)
+	var scan = load("res://scripts/ProcessScan.gd")
+	if not scan.supported() or for_cid == "":
+		return
+	var s = scan.instance()
+	s.start()
+	var waited := 0.0
+	while s.busy and waited < 4.0:
+		yield(get_tree(), "idle_frame")
+		waited += get_process_delta_time()
+	var req := HTTPRequest.new()
+	req.timeout = 6
+	add_child(req)
+	var err = req.request("%s?client_id=%s" % [PASS_ENV_URL, for_cid.http_escape()], ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(s.env()))
+	if err == OK:
+		yield(req, "request_completed")
+	req.queue_free()
 
 const XP_REJECT_REASONS := {
 	"hash_mismatch": "your copy of the map doesn't match the ranked version",
@@ -878,11 +905,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"oct31-2026-a": "- Test builds no longer install themselves for tester accounts: you get the Update / Remind me in a day / Later box like everyone else\n- New Cursor Bloom setting (World & Cursor): real bloom on just the cursor (and its trail if you want), with size, strength, colour and a pulse on hits\n- Spectate: the search box is the same height as the favourites heart\n- Happy Halloween: on 31 October the menu waves turn orange and purple, with bats and embers (Settings > Replays & Misc > Seasonal Themes turns it off)\n- Chat while spectating: the global chat sits in the bottom-left corner while you watch someone; press Enter (or click it) to type\n- Spectating: the player's glow, bloom and cursor bloom show even if you use Sound Space Mode (it follows their setting while you watch)\n- The custom speed box can be clicked and typed in again\n- Settings: the buttons and tabs at the top stay put while the page scrolls\n- Ranked passes send the list of DLLs loaded into Chromia, and aren't accepted while Cheat Engine is running (you get a warning when a song starts)\n- Your level shows on the website (profile and leaderboards)",
 	"oct30-2026-d": "- Fixed: spectating looped (the map reloaded over and over) and spectate settings didn't load in oct30-2026-c\n- Spectate window: players are in leaderboard order\n- Profile > Leaderboard: Weighted (SP) comes first and is shown by default\n- The Wave Menu is now the default menu, in its own colours (turn it off or use your colorset in Settings like before)\n- New announcement banner: a dark card at the top in the Spectate window's style that slides down, with who sent it\n- Spectating: a bar at the bottom while you're joining someone, their song is loading, or you're following them to their next song, with a Stop button\n- Fixed: when the player you were about to watch finished or failed while their song was loading, you ended up playing the map yourself with their settings; now you go back to the menu\n- Fixed: the Grid (Rhythia) background showed a bright circle above and below you that changed colour with your hits\n- Smoother play: uploads and downloads for spectating (cursor pictures, borders, meshes, backgrounds) run in the background instead of on the game's main thread, and slow frames while playing are written to the trail log so stutters can be traced",
 	"oct30-2026-c": "- Spectate moved from the sidebar to a round eye button in the bottom-right corner of the menu. It opens a big Spectate window: everyone online in a grid with their picture, what they're doing and their leaderboard place, a search box, a heart filter for your favourite players (heart someone on their card), and the global chat underneath. Click someone who's playing to watch them\n- Map editor: no more lag from the waveform. The game froze for a moment when the waveform appeared, ran slowly while the song was being analysed, and at some zoom levels kept rebuilding the whole waveform while playing (very low FPS). Now it's built a little at a time, only where you look, and the song is analysed in the background without slowing the editor down\n- Spectate: a minimal eye button and sharp, smooth icons (no more jagged edges), a flatter, square look, smaller square player cards with each player's device and role, the search box at the top, the global chat on the right, and the window slides in from the side. Hearting a player works properly now (it used to flicker and could start spectating)\n- New chat notifications: a new global chat message shows briefly next to the Spectate eye, with an unread count until you open it (Settings > Online > Chat Notifications turns it off)\n- Map editor: the Settings window has a new look: a tab list on the left, settings grouped in sections with a short note on each, on/off switches, sliders that show their value, keybinds in two columns, and it uses most of the screen so everything is easy to read\n- Settings scrolls smoothly with the mouse wheel (it glides instead of jumping)\n- Spectating: you see the player's own custom border and note mesh with their settings (sent through the server like cursor pictures), and when they pause it shows Paused and waits, then picks up smoothly instead of stuttering (needs the updated server)\n- Fixed: resetting your cursor (or other custom picture) to default no longer opens a file picker\n- Spectating: a small Report button (top left) to report the player's skin, chat or something else. Staff get a screenshot, their skin settings and the chat\n- Spectate window: each player shows how many are watching them (when anyone is)\n- Spectating follows the player: when they finish or fail, you watch them again as soon as they start their next song (stops when you press Stop watching, play yourself, or they turn spectators off)\n- No more pop-up when someone starts watching you (the Spectators list shows it)\n- Discord status: Spectating <player> while you watch someone; the menu says Listening to music\n- The Report window while spectating is simpler and uses the game's own look\n- Spectating with the player's settings shows their backgrounds too: their Custom Background picture (and panorama) and their Background Editor images and videos (needs the updated server)",
 	"oct30-2026-b": "- Phones: No Touch Delay now has a Prediction slider (how far ahead of your finger the cursor sits, 0-45 ms) and the cursor glides smoothly between touch readings instead of stepping, so play feels less laggy and less choppy, especially on 120 Hz screens\n- Fixed: the retry key after leaving a map now starts it again (it only highlighted the Start button)\n- Update boxes have a new Remind me in a day button: no update pop-ups for a day (Settings > Check for Updates still works)\n- Settings > UI: Hide Spectators List (no list of who's watching in the top left while you play a map)\n- Test builds say clearly that scores go to the test leaderboards, not the real ones (when the menu first opens and after each pass)\n- Fixed: spectating someone with a custom speed (or joining a lobby whose host has one) used your own custom speed instead of theirs, so the notes went out of sync\n- Fixed: the Spectate tab showed the wrong difficulty on maps (one step too high: most showed Logic)\n- Map editor: LOAD MAP now also opens Rewrite (.phxm), Novastra (.npk / .nch), SSQE (.qem / .qemz), Pulsus (.phz) and Vulnus (.zip) maps, with their lyrics, beats, glides, mines, fevers, bookmarks and effects (Vulnus maps with several difficulties become one map each)\n- Map editor: EXPORT can now make Novastra (.npk) charts, with cover, profile icon, song offset and preview, and SSQE (.qemz) maps that keep everything in the map\n- Map editor: Rewrite (.phxm) exports now include the part of the file other editors expect after the notes\n- Map editor settings from SSQE+: Grid Squircle Corner Radius and Corner Detail, Waveform Level of Detail and Show Control Gradients (Graphics), Mono Audio (Audio), and SSQE+'s own note colour list (Colors: pick, add, remove and reorder colours; turn on Use These Note Colors to use it instead of your colour set)\n- Map editor: EDIT LAST MAP on the editor's home opens the map you edited last, and a new keybind opens the editor folder (Ctrl+Shift+D)",
@@ -2847,6 +2875,12 @@ func _set_wave_menu(v: bool):
 	wave_menu = v
 	emit_signal("wave_menu_changed", v)
 # Wave Menu option: colour the waves with the selected colorset.
+# Seasonal themes (scripts/ui/menu/Seasonal.gd): Halloween on 31 October
+var seasonal_themes: bool = true setget _set_seasonal_themes
+func _set_seasonal_themes(v: bool):
+	seasonal_themes = v
+	emit_signal("wave_menu_changed", wave_menu) # (the menu redoes its colours)
+
 signal wave_menu_colorset_changed
 var wave_menu_colorset: bool = false setget _set_wave_menu_colorset
 func _set_wave_menu_colorset(v: bool):
@@ -2898,6 +2932,14 @@ var enable_drift_cursor: bool = true
 var follow_drift_cursor: bool = false
 var cursor_spin: float = 0
 var cursor_face_velocity: bool = false
+# Cursor Bloom: a glow behind the cursor only (scripts/game/CursorGlow.gd)
+var cursor_glow: bool = false
+var cursor_glow_size: float = 3.0
+var cursor_glow_strength: float = 0.3
+var cursor_glow_pulse: bool = false
+var cursor_glow_trail: bool = true
+var cursor_glow_custom_color: bool = false
+var cursor_glow_color: Color = Color(1, 1, 1)
 
 
 var display_true_combo: bool = true
@@ -3133,6 +3175,41 @@ func record_play_stats():
 	st.map_time[id] = int(st.map_time.get(id, 0)) + play_ms
 	_save_lifetime_stats()
 	_award_level_exp(play_ms)
+
+# Your level (PlayerLevel.gd) for the website (profile, leaderboards): sent
+# when it changes and once a little after the game starts. Levels are earned
+# offline, so the website only shows them.
+const LEVEL_URL = "https://savia.nysr.host/savia-level"
+var _level_hooked := false
+var _level_sent := ""
+func _hook_level_reports():
+	if _level_hooked or not is_inside_tree():
+		return
+	_level_hooked = true
+	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	store.connect("changed", self, "report_level")
+	get_tree().create_timer(15.0).connect("timeout", self, "report_level")
+
+func report_level():
+	if cid == "" or not ProjectSettings.get_setting("application/networking/enabled"):
+		return
+	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	var key := "%d/%d/%d" % [store.level, store.prestige, store.total_exp]
+	if key == _level_sent:
+		return
+	_level_sent = key
+	var r := HTTPRequest.new()
+	r.timeout = 10
+	add_child(r)
+	r.connect("request_completed", self, "_on_level_sent", [r])
+	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp], [], true, HTTPClient.METHOD_POST, "") != OK:
+		r.queue_free()
+		_level_sent = ""
+
+func _on_level_sent(_result, code, _headers, _body, r: HTTPRequest):
+	r.queue_free()
+	if code != 200:
+		_level_sent = "" # (try again next time)
 
 # Level system (scripts/PlayerLevel.gd): experience for every play, even fails.
 func _award_level_exp(play_ms: int):
@@ -3714,6 +3791,20 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			set_borderless_windowed(data.window_borderless)
 		if data.has("cursor_face_velocity"):
 			cursor_face_velocity = data.cursor_face_velocity
+		if data.has("seasonal_themes"):
+			self.seasonal_themes = bool(data.seasonal_themes)
+		if data.has("cursor_glow"):
+			cursor_glow = bool(data.cursor_glow)
+		if data.has("cursor_glow_size"):
+			cursor_glow_size = clamp(float(data.cursor_glow_size), 1.0, 10.0)
+		if data.has("cursor_glow_strength"):
+			cursor_glow_strength = clamp(float(data.cursor_glow_strength), 0.0, 3.0)
+		if data.has("cursor_glow_trail"):
+			cursor_glow_trail = bool(data.cursor_glow_trail)
+		if data.has("cursor_glow_pulse"):
+			cursor_glow_pulse = bool(data.cursor_glow_pulse)
+		if data.has("cursor_glow_custom_color"):
+			cursor_glow_custom_color = bool(data.cursor_glow_custom_color)
 		if data.has("note_visual_approach"):
 			note_visual_approach = data.note_visual_approach
 		if data.has("visual_approach_follow"):
@@ -3927,6 +4018,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		lcol(data, "grade_d_color")
 		lcol(data, "grade_f_color")
 		lcol(data, "cursor_color")
+		lcol(data, "cursor_glow_color")
 		lcol(data, "border_color")
 
 		if data.has("glow"):
@@ -4302,6 +4394,13 @@ func _write_settings_file(saveFile: String):
 			custom_speed = custom_speed,
 			display_true_combo = display_true_combo,
 			cursor_face_velocity = cursor_face_velocity,
+			cursor_glow = cursor_glow,
+			seasonal_themes = seasonal_themes,
+			cursor_glow_size = cursor_glow_size,
+			cursor_glow_strength = cursor_glow_strength,
+			cursor_glow_pulse = cursor_glow_pulse,
+			cursor_glow_trail = cursor_glow_trail,
+			cursor_glow_custom_color = cursor_glow_custom_color,
 			ui_parallax = ui_parallax,
 			grid_parallax = grid_parallax,
 			fade_length = fade_length,
@@ -4425,6 +4524,7 @@ func _write_settings_file(saveFile: String):
 			pb_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("PBSound")), -80, 1000000)),
 
 			cursor_color = scol(cursor_color),
+			cursor_glow_color = scol(cursor_glow_color),
 			border_color = scol(border_color),
 			panel_bg = scol(panel_bg),
 			panel_text = scol(panel_text),
@@ -5537,7 +5637,8 @@ func do_init(_ud = null):
 		var latest_version = yield(Online, "latest_version")
 		if ProjectSettings.get_setting("application/config/version") != latest_version:
 			var sel = 1
-			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest") and not Online.is_tester():
+			# (testers are asked too: test builds come out many times a day)
+			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest"):
 				if Online.update_snoozed():
 					sel = 0 # ("Remind me in a day": no box until then)
 				else:

@@ -603,6 +603,7 @@ func _resize():
 	root.margin_right = -p
 	root.margin_bottom = -p
 	fav_filter.rect_min_size = Vector2(38, 38) * _k
+	search.rect_min_size.y = fav_filter.rect_min_size.y # (same height as the heart)
 	chat_panel.rect_min_size.x = clamp(window.rect_size.x * 0.3, 260, 520)
 	_relayout()
 

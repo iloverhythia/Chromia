@@ -76,9 +76,11 @@ func _reset():
 
 # Settings > Crash Reports (next to this button): the saved reports of past
 # crashes (Rhythia.saved_crash_reports), to copy and send any time.
+var _side_buttons_added := false # (once: the row is moved into the settings header, entering the tree again)
 func _enter_tree():
-	if get_parent() == null or get_parent().has_node("CrashReports"):
+	if _side_buttons_added or get_parent() == null or get_parent().has_node("CrashReports"):
 		return
+	_side_buttons_added = true
 	var b := Button.new()
 	b.name = "CrashReports"
 	b.text = "Crash Reports"
