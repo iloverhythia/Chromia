@@ -653,6 +653,10 @@ var _assets_sent := {} # kind -> sha256 sent
 
 func upload_spectate_assets():
 	var spec = load("res://scripts/SpectateSettings.gd")
+	# backgrounds: pictures, videos and the layout (each file once)
+	for a in spec.own_background_assets():
+		for u in a.uploads:
+			_upload_asset_file(u[0], u[1], u[2])
 	for kind in ["border", "mesh"]:
 		var file: String = spec.own_border_file() if kind == "border" else spec.own_mesh_file()
 		if file == "":
@@ -677,6 +681,25 @@ func _on_asset_uploaded(result, code, _headers, _body, http, kind):
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		_assets_sent.erase(kind) # (tried again next song)
 
+# one background file (sent once per hash a session)
+func _upload_asset_file(kind: String, file: String, sha: String):
+	var key := "%s:%s" % [kind, sha]
+	if sha == "" or _assets_sent.has(key):
+		return
+	var f := File.new()
+	if f.open(file, File.READ) != OK:
+		return
+	var data: PoolByteArray = f.get_buffer(f.get_len())
+	f.close()
+	_assets_sent[key] = sha
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
+	var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
+	if http.request_raw(url, ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, data) != OK:
+		http.queue_free()
+		_assets_sent.erase(key)
+
 # Watching someone: their border picture / mesh downloaded into the cache
 # (tried a few times: they may still be uploading it). The first load of a
 # watch waits for them a moment (spectate_assets_ready).
@@ -688,15 +711,45 @@ func fetch_spectate_assets(settings):
 		return
 	var spec = load("res://scripts/SpectateSettings.gd")
 	_tidy_asset_cache()
+	var wanted := []
 	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"]]:
-		var sha: String = String(settings.get(pair[1], "")).to_lower()
-		if sha.length() != 64 or not sha.is_valid_hex_number() or spec.cached_asset(sha, pair[2]) != "":
-			continue
-		var key: String = "%s.%s" % [sha, pair[2]]
-		if _asset_downloads.has(key):
-			continue
-		_asset_downloads[key] = 4
-		_download_asset(pair[0], sha, pair[2])
+		wanted.append([pair[0], String(settings.get(pair[1], "")).to_lower(), pair[2]])
+	for k in ["custombg_image", "panobg_image"]:
+		var v: String = String(settings.get(k, "")).to_lower()
+		if v.find(".") == 64:
+			wanted.append(["media", v.left(64), v.right(65)])
+	var lv: String = String(settings.get("bg_layers", "")).to_lower()
+	if lv != "none" and lv != "":
+		wanted.append(["bglayers", lv, "json"])
+		_queue_layout_media(spec.cached_asset(lv, "json")) # (a layout already here: its files)
+	for w in wanted:
+		_queue_asset_download(w[0], w[1], w[2])
+
+func _queue_asset_download(kind: String, sha: String, ext: String):
+	var spec = load("res://scripts/SpectateSettings.gd")
+	if sha.length() != 64 or not sha.is_valid_hex_number() or ext == "" or spec.cached_asset(sha, ext) != "":
+		return
+	var key: String = "%s.%s" % [sha, ext]
+	if _asset_downloads.has(key):
+		return
+	_asset_downloads[key] = 4
+	_download_asset(kind, sha, ext)
+
+# a downloaded Background Editor layout: the files it names
+func _queue_layout_media(layout_path: String):
+	if layout_path == "":
+		return
+	var f := File.new()
+	if f.open(layout_path, File.READ) != OK:
+		return
+	var parsed = JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or not (parsed.result is Dictionary) or not (parsed.result.get("layers", null) is Array):
+		return
+	for l in parsed.result.layers:
+		var fname: String = String(l.get("file", "")) if l is Dictionary else ""
+		if fname.find(".") == 64:
+			_queue_asset_download("media", fname.left(64).to_lower(), fname.right(65).to_lower())
 
 func _download_asset(kind: String, sha: String, ext: String):
 	var spec = load("res://scripts/SpectateSettings.gd")
@@ -718,6 +771,8 @@ func _on_asset_downloaded(result, code, _headers, _body, http, kind, sha, ext):
 	var d := Directory.new()
 	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and File.new().get_sha256(part) == sha:
 		d.rename(part, dir_path.plus_file(key))
+		if kind == "bglayers":
+			_queue_layout_media(dir_path.plus_file(key)) # (before this one counts as done)
 		_asset_downloads.erase(key)
 		_assets_arrived()
 		return

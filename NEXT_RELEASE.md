@@ -17,3 +17,4 @@ in scripts/Savia.gd and empties this list.
 - No more pop-up when someone starts watching you (the Spectators list shows it)
 - Discord status: Spectating <player> while you watch someone; the menu says Listening to music
 - The Report window while spectating is simpler and uses the game's own look
+- Spectating with the player's settings shows their backgrounds too: their Custom Background picture (and panorama) and their Background Editor images and videos (needs the updated server)

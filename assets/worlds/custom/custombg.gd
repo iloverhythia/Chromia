@@ -22,6 +22,11 @@ const EXTS := ["png", "jpg", "jpeg", "webp", "bmp", "gif"]
 var _sky: PanoramaSky
 var _save_thread: Thread = null
 
+# the picture (and panorama) to use: theirs while spectating with their
+# settings (SpectateSettings.gd; "" = they have none), else yours
+static func _pic(meta: String, own: String) -> String:
+	return String(Rhythia.get_meta(meta)) if Rhythia.has_meta(meta) else own
+
 static func _phone() -> bool:
 	return OS.has_feature("mobile") or OS.has_feature("iOS") or OS.has_feature("Android")
 
@@ -31,7 +36,8 @@ func _ready():
 	_sky.panorama = _black()
 	if _phone():
 		_sky.radiance_size = Sky.RADIANCE_SIZE_64 # (only the soft light from the sky uses it)
-	var pano = Globals.imageLoader.load_if_exists("user://panobg")
+	var pano_path := _pic("spec_panobg", "user://panobg")
+	var pano = Globals.imageLoader.load_if_exists(pano_path) if pano_path != "" else null
 	if pano:
 		_sky.panorama = pano
 		_drop_viewport()
@@ -79,7 +85,10 @@ func _drop_viewport():
 
 static func _source_path() -> String:
 	var f := File.new()
-	var base := Globals.p("user://custombg")
+	var own := _pic("spec_custombg", "user://custombg")
+	if own == "":
+		return ""
+	var base := Globals.p(own)
 	for e in EXTS:
 		if f.file_exists(base + "." + e):
 			return base + "." + e
@@ -130,7 +139,8 @@ func _setup_viewport(size: Vector2):
 	var v: Viewport = $V
 	v.size = size
 	$V/R.rect_size = size
-	var img = Globals.imageLoader.load_if_exists("user://custombg")
+	var pic := _pic("spec_custombg", "user://custombg")
+	var img = Globals.imageLoader.load_if_exists(pic) if pic != "" else null
 	var col: Color = Rhythia.custombg_color
 	if img: $V/R.material.set_shader_param("tex",img)
 	elif col != Color(1, 1, 1):
@@ -163,6 +173,8 @@ func _bake(key: String):
 	Rhythia.trail("custom background ready")
 	if _all_black(img):
 		return # (a failed copy, or a black picture: not worth keeping)
+	if Rhythia.has_meta("spec_custombg"):
+		return # (someone else's background while spectating: your saved one stays)
 	# saved for next time, on the side (it takes a moment)
 	_save_thread = Thread.new()
 	if _save_thread.start(self, "_save_cache", [img, key]) != OK:
