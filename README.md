@@ -1,6 +1,5 @@
-a# Chromia
+# Chromia
 Official Chromia Discord server
-https://discord.gg/
-> "Rhyt-Rhythmia"
-yes
-1
+https://discord.gg/jQusHEDwcA
+> "Chro-Chromia"
+
