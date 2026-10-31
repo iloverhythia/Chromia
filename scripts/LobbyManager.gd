@@ -592,7 +592,7 @@ func _apply_mods_locally(mods: Dictionary):
 	if Rhythia.has_signal("mods_changed"):
 		Rhythia.emit_signal("mods_changed")
 
-func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null):
+func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false):
 	if not broadcasting():
 		return
 	var msg := {
@@ -601,6 +601,8 @@ func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pc
 	}
 	if vr_pose is Array:
 		msg["vr"] = vr_pose # in VR: head and hands, for spectators
+	if paused:
+		msg["paused"] = true # (paused or counting back in: spectators show Paused and wait)
 	_send(msg)
 func notify_passed():
 	if not broadcasting():
@@ -637,12 +639,182 @@ func send_view_settings():
 	if not broadcasting():
 		return
 	upload_cursor_picture()
+	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
 
 # Your cursor picture to the server once (it keeps it by the file's hash), so
 # spectators watching with your settings see your cursor.
 const CURSOR_URL := "https://savia.nysr.host/savia-cursor"
 var _cursor_sent: String = ""
+# your own border picture and note mesh, for spectators (sent once each; the
+# server keeps them by hash: savia_web src/spectateassets.js)
+const SPECTATE_ASSET_URL := "https://savia.nysr.host/savia-spectate-asset"
+var _assets_sent := {} # kind -> sha256 sent
+
+func upload_spectate_assets():
+	var spec = load("res://scripts/SpectateSettings.gd")
+	# backgrounds: pictures, videos and the layout (each file once)
+	for a in spec.own_background_assets():
+		for u in a.uploads:
+			_upload_asset_file(u[0], u[1], u[2])
+	for kind in ["border", "mesh"]:
+		var file: String = spec.own_border_file() if kind == "border" else spec.own_mesh_file()
+		if file == "":
+			continue
+		var f := File.new()
+		var sha: String = f.get_sha256(file)
+		if sha == "" or _assets_sent.get(kind, "") == sha or f.open(file, File.READ) != OK:
+			continue
+		var data: PoolByteArray = f.get_buffer(f.get_len())
+		f.close()
+		_assets_sent[kind] = sha
+		var http := HTTPRequest.new()
+		add_child(http)
+		http.connect("request_completed", self, "_on_asset_uploaded", [http, kind])
+		var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
+		if http.request_raw(url, ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, data) != OK:
+			http.queue_free()
+			_assets_sent.erase(kind)
+
+func _on_asset_uploaded(result, code, _headers, _body, http, kind):
+	http.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		_assets_sent.erase(kind) # (tried again next song)
+
+# one background file (sent once per hash a session)
+func _upload_asset_file(kind: String, file: String, sha: String):
+	var key := "%s:%s" % [kind, sha]
+	if sha == "" or _assets_sent.has(key):
+		return
+	var f := File.new()
+	if f.open(file, File.READ) != OK:
+		return
+	var data: PoolByteArray = f.get_buffer(f.get_len())
+	f.close()
+	_assets_sent[key] = sha
+	var http := HTTPRequest.new()
+	add_child(http)
+	http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
+	var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
+	if http.request_raw(url, ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, data) != OK:
+		http.queue_free()
+		_assets_sent.erase(key)
+
+# Watching someone: their border picture / mesh downloaded into the cache
+# (tried a few times: they may still be uploading it). The first load of a
+# watch waits for them a moment (spectate_assets_ready).
+var _asset_downloads := {} # "sha.ext" -> tries left
+var _asset_cache_tidied := false
+
+func fetch_spectate_assets(settings):
+	if not (settings is Dictionary):
+		return
+	var spec = load("res://scripts/SpectateSettings.gd")
+	_tidy_asset_cache()
+	var wanted := []
+	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"]]:
+		wanted.append([pair[0], String(settings.get(pair[1], "")).to_lower(), pair[2]])
+	for k in ["custombg_image", "panobg_image"]:
+		var v: String = String(settings.get(k, "")).to_lower()
+		if v.find(".") == 64:
+			wanted.append(["media", v.left(64), v.right(65)])
+	var lv: String = String(settings.get("bg_layers", "")).to_lower()
+	if lv != "none" and lv != "":
+		wanted.append(["bglayers", lv, "json"])
+		_queue_layout_media(spec.cached_asset(lv, "json")) # (a layout already here: its files)
+	for w in wanted:
+		_queue_asset_download(w[0], w[1], w[2])
+
+func _queue_asset_download(kind: String, sha: String, ext: String):
+	var spec = load("res://scripts/SpectateSettings.gd")
+	if sha.length() != 64 or not sha.is_valid_hex_number() or ext == "" or spec.cached_asset(sha, ext) != "":
+		return
+	var key: String = "%s.%s" % [sha, ext]
+	if _asset_downloads.has(key):
+		return
+	_asset_downloads[key] = 4
+	_download_asset(kind, sha, ext)
+
+# a downloaded Background Editor layout: the files it names
+func _queue_layout_media(layout_path: String):
+	if layout_path == "":
+		return
+	var f := File.new()
+	if f.open(layout_path, File.READ) != OK:
+		return
+	var parsed = JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or not (parsed.result is Dictionary) or not (parsed.result.get("layers", null) is Array):
+		return
+	for l in parsed.result.layers:
+		var fname: String = String(l.get("file", "")) if l is Dictionary else ""
+		if fname.find(".") == 64:
+			_queue_asset_download("media", fname.left(64).to_lower(), fname.right(65).to_lower())
+
+func _download_asset(kind: String, sha: String, ext: String):
+	var spec = load("res://scripts/SpectateSettings.gd")
+	var dir_path: String = Globals.p(spec.ASSET_CACHE)
+	Directory.new().make_dir_recursive(dir_path)
+	var http := HTTPRequest.new()
+	http.download_file = dir_path.plus_file("%s.%s.part" % [sha, ext])
+	add_child(http)
+	http.connect("request_completed", self, "_on_asset_downloaded", [http, kind, sha, ext])
+	if http.request("%s/%s/%s.%s" % [SPECTATE_ASSET_URL, kind, sha, ext]) != OK:
+		http.queue_free()
+		_asset_downloads.erase("%s.%s" % [sha, ext])
+
+func _on_asset_downloaded(result, code, _headers, _body, http, kind, sha, ext):
+	http.queue_free()
+	var key: String = "%s.%s" % [sha, ext]
+	var dir_path: String = Globals.p(load("res://scripts/SpectateSettings.gd").ASSET_CACHE)
+	var part: String = dir_path.plus_file(key + ".part")
+	var d := Directory.new()
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and File.new().get_sha256(part) == sha:
+		d.rename(part, dir_path.plus_file(key))
+		if kind == "bglayers":
+			_queue_layout_media(dir_path.plus_file(key)) # (before this one counts as done)
+		_asset_downloads.erase(key)
+		_assets_arrived()
+		return
+	d.remove(part)
+	var left: int = int(_asset_downloads.get(key, 0)) - 1
+	if left <= 0:
+		_asset_downloads.erase(key)
+		_assets_arrived() # (given up: load without it)
+		return
+	_asset_downloads[key] = left
+	yield(get_tree().create_timer(1.5), "timeout")
+	_download_asset(kind, sha, ext)
+
+func spectate_assets_ready() -> bool:
+	return _asset_downloads.empty()
+
+# the first load of a watch was waiting for them
+func _assets_arrived():
+	if _watch_wait_t > 0.0 and watch_mode and spectate_assets_ready() and has_player_settings(_spectate_load_target):
+		_watch_wait_t = 0.0
+		_scene_transition_now()
+
+# old downloads (a week) go, so the cache doesn't grow forever
+func _tidy_asset_cache():
+	if _asset_cache_tidied:
+		return
+	_asset_cache_tidied = true
+	var dir_path: String = Globals.p(load("res://scripts/SpectateSettings.gd").ASSET_CACHE)
+	var d := Directory.new()
+	if d.open(dir_path) != OK:
+		return
+	var f := File.new()
+	var now := OS.get_unix_time()
+	d.list_dir_begin(true, true)
+	var n := d.get_next()
+	while n != "":
+		var p: String = dir_path.plus_file(n)
+		if not d.current_is_dir() and (n.ends_with(".part") or now - f.get_modified_time(p) > 7 * 86400):
+			d.remove(p)
+		n = d.get_next()
+	d.list_dir_end()
+
 func upload_cursor_picture():
 	var pic: String = load("res://scripts/SpectateSettings.gd").own_cursor_file()
 	if pic == "":
@@ -676,6 +848,7 @@ func send_solo_view_settings():
 	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
 	upload_cursor_picture()
+	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
 
 func request_player_settings(peer_id: int):
@@ -736,6 +909,9 @@ func _check_map_readiness():
 	if song:
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
+			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and has_player_settings(_spectate_load_target) and not spectate_assets_ready():
+				_watch_wait_t = 4.0 # their border / mesh are downloading: load once they're here
+				return
 			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and not has_player_settings(_spectate_load_target):
 				# Spectate tab: their settings are on the way (they send them
 				# when someone starts watching); load once with them
@@ -1135,10 +1311,14 @@ func _handle_message(msg: Dictionary):
 			var sp = int(msg.get("peer_id", -1))
 			var ss = msg.get("settings", null)
 			player_view_settings[sp] = ss if ss is Dictionary else {}
+			fetch_spectate_assets(player_view_settings[sp])
 			emit_signal("player_settings_received", sp)
 			if _watch_wait_t > 0.0 and watch_mode and sp == _spectate_load_target and has_player_settings(sp):
-				_watch_wait_t = 0.0
-				_scene_transition_now()
+				if spectate_assets_ready():
+					_watch_wait_t = 0.0
+					_scene_transition_now()
+				else:
+					_watch_wait_t = max(_watch_wait_t, 4.0) # (their border / mesh downloading)
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
@@ -1197,11 +1377,14 @@ func _handle_message(msg: Dictionary):
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
 			i_am_staff = bool(msg.get("you_staff", false))
 			emit_signal("online_players_received", online_players, my_player_number)
+			_check_follow(online_players)
 		"spectate_denied":
 			if watch_mode and not lobby_active:
 				_finish_watch_locally()
 			emit_signal("spectate_denied", Globals.s(msg.get("reason", "You can't watch them right now.")))
 		"watch_ended":
+			if Globals.s(msg.get("reason", "")) == "disabled":
+				follow_number = -1 # (they don't want spectators: no following either)
 			end_watch(Globals.s(msg.get("text", "They stopped playing.")))
 		"watchers_changed":
 			var was := watchers_count
@@ -1214,7 +1397,7 @@ func _handle_message(msg: Dictionary):
 				if game != null and game.has_method("_sync_lobby_stats"):
 					game._sync_lobby_stats()
 			if watchers_count > was and not watcher_names.empty():
-				Globals.notify(Globals.NOTIFY_INFO, "%s is watching you" % String(watcher_names[watcher_names.size() - 1]), "Spectator")
+				pass # (no pop-up: the Spectators list in the top left shows who's watching)
 			emit_signal("watchers_changed", watchers_count, watcher_names)
 		"round_ended":
 			if watch_mode:
@@ -1475,6 +1658,48 @@ func _send_presence(force: bool):
 func update_presence():
 	_send_presence(false)
 
+# Following: after a watch ends (they finished, failed or left the map) you
+# watch them again as soon as they start playing, while you're in the menu.
+# It stops when you leave (Stop watching), when you play a map yourself, when
+# they turn spectators off, or after FOLLOW_GIVE_UP_MSEC without them playing.
+var follow_number: int = -1
+var _follow_ended_at: int = 0
+var _follow_last_seen: int = 0
+var _follow_tried_at: int = 0
+const FOLLOW_GIVE_UP_MSEC := 15 * 60 * 1000
+
+func _check_follow(list: Array):
+	if follow_number <= 0 or watch_mode or lobby_active:
+		return
+	var now := OS.get_ticks_msec()
+	if Rhythia.in_map:
+		# (right after a watch ends the game is still on its way back to the menu)
+		if now - _follow_ended_at > 8000:
+			follow_number = -1 # you're playing yourself
+		return
+	if now - _follow_last_seen > FOLLOW_GIVE_UP_MSEC:
+		follow_number = -1
+		return
+	if now - _follow_tried_at < 3000:
+		return
+	for p in list:
+		if not (p is Dictionary) or int(p.get("number", -1)) != follow_number:
+			continue
+		if Globals.s(p.get("status", "")) != "playing":
+			_follow_last_seen = now
+			return
+		# a song they started after the last watch ended (not the one that just ended)
+		var since_ms: int = int(p.get("since_s", 0)) * 1000
+		if since_ms > now - _follow_ended_at:
+			return
+		var can: bool = bool(p.get("can_spectate", false)) or (i_am_staff and bool(p.get("can_spectate_staff", false)))
+		if not can:
+			return
+		_follow_tried_at = now
+		Globals.notify(Globals.NOTIFY_INFO, "%s is playing again: watching." % Globals.s(p.get("name", "They")), "Spectating")
+		spectate_player(follow_number)
+		return
+
 func subscribe_online():
 	_online_subscribed = true
 	if presence_supported == 1 and _connected():
@@ -1496,11 +1721,15 @@ func spectate_player(number: int) -> bool:
 		return false
 	if _watch_mods_backup == null:
 		_watch_mods_backup = _collect_current_mods()
+	if follow_number != number:
+		follow_number = number
+	_follow_last_seen = OS.get_ticks_msec()
 	_send({"type": "spectate_player", "number": number, "name": _presence_name() if _presence_name() != "" else player_name, "client_id": Rhythia.cid})
 	return true
 
 # you leave (back to the menu)
 func stop_watching():
+	follow_number = -1 # (you left: no following)
 	if not watch_mode:
 		return
 	if _connected():
@@ -1515,6 +1744,11 @@ func end_watch(text: String):
 	if _connected():
 		_send({"type": "stop_watching"}) # (out of their lobby, if it was one)
 	_finish_watch_locally()
+	_follow_ended_at = OS.get_ticks_msec()
+	_follow_last_seen = _follow_ended_at
+	if follow_number > 0:
+		subscribe_online() # (to see when they play again)
+		text += " You'll watch them again when they play."
 	Globals.notify(Globals.NOTIFY_INFO, text, "Spectating")
 	if in_song:
 		get_tree().paused = false

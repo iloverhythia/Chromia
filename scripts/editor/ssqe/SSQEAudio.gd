@@ -174,30 +174,50 @@ func _process(_d):
 		_finish_capture()
 
 func _finish_capture():
-	var raw := PoolVector2Array()
-	var mid := PoolVector2Array()
-	var low := PoolVector2Array()
+	# the recorded pieces; joining them and making the waveform is slow (a
+	# 130 ms freeze right when the waveform showed up), so that's done on the
+	# analysis thread, which hands the waveform over first
+	var pieces := []
 	for sg in _segments:
-		var r := _joined(sg.raw, sg.need)
-		raw.append_array(r)
-		mid.append_array(_joined(sg.mid, r.size()))
-		low.append_array(_joined(sg.low, r.size()))
+		pieces.append({"raw": sg.raw, "mid": sg.mid, "low": sg.low, "need": sg.need})
 		if is_instance_valid(sg.player):
 			sg.player.queue_free()
 	_segments = []
-	_wave_raw = raw
-	waveform = _make_waveform(raw)
-	if page:
-		page.on_waveform(waveform)
 	_state = "analysing"
-	var job := {"raw": raw, "mid": mid, "low": low, "rate": _rate, "token": _token}
+	var job := {"pieces": pieces, "rate": _rate, "token": _token, "detail": _wave_detail()}
 	if OS.can_use_threads():
 		_thread = Thread.new()
-		_thread.start(self, "_analyse_thread", job)
+		# low priority: the editor stays smooth while the song is analysed
+		_thread.start(self, "_analyse_thread", job, Thread.PRIORITY_LOW)
 	else:
 		# (no threads in a browser: worked out when DETECT BPM asks, so mapping doesn't stall)
+		_join_job(job)
+		_wave_built(_make_waveform_at(job.raw, job.rate, job.detail), job.raw, int(job.token))
 		_job = job
 		_state = "ready"
+
+# the pieces of each slice as one recording (raw, below 3 kHz, below 150 Hz)
+static func _join_job(job: Dictionary):
+	var raw := PoolVector2Array()
+	var mid := PoolVector2Array()
+	var low := PoolVector2Array()
+	for pc in job.pieces:
+		var r := _joined(pc.raw, pc.need)
+		raw.append_array(r)
+		mid.append_array(_joined(pc.mid, r.size()))
+		low.append_array(_joined(pc.low, r.size()))
+	job.erase("pieces")
+	job["raw"] = raw
+	job["mid"] = mid
+	job["low"] = low
+
+func _wave_built(wave, raw: PoolVector2Array, token: int):
+	if token != _token:
+		return
+	_wave_raw = raw
+	waveform = wave
+	if page:
+		page.on_waveform(waveform)
 
 # a slice's recorded pieces as one, exactly `size` long
 static func _joined(pieces: Array, size: int) -> PoolVector2Array:
@@ -211,6 +231,8 @@ static func _joined(pieces: Array, size: int) -> PoolVector2Array:
 	return out
 
 func _analyse_thread(job: Dictionary):
+	_join_job(job)
+	call_deferred("_wave_built", _make_waveform_at(job.raw, job.rate, job.detail), job.raw, int(job.token))
 	var r = _analyse(job)
 	call_deferred("_analysed", r)
 
@@ -246,8 +268,12 @@ func _wave_detail() -> float:
 # Waveform.Load: a left/right sample pair every 1 / detail / 100 s (2 ms at
 # the default 5), normalised to the peak
 func _make_waveform(raw: PoolVector2Array) -> Dictionary:
-	var res := 1.0 / _wave_detail() / 100.0
-	var per := _rate * res
+	return _make_waveform_at(raw, _rate, _wave_detail())
+
+# (static: also made on the analysis thread)
+static func _make_waveform_at(raw: PoolVector2Array, rate: float, detail: float) -> Dictionary:
+	var res := 1.0 / detail / 100.0
+	var per := rate * res
 	var length := raw.size()
 	var count := int(floor(length / per))
 	var left := PoolRealArray()

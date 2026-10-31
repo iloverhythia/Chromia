@@ -55,12 +55,14 @@ func scale() -> float:
 
 # ================================================================== window frame
 
-func floating(id: String, title: String, w: float, h: float) -> Dictionary:
+# big: as large as fits (most of the editor), for the settings
+func floating(id: String, title: String, w: float, h: float, big := false) -> Dictionary:
 	if windows.has(id):
 		close(id)
 	var k := scale()
 	var vp: Vector2 = ed.rect_size
-	k = min(k, min((vp.x - 8) / (w + 2), (vp.y - 8) / (h + 32)))
+	var fit: float = min((vp.x - 8) / (w + 2), (vp.y - 8) / (h + 32))
+	k = fit * 0.92 if big else min(k, fit)
 	var win := Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.075, 0.065, 0.11, 0.98)
@@ -1455,103 +1457,282 @@ var _st: Dictionary = {}
 var _kb_capture := "" # the keybind waiting for a key
 
 func settings(tab := ""):
-	var info := floating("settings", "Settings", 760, 500)
-	_st = {"info": info, "tab": "", "content": null, "rows": []}
-	var y := 10.0
+	var info := floating("settings", "Editor Settings", 860, 560, true)
+	var k: float = info.k
+	_st = {"info": info, "tab": "", "content": null, "rows": [], "k": k}
+	# the tabs, down the left
+	var side := Panel.new()
+	side.add_stylebox_override("panel", _st_box(ST_SIDE, 8))
+	side.mouse_filter = MOUSE_FILTER_PASS
+	_place(info, side, 8, 8, 176, 494, 0)
+	var tabs := VBoxContainer.new()
+	tabs.anchor_right = 1
+	tabs.anchor_bottom = 1
+	tabs.margin_left = 8 * k
+	tabs.margin_top = 8 * k
+	tabs.margin_right = -8 * k
+	tabs.margin_bottom = -8 * k
+	tabs.add_constant_override("separation", int(4 * k))
+	side.add_child(tabs)
 	_st.tab_buttons = {}
 	for t in SETTINGS_TABS:
-		_st.tab_buttons[t] = a_button(info, t, 10, y, 140, 36, "_st_tab", [t])
-		y += 44
-	a_button(info, "RESET TO DEFAULT", 165, 455, 190, 34, "_st_reset")
-	a_button(info, "OPEN EDITOR FOLDER", 365, 455, 190, 34, "_st_folder")
-	a_button(info, "SAVE AND CLOSE", 565, 455, 185, 34, "close", ["settings"])
+		var b := Button.new()
+		b.text = ST_TAB_NAMES.get(t, t.capitalize())
+		b.align = Button.ALIGN_LEFT
+		b.focus_mode = FOCUS_NONE
+		b.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+		b.rect_min_size = Vector2(0, 40 * k)
+		b.add_font_override("font", ed.font(int(15 * k), true))
+		b.connect("pressed", self, "_st_tab", [t])
+		tabs.add_child(b)
+		_st.tab_buttons[t] = b
+	# the settings of a tab, scrolling when there are many
+	var sc := ScrollContainer.new()
+	sc.scroll_horizontal_enabled = false
+	sc.mouse_filter = MOUSE_FILTER_PASS
+	_place(info, sc, 196, 8, 656, 494, 0)
+	_st.scroll = sc
+	# the bottom bar
+	_st_flat(a_button(info, "RESET TO DEFAULT", 8, 512, 176, 38, "_st_reset"), false)
+	_st_flat(a_button(info, "OPEN EDITOR FOLDER", 506, 512, 170, 38, "_st_folder"), false)
+	_st_flat(a_button(info, "SAVE AND CLOSE", 684, 512, 168, 38, "close", ["settings"]), true)
 	_st_tab(tab if tab in SETTINGS_TABS else String(ed.s.get("lastSettingsTab", "COLORS")))
+
+const ST_TAB_NAMES = {"COLORS": "Colors", "GRAPHICS": "Graphics", "MAPPING": "Mapping", "PLAYER": "Playtest",
+	"AUDIO": "Audio", "KEYBINDS": "Keybinds", "OTHER": "Other"}
+const ST_SIDE = Color(0.05, 0.043, 0.075, 1)
+const ST_ROW = Color(1, 1, 1, 0.035)
+const ST_ROW_HOVER = Color(1, 1, 1, 0.06)
+const ST_DIM = Color(0.62, 0.6, 0.68, 1)
+
+func _st_box(bg: Color, radius: int, border := Color(0, 0, 0, 0), bw := 0) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(radius)
+	sb.anti_aliasing = true
+	if bw > 0:
+		sb.border_color = border
+		sb.set_border_width_all(bw)
+	return sb
+
+# a bottom-bar button: lilac (the main one) or quiet
+func _st_flat(b: Button, main: bool):
+	var k: float = _st.k
+	var dark := Color(0.1, 0.07, 0.12)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var bg: Color
+		if main:
+			bg = LILAC if st == "normal" else ACCENT
+		else:
+			bg = Color(1, 1, 1, 0.05) if st == "normal" else Color(1, 1, 1, 0.1)
+		var sb: StyleBox = _st_box(bg, int(8 * k)) if st != "focus" else StyleBoxEmpty.new()
+		b.add_stylebox_override(st, sb)
+	b.add_font_override("font", ed.font(int(13 * k), true))
+	for c in ["font_color", "font_color_hover", "font_color_pressed"]:
+		b.add_color_override(c, dark if main else TEXT)
+	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 
 func _st_tab(t: String):
 	if _st.empty() or not windows.has("settings"):
 		return
-	var info: Dictionary = _st.info
+	var k: float = _st.k
 	_kb_capture = ""
 	_st.tab = t
 	ed.s["lastSettingsTab"] = t
+	# the open tab: lit, with a lilac bar on its left
 	for name in _st.tab_buttons:
-		_st.tab_buttons[name].modulate = Color(1, 1, 1) if name == t else Color(0.7, 0.7, 0.75)
+		var b: Button = _st.tab_buttons[name]
+		var on: bool = name == t
+		var n := _st_box(Color(LILAC.r, LILAC.g, LILAC.b, 0.16) if on else Color(0, 0, 0, 0), int(7 * k))
+		n.content_margin_left = 14 * k
+		if on:
+			n.border_color = LILAC
+			n.border_width_left = int(max(2, 3 * k))
+		var h := _st_box(Color(LILAC.r, LILAC.g, LILAC.b, 0.2) if on else Color(1, 1, 1, 0.05), int(7 * k))
+		h.content_margin_left = 14 * k
+		h.border_color = LILAC
+		h.border_width_left = int(max(2, 3 * k)) if on else 0
+		b.add_stylebox_override("normal", n)
+		b.add_stylebox_override("hover", h)
+		b.add_stylebox_override("pressed", h)
+		b.add_stylebox_override("focus", StyleBoxEmpty.new())
+		for c in ["font_color", "font_color_hover", "font_color_pressed"]:
+			b.add_color_override(c, TEXT if on else ST_DIM)
 	if _st.content != null and is_instance_valid(_st.content):
 		_st.content.queue_free()
-	var content := Control.new()
-	content.rect_position = Vector2(165 * info.k, 10 * info.k)
-	content.rect_size = Vector2(585 * info.k, 435 * info.k)
-	content.mouse_filter = MOUSE_FILTER_PASS
-	info.body.add_child(content)
-	_st.content = content
-	var c: Dictionary = info.duplicate()
-	c.body = content
-	_st.c = c
+	# (rows of the tab that's going)
+	_st.rows = []
+	_st.erase("note_box")
+	_st.erase("note_pick")
+	var sc: ScrollContainer = _st.scroll
+	var list := VBoxContainer.new()
+	list.rect_min_size = Vector2(sc.rect_size.x - 16 * k, 0)
+	list.add_constant_override("separation", int(5 * k))
+	list.mouse_filter = MOUSE_FILTER_PASS
+	sc.add_child(list)
+	sc.scroll_vertical = 0
+	_st.content = list
+	_st.list = list
 	match t:
 		"COLORS":
-			_st_color(c, "Color 1 (1/X BPM + Primary)", "color1", 0)
-			_st_color(c, "Color 2 (1/1 BPM + Secondary)", "color2", 1)
-			_st_color(c, "Color 3 (1/2 BPM + Preview)", "color3", 2)
-			_st_color(c, "Color 4 (Waveform)", "color4", 3)
-			_st_color(c, "Color 5 (Special Objects)", "color5", 4)
-			_st_note_colors(c)
+			_sr_section("Editor colors", "The track, grid and timeline")
+			_sr_color("Color 1", "1/X beat ticks, primary", "color1")
+			_sr_color("Color 2", "1/1 beat ticks, secondary", "color2")
+			_sr_color("Color 3", "1/2 beat ticks, preview", "color3")
+			_sr_color("Color 4", "Waveform", "color4")
+			_sr_color("Color 5", "Special objects", "color5")
+			_st_note_colors()
 		"GRAPHICS":
-			var y := 0.0
-			y = _st_slider(c, "Editor Background Opacity", "editorBGOpacity", 0, 255, 1, y)
-			y = _st_slider(c, "Grid Opacity", "gridOpacity", 0, 255, 1, y)
-			y = _st_slider(c, "Track Opacity", "trackOpacity", 0, 255, 1, y)
-			y = _st_slider(c, "Grid Zoom (%)", "gridZoom", 25, 200, 1, y)
-			y = _st_slider(c, "Grid Note Size (%)", "gridNoteSize", 25, 200, 1, y)
-			y = _st_slider(c, "Grid Squircle Corner Radius", "gridSquircleRadius", 0, 0.5, 0.005, y)
-			y = _st_slider(c, "Grid Squircle Corner Detail", "gridSquircleDetail", 1, 20, 1, y)
-			y = _st_slider(c, "Waveform Level of Detail", "waveformDetail", 1, 20, 1, y)
-			y += 6
-			y = _st_checks(c, [["Enable Waveform", "waveform"], ["Use Classic Waveform", "classicWaveform"], ["Grid Squircles", "gridSquircles"],
-				["Grid Letters", "gridLetters"], ["Grid Numbers", "gridNumbers"], ["Approach Squares", "approachSquares"], ["Quantum Grid Lines", "quantumGridLines"],
-				["3D Mode", "mode3D"], ["3D Hit Effect", "mode3DHitEffect"], ["Show Control Gradients", "controlGradients"]], y)
+			_sr_section("Display", "")
+			_sr_slider("Editor background opacity", "", "editorBGOpacity", 0, 255, 1)
+			_sr_slider("Grid opacity", "", "gridOpacity", 0, 255, 1)
+			_sr_slider("Track opacity", "", "trackOpacity", 0, 255, 1)
+			_sr_toggle("Show control gradients", "A soft shade on the buttons", "controlGradients")
+			_sr_section("Grid", "")
+			_sr_slider("Grid zoom", "%", "gridZoom", 25, 200, 1)
+			_sr_slider("Grid note size", "%", "gridNoteSize", 25, 200, 1)
+			_sr_toggle("Grid squircles", "Rounded notes on the grid", "gridSquircles")
+			_sr_slider("Squircle corner radius", "Share of the note's size", "gridSquircleRadius", 0, 0.5, 0.005)
+			_sr_slider("Squircle corner detail", "Points per rounded corner", "gridSquircleDetail", 1, 20, 1)
+			_sr_toggle("Grid letters", "", "gridLetters")
+			_sr_toggle("Grid numbers", "", "gridNumbers")
+			_sr_toggle("Approach squares", "", "approachSquares")
+			_sr_toggle("Quantum grid lines", "", "quantumGridLines")
+			_sr_section("Waveform", "")
+			_sr_toggle("Enable waveform", "", "waveform")
+			_sr_toggle("Classic waveform", "One line, like the original SSQE", "classicWaveform")
+			_sr_slider("Waveform level of detail", "Points per 10 ms", "waveformDetail", 1, 20, 1)
+			_sr_section("3D", "")
+			_sr_toggle("3D mode", "", "mode3D")
+			_sr_toggle("3D hit effect", "", "mode3DHitEffect")
 		"MAPPING":
-			var y2 := _st_checks(c, [["Correct Errors on Copy", "correctOnCopy"], ["Reverse Scroll Direction", "reverseScroll"], ["Pause When Scrolling", "pauseScroll"],
-				["Separate Click Tools", "separateClickTools"], ["Auto-Advance", "autoAdvance"], ["Snap to Quantum Grid", "quantumGridSnap"], ["Old Quantum Snapping", "oldQuantumSnap"],
-				["Apply Timing on Paste", "applyOnPaste"], ["Jump to Pasted Notes", "jumpPaste"], ["Paste Reversed", "pasteReversed"], ["Adjust Notes With Timing", "adjustNotes"],
-				["Move Cursor With Grid Keys", "moveOnGridKey"], ["Use Numpad for Grid Keys", "numpad"], ["Curve Bezier", "curveBezier"], ["Clamp Star Rating", "clampSR"]], 0)
-			_st_slider(c, "Bezier Divisor", "bezierDivisor", 1, 32, 1, y2 + 4)
+			_sr_section("Placing and moving", "")
+			_sr_toggle("Separate click tools", "Left click places, right click selects", "separateClickTools")
+			_sr_toggle("Auto-advance", "Move on a beat after placing a note", "autoAdvance")
+			_sr_toggle("Snap to quantum grid", "", "quantumGridSnap")
+			_sr_toggle("Old quantum snapping", "", "oldQuantumSnap")
+			_sr_toggle("Move cursor with grid keys", "", "moveOnGridKey")
+			_sr_toggle("Use numpad for grid keys", "", "numpad")
+			_sr_toggle("Adjust notes with timing", "Notes follow when a timing point moves", "adjustNotes")
+			_sr_section("Copy and paste", "")
+			_sr_toggle("Correct errors on copy", "", "correctOnCopy")
+			_sr_toggle("Apply timing on paste", "", "applyOnPaste")
+			_sr_toggle("Jump to pasted notes", "", "jumpPaste")
+			_sr_toggle("Paste reversed", "", "pasteReversed")
+			_sr_section("Scrolling", "")
+			_sr_toggle("Reverse scroll direction", "", "reverseScroll")
+			_sr_toggle("Pause when scrolling", "", "pauseScroll")
+			_sr_section("Patterns", "")
+			_sr_toggle("Curve bezier", "", "curveBezier")
+			_sr_slider("Bezier divisor", "", "bezierDivisor", 1, 32, 1)
+			_sr_toggle("Clamp star rating", "", "clampSR")
 		"PLAYER":
-			var y3 := 0.0
-			y3 = _st_slider(c, "Approach Rate", "approachRate", 1, 50, 1, y3)
-			y3 = _st_slider(c, "Track Cursor Position (%)", "cursorPos", 0, 100, 1, y3)
-			y3 = _st_checks(c, [["Autoplay Cursor", "autoplay"], ["Smooth Autoplay", "smoothAutoplay"]], y3 + 6)
+			_sr_section("Playtest and preview", "")
+			_sr_slider("Approach rate", "", "approachRate", 1, 50, 1)
+			_sr_slider("Track cursor position", "% from the left", "cursorPos", 0, 100, 1)
+			_sr_toggle("Autoplay cursor", "", "autoplay")
+			_sr_toggle("Smooth autoplay", "", "smoothAutoplay")
 		"AUDIO":
-			var y4 := 0.0
-			y4 = _st_slider(c, "Master Volume", "masterVolume", 0, 1, 0.01, y4)
-			y4 = _st_slider(c, "Hit Sound Volume", "sfxVolume", 0, 1, 0.01, y4)
-			y4 = _st_slider(c, "Hit Sound Offset (ms)", "sfxOffset", -200, 200, 1, y4)
-			y4 = _st_slider(c, "Music Offset (ms)", "musicOffset", -500, 500, 1, y4)
-			y4 = _st_slider(c, "Maximum Polyphony", "maxPolyphony", 1, 16, 1, y4)
-			y4 = _st_checks(c, [["Metronome", "metronome"], ["Scale Metronome With Divisor", "scaleMetronome"], ["Mute Hit Sounds", "muteSfx"], ["Mute Music", "muteMusic"],
-				["Mono Audio", "monoAudio"]], y4 + 6)
+			_sr_section("Volume", "")
+			_sr_slider("Music volume", "", "masterVolume", 0, 1, 0.01)
+			_sr_slider("Hit sound volume", "", "sfxVolume", 0, 1, 0.01)
+			_sr_toggle("Mute music", "", "muteMusic")
+			_sr_toggle("Mute hit sounds", "", "muteSfx")
+			_sr_toggle("Mono audio", "Left and right mixed together", "monoAudio")
+			_sr_section("Timing", "")
+			_sr_slider("Hit sound offset", "ms", "sfxOffset", -200, 200, 1)
+			_sr_slider("Music offset", "ms", "musicOffset", -500, 500, 1)
+			_sr_slider("Maximum polyphony", "Hit sounds at once", "maxPolyphony", 1, 16, 1)
+			_sr_section("Metronome", "")
+			_sr_toggle("Metronome", "", "metronome")
+			_sr_toggle("Scale metronome with divisor", "", "scaleMetronome")
 		"KEYBINDS":
-			_st_keybinds(c)
+			_st_keybinds()
 		"OTHER":
-			var y5 := _st_checks(c, [["Enable Autosave", "autosave"]], 0)
-			y5 = _st_slider(c, "Autosave Interval (min)", "autosaveInterval", 0.5, 30, 0.5, y5)
-			a_label(c, "Your maps are saved in the editor folder (OPEN EDITOR FOLDER). Exported maps go to your map list.", 0, y5 + 10, 585, 40)
+			_sr_section("Saving", "")
+			_sr_toggle("Enable autosave", "", "autosave")
+			_sr_slider("Autosave interval", "minutes", "autosaveInterval", 0.5, 30, 0.5)
+			var note := _sr_text("Your maps are saved in the editor folder (OPEN EDITOR FOLDER). Exported maps go to your map list.")
+			note.autowrap = true
 
-# a checkbox per [label, key], two columns; returns the y below them
-func _st_checks(c: Dictionary, items: Array, y: float) -> float:
-	var i := 0
-	for it in items:
-		var cb := a_check(c, it[0], bool(ed.s.get(it[1], false)), 0 if i % 2 == 0 else 295, y + int(i / 2) * 30, 285, 26)
-		cb.connect("toggled", self, "_st_set", [it[1]])
-		i += 1
-	return y + int((items.size() + 1) / 2) * 30
+# ---- rows
 
-func _st_set(v, key: String):
-	ed.s[key] = v
-	ed.settings_changed()
+func _sr_text(text: String, bold := false, size := 13, color := ST_DIM) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_font_override("font", ed.font(int(size * _st.k), bold))
+	l.add_color_override("font_color", color)
+	l.mouse_filter = MOUSE_FILTER_IGNORE
+	_st.list.add_child(l)
+	return l
 
-# label, slider and value; returns the y below
-func _st_slider(c: Dictionary, label: String, key: String, mn: float, mx: float, step: float, y: float) -> float:
-	a_label(c, label, 0, y, 260, 26)
+func _sr_section(title: String, desc: String):
+	var k: float = _st.k
+	var gap := Control.new()
+	gap.rect_min_size = Vector2(0, (6 if _st.list.get_child_count() == 0 else 14) * k)
+	gap.mouse_filter = MOUSE_FILTER_IGNORE
+	_st.list.add_child(gap)
+	_sr_text(title.to_upper(), true, 12, LILAC)
+	if desc != "":
+		_sr_text(desc, false, 12)
+
+# a row: the name (and a short note) on the left, its control on the right
+func _sr_row(label: String, hint: String) -> HBoxContainer:
+	var k: float = _st.k
+	var row := PanelContainer.new()
+	var sb := _st_box(ST_ROW, int(8 * k))
+	sb.content_margin_left = 14 * k
+	sb.content_margin_right = 12 * k
+	sb.content_margin_top = 7 * k
+	sb.content_margin_bottom = 7 * k
+	row.add_stylebox_override("panel", sb)
+	row.mouse_filter = MOUSE_FILTER_PASS
+	row.connect("mouse_entered", self, "_sr_hover", [sb, true])
+	row.connect("mouse_exited", self, "_sr_hover", [sb, false])
+	_st.list.add_child(row)
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", int(12 * k))
+	row.add_child(h)
+	var names := VBoxContainer.new()
+	names.size_flags_horizontal = SIZE_EXPAND_FILL
+	names.size_flags_vertical = SIZE_SHRINK_CENTER
+	names.add_constant_override("separation", 0)
+	h.add_child(names)
+	var l := Label.new()
+	l.text = label
+	l.add_font_override("font", ed.font(int(14 * k), true))
+	l.add_color_override("font_color", TEXT)
+	names.add_child(l)
+	if hint != "":
+		var hl := Label.new()
+		hl.text = hint
+		hl.add_font_override("font", ed.font(int(12 * k)))
+		hl.add_color_override("font_color", ST_DIM)
+		names.add_child(hl)
+	return h
+
+func _sr_hover(sb: StyleBoxFlat, on: bool):
+	sb.bg_color = ST_ROW_HOVER if on else ST_ROW
+
+func _sr_toggle(label: String, hint: String, key: String) -> CheckButton:
+	var h := _sr_row(label, hint)
+	var cb := CheckButton.new()
+	cb.focus_mode = FOCUS_NONE
+	cb.flat = true
+	cb.pressed = bool(ed.s.get(key, false))
+	cb.size_flags_vertical = SIZE_SHRINK_CENTER
+	cb.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	cb.add_icon_override("on", _st_switch(true))
+	cb.add_icon_override("off", _st_switch(false))
+	for st in ["normal", "hover", "pressed", "focus", "hover_pressed"]:
+		cb.add_stylebox_override(st, StyleBoxEmpty.new())
+	cb.connect("toggled", self, "_st_set", [key])
+	h.add_child(cb)
+	return cb
+
+func _sr_slider(label: String, hint: String, key: String, mn: float, mx: float, step: float) -> HSlider:
+	var k: float = _st.k
+	var h := _sr_row(label, hint)
 	var sl := HSlider.new()
 	sl.theme = theme_res
 	sl.min_value = mn
@@ -1559,83 +1740,157 @@ func _st_slider(c: Dictionary, label: String, key: String, mn: float, mx: float,
 	sl.step = step
 	sl.value = float(ed.s.get(key, mn))
 	sl.focus_mode = FOCUS_NONE
-	_place(c, sl, 265, y + 3, 230, 20, 0)
-	var vl := a_label(c, _st_fmt(sl.value, step), 505, y, 80, 26, "right")
+	sl.rect_min_size = Vector2(210 * k, 0)
+	sl.size_flags_vertical = SIZE_SHRINK_CENTER
+	sl.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	h.add_child(sl)
+	var vl := Label.new()
+	vl.text = _st_fmt(sl.value, step)
+	vl.align = Label.ALIGN_CENTER
+	vl.valign = Label.VALIGN_CENTER
+	vl.rect_min_size = Vector2(62 * k, 0)
+	vl.size_flags_vertical = SIZE_SHRINK_CENTER
+	vl.add_font_override("font", ed.font(int(13 * k), true))
+	vl.add_color_override("font_color", TEXT)
+	var pill := _st_box(Color(0, 0, 0, 0.3), int(6 * k))
+	pill.content_margin_top = 3 * k
+	pill.content_margin_bottom = 3 * k
+	vl.add_stylebox_override("normal", pill)
+	h.add_child(vl)
 	sl.connect("value_changed", self, "_st_slid", [key, vl, step])
-	return y + 34
+	return sl
 
-static func _st_fmt(v: float, step: float) -> String:
-	return str(int(round(v))) if step >= 1.0 else str(stepify(v, step))
-
-func _st_slid(v: float, key: String, vl: Label, step: float):
-	vl.text = _st_fmt(v, step)
-	ed.s[key] = int(round(v)) if typeof(SSQESettings.defaults().get(key)) == TYPE_INT else v
-	ed.settings_changed()
-
-func _st_color(c: Dictionary, label: String, key: String, row: int):
-	var y := row * 62.0
-	a_label(c, label, 0, y, 290, 24)
+func _sr_color(label: String, hint: String, key: String):
+	var k: float = _st.k
+	var h := _sr_row(label, hint)
 	var p := ColorPickerButton.new()
 	p.theme = theme_res
 	p.edit_alpha = false
 	p.color = SSQESettings.color(ed.s, key)
 	p.focus_mode = FOCUS_NONE
-	_place(c, p, 0, y + 26, 160, 30, 0)
+	p.rect_min_size = Vector2(110 * k, 28 * k)
+	p.size_flags_vertical = SIZE_SHRINK_CENTER
+	p.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	p.connect("color_changed", self, "_st_color_set", [key])
-	a_button(c, "DEFAULT", 170, y + 26, 100, 30, "_st_color_default", [key, p])
+	h.add_child(p)
+	var d := Button.new()
+	d.text = "Default"
+	d.focus_mode = FOCUS_NONE
+	d.size_flags_vertical = SIZE_SHRINK_CENTER
+	d.connect("pressed", self, "_st_color_default", [key, p])
+	_st_small(d)
+	h.add_child(d)
+
+func _st_small(b: Button):
+	var k: float = _st.k
+	for st in ["normal", "hover", "pressed"]:
+		var sb := _st_box(Color(1, 1, 1, 0.06 if st == "normal" else 0.12), int(6 * k))
+		sb.content_margin_left = 10 * k
+		sb.content_margin_right = 10 * k
+		sb.content_margin_top = 4 * k
+		sb.content_margin_bottom = 4 * k
+		b.add_stylebox_override(st, sb)
+	b.add_stylebox_override("focus", StyleBoxEmpty.new())
+	b.add_font_override("font", ed.font(int(12 * k), true))
+	for c in ["font_color", "font_color_hover", "font_color_pressed"]:
+		b.add_color_override(c, TEXT)
+	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+
+# an on / off switch (smooth edges, sized for this window)
+func _st_switch(on: bool) -> Texture:
+	var key := "sw_%s_%d" % [str(on), int(_st.k * 100)]
+	if _sw_cache.has(key):
+		return _sw_cache[key]
+	var w := int(round(42 * _st.k))
+	var hh := int(round(24 * _st.k))
+	var img := Image.new()
+	img.create(w, hh, false, Image.FORMAT_RGBA8)
+	img.lock()
+	var r := hh / 2.0
+	var track: Color = LILAC if on else Color(0.24, 0.22, 0.3)
+	var knob: Color = Color(1, 1, 1) if on else Color(0.72, 0.7, 0.78)
+	var kc: Vector2 = Vector2(w - r if on else r, r)
+	var kr: float = r - 3.0 * _st.k
+	for y in range(hh):
+		for x in range(w):
+			var p := Vector2(x + 0.5, y + 0.5)
+			# distance to the pill's middle line, then to the knob
+			var cx: float = clamp(p.x, r, w - r)
+			var dt := p.distance_to(Vector2(cx, r)) - r
+			var dk := p.distance_to(kc) - kr
+			var a_t: float = clamp(0.5 - dt, 0.0, 1.0)
+			var a_k: float = clamp(0.5 - dk, 0.0, 1.0)
+			var col := track.linear_interpolate(knob, a_k)
+			col.a = a_t
+			img.set_pixel(x, y, col)
+	img.unlock()
+	var tex := ImageTexture.new()
+	tex.create_from_image(img, Texture.FLAG_FILTER)
+	_sw_cache[key] = tex
+	return tex
+
+var _sw_cache := {}
 
 # SSQE+'s note colour list (the notes cycle through it): a swatch per colour,
 # PICK COLOR chooses one and ADD COLOR adds it. Left click a swatch to remove
-# it, right click to move it left. Used when "Use These Note Colors" is on;
+# it, right click to move it left. Used when "Use these note colors" is on;
 # otherwise the notes take the game's colour set.
 const MAX_NOTE_COLORS = 32
 
-func _st_note_colors(c: Dictionary):
-	var X := 300.0
-	a_label(c, "Note Colors:", X, 0, 285, 24)
-	var use := a_check(c, "Use These Note Colors", bool(ed.s.get("customNoteColors", false)), X, 26, 285, 26)
-	use.hint_tooltip = "Off: the notes use your colour set from the game's settings."
-	use.connect("toggled", self, "_st_set", ["customNoteColors"])
-	var box := Control.new()
-	box.mouse_filter = MOUSE_FILTER_PASS
-	_place(c, box, X, 58, 285, 200, 0)
+func _st_note_colors():
+	var k: float = _st.k
+	_sr_section("Note colors", "The notes cycle through these. Left click a colour to remove it, right click to move it left.")
+	_sr_toggle("Use these note colors", "Off: your colour set from the game's settings", "customNoteColors")
+	var h := _sr_row("Colors", "")
+	var box := GridContainer.new()
+	box.columns = 8
+	box.add_constant_override("hseparation", int(5 * k))
+	box.add_constant_override("vseparation", int(5 * k))
+	box.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(box)
 	_st.note_box = box
-	_st.note_k = c.k
+	_st.note_k = k
 	_st_note_swatches()
+	var h2 := _sr_row("Add a colour", "")
 	var pick := ColorPickerButton.new()
 	pick.theme = theme_res
 	pick.edit_alpha = false
 	pick.focus_mode = FOCUS_NONE
 	pick.color = Color8(255, 255, 255)
-	_place(c, pick, X, 266, 90, 30, 0)
+	pick.rect_min_size = Vector2(80 * k, 28 * k)
+	pick.size_flags_vertical = SIZE_SHRINK_CENTER
+	h2.add_child(pick)
 	_st.note_pick = pick
-	a_button(c, "PICK COLOR", X + 95, 266, 92, 30, "_st_note_pick")
-	a_button(c, "ADD COLOR", X + 192, 266, 93, 30, "_st_note_add")
-	var hint := a_label(c, "LMB: Remove\nRMB: Move left", X, 302, 285, 44)
-	hint.valign = Label.VALIGN_TOP
+	var pb := Button.new()
+	pb.text = "Pick color"
+	pb.focus_mode = FOCUS_NONE
+	pb.size_flags_vertical = SIZE_SHRINK_CENTER
+	pb.connect("pressed", self, "_st_note_pick")
+	_st_small(pb)
+	h2.add_child(pb)
+	var ab := Button.new()
+	ab.text = "Add color"
+	ab.focus_mode = FOCUS_NONE
+	ab.size_flags_vertical = SIZE_SHRINK_CENTER
+	ab.connect("pressed", self, "_st_note_add")
+	_st_small(ab)
+	h2.add_child(ab)
 
 func _st_note_swatches():
-	var box: Control = _st.get("note_box")
+	var box = _st.get("note_box")
 	if box == null or not is_instance_valid(box):
 		return
 	for ch in box.get_children():
+		box.remove_child(ch)
 		ch.queue_free()
 	var k: float = _st.note_k
 	var cols: Array = ed.s.get("noteColors", [])
-	var size := 30.0 * k
-	var gap := 5.0 * k
-	var per_row := int(max(1, floor((box.rect_size.x + gap) / (size + gap))))
 	for i in range(cols.size()):
 		var col: Array = cols[i]
 		var sw := Panel.new()
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color8(int(col[0]), int(col[1]), int(col[2]))
-		sb.set_border_width_all(1)
-		sb.border_color = Color(1, 1, 1, 0.35)
-		sb.set_corner_radius_all(int(4 * k))
+		var sb := _st_box(Color8(int(col[0]), int(col[1]), int(col[2])), int(6 * k), Color(1, 1, 1, 0.35), 1)
 		sw.add_stylebox_override("panel", sb)
-		sw.rect_position = Vector2((i % per_row) * (size + gap), int(i / per_row) * (size + gap))
-		sw.rect_size = Vector2(size, size)
+		sw.rect_min_size = Vector2(26, 26) * k
 		sw.hint_tooltip = "Colour %d: left click removes it, right click moves it left" % (i + 1)
 		sw.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 		sw.connect("gui_input", self, "_st_note_click", [i])
@@ -1679,6 +1934,18 @@ func _st_note_add():
 	ed.settings_changed()
 	_st_note_swatches()
 
+func _st_set(v, key: String):
+	ed.s[key] = v
+	ed.settings_changed()
+
+static func _st_fmt(v: float, step: float) -> String:
+	return str(int(round(v))) if step >= 1.0 else str(stepify(v, step))
+
+func _st_slid(v: float, key: String, vl: Label, step: float):
+	vl.text = _st_fmt(v, step)
+	ed.s[key] = int(round(v)) if typeof(SSQESettings.defaults().get(key)) == TYPE_INT else v
+	ed.settings_changed()
+
 func _st_color_set(col: Color, key: String):
 	ed.s[key] = [int(round(col.r * 255)), int(round(col.g * 255)), int(round(col.b * 255))]
 	ed.settings_changed()
@@ -1688,24 +1955,51 @@ func _st_color_default(key: String, p: ColorPickerButton):
 	p.color = SSQESettings.color(ed.s, key)
 	ed.settings_changed()
 
-func _st_keybinds(c: Dictionary):
-	var names: Array = SSQESettings.KEYBINDS.keys()
+func _st_keybinds():
+	var k: float = _st.k
+	_sr_section("Keybinds", "Click a key, then press the new key (with Ctrl / Alt / Shift if you want). Esc cancels.")
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_constant_override("hseparation", int(6 * k))
+	grid.add_constant_override("vseparation", int(5 * k))
+	grid.size_flags_horizontal = SIZE_EXPAND_FILL
+	_st.list.add_child(grid)
 	var rows := []
-	var i := 0
-	for name in names:
-		var col := 0 if i % 2 == 0 else 295
-		var y := int(i / 2) * 34.0
-		a_label(c, SSQESettings.KEYBIND_LABELS.get(name, name), col, y, 150, 28)
-		var b := a_button(c, SSQESettings.keybind_text(ed.s.keybinds[name]), col + 150, y, 135, 28, "_st_kb_pick", [name])
+	for name in SSQESettings.KEYBINDS.keys():
+		var row := PanelContainer.new()
+		row.size_flags_horizontal = SIZE_EXPAND_FILL
+		var sb := _st_box(ST_ROW, int(8 * k))
+		sb.content_margin_left = 12 * k
+		sb.content_margin_right = 8 * k
+		sb.content_margin_top = 5 * k
+		sb.content_margin_bottom = 5 * k
+		row.add_stylebox_override("panel", sb)
+		grid.add_child(row)
+		var h := HBoxContainer.new()
+		row.add_child(h)
+		var l := Label.new()
+		l.text = SSQESettings.KEYBIND_LABELS.get(name, name)
+		l.size_flags_horizontal = SIZE_EXPAND_FILL
+		l.clip_text = true
+		l.valign = Label.VALIGN_CENTER
+		l.add_font_override("font", ed.font(int(13 * k), true))
+		l.add_color_override("font_color", TEXT)
+		h.add_child(l)
+		var b := Button.new()
+		b.text = SSQESettings.keybind_text(ed.s.keybinds[name])
+		b.focus_mode = FOCUS_NONE
+		b.rect_min_size = Vector2(120 * k, 0)
+		b.connect("pressed", self, "_st_kb_pick", [name])
+		_st_small(b)
+		h.add_child(b)
 		rows.append([name, b])
-		i += 1
 	_st.rows = rows
-	a_label(c, "Click a key, then press the new key (with Ctrl / Alt / Shift if you want). Esc cancels.", 0, int((names.size() + 1) / 2) * 34.0 + 4, 585, 26)
 
 func _st_kb_pick(name: String):
 	_kb_capture = name
 	for r in _st.rows:
-		r[1].text = "Press a key..." if r[0] == name else SSQESettings.keybind_text(ed.s.keybinds[r[0]])
+		if is_instance_valid(r[1]):
+			r[1].text = "Press a key..." if r[0] == name else SSQESettings.keybind_text(ed.s.keybinds[r[0]])
 
 func _st_kb_input(ev: InputEventKey) -> bool:
 	if _kb_capture == "" or not ev.pressed or ev.echo:

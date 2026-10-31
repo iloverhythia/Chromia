@@ -494,6 +494,7 @@ func _spec_settings():
 
 func enter_spectate_mode(peer_id: int):
 	spectating = true
+	call_deferred("_spectate_discord_status", peer_id)
 	process_priority = -10 # the watched time is set before the notes move this frame
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
@@ -566,9 +567,22 @@ func _pick_next_target():
 	elif next != spectate_peer_id:
 		_set_spectate_target(next)
 
+# Discord: Spectating <their name>
+func _spectate_discord_status(peer_id: int):
+	var lm = _get_lobby_manager()
+	var who := ""
+	if lm != null:
+		for p in lm.players:
+			if p is Dictionary and int(p.get("peer_id", -1)) == peer_id:
+				who = Globals.s(p.get("name", ""))
+		if who == "":
+			who = Globals.s(lm.get("watch_target_name"))
+	Rhythia.update_rpc_spectating(who)
+
 func exit_spectate_mode():
 	spectating = false
 	spectate_peer_id = -1
+	_set_spec_paused(false)
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		lobby_manager.report_spectate_target(-1)
@@ -610,8 +624,49 @@ func _end_spectate_and_return_to_lobby():
 	get_parent().black_fade_target = true
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+# The watched player paused (or is counting back in): their position stays
+# put, Paused shows, the music waits. When they go on, the clock starts over
+# from their new positions (before, it kept timing off the ones from before
+# the pause and the notes and music stuttered for seconds).
+var spec_paused: bool = false
+var _spec_paused_label: Label = null
+
+func _set_spec_paused(p: bool):
+	if p == spec_paused:
+		return
+	spec_paused = p
+	if p and _spec_paused_label == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 50
+		add_child(layer)
+		_spec_paused_label = Label.new()
+		var f = DynamicFont.new()
+		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+		f.size = 42
+		_spec_paused_label.add_font_override("font", f)
+		_spec_paused_label.add_color_override("font_color", Color(1, 1, 1, 0.92))
+		_spec_paused_label.add_color_override("font_color_shadow", Color(0, 0, 0, 0.7))
+		_spec_paused_label.add_constant_override("shadow_offset_x", 3)
+		_spec_paused_label.add_constant_override("shadow_offset_y", 3)
+		_spec_paused_label.text = "Paused"
+		_spec_paused_label.align = Label.ALIGN_CENTER
+		_spec_paused_label.valign = Label.VALIGN_CENTER
+		_spec_paused_label.anchor_right = 1.0
+		_spec_paused_label.anchor_bottom = 1.0
+		_spec_paused_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(_spec_paused_label)
+	if _spec_paused_label != null:
+		_spec_paused_label.visible = p
+	if not p:
+		_spec_reset_clock() # (their time jumped by the pause)
+
 func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, misses, total_notes, energy_pct, lvl_progress_pct, chart_ms):
 	if not spectating or peer_id != spectate_peer_id:
+		return
+	var lm_p = _get_lobby_manager()
+	var paused_now: bool = lm_p != null and bool(lm_p._live_state_cache.get(peer_id, {}).get("paused", false))
+	_set_spec_paused(paused_now)
+	if paused_now:
 		return
 	if not _spec_samples.empty():
 		var last_ms: float = _spec_samples[_spec_samples.size() - 1].ms
@@ -916,6 +971,36 @@ func _create_spectate_banner():
 		stop.text = "Stop watching" if Rhythia.vr else "Stop watching (hold %s)" % _give_up_key_name()
 		stop.connect("pressed", get_parent(), "leave_watching")
 		box.add_child(stop)
+	# a small Report button: skin, chat or other, with a screenshot (SpectateReport.gd)
+	if not Rhythia.vr:
+		var report := Button.new()
+		report.focus_mode = Control.FOCUS_NONE
+		var small_font = DynamicFont.new()
+		small_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+		small_font.size = 13
+		report.add_font_override("font", small_font)
+		report.text = "Report"
+		report.hint_tooltip = "Report this player (skin, chat, other)"
+		report.size_flags_horizontal = 0 # (as small as its text)
+		report.modulate = Color(1, 1, 1, 0.75)
+		report.connect("pressed", self, "_open_report")
+		box.add_child(report)
+
+func _open_report():
+	var lm = _get_lobby_manager()
+	if lm == null or not spectating:
+		return
+	var number := 0
+	var pname := ""
+	for p in lm.players:
+		if p is Dictionary and int(p.get("peer_id", -1)) == spectate_peer_id:
+			number = int(p.get("player_number", 0)) if p.get("player_number") != null else 0
+			pname = Globals.s(p.get("name", ""))
+	if number <= 0:
+		Globals.notify(Globals.NOTIFY_WARN, "This player can't be reported from here (no player number). Report them on Discord.", "Report")
+		return
+	var s = lm.player_view_settings.get(spectate_peer_id, {})
+	load("res://scripts/game/SpectateReport.gd").open_for(self, number, pname, s if s is Dictionary else {}, Globals.s(lm.lobby_state.get("song_name", "")))
 
 static func _give_up_key_name() -> String:
 	for e in InputMap.get_action_list("give_up"):

@@ -403,56 +403,53 @@ func _draw_object_icon(o, c: Vector2, r: float, color: Color):
 # frame was slow zoomed out.
 const WAVE_CHUNK := 512
 var _wave_key := ""
-var _wave_chunks := [] # [first sample index, PoolVector2Array]
+var _wave_cache := {} # piece index -> PoolVector2Array (for _wave_key)
 
 func _draw_waveform(wave, base_x: float, ms_to_px: float, min_ms: float, max_ms: float, H: float):
 	var offset: float = ed.music_offset() - 15.0
 	var step_ms: float = wave.res * 1000.0
 	var first := int(max(0, floor((min_ms - offset) / step_ms) - 1))
-	var last := int(min(wave.count, ceil((max_ms - offset) / step_ms) + 1))
+	var last := int(min(wave.count - 1, ceil((max_ms - offset) / step_ms) + 1))
 	if last <= first:
 		return
 	var classic: bool = ed.s.classicWaveform
-	# at most ~2 points a pixel (a power of two, so small scrolls keep it)
+	# at most ~2 points a pixel, from the zoom alone: worked out from what's on
+	# screen it could flip between two values while playing, and every flip
+	# made the whole song's waveform again (frames of 100+ ms)
 	var stride := 1
-	while (last - first) / stride > rect_size.x * 2.0:
+	while step_ms * ms_to_px * stride < 0.5:
 		stride *= 2
 	var key := "%f|%f|%f|%d|%s|%d" % [step_ms, ms_to_px, H, stride, str(classic), wave.count]
 	if key != _wave_key:
 		_wave_key = key
-		_wave_chunks = []
-		var left: PoolRealArray = wave.left
-		var right: PoolRealArray = wave.right
-		var pts := PoolVector2Array()
-		var start := 0
-		var n := 0
-		var i := 0
-		while i < wave.count:
-			var x := i * step_ms * ms_to_px
-			if classic:
-				pts.append(Vector2(x, (2.0 - max(abs(left[i]), abs(right[i])) * 2.0) * H / 2))
-			else:
-				pts.append(Vector2(x, (left[i] + 1.0) * H / 2))
-				pts.append(Vector2(x, (right[i] + 1.0) * H / 2))
-			n += 1
-			if n >= WAVE_CHUNK:
-				_wave_chunks.append([start, pts])
-				# the next piece starts where this one ends, so they join up
-				var tail := pts[pts.size() - 1]
-				pts = PoolVector2Array()
-				pts.append(tail)
-				start = i
-				n = 0
-			i += stride
-		if pts.size() >= 2:
-			_wave_chunks.append([start, pts])
+		_wave_cache = {}
+	# only the pieces on screen are made (and kept while the zoom stays)
+	var span := WAVE_CHUNK * stride
 	draw_set_transform(Vector2(base_x + offset * ms_to_px, 0), 0, Vector2.ONE)
 	var c := col(2)
-	for ch in _wave_chunks:
-		var s0: int = ch[0]
-		if s0 > last:
-			break
-		if s0 + WAVE_CHUNK * stride < first:
-			continue
-		draw_polyline(ch[1], c, 1.0)
+	for ci in range(int(first / span), int(last / span) + 1):
+		var pts = _wave_cache.get(ci)
+		if pts == null:
+			pts = _wave_piece(wave, ci * span, span, stride, step_ms * ms_to_px, H, classic)
+			_wave_cache[ci] = pts
+		if pts.size() >= 2:
+			draw_polyline(pts, c, 1.0)
 	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+
+# one piece of the waveform: samples start .. start + span (plus the next
+# piece's first one, so they join up), every stride-th
+static func _wave_piece(wave, start: int, span: int, stride: int, px_per_sample: float, H: float, classic: bool) -> PoolVector2Array:
+	var left: PoolRealArray = wave.left
+	var right: PoolRealArray = wave.right
+	var pts := PoolVector2Array()
+	var end: int = min(wave.count - 1, start + span)
+	var i := start
+	while i <= end:
+		var x := i * px_per_sample
+		if classic:
+			pts.append(Vector2(x, (2.0 - max(abs(left[i]), abs(right[i])) * 2.0) * H / 2))
+		else:
+			pts.append(Vector2(x, (left[i] + 1.0) * H / 2))
+			pts.append(Vector2(x, (right[i] + 1.0) * H / 2))
+		i += stride
+	return pts

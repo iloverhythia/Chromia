@@ -6652,6 +6652,27 @@ flat = true
 script = ExtResource( 54 )
 target = "allow_spectators"
 
+[node name="ChatNotifications" type="CheckBox" parent="TabContainer/Online/Account/Group/H"]
+margin_top = 146.0
+margin_right = 318.0
+margin_bottom = 174.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "shows new global chat messages next to the Spectate eye in the bottom right of the menu"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+pressed = true
+text = "Chat Notifications"
+flat = true
+script = ExtResource( 54 )
+target = "spectate_chat_notify"
+
 [node name="Control" type="Control" parent="."]
 margin_top = 1117.0
 margin_right = 1280.0

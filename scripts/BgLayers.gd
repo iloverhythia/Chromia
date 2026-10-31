@@ -29,6 +29,12 @@ static func _p(path: String) -> String:
 	return path
 
 static func media_path(file_name: String) -> String:
+	# spectating with their settings: their layers' files (SpectateSettings.gd)
+	if Rhythia.has_meta("spec_bg_layers") and Rhythia.has_meta("spec_bg_dir"):
+		return String(Rhythia.get_meta("spec_bg_dir")).plus_file(file_name.get_file())
+	return own_media_path(file_name)
+
+static func own_media_path(file_name: String) -> String:
 	return _p(DIR).plus_file(file_name)
 
 static func is_video_file(file_name: String) -> bool:
@@ -87,7 +93,13 @@ static func sanitize_layer(l) -> Dictionary:
 		"opacity": _num(l, "opacity", 1.0, 0.0, 1.0),
 	}
 
+# the layers to draw: theirs while spectating with their settings, else yours
 static func load_data() -> Dictionary:
+	if Rhythia.has_meta("spec_bg_layers"):
+		return Rhythia.get_meta("spec_bg_layers").duplicate(true)
+	return load_own_data()
+
+static func load_own_data() -> Dictionary:
 	var d = default_data()
 	var f = File.new()
 	if not f.file_exists(_p(FILE)):
