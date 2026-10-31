@@ -12,3 +12,4 @@ in scripts/Savia.gd and empties this list.
 - The custom speed box can be clicked and typed in again
 - Settings: the buttons and tabs at the top stay put while the page scrolls
 - Ranked passes send the list of DLLs loaded into Chromia, and aren't accepted while Cheat Engine is running (you get a warning when a song starts)
+- Your level shows on the website (profile and leaderboards)

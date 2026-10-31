@@ -57,6 +57,7 @@ func set_client_id():
 	var client_id = _ensure_client_id()
 	Rhythia.cid = client_id
 	cid = client_id
+	call_deferred("_hook_level_reports")
 
 	detect_device()
 
@@ -3173,6 +3174,41 @@ func record_play_stats():
 	st.map_time[id] = int(st.map_time.get(id, 0)) + play_ms
 	_save_lifetime_stats()
 	_award_level_exp(play_ms)
+
+# Your level (PlayerLevel.gd) for the website (profile, leaderboards): sent
+# when it changes and once a little after the game starts. Levels are earned
+# offline, so the website only shows them.
+const LEVEL_URL = "https://savia.nysr.host/savia-level"
+var _level_hooked := false
+var _level_sent := ""
+func _hook_level_reports():
+	if _level_hooked or not is_inside_tree():
+		return
+	_level_hooked = true
+	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	store.connect("changed", self, "report_level")
+	get_tree().create_timer(15.0).connect("timeout", self, "report_level")
+
+func report_level():
+	if cid == "" or not ProjectSettings.get_setting("application/networking/enabled"):
+		return
+	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	var key := "%d/%d/%d" % [store.level, store.prestige, store.total_exp]
+	if key == _level_sent:
+		return
+	_level_sent = key
+	var r := HTTPRequest.new()
+	r.timeout = 10
+	add_child(r)
+	r.connect("request_completed", self, "_on_level_sent", [r])
+	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp], [], true, HTTPClient.METHOD_POST, "") != OK:
+		r.queue_free()
+		_level_sent = ""
+
+func _on_level_sent(_result, code, _headers, _body, r: HTTPRequest):
+	r.queue_free()
+	if code != 200:
+		_level_sent = "" # (try again next time)
 
 # Level system (scripts/PlayerLevel.gd): experience for every play, even fails.
 func _award_level_exp(play_ms: int):
