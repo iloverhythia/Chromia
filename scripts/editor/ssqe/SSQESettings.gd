@@ -169,6 +169,7 @@ static func defaults() -> Dictionary:
 		"mode3DHitEffect": false,
 		"grid3DOpacity": 80.0,
 		"autosave": true,
+		"allowCollabInvites": true,
 		"autosaveInterval": 0.5, # minutes
 		"lastSettingsTab": "COLORS",
 	}

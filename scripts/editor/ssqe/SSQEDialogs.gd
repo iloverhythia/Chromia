@@ -1654,6 +1654,8 @@ func _st_tab(t: String):
 			_sr_slider("Autosave interval", "minutes", "autosaveInterval", 0.5, 30, 0.5)
 			var note := _sr_text("Your maps are saved in the editor folder (OPEN EDITOR FOLDER). Exported maps go to your map list.")
 			note.autowrap = true
+			_sr_section("Mapping together", "")
+			_sr_toggle("Invites to map together", "Others can invite you (COLLABORATE on the editor's start screen)", "allowCollabInvites")
 
 # ---- rows
 

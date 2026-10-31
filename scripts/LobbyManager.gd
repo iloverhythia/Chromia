@@ -41,6 +41,8 @@ signal spectate_denied(reason)
 signal watch_ended(text)
 signal presence_support_changed(supported)
 signal watchers_changed(count, names)
+# map editor collab (scripts/editor/ssqe/SSQECollab.gd): every collab_* message from the server
+signal collab_event(msg)
 # banned from chat (the server says so on connect and when it changes): chat boxes go grey (ChatBan.gd)
 signal chat_ban_changed(banned)
 var chat_banned := false
@@ -68,6 +70,7 @@ var is_host: bool = false
 var lobby_active: bool = false
 var lobby_code: String = ""
 var player_name: String = "Player"
+var collab_supported := false # the server can relay the map editor's collab (server_hello)
 var local_peer_id: int = -1
 
 var lobby_state: Dictionary = {
@@ -275,6 +278,11 @@ func send_chat_message(text: String):
 	if text == "" or not lobby_active:
 		return
 	_send({"type": "chat_message", "text": text.substr(0, 300)})
+
+# the map editor's collab: to the server (collab_invite / collab_reply / collab_send / collab_leave)
+func collab_send(payload: Dictionary):
+	payload["client_id"] = Rhythia.cid
+	_ensure_connected_then_send(payload)
 
 func send_global_chat_message(text: String):
 	text = text.strip_edges()
@@ -1293,6 +1301,9 @@ func _apply_server_name(msg: Dictionary):
 	Rhythia.emit_signal("discord_login_changed") # (the menu shows names again)
 
 func _handle_message(msg: Dictionary):
+	if Globals.s(msg.get("type", "")).begins_with("collab_"):
+		emit_signal("collab_event", msg) # (the map editor's collab handles these)
+		return
 	match Globals.s(msg.get("type", "")):
 		"auth_ok", "display_name_changed":
 			if msg.get("player_number") != null:
@@ -1449,6 +1460,7 @@ func _handle_message(msg: Dictionary):
 		"server_hello":
 			var feats = msg.get("features", [])
 			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
+			collab_supported = feats is Array and feats.has("collab")
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []

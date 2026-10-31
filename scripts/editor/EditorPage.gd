@@ -99,6 +99,10 @@ func _notify(text: String, title := "Map Editor", kind = null):
 func _ready():
 	connect("visibility_changed", self, "_on_visibility")
 	connect("resized", self, "_layout_home")
+	collab = load("res://scripts/editor/ssqe/SSQECollab.gd").new()
+	collab.name = "Collab"
+	collab.page = self
+	add_child(collab)
 	var root = get_tree().root
 	if root.has_meta(RETURN_META):
 		var info = root.get_meta(RETURN_META)
@@ -197,7 +201,7 @@ func _build_home():
 	col.add_constant_override("separation", 10)
 	home.add_child(col)
 	for it in [["CREATE NEW MAP", "_on_new_map"], ["LOAD MAP", "_on_load_map"], ["PASTE MAP", "_on_paste_new"],
-			["EDIT LAST MAP", "_on_edit_last"], ["EDIT SELECTED MAP", "_on_edit_selected"], ["SETTINGS", "_on_home_settings"]]:
+			["EDIT LAST MAP", "_on_edit_last"], ["EDIT SELECTED MAP", "_on_edit_selected"], ["COLLABORATE", "_on_collaborate"], ["SETTINGS", "_on_home_settings"]]:
 		var b = _btn(it[0], it[1])
 		b.add_font_override("font", f_title)
 		b.size_flags_vertical = SIZE_EXPAND_FILL
@@ -227,9 +231,17 @@ func _layout_home():
 	panel.rect_size = Vector2(w * 0.5 - 23 * s, h - 120 * s - 40 * s)
 	var col = home.get_node("Buttons")
 	col.rect_position = Vector2(w * 0.5 + 40 * s, 120 * s)
-	col.rect_size = Vector2(w * 0.5 - 80 * s, min(6 * 64 * s + 50, h - 160 * s))
+	col.rect_size = Vector2(w * 0.5 - 80 * s, min(7 * 64 * s + 60, h - 160 * s))
 	f_title.size = int(clamp(22 * s, 14, 48))
 	f_btn.size = int(clamp(15 * s, 11, 32))
+
+# mapping together (SSQECollab.gd): made with the page, so invites arrive
+# wherever you are in the menu
+var collab = null
+
+func _on_collaborate():
+	if collab:
+		collab.open_list()
 
 # the editor's Settings window, from the start screen (no map needs to be open)
 var settings_host = null
