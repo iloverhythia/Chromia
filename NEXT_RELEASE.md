@@ -8,3 +8,5 @@ in scripts/Savia.gd and empties this list.
 - Following someone you spectated works again after closing the Spectate window, and when they replay the same map
 - VR: spectators see your hands (furry paws or your custom vr_hand.obj)
 - VR: Settings > VR > Pointer > Hide the beam (pointing still works)
+- Drag colorsets (.txt) and note meshes (.obj, with or without .mtl) onto the game to add them
+- Dragging a settings profile (.json) onto the game adds it as a new profile instead of loading it over your settings
