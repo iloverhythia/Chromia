@@ -6,3 +6,5 @@ in scripts/Savia.gd and empties this list.
 - Spectating: the eye button's Spectate window (who's online and the global chat) works while you watch someone, instead of the small corner chat
 - Banned from chat: the chat boxes and Send buttons go grey ("You're banned from chat")
 - Following someone you spectated works again after closing the Spectate window, and when they replay the same map
+- VR: spectators see your hands (furry paws or your custom vr_hand.obj)
+- VR: Settings > VR > Pointer > Hide the beam (pointing still works)

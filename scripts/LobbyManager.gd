@@ -703,25 +703,31 @@ func upload_spectate_assets():
 	for a in spec.own_background_assets():
 		for u in a.uploads:
 			_upload_asset_file(u[0], u[1], u[2])
-	for kind in ["border", "mesh"]:
-		var file: String = spec.own_border_file() if kind == "border" else spec.own_mesh_file()
+	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()]]
+	if String(Rhythia.vr_hand) == "custom":
+		for hf in spec.own_hand_files():
+			sends.append([hf[0], "mesh", hf[1]]) # (VR hand models: .obj like a note mesh)
+	for snd in sends:
+		var key: String = snd[0]
+		var kind: String = snd[1]
+		var file: String = snd[2]
 		if file == "":
 			continue
 		var f := File.new()
 		var sha: String = f.get_sha256(file)
-		if sha == "" or _assets_sent.get(kind, "") == sha or f.open(file, File.READ) != OK:
+		if sha == "" or _assets_sent.get(key, "") == sha or f.open(file, File.READ) != OK:
 			continue
 		var data: PoolByteArray = f.get_buffer(f.get_len())
 		f.close()
-		_assets_sent[kind] = sha
+		_assets_sent[key] = sha
 		var http := HTTPRequest.new()
 		http.use_threads = true # (big files: never on the game's main thread)
 		add_child(http)
-		http.connect("request_completed", self, "_on_asset_uploaded", [http, kind])
+		http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
 		var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
 		if http.request_raw(url, ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, data) != OK:
 			http.queue_free()
-			_assets_sent.erase(kind)
+			_assets_sent.erase(key)
 
 func _on_asset_uploaded(result, code, _headers, _body, http, kind):
 	http.queue_free()
@@ -760,7 +766,7 @@ func fetch_spectate_assets(settings):
 	var spec = load("res://scripts/SpectateSettings.gd")
 	_tidy_asset_cache()
 	var wanted := []
-	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"]]:
+	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"], ["mesh", "vr_hand_file", "obj"], ["mesh", "vr_hand_left_file", "obj"]]:
 		wanted.append([pair[0], String(settings.get(pair[1], "")).to_lower(), pair[2]])
 	for k in ["custombg_image", "panobg_image"]:
 		var v: String = String(settings.get(k, "")).to_lower()

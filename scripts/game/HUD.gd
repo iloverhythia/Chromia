@@ -598,6 +598,7 @@ func exit_spectate_mode():
 		lobby_manager.report_spectate_target(-1)
 	_spec_reset_clock()
 	_spec_vr_head = null
+	_spec_hand_sig = ""
 	if _spec_vr_holder != null:
 		_spec_vr_holder.queue_free()
 		_spec_vr_holder = null
@@ -826,6 +827,7 @@ func _update_spectate_vr(ms: float):
 	if _spec_vr_hands.size() < 2:
 		return
 	_spec_vr_holder.visible = true
+	_spec_hand_look()
 	var pointing: int = 0 if pa[0] > 0.5 else 1 # left : right
 	for k in range(2):
 		var o: int = 8 + k * 7
@@ -838,6 +840,75 @@ func _update_spectate_vr(ms: float):
 		if k == pointing and ray.has_method("update_beam") and spectate_cursor != null:
 			ray.set_target(spectate_cursor.global_transform.origin)
 			ray.update_beam()
+
+# Their hands as they see them (Settings > VR > Hands): the furry paws, or
+# their own vr_hand.obj once downloaded (LobbyManager.fetch_spectate_assets);
+# checked about once a second until it's there.
+var _spec_hand_sig := ""
+var _spec_hand_check_at := 0
+func _spec_hand_look():
+	var now := OS.get_ticks_msec()
+	if now < _spec_hand_check_at:
+		return
+	_spec_hand_check_at = now + 1000
+	var lm = _get_lobby_manager()
+	var s = lm.player_view_settings.get(spectate_peer_id, {}) if lm != null else {}
+	if not (s is Dictionary):
+		s = {}
+	var kind: String = String(s.get("vr_hand", "default"))
+	var spec = _spec_settings()
+	var rpath: String = spec.cached_asset(String(s.get("vr_hand_file", "")).to_lower(), "obj") if kind == "custom" else ""
+	var lpath: String = spec.cached_asset(String(s.get("vr_hand_left_file", "")).to_lower(), "obj") if kind == "custom" else ""
+	var sig := "%s|%s|%s" % [kind, rpath, lpath]
+	if sig == _spec_hand_sig:
+		return
+	_spec_hand_sig = sig
+	var VRP = load("res://vr/VRPlayer.gd")
+	var meshes = null # [left, right]
+	if kind == "paw":
+		var r = load("res://vr/PawHand.gd").build()
+		meshes = [VRP._mirrored(r), r]
+	elif kind == "custom" and rpath != "":
+		var ObjParse = load("res://scripts/content/resources/ObjParse.gd")
+		var r = ObjParse.load_obj(rpath)
+		if r != null and r.get_surface_count() > 0:
+			var l = ObjParse.load_obj(lpath) if lpath != "" else null
+			if l == null or l.get_surface_count() == 0:
+				l = VRP._mirrored(r)
+			meshes = [l, r]
+	for k in range(_spec_vr_hands.size()):
+		var hand: Spatial = _spec_vr_hands[k]
+		var mi = hand.get_node_or_null("Mesh")
+		if not (mi is MeshInstance):
+			continue
+		if not mi.has_meta("hand_default"):
+			mi.set_meta("hand_default", [mi.mesh, mi.transform, mi.get_surface_material(0)])
+		var d: Array = mi.get_meta("hand_default")
+		var outline = mi.get_node_or_null("Outline")
+		var trail = mi.get_node_or_null("HandTrail")
+		var ray = hand.get_node_or_null("Ray")
+		if ray != null and "start_gap" in ray:
+			ray.start_gap = 0.0
+			if kind == "paw" and meshes != null:
+				ray.start_gap = max(0.0, ray.transform.origin.z + load("res://vr/PawHand.gd").TIP * VRP.UNITS_PER_M)
+		if meshes == null:
+			mi.mesh = d[0]
+			mi.transform = d[1]
+			mi.set_surface_material(0, d[2])
+			if outline:
+				outline.visible = true
+			if trail:
+				trail.transform = Transform()
+			continue
+		var mesh: Mesh = meshes[k]
+		mi.mesh = mesh
+		mi.transform = Transform(Basis().scaled(Vector3(VRP.UNITS_PER_M, VRP.UNITS_PER_M, VRP.UNITS_PER_M)), Vector3.ZERO)
+		for j in range(mesh.get_surface_count()):
+			mi.set_surface_material(j, null if mesh.surface_get_material(j) != null else d[2])
+		if outline:
+			outline.visible = false
+		if trail:
+			trail.transform = Transform(Basis().scaled(Vector3(0.02, 0.02, 0.06)), Vector3.ZERO)
 
 func _spec_index_before(ms: float) -> int:
 	var i: int = _spec_samples.size() - 1

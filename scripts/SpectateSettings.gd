@@ -31,7 +31,7 @@ const CAMERA_KEYS := [
 ]
 # a VR player's beam, shown to a spectator who isn't in VR (in VR your own beam
 # keeps your look)
-const VR_LOOK_KEYS := ["vr_beam_color", "vr_beam_width", "vr_beam_rainbow"]
+const VR_LOOK_KEYS := ["vr_beam_color", "vr_beam_width", "vr_beam_rainbow", "vr_hide_beam"]
 # what the notes, cursor, grid and HUD look like
 const VIEW_KEYS := [
 	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity",
@@ -120,6 +120,12 @@ static func collect() -> Dictionary:
 		if typeof(e) != TYPE_NIL:
 			out[k] = e
 	out["_vr"] = bool(Rhythia.vr)
+	# your VR hands (shown to spectators: HUD.gd): the furry paws are in every
+	# game; custom models are uploaded (LobbyManager.upload_spectate_assets)
+	out["vr_hand"] = String(backup.get("vr_hand", Rhythia.vr_hand))
+	if out["vr_hand"] == "custom":
+		for hf in own_hand_files():
+			out[hf[0]] = File.new().get_sha256(hf[1])
 	out["_v"] = 1
 	# your cursor picture, for whoever watches you with your settings (the
 	# server keeps it by this hash: LobbyManager.upload_cursor_picture)
@@ -248,6 +254,17 @@ static func own_border_file(b = null) -> String:
 	return ""
 
 # your note mesh's .obj file, "" for a built-in mesh
+# your custom VR hand models: [[settings key, file]] (vr_hand.obj, and
+# vr_hand_left.obj if there is one), small enough to send
+static func own_hand_files() -> Array:
+	var out := []
+	var f := File.new()
+	for pair in [["vr_hand_file", "user://vr_hand.obj"], ["vr_hand_left_file", "user://vr_hand_left.obj"]]:
+		var p: String = Globals.p(pair[1])
+		if f.file_exists(p) and _small_enough(p):
+			out.append([pair[0], p])
+	return out
+
 static func own_mesh_file(m = null) -> String:
 	if m == null:
 		m = Rhythia.selected_mesh

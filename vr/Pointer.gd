@@ -103,6 +103,7 @@ func _style(beam: MeshInstance):
 			mat.albedo_color = c
 
 func _process(_delta):
-	$Beam.visible = enabled
-	if _free != null and not enabled:
+	var hidden: bool = bool(Rhythia.get("vr_hide_beam")) # (Settings > VR > Pointer)
+	$Beam.visible = enabled and not hidden
+	if _free != null and (not enabled or hidden):
 		_free.visible = false

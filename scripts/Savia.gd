@@ -2109,6 +2109,8 @@ var vr_simple_bg: bool = false # VR songs on the plain VOID background
 var vr_beam_width: float = 1.0
 var vr_beam_color: Color = Color(0, 1, 1, 0.63)
 var vr_beam_rainbow: bool = false
+# Settings > VR > Pointer > Hide the beam: no beam from the hand (pointing still works)
+var vr_hide_beam: bool = false
 # in songs the beam ends on the cursor (kept inside the grid) instead of
 # going on past the grid's edges
 var vr_lock_beam: bool = false
@@ -3970,6 +3972,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_beam_color = Color(data.vr_beam_color)
 		if data.has("vr_beam_rainbow"):
 			vr_beam_rainbow = bool(data.vr_beam_rainbow)
+		if data.has("vr_hide_beam"):
+			vr_hide_beam = bool(data.vr_hide_beam)
 		if data.has("vr_lock_beam"):
 			vr_lock_beam = bool(data.vr_lock_beam)
 		if data.has("vr_aim_from_eyes"):
@@ -4510,6 +4514,7 @@ func _write_settings_file(saveFile: String):
 			vr_beam_width = vr_beam_width,
 			vr_beam_color = vr_beam_color.to_html(true),
 			vr_beam_rainbow = vr_beam_rainbow,
+			vr_hide_beam = vr_hide_beam,
 			vr_lock_beam = vr_lock_beam,
 			vr_aim_from_eyes = vr_aim_from_eyes,
 			vr_binds = vr_binds,
