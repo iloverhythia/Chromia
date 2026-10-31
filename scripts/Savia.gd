@@ -5537,7 +5537,8 @@ func do_init(_ud = null):
 		var latest_version = yield(Online, "latest_version")
 		if ProjectSettings.get_setting("application/config/version") != latest_version:
 			var sel = 1
-			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest") and not Online.is_tester():
+			# (testers are asked too: test builds come out many times a day)
+			if not String(Online.latest_version_data.get("body", "")).begins_with("-a") and not OS.has_feature("quest"):
 				if Online.update_snoozed():
 					sel = 0 # ("Remind me in a day": no box until then)
 				else:

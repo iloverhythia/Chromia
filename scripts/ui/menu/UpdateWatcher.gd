@@ -66,7 +66,9 @@ func _check():
 		_busy = false
 		return
 	var data = Online.latest_version_data if typeof(Online.latest_version_data) == TYPE_DICTIONARY else {}
-	var silent := String(data.get("body", "")).begins_with("-a") or Online.is_tester() # (testers: test builds without asking)
+	# (only a release marked -a updates without asking; testers are asked too:
+	# test builds come out many times a day)
+	var silent := String(data.get("body", "")).begins_with("-a")
 	if not silent and Online.update_snoozed(): # ("Remind me in a day")
 		_busy = false
 		return
