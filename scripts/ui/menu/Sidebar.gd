@@ -254,8 +254,8 @@ func _ready():
 	if Online.build_channel() == "test" and not Rhythia.has_meta("test_build_warned"):
 		Rhythia.set_meta("test_build_warned", true)
 		Globals.call_deferred("notify", Globals.NOTIFY_WARN,
-			"This is a test build: your scores, XP and SP go to the TEST leaderboards, not the real ones (and they get wiped now and then). For scores that count, switch to Stable in Settings > Check for Updates.",
-			"Test build", 12.0)
+			"Test build: scores go to the TEST leaderboards, not the real ones.",
+			"Test build", 4.0)
 	# (Quest: shown once the VR menu is up; the first, flat menu isn't visible)
 	if (Rhythia.last_session_crashed or (Rhythia.always_show_crash_log and Rhythia.last_session_trail.strip_edges() != "")) and not Rhythia.crash_report_shown and (Rhythia.vr or not OS.has_feature("quest")):
 		Rhythia.crash_report_shown = true
