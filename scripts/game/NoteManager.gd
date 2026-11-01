@@ -509,10 +509,14 @@ func _ready():
 
 	$Note.speed_multi = speed_multi
 	_n_music.pitch_scale = speed_multi * replay_view_speed
+	# (the material is shared between songs: without a border picture the
+	# default goes back, not whichever was on last, e.g. before spectating)
+	var border_mat = $Outer.get("material/0")
+	if not border_mat.has_meta("default_tex"):
+		border_mat.set_meta("default_tex", border_mat.albedo_texture)
 	var border_tex = Rhythia.get_selected_border_texture()
-	if border_tex != null:
-		$Outer.get("material/0").albedo_texture = border_tex
-	$Outer.get("material/0").albedo_color = Rhythia.border_color
+	border_mat.albedo_texture = border_tex if border_tex != null else border_mat.get_meta("default_tex")
+	border_mat.albedo_color = Rhythia.border_color
 
 	if AudioServer.get_bus_effect_count(AudioServer.get_bus_index("Music")) > 0:
 		AudioServer.remove_bus_effect(AudioServer.get_bus_index("Music"), 0)
