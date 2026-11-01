@@ -6182,6 +6182,10 @@ func do_init(_ud = null):
 	do_archive_convert = false
 
 	var alert_snd_played: bool = false
+	# the website's game view of a replay: none of the first-start questions
+	if load("res://scripts/WebReplay.gd").wanted():
+		alert = ""
+		should_ask_about_replays = false
 	if alert != "":
 		emit_signal("init_stage_reached", "Alert prompt")
 		if not alert_snd_played: Globals.confirm_prompt.s_alert.play()

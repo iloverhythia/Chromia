@@ -496,6 +496,9 @@ func transfer_host(target_peer_id: int):
 
 var _last_connect_try: int = -100000
 func _connect_socket() -> bool:
+	# (the website's game view of a replay stays offline: WebReplay.gd)
+	if load("res://scripts/WebReplay.gd").wanted():
+		return false
 	# Background requests (map info etc.) retry at most every 2 s while the
 	# server is unreachable; joining/creating a lobby always tries right away.
 	var now := OS.get_ticks_msec()

@@ -131,7 +131,8 @@ func read_data(from_path: String = ""):
 			if sv >= 4: debug_txt.replay_hwid = file.get_line()
 			id = file.get_line()
 			var song_id = id.substr(0, id.find_last(".")).substr(0, id.find_last("."))
-			var fsong = Rhythia.registry_song.get_item(song_id)
+			# (loose: the same map can have another id on the player's computer)
+			var fsong = Rhythia.registry_song.get_song_loose(song_id)
 
 			debug_txt.replay_id = id
 			debug_txt.song_id = song_id
