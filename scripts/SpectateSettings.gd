@@ -62,7 +62,7 @@ const VIEW_KEYS := [
 	"grade_ss_value", "grade_ss_shine", "grade_s_color", "grade_s_shine", "grade_a_color",
 	"grade_b_color", "grade_c_color", "grade_d_color", "grade_f_color",
 	"sound_space_mode", "ss_score_popups", "ss_health_y", "ss_health_w", "ss_progress_y",
-	"ss_progress_w", "ss_hud", "hud_font",
+	"ss_progress_w", "ss_hud", "hud_font", "hud_font_size", "hud_panel_style", "hud_panel_size",
 ]
 # content, sent as its id and looked up in your registries
 const ID_KEYS := {

@@ -3137,6 +3137,9 @@ func ss_menus_on() -> bool:
 	return sound_space_mode and not ss_gameplay_only
 var ss_score_popups: bool = true # Sound Space Mode: points pop up under the grid on each hit
 var hud_font: String = "default" # Settings > Fonts: the song HUD's font (scripts/HudFont.gd)
+var hud_font_size: float = 100.0 # Settings > Fonts: its size, % of normal
+var hud_panel_style: String = "chromia" # Settings > Background Editor > HUD panels (scripts/HudPanels.gd)
+var hud_panel_size: float = 100.0 # the side panels' size, % of normal
 var ss_hud: bool = false # Sound Space HUD: the side panels, time and health bar look like Sound Space (without the rest of Sound Space Mode)
 var ss_health_y: float = 0.0     # Sound Space Mode: health bar moved up (+) / down (-)
 var ss_health_w: float = 100.0   # Sound Space Mode: health bar width, %
@@ -4012,6 +4015,12 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			ss_hud = bool(data.ss_hud)
 		if data.has("hud_font"):
 			hud_font = String(data.hud_font)
+		if data.has("hud_font_size"):
+			hud_font_size = clamp(float(data.hud_font_size), 50.0, 200.0)
+		if data.has("hud_panel_style"):
+			hud_panel_style = String(data.hud_panel_style)
+		if data.has("hud_panel_size"):
+			hud_panel_size = clamp(float(data.hud_panel_size), 50.0, 200.0)
 		for k in ["ss_health_y", "ss_health_w", "ss_progress_y", "ss_progress_w"]:
 			if data.has(k):
 				set(k, float(data[k]))
@@ -4598,6 +4607,9 @@ func _write_settings_file(saveFile: String):
 			ss_score_popups = ss_score_popups,
 			ss_hud = ss_hud,
 			hud_font = hud_font,
+			hud_font_size = hud_font_size,
+			hud_panel_style = hud_panel_style,
+			hud_panel_size = hud_panel_size,
 			ss_health_y = ss_health_y,
 			ss_health_w = ss_health_w,
 			ss_progress_y = ss_progress_y,

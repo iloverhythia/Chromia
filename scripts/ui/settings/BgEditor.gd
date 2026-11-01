@@ -54,6 +54,21 @@ static func install(menu: Node):
 	var after = tc.get_node_or_null("World & Cursor")
 	if after != null:
 		tc.move_child(tab, after.get_index() + 1)
+	# the HUD's side panels: style and size (HudPanelsSection.gd)
+	var panels = load("res://scripts/ui/settings/HudPanelsSection.gd").new()
+	panels.name = "HudPanels"
+	tab.add_child(panels)
+	# the grid's Borders live here now (they were at the end of World & Cursor)
+	var borders = tc.get_node_or_null("World & Cursor/Borders")
+	if borders != null:
+		var wc = borders.get_parent()
+		var i: int = borders.get_index()
+		var sep = wc.get_child(i - 1) if i > 0 else null
+		wc.remove_child(borders)
+		if sep is HSeparator:
+			wc.remove_child(sep)
+			tab.add_child(sep)
+		tab.add_child(borders)
 
 func _font(path: String, size: int) -> DynamicFont:
 	var f = DynamicFont.new()

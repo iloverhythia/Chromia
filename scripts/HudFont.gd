@@ -138,19 +138,25 @@ static func data_for(id: String, custom: String, weight: String, cache: Dictiona
 
 const FONT_SLOTS := ["font", "normal_font", "bold_font"]
 
-# every text under root with its own DynamicFont gets the chosen font
+# Settings > Fonts > Size: the HUD's text this much bigger or smaller (1 = as made)
+static func size_scale() -> float:
+	var v = Rhythia.get("hud_font_size")
+	return clamp(float(v) / 100.0, 0.5, 2.0) if v != null else 1.0
+
+# every text under root with its own DynamicFont gets the chosen font (and size)
 static func apply(root: Node, id := "", custom := ""):
 	if id == "":
 		var cur := current()
 		id = cur[0]
 		custom = cur[1]
-	if id == DEFAULT or root == null:
+	var scale := size_scale()
+	if root == null or (id == DEFAULT and abs(scale - 1.0) < 0.001):
 		return
 	var data_cache := {}
 	var font_cache := {} # old DynamicFont -> new (fonts are shared between labels)
-	_apply_to(root, id, custom, data_cache, font_cache)
+	_apply_to(root, id, custom, data_cache, font_cache, scale)
 
-static func _apply_to(n: Node, id: String, custom: String, data_cache: Dictionary, font_cache: Dictionary):
+static func _apply_to(n: Node, id: String, custom: String, data_cache: Dictionary, font_cache: Dictionary, scale: float = 1.0):
 	if n is Control:
 		for slot in FONT_SLOTS:
 			if not n.has_font_override(slot):
@@ -159,19 +165,25 @@ static func _apply_to(n: Node, id: String, custom: String, data_cache: Dictionar
 			if not (old is DynamicFont) or old.font_data == null:
 				continue
 			if not font_cache.has(old):
-				var d := data_for(id, custom, _weight(old.font_data), data_cache)
+				var d: DynamicFontData = old.font_data if id == DEFAULT else data_for(id, custom, _weight(old.font_data), data_cache)
+				if d == null and abs(scale - 1.0) > 0.001:
+					d = old.font_data # (only the size changes)
 				if d == null:
 					font_cache[old] = null
 				else:
 					var nf: DynamicFont = old.duplicate()
-					nf.font_data = d
-					# letters the new font doesn't have come from the old one
-					nf.add_fallback(old.font_data)
+					if d != old.font_data:
+						nf.font_data = d
+						# letters the new font doesn't have come from the old one
+						nf.add_fallback(old.font_data)
+					if abs(scale - 1.0) > 0.001:
+						nf.size = int(max(4, round(old.size * scale)))
+						nf.outline_size = int(round(old.outline_size * scale))
 					font_cache[old] = nf
 			if font_cache[old] != null:
 				n.add_font_override(slot, font_cache[old])
 	for c in n.get_children():
-		_apply_to(c, id, custom, data_cache, font_cache)
+		_apply_to(c, id, custom, data_cache, font_cache, scale)
 
 # HUD.gd, once the HUD is built (Sound Space Mode's panels keep their pixel font)
 static func apply_hud(hud: Node):

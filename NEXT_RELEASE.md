@@ -14,3 +14,6 @@ in scripts/Savia.gd and empties this list.
 - VR: a Height setting (Settings > VR > Height) raises or lowers you up to 1 m, in the menu and in songs
 - Fixed the in-game HUD failing to load in the last test builds (two features had a function with the same name)
 - VR: a new Ball hand (Settings > VR > Hands): a plain round white sphere for each hand (spectators see it too)
+- Settings: the grid's Borders moved to the Background Editor tab
+- Background Editor > HUD panels: pick how the side panels look while you play (Chromia, Sound Space, Outlined, Glass, No background, or your own picture) and how big they are (50% to 200%). Spectators see your style and size
+- Settings > Fonts: a Size slider for the HUD's text (50% to 200%), seen by spectators too

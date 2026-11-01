@@ -1683,6 +1683,7 @@ func _ready():
 
 	songnametxt.text = Rhythia.selected_song.name
 	load("res://scripts/HudFont.gd").apply_hud(self) # Settings > Fonts
+	load("res://scripts/HudPanels.gd").apply(self) # Settings > Background Editor > HUD panels
 	load("res://scripts/game/SoundSpaceMode.gd").apply_hud(self) # Sound Space Mode (Experimental)
 
 	var ms = ""
