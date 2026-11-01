@@ -89,6 +89,7 @@ func _ready():
 	size_flags_horizontal = SIZE_EXPAND_FILL
 	size_flags_vertical = SIZE_EXPAND_FILL
 	rect_min_size = Vector2(274, 280)
+	size_flags_stretch_ratio = 30 # (the whole row's spare width, not the dividers')
 	mouse_filter = MOUSE_FILTER_IGNORE
 
 	_load_prefs()
@@ -158,7 +159,9 @@ func _layout():
 	if _scroll == null: return
 	_head.rect_position = Vector2(PAD_L, HEAD_Y)
 	_head.rect_size = Vector2(0, SWITCH_H)
-	var w = max(rect_size.x - PAD_L - PAD_R, 120)
+	var mods = get_parent().get_node_or_null("Mods") if get_parent() != null else null
+	var pad_r = PAD_R if (mods is Control and mods.visible) else 12 # (nothing hangs over with the Modifiers box hidden)
+	var w = max(rect_size.x - PAD_L - pad_r, 120)
 	var h = rect_size.y
 	var vp = get_viewport()
 	if vp != null:
@@ -206,11 +209,26 @@ func _set_mode(m: int, save: bool = true):
 		if end_info.visible != want_end:
 			end_info.visible = want_end
 	visible = (mode == MODE_HISTORY)
+	_show_mods(mode != MODE_HISTORY)
 	if mode == MODE_HISTORY:
 		_refresh()
 		call_deferred("_layout")
 	if save:
 		_save_prefs()
+
+# History uses the whole row: the Modifiers box (and its divider and title)
+# hide while it shows, and come back with Best.
+func _show_mods(on: bool):
+	var h2 = get_parent()
+	if h2 == null:
+		return
+	for n in ["Mods", "VSeparator"]:
+		var c = h2.get_node_or_null(n)
+		if c is Control:
+			c.visible = on
+	var title = h2.get_parent().get_node_or_null("HBoxContainer/ModsTitle") if h2.get_parent() != null else null
+	if title is CanvasItem:
+		title.modulate.a = 1.0 if on else 0.0 # (hidden without moving the row)
 
 # SongInfoScreen / EndInfo turn the PB box on whenever they update; keep it
 # hidden while History is showing.

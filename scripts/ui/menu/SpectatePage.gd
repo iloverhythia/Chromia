@@ -1183,6 +1183,10 @@ func _send_chat():
 # ------------------------------------------------------------------ avatars
 
 func _load_avatar(url: String, pic: TextureRect):
+	if url.begins_with("/"): # (a picture on the server, given without its address)
+		url = "https://savia.nysr.host" + url
+	if not url.begins_with("http"):
+		return
 	if _img_cache.has(url):
 		pic.texture = _img_cache[url]
 		pic.visible = true
