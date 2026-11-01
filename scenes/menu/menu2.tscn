@@ -1,4 +1,4 @@
-[gd_scene load_steps=227 format=2]
+[gd_scene load_steps=226 format=2]
 
 [ext_resource path="res://uitheme.tres" type="Theme" id=1]
 [ext_resource path="res://assets/font/Lato/Lato-Regular.ttf" type="DynamicFontData" id=2]
@@ -10,7 +10,6 @@
 [ext_resource path="res://scripts/ui/menu/buttons/ContentMgrAddMap.gd" type="Script" id=8]
 [ext_resource path="res://scripts/ui/menu/buttons/PlaySong.gd" type="Script" id=9]
 [ext_resource path="res://scripts/ui/settings/MusicVolumeSetter.gd" type="Script" id=10]
-[ext_resource path="res://assets/sfx/music/menu/change_it_up.ogg" type="AudioStream" id=11]
 [ext_resource path="res://scripts/ui/menu/Sidebar.gd" type="Script" id=12]
 [ext_resource path="res://scripts/ui/menu/menu2.gd" type="Script" id=13]
 [ext_resource path="res://assets/font/Lato/Lato-Black.ttf" type="DynamicFontData" id=14]
@@ -1694,7 +1693,6 @@ script = ExtResource( 10 )
 
 [node name="MenuSong" type="AudioStreamPlayer" parent="Main/Maps/Results/Results/RS/H1/Info/Control/PreviewMusic"]
 pause_mode = 2
-stream = ExtResource( 11 )
 volume_db = -10.0
 bus = "Music"
 

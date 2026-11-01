@@ -36,3 +36,4 @@ in scripts/Savia.gd and empties this list.
 - Your level's progress shows on your website profile (the line around your picture)
 - The website's score page has a Game view: the replay played by the game itself in your browser (needs the updated server)
 - Replays: the cursor moves in a straight line between its recorded positions, so it's where it really was (it eased in and out of each one and looked off on fast moves)
+- The built-in menu songs are gone (about 15 MB smaller); your own menu song (Settings) still plays

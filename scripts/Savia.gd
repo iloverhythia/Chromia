@@ -2174,25 +2174,19 @@ var def_fail_snd: AudioStream
 var def_pb_snd: AudioStream
 var def_menu_bgm: AudioStream
 
-# The menu music: these songs play one after another in a random order
-# (scripts/ui/menu/buttons/PlaySong.gd). Every song plays once before any
-# repeats, and a new round never starts with the song that just played. The
-# order carries on when you come back to the menu after a song. A custom menu
-# song (user://menu.ogg / .mp3 / .wav) replaces the list and loops, as before.
-const MENU_PLAYLIST = [
-	"res://assets/sfx/music/menu/change_it_up.ogg",
-	"res://assets/sfx/music/menu/alright.ogg",
-	"res://assets/sfx/music/menu/april_fools.ogg",
-	"res://assets/sfx/music/menu/blame_it.ogg",
-	"res://assets/sfx/music/menu/claustroflowbic.ogg",
-	"res://assets/sfx/music/menu/cudda_been.ogg",
-	"res://assets/sfx/music/menu/memorex_cds.ogg",
-]
+# The menu music: no songs come with the game any more (seven songs were
+# about 15 MB of every download and install). A custom menu song
+# (user://menu.ogg / .mp3 / .wav) still plays and loops; without one the menu
+# is quiet. Songs listed here would play one after another in a random order
+# (scripts/ui/menu/buttons/PlaySong.gd).
+const MENU_PLAYLIST = []
 var _menu_bag: Array = []
 var _menu_last: String = ""
 var _menu_seeded: bool = false
 
 func next_menu_track() -> AudioStream:
+	if MENU_PLAYLIST.empty():
+		return null # (no built-in menu songs)
 	if _menu_bag.empty():
 		if not _menu_seeded:
 			randomize()
@@ -6112,7 +6106,7 @@ func do_init(_ud = null):
 
 	emit_signal("init_stage_reached", "Init default assets 6/6")
 	if lp: yield(get_tree(), "idle_frame")
-	def_menu_bgm = load(MENU_PLAYLIST[0])
+	def_menu_bgm = load(MENU_PLAYLIST[0]) if not MENU_PLAYLIST.empty() else null
 
 	emit_signal("init_stage_reached", "Check Banned")
 	yield(get_tree(), "idle_frame")
