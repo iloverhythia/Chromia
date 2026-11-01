@@ -1549,6 +1549,10 @@ var _heartbeat: Timer = null
 func _set_session_state(state: String):
 	if _session_closed and state != "closed":
 		return # (a focus / resume event while quitting)
+	# the website's game view of a replay keeps no session (closing its browser
+	# tab isn't a crash; it's not the player's game): WebReplay.gd
+	if load("res://scripts/WebReplay.gd").wanted():
+		return
 	var f := File.new()
 	if f.open(Globals.p(SESSION_FILE), File.WRITE) == OK:
 		f.store_string(state)
@@ -1570,7 +1574,8 @@ func _trail_start():
 			f.close()
 		d.remove(Globals.p(TRAIL_PREV_FILE))
 		d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE))
-	last_session_crashed = state == "running" and last_session_trail.strip_edges() != ""
+	# (the replay game view never counts as crashed, see _set_session_state)
+	last_session_crashed = state == "running" and last_session_trail.strip_edges() != "" and not load("res://scripts/WebReplay.gd").wanted()
 	last_session_engine_log = _previous_engine_log(40)
 	if last_session_crashed:
 		_save_crash_report()
