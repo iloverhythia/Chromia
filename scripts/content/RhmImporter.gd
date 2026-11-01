@@ -151,7 +151,9 @@ func _import(bytes: PoolByteArray) -> Dictionary:
 
 	var song := Song.new(id, song_name, creator)
 	song.songType = Globals.MAP_RAW
-	song.musicFile = TMP_AUDIO
+	# (Globals.p: where the audio was written. On phones and the Quest user://
+	# alone is another folder: the map was converted without its music)
+	song.musicFile = Globals.p(TMP_AUDIO)
 	song.notes = notes
 	song.note_count = notes.size()
 	song.last_ms = notes[notes.size() - 1][2]
@@ -173,7 +175,7 @@ func _import(bytes: PoolByteArray) -> Dictionary:
 		return result
 
 	Rhythia.registry_song.check_and_remove_id(song.id)
-	var registered_song = Rhythia.registry_song.add_sspm_map("user://maps/%s.sspm" % song.id)
+	var registered_song = Rhythia.registry_song.add_sspm_map(Globals.p("user://maps/%s.sspm" % song.id)) # (where convert_to_sspm saved it)
 	if registered_song == null:
 		result.error = "Converted but couldn't be added to your map list."
 		return result
