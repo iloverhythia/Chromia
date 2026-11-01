@@ -119,6 +119,18 @@ static func collect() -> Dictionary:
 		var e = _enc(v)
 		if typeof(e) != TYPE_NIL:
 			out[k] = e
+	# your colorset's colours themselves: a custom / imported one isn't in the
+	# spectator's list (and the notes' alpha is these colours' alpha x opacity)
+	var cs = backup.get("selected_colorset", Rhythia.selected_colorset)
+	if cs != null and is_instance_valid(cs) and "real_colors" in cs:
+		var cols := []
+		for c in cs.real_colors:
+			if c is Color:
+				cols.append("#" + c.to_html(true))
+		if cols.size() > 0 and cols.size() <= 64:
+			out["colorset_colors"] = cols
+			out["colorset_mirror"] = bool(cs.mirror)
+			out["colorset_name"] = String(cs.name).left(60)
 	out["_vr"] = bool(Rhythia.vr)
 	# your VR hands (shown to spectators: HUD.gd): the furry paws are in every
 	# game; custom models are uploaded (LobbyManager.upload_spectate_assets)
@@ -345,6 +357,17 @@ static func apply(their: Dictionary, peer_id: int):
 			var item = _lookup(k, their[k])
 			if item != null:
 				_assign(k, item)
+	# their colorset as they have it (newer games send the colours)
+	var cc = their.get("colorset_colors")
+	if cc is Array and cc.size() > 0 and cc.size() <= 64:
+		var cols := []
+		for h in cc:
+			if typeof(h) == TYPE_STRING and h.is_valid_html_color():
+				cols.append(Color(h))
+		if cols.size() == cc.size():
+			var tcs = ColorSet.new(cols, "spectate_colorset", String(their.get("colorset_name", "Their colorset")).left(60), "Them")
+			tcs.mirror = bool(their.get("colorset_mirror", false))
+			_assign("selected_colorset", tcs)
 	# their own border picture / mesh, once downloaded (LobbyManager fetches
 	# them when their settings arrive); not here yet: the lookup above stands
 	var bpath := cached_asset(String(their.get("border_image", "")), "png")

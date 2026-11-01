@@ -213,6 +213,7 @@ func return_to_song_select():
 
 func _ready():
 	Rhythia.connect("selected_song_changed", self, "update")
+	Rhythia.connect("selected_song_changed", self, "_cover_clip_roll")
 	Rhythia.connect("mods_changed", self, "update")
 	RhythiaPoints.get_store().connect("changed", self, "update")
 	Rhythia.connect("star_rating_ready", self, "_on_star_rating_ready")
@@ -237,3 +238,47 @@ func _exit_tree():
 	var st = RhythiaPoints.get_store()
 	if st.is_connected("changed", self, "update"):
 		st.disconnect("changed", self, "update")
+
+
+# Player 4's game: one map click in a hundred plays a clip over the map's
+# cover (with its sound), then the cover is back. Another map stops it.
+const CLIP_PLAYER := 4
+var _clip: VideoPlayer = null
+
+func _cover_clip_roll(_song = null):
+	_cover_clip_stop()
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm == null or int(lm.my_player_number) != CLIP_PLAYER:
+		return
+	randomize()
+	if randi() % 100 != 0:
+		return
+	call_deferred("_cover_clip_play")
+
+func _cover_clip_play():
+	var shown: Panel = null
+	for n in difficulty_btns:
+		if n.visible:
+			shown = n
+	if shown == null:
+		return
+	var stream = load("res://assets/images/ui/road.ogv")
+	if stream == null:
+		return
+	var cover: Control = shown.get_node("Cover")
+	_clip = VideoPlayer.new()
+	_clip.name = "CoverClip"
+	_clip.stream = stream
+	_clip.expand = true
+	_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for k in ["anchor_left", "anchor_top", "anchor_right", "anchor_bottom", "margin_left", "margin_top", "margin_right", "margin_bottom"]:
+		_clip.set(k, cover.get(k))
+	_clip.connect("finished", self, "_cover_clip_stop")
+	shown.add_child(_clip)
+	_clip.play()
+
+func _cover_clip_stop():
+	if _clip != null and is_instance_valid(_clip):
+		_clip.stop()
+		_clip.queue_free()
+	_clip = null

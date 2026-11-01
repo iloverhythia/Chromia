@@ -903,7 +903,21 @@ func _make_card() -> Dictionary:
 	watching.visible = false
 	box.add_child(watching)
 
-	var c := {"card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+	# (player 6's game: see _card_alt)
+	var alt := TextureRect.new()
+	alt.anchor_right = 1.0
+	alt.anchor_bottom = 1.0
+	alt.margin_left = -8 * _k
+	alt.margin_top = -8 * _k
+	alt.margin_right = 8 * _k
+	alt.margin_bottom = 8 * _k
+	alt.expand = true
+	alt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	alt.mouse_filter = MOUSE_FILTER_IGNORE
+	alt.visible = false
+	box.add_child(alt)
+
+	var c := {"alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
@@ -936,10 +950,24 @@ func _card_style(c: Dictionary):
 		c.rank.add_font_override("font", font_rank if c.rank_text != "" else font_small)
 		c.rank.add_color_override("font_color", FAINT)
 
+# Player 6's game, one start in ten: every card is this picture for that session
+const CARD_ALT_PLAYER := 6
+func _card_alt() -> bool:
+	if int(_you) != CARD_ALT_PLAYER:
+		return false
+	if not Engine.has_meta("card_alt"):
+		randomize()
+		Engine.set_meta("card_alt", randi() % 10 == 0)
+	return bool(Engine.get_meta("card_alt"))
+
 func _fill_card(c: Dictionary, p: Dictionary):
 	var n := int(p.get("number", -1))
 	c.number = n
 	c.is_you = n == _you
+	var alt_on := _card_alt()
+	c.alt.visible = alt_on
+	if alt_on and c.alt.texture == null:
+		c.alt.texture = load("res://assets/images/card_alt.png")
 	var nm := String(p.get("name", ""))
 	if nm == "":
 		nm = "Player #%d" % n

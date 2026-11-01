@@ -2411,6 +2411,8 @@ func idle_status():
 	Discord.activity_manager.update_activity(activity)
 
 func _ready():
+	# the browser version opened as the website's game view of a replay
+	load("res://scripts/WebReplay.gd").menu_opened(get_tree())
 	# menu music lyric volume (Settings > Video & Audio)
 	var vocals = preload("res://scripts/ui/menu/MenuVocals.gd").new()
 	vocals.name = "MenuVocals"

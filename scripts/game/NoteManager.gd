@@ -509,10 +509,14 @@ func _ready():
 
 	$Note.speed_multi = speed_multi
 	_n_music.pitch_scale = speed_multi * replay_view_speed
+	# (the material is shared between songs: without a border picture the
+	# default goes back, not whichever was on last, e.g. before spectating)
+	var border_mat = $Outer.get("material/0")
+	if not border_mat.has_meta("default_tex"):
+		border_mat.set_meta("default_tex", border_mat.albedo_texture)
 	var border_tex = Rhythia.get_selected_border_texture()
-	if border_tex != null:
-		$Outer.get("material/0").albedo_texture = border_tex
-	$Outer.get("material/0").albedo_color = Rhythia.border_color
+	border_mat.albedo_texture = border_tex if border_tex != null else border_mat.get_meta("default_tex")
+	border_mat.albedo_color = Rhythia.border_color
 
 	if AudioServer.get_bus_effect_count(AudioServer.get_bus_index("Music")) > 0:
 		AudioServer.remove_bus_effect(AudioServer.get_bus_index("Music"), 0)
@@ -1115,6 +1119,15 @@ func _process(delta: float):
 				rec_t = 0
 				should_write_pos = true
 				Rhythia.replay.store_cursor_pos(rms, _n_cursor.rpos.x, _n_cursor.rpos.y)
+			# VR: head and hands too (about 20 a second), for the website's
+			# first-person replay view; only when the server takes them
+			# (server_hello "replay_vr": older servers refuse the replay)
+			if Rhythia.vr and Rhythia.replay.wants_vr_sample(rms):
+				var lm = get_node_or_null("/root/LobbyManager")
+				if lm != null and bool(lm.get("replay_vr_supported")):
+					var pose = _vr_pose_for_spectators()
+					if pose is Array:
+						Rhythia.replay.store_vr(rms, pose)
 
 		if Rhythia.rainbow_grid:
 			$Outer.get("material/0").albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.65, 1)

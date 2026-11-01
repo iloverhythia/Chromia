@@ -131,7 +131,11 @@ func read_data(from_path: String = ""):
 			if sv >= 4: debug_txt.replay_hwid = file.get_line()
 			id = file.get_line()
 			var song_id = id.substr(0, id.find_last(".")).substr(0, id.find_last("."))
-			var fsong = Rhythia.registry_song.get_item(song_id)
+			# (loose: the same map can have another id on the player's computer)
+			var fsong = Rhythia.registry_song.get_song_loose(song_id)
+			# the website's game view: the map it downloaded for this replay
+			if Engine.has_meta("web_replay_song") and Engine.get_meta("web_replay_song") != null:
+				fsong = Engine.get_meta("web_replay_song")
 
 			debug_txt.replay_id = id
 			debug_txt.song_id = song_id
@@ -347,7 +351,10 @@ func get_cursor_position(ms: float):
 
 	var a2 = Vector2(ap.x, ap.y)
 	var b2 = Vector2(bp.x, bp.y)
-	var v = clamp(smoothstep(ap.z, bp.z, ms), 0, 1)
+	# a straight line between the recorded positions (they're samples in time:
+	# easing in and out of each one put the cursor off its real path on fast
+	# moves, most visibly at the hits)
+	var v = clamp(inverse_lerp(ap.z, bp.z, ms), 0, 1) if bp.z > ap.z else 1.0
 	return lerp(a2, b2, v)
 
 var trigger_cursor: int = 0
@@ -491,6 +498,42 @@ func _write_touches():
 		file.store_16(int(clamp(round(t[3] / touch_screen.x * 65535.0), 0, 65535)))
 		file.store_16(int(clamp(round(t[4] / touch_screen.y * 65535.0), 0, 65535)))
 
+# VR: the head and hands (the same pose spectators get: which hand points,
+# then head, left hand, right hand as position + rotation), for the website's
+# first-person replay view. Saved after the touches as "CVRP": u16 version 1,
+# u32 count, then u32 replay ms, u8 flags (1 = left handed), 21 i16 (positions
+# in mm, rotations * 32767). The game itself doesn't read it back.
+const VR_SIG := PoolByteArray([67, 86, 82, 80]) # "CVRP"
+const VR_SAMPLE_MS := 50
+var vr_samples: Array = []
+var _vr_last_ms := -100000
+
+func wants_vr_sample(ms: float) -> bool:
+	return recording and ms - _vr_last_ms >= VR_SAMPLE_MS
+
+func store_vr(ms: float, pose: Array):
+	if not recording or pose.size() < 22:
+		return
+	_vr_last_ms = int(ms)
+	vr_samples.append([int(max(0, floor(ms))), pose])
+
+func _write_vr():
+	if vr_samples.empty():
+		return
+	file.store_buffer(VR_SIG)
+	file.store_16(1) # version
+	file.store_32(vr_samples.size())
+	for s in vr_samples:
+		var pose: Array = s[1]
+		file.store_32(s[0])
+		file.store_8(1 if float(pose[0]) > 0.5 else 0)
+		for part in range(3):
+			var o: int = 1 + part * 7
+			for k in range(7):
+				var v: float = float(pose[o + k])
+				var q: int = int(round(v * 1000.0)) if k < 3 else int(round(v * 32767.0))
+				file.store_16(int(clamp(q, -32767, 32767)) & 0xFFFF) # (two's complement)
+
 func _read_touches():
 	touches = []
 	if file.get_len() - file.get_position() < 18:
@@ -519,6 +562,7 @@ func end_recording():
 	sig_count += 1
 	file.store_8(Globals.RS_END)
 	_write_touches()
+	_write_vr()
 	file.seek(endms_offset)
 	file.store_32(last_ms)
 	file.store_32(sig_count)
