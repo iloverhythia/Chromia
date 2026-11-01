@@ -454,13 +454,7 @@ func get_hardware_id() -> String:
 func award_offline_rp():
 	if replaying or selected_song == null or song_end_type != Globals.END_PASS:
 		return
-	if mod_nofail or mod_extra_energy or start_offset != 0 or song_end_pause_count > 0:
-		return
-	if replay != null and replay.autoplayer:
-		return
-	if not (is_equal_approx(hitwindow_ms, 55.0) or is_equal_approx(hitwindow_ms, 58.0)):
-		return
-	if not is_equal_approx(note_hitbox_size, 1.14) or health_model != Globals.HP_SOUNDSPACE:
+	if not offline_rp_rules_ok():
 		return
 	var stars: float = selected_song.get_star_rating()
 	if stars <= 0.0:
@@ -470,6 +464,16 @@ func award_offline_rp():
 	var res: Dictionary = store.record(String(selected_song.id), String(selected_song.name), stars, current_speed_multiplier(), acc, song_end_misses)
 	if res.best and show_xp_notifications:
 		Globals.notify(Globals.NOTIFY_INFO, "%d RP (+%d total)" % [int(round(res.rp)), int(round(res.gained))], "New best RP")
+
+# The ranked-way rules a pass needs to give RP (also the HUD's RP readout).
+func offline_rp_rules_ok() -> bool:
+	if mod_nofail or mod_extra_energy or start_offset != 0 or song_end_pause_count > 0:
+		return false
+	if replay != null and replay.autoplayer:
+		return false
+	if not (is_equal_approx(hitwindow_ms, 55.0) or is_equal_approx(hitwindow_ms, 58.0)):
+		return false
+	return is_equal_approx(note_hitbox_size, 1.14) and health_model == Globals.HP_SOUNDSPACE
 
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
@@ -2995,6 +2999,7 @@ var attach_hp_to_grid: bool = false
 var attach_timer_to_grid: bool = false
 var simple_hud: bool = false
 var hide_spectators_list: bool = false # (Settings > UI: no Spectators list in the top left)
+var show_rp_hud: bool = false # (Settings > UI: the RP a pass would give right now, on the right panel)
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
 var rainbow_hud: bool = false
@@ -3822,6 +3827,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			simple_hud = data.simple_hud
 		if data.has("hide_spectators_list"):
 			hide_spectators_list = bool(data.hide_spectators_list)
+		if data.has("show_rp_hud"):
+			show_rp_hud = bool(data.show_rp_hud)
 		if data.has("faraway_hud"):
 			faraway_hud = data.faraway_hud
 		if data.has("music_offset"):
@@ -4509,6 +4516,7 @@ func _write_settings_file(saveFile: String):
 			show_fc_grade = show_fc_grade,
 			simple_hud = simple_hud,
 			hide_spectators_list = hide_spectators_list,
+			show_rp_hud = show_rp_hud,
 			faraway_hud = faraway_hud,
 			music_offset = music_offset,
 			auto_maximize = auto_maximize,

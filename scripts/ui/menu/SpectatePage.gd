@@ -690,6 +690,9 @@ func open():
 			_on_list(_lm.online_players, _lm.my_player_number)
 	_fill_chat()
 	_update_info()
+	# ready to type in the chat (not on phones: it would pop the keyboard up)
+	if chat_input.editable and chat_input.is_visible_in_tree() and not Rhythia.device("mobile"):
+		chat_input.call_deferred("grab_focus")
 
 func close():
 	if not _open:
