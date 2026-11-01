@@ -99,10 +99,16 @@ func _notify(text: String, title := "Map Editor", kind = null):
 func _ready():
 	connect("visibility_changed", self, "_on_visibility")
 	connect("resized", self, "_layout_home")
-	collab = load("res://scripts/editor/ssqe/SSQECollab.gd").new()
-	collab.name = "Collab"
-	collab.page = self
-	add_child(collab)
+	# (mapping together carries on over a playtest: SSQECollab.keep_for_playtest)
+	var kept = get_tree().root.get_node_or_null("KeptCollab")
+	if kept:
+		collab = kept
+		call_deferred("_adopt_collab")
+	else:
+		collab = load("res://scripts/editor/ssqe/SSQECollab.gd").new()
+		collab.name = "Collab"
+		collab.page = self
+		add_child(collab)
 	var root = get_tree().root
 	if root.has_meta(RETURN_META):
 		var info = root.get_meta(RETURN_META)
@@ -110,6 +116,10 @@ func _ready():
 		if typeof(info) == TYPE_DICTIONARY:
 			Rhythia.start_offset = float(info.get("prev_start_offset", 0.0))
 			call_deferred("_resume_after_playtest", info)
+
+func _adopt_collab():
+	if collab and is_instance_valid(collab) and collab.get_parent() != self:
+		collab.adopt(self)
 
 func _resume_after_playtest(info: Dictionary):
 	yield(get_tree().create_timer(0.1), "timeout")
@@ -756,6 +766,8 @@ func playtest(from_start: bool):
 	if menu:
 		menu.black_fade_target = true
 	yield(get_tree().create_timer(0.35), "timeout")
+	if collab and collab.active():
+		collab.keep_for_playtest()
 	get_tree().change_scene("res://scenes/loaders/songload.tscn")
 
 # ---- the song and cover (for the export windows)

@@ -39,6 +39,7 @@ var s = null # the session (null: not mapping with anyone)
 var invites := {} # number -> {state: "sent" / "declined", at}
 var _acc := 0.0
 var _host_room := ""
+var _moving := false # (being moved to or from the root for a playtest: not a leave)
 
 # UI
 var layer: CanvasLayer
@@ -64,6 +65,67 @@ func _ready():
 	if lm and lm.has_signal("collab_event"):
 		lm.connect("collab_event", self, "_on_event")
 	_build_ui()
+
+# the editor went away (another scene, the game closing) while mapping
+# together: out of the room, or the server would keep you in it and nobody
+# could invite you again (a playtest isn't this: keep_for_playtest)
+func _exit_tree():
+	if _moving or s == null:
+		return
+	_send_server({"type": "collab_leave"})
+	s = null
+
+# ================================================================== a playtest
+
+# EditorPage.playtest: the game's scene is about to replace the editor's. The
+# session stays (here, under the root) and keeps taking in the others' changes
+# to the map; back in the editor, the map that opens is brought up to date.
+func keep_for_playtest():
+	if s == null:
+		return
+	s.away = true
+	s.back_at = 0
+	page = null
+	popup.visible = false
+	list_panel.visible = false
+	move_to(get_tree().root, "KeptCollab")
+	_refresh_ui()
+	overlay.update()
+
+# EditorPage._ready, back from the playtest
+func adopt(new_page):
+	page = new_page
+	move_to(new_page, "Collab")
+	if s:
+		s.back_at = OS.get_ticks_msec()
+	_refresh_ui()
+
+func move_to(parent: Node, new_name: String):
+	_moving = true
+	if get_parent():
+		get_parent().remove_child(self)
+	name = new_name
+	parent.add_child(self)
+	_moving = false
+
+func _come_back(ed):
+	var old = s.map
+	s.away = false
+	if old != null and ed.map != old:
+		# the map as it was saved for the playtest, plus what the others did meanwhile
+		var map = ed.map
+		map.notes.items = old.notes.items.duplicate()
+		map.notes.sort()
+		map.notes.set_selected([])
+		s.map = map
+		s.extra = ""
+		_apply_extra(extra_of(old))
+		ed.on_map_changed()
+		s.version = -1
+	if s.role == "guest":
+		send({"k": "resync"}, s.host)
+	_toast("Back to mapping together")
+	_refresh_ui()
 
 # ================================================================== helpers
 
@@ -159,7 +221,7 @@ func people() -> int:
 func _waiting_invites() -> int:
 	var n := 0
 	for k in invites:
-		if invites[k].state == "sent" and OS.get_ticks_msec() - int(invites[k].at) < 60000:
+		if invites[k].state == "sent" and OS.get_ticks_msec() - int(invites[k].at) < INVITE_SHOWN_MS:
 			n += 1
 	return n
 
@@ -179,8 +241,25 @@ func invite(number: int, name: String):
 	_send_server({"type": "collab_invite", "number": number})
 	_fill_list()
 
+const INVITE_SHOWN_MS := 35000 # (the invite pops up for 30 seconds, then counts as a no)
+
 func invite_state(number: int) -> String:
-	return String(invites[number].state) if invites.has(number) else ""
+	if not invites.has(number):
+		return ""
+	if invites[number].state == "sent" and OS.get_ticks_msec() - int(invites[number].at) > INVITE_SHOWN_MS:
+		return ""
+	return String(invites[number].state)
+
+# an invite nobody answered (their game didn't show it, or is too old to):
+# Invite again, instead of "Invited" for good
+func _expire_invites():
+	var changed := false
+	for k in invites.keys():
+		if invites[k].state == "sent" and OS.get_ticks_msec() - int(invites[k].at) > INVITE_SHOWN_MS:
+			invites.erase(k)
+			changed = true
+	if changed:
+		_fill_list()
 
 func _on_event(msg: Dictionary):
 	# (the server says who you are: a game that hasn't had the online list doesn't know)
@@ -214,6 +293,9 @@ func _on_event(msg: Dictionary):
 				_toast("%s ended mapping together. The map stays with you." % Globals.s(msg.get("name", "The host")), "warn")
 		"collab_error":
 			_message(Globals.s(msg.get("text", "Something went wrong.")))
+			# (said yes to an invite that had run out: not waiting for that host)
+			if s and s.role == "guest" and s.phase == "wait" and s.peers.empty():
+				leave(true)
 
 func _on_invited(msg: Dictionary):
 	var room := Globals.s(msg.get("room", ""))
@@ -720,6 +802,8 @@ func _receive(p: Dictionary):
 # ================================================================== sending this side's changes
 
 func _process(delta):
+	if not invites.empty():
+		_expire_invites()
 	if s == null:
 		if popup.visible and _popup_invite != null and OS.get_ticks_msec() - int(_popup_invite.at) > 30000:
 			_answer(false) # (not answered: a no)
@@ -742,6 +826,15 @@ func _tick():
 			break
 		var o: Array = s.outbox.pop_front()
 		_send_chunk(int(o[0]), int(o[1]))
+	# playtesting: the others' changes still come in (to s.map); back in the
+	# editor, once the map has opened again, carry on with it
+	if s.get("away", false):
+		if page != null and page.project != null and ed and ed.map:
+			_come_back(ed)
+		elif page != null and int(s.back_at) > 0 and now - int(s.back_at) > 15000:
+			leave()
+			_toast("Mapping together ended: the map didn't open again after the playtest", "warn")
+		return
 	# the host has opened a map: that's the one
 	if s.role == "host" and s.phase == "song" and page.project != null and ed and ed.map:
 		_bind_map()

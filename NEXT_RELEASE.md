@@ -28,3 +28,4 @@ in scripts/Savia.gd and empties this list.
 - VR: the Spectators list now shows in the headset, above the left panel (it was only on the desktop window)
 - Alt + scroll volume no longer gets stuck on after Alt-Tab (every scroll changed the volume, sometimes to very loud, and the map list wouldn't scroll)
 - Chat: emoji show in the message box as you type (they were blank or boxes)
+- Map editor, mapping together: playtesting no longer kicks you out (you stay in, the others' changes made while you play are there when you come back), and you can invite someone again after they didn't answer or after a playtest (they showed as busy or "Invited" for good)
