@@ -191,46 +191,36 @@ func update_static_values():
 # ── RP readout (Settings > UI > Show RP) ──
 # The RP passing now would give, at the accuracy so far: the same formula and
 # ranked-way rules as the RP a pass records (RhythiaPoints.gd,
-# Savia.award_offline_rp). "-" when this play can't give RP (No Fail, a pause,
-# other hit window...). On the right panel, between Misses and Notes.
+# Savia.award_offline_rp), pauses aside. "-" when the play can't give RP (No
+# Fail, other hit window...). At the top of the right panel, above the score.
 var _rp_label: Label = null
-var _rp_title: Label = null
 var _rp_max: float = -1.0 # RP of a 100% pass at this speed (-1: none)
 
 func _make_rp_labels():
 	if not Rhythia.show_rp_hud or Rhythia.selected_song == null:
 		return
-	var right = get_node("RightVP/Control")
-	_rp_title = _rp_copy(get_node("RightVP/Control/NoteTitle"), "RPTitle", -420.0)
-	_rp_title.text = "RP"
-	_rp_label = _rp_copy(noteslabel, "RP", -355.0)
-	right.add_child(_rp_title)
-	right.add_child(_rp_label)
+	_rp_label = noteslabel.duplicate()
+	_rp_label.name = "RP"
+	_rp_label.visible = true
+	_rp_label.margin_top = -890.0
+	_rp_label.margin_bottom = -815.0
+	get_node("RightVP/Control").add_child(_rp_label)
 	var stars: float = Rhythia.selected_song.get_star_rating()
 	if stars > 0.0:
 		_rp_max = preload("res://scripts/RhythiaPoints.gd").max_rp(stars, Rhythia.current_speed_multiplier())
 	_update_rp(0, 0)
-
-func _rp_copy(from: Label, n: String, top: float) -> Label:
-	var l: Label = from.duplicate()
-	l.name = n
-	l.visible = true
-	l.margin_top = top
-	l.margin_bottom = top + 75.0
-	return l
 
 func _update_rp(hits, total):
 	if _rp_label == null:
 		return
 	# (watching someone: their settings aren't known here)
 	_rp_label.visible = not spectating
-	_rp_title.visible = not spectating
-	if _rp_max < 0.0 or not Rhythia.offline_rp_rules_ok():
-		_rp_label.text = "-"
+	if _rp_max < 0.0 or not Rhythia.offline_rp_rules_ok(true):
+		_rp_label.text = "- RP"
 		return
 	var acc: float = 1.0 if total <= 0 else float(hits) / float(total)
 	var rp: float = _rp_max * pow(clamp(acc, 0.0, 1.0), preload("res://scripts/RhythiaPoints.gd").ACC_POWER)
-	_rp_label.text = ("%.1f" % rp) if rp < 100.0 else Globals.comma_sep(int(round(rp)))
+	_rp_label.text = "%s RP" % Globals.comma_sep(int(round(rp)))
 
 var miss_flash: float = 0
 
@@ -1583,7 +1573,7 @@ func _ready():
 			if n.visible: n.rect_position.y += 100
 
 		for n in $RightVP/Control.get_children():
-			n.visible = n.name == "SimpleBg" or n.name == "Misses" or n.name == "MissesTitle" or (n.name in ["RP", "RPTitle"] and _rp_label != null)
+			n.visible = n.name == "SimpleBg" or n.name == "Misses" or n.name == "MissesTitle" or (n.name == "RP" and _rp_label != null)
 			if n.visible: n.rect_position.y += 100
 
 	if Rhythia.faraway_hud:

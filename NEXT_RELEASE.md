@@ -4,7 +4,7 @@ Add one line per change, starting with "- " (players read these in the
 update log). Publishing to production turns them into the new version's notes
 in scripts/Savia.gd and empties this list.
 
-- Settings > UI > Show RP: the RP you'd get if you passed right now, at your accuracy so far, on the right panel (a dash when the play can't give RP, like with No Fail or after a pause)
+- Settings > UI > Show RP: the RP you'd get if you passed right now, at your accuracy so far, at the top of the right panel (a dash when the play can't give RP, like with No Fail)
 - Chat: @mentions. Type @ and the start of a name to pick someone (Tab or click), and you get a notification when someone mentions you, even in the middle of a map
 - Chat: opening the Spectate window puts you straight in the chat box, ready to type
 - Chat: the text you type shows again when your message has an emoji in it (only the emoji showed)

@@ -466,8 +466,8 @@ func award_offline_rp():
 		Globals.notify(Globals.NOTIFY_INFO, "%d RP (+%d total)" % [int(round(res.rp)), int(round(res.gained))], "New best RP")
 
 # The ranked-way rules a pass needs to give RP (also the HUD's RP readout).
-func offline_rp_rules_ok() -> bool:
-	if mod_nofail or mod_extra_energy or start_offset != 0 or song_end_pause_count > 0:
+func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
+	if mod_nofail or mod_extra_energy or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
 	if replay != null and replay.autoplayer:
 		return false
