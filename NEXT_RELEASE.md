@@ -29,3 +29,4 @@ in scripts/Savia.gd and empties this list.
 - Alt + scroll volume no longer gets stuck on after Alt-Tab (every scroll changed the volume, sometimes to very loud, and the map list wouldn't scroll)
 - Chat: emoji show in the message box as you type (they were blank or boxes)
 - Map editor, mapping together: playtesting no longer kicks you out (you stay in, the others' changes made while you play are there when you come back), and you can invite someone again after they didn't answer or after a playtest (they showed as busy or "Invited" for good)
+- Map editor: the Playtest panel has a Speed choice (0.69x to 1.45x) for playtesting at a speed other than the one picked in the game; "Selected" plays at that one as before, and your speed is back to normal after the playtest

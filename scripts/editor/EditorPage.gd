@@ -14,6 +14,8 @@ const ACCENT = Color(1, 0.756863, 0.960784)
 const TEXT = Color(0.898039, 0.94902, 1, 1)
 const DIM = Color(0.62, 0.6, 0.68, 1)
 const RETURN_META = "chromia_editor_return"
+# the Playtest panel's speed choices: the game's speed levels (Globals.SPEED_*)
+const PLAYTEST_SPEEDS = {"0.69x": 9, "0.74x": 1, "0.8x": 2, "0.87x": 3, "1x": 0, "1.15x": 4, "1.25x": 5, "1.35x": 6, "1.45x": 8}
 const REF_H = 720.0
 
 var project = null
@@ -115,6 +117,8 @@ func _ready():
 		root.remove_meta(RETURN_META)
 		if typeof(info) == TYPE_DICTIONARY:
 			Rhythia.start_offset = float(info.get("prev_start_offset", 0.0))
+			if info.has("prev_speed"):
+				Rhythia.mod_speed_level = int(info.prev_speed)
 			call_deferred("_resume_after_playtest", info)
 
 func _adopt_collab():
@@ -749,7 +753,8 @@ func _on_save_as_path(path):
 	ed.toast("SAVED " + path.get_file())
 
 func playtest(from_start: bool):
-	if project == null:
+	# (once: a second click while it's starting would take the playtest's speed as yours)
+	if project == null or get_tree().root.has_meta(RETURN_META):
 		return
 	if ed.playing:
 		ed.pause_music()
@@ -758,7 +763,12 @@ func playtest(from_start: bool):
 		return
 	get_tree().root.set_meta(RETURN_META, {
 		"pid": project.pid, "time": ed.current_time(), "prev_start_offset": Rhythia.start_offset,
+		"prev_speed": Rhythia.mod_speed_level,
 	})
+	# the speed chosen in the Playtest panel, for this playtest only (put back after)
+	var sp := String(ed.s.get("playtestSpeed", "Selected"))
+	if PLAYTEST_SPEEDS.has(sp):
+		Rhythia.mod_speed_level = int(PLAYTEST_SPEEDS[sp])
 	Rhythia.select_song(song)
 	Rhythia.start_offset = 0.0 if from_start else max(0.0, ed.current_time() - 1000.0)
 	Rhythia.replaying = false

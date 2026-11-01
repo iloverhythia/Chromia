@@ -170,6 +170,7 @@ static func defaults() -> Dictionary:
 		"grid3DOpacity": 80.0,
 		"autosave": true,
 		"allowCollabInvites": true,
+		"playtestSpeed": "Selected", # (Playtest panel: "Selected" is the speed picked in the game's mods)
 		"autosaveInterval": 0.5, # minutes
 		"lastSettingsTab": "COLORS",
 	}

@@ -11,6 +11,8 @@ const SSQESlider = preload("res://scripts/editor/ssqe/SSQESlider.gd")
 const RM = SSQEMap.RenderMode
 
 const CAMERA_MODES = ["half lock", "full lock", "spin"]
+# the Playtest panel's speed ("Selected": the one picked in the game's mods; EditorPage.PLAYTEST_SPEEDS)
+const PLAYTEST_SPEEDS = ["Selected", "0.69x", "0.74x", "0.8x", "0.87x", "1x", "1.15x", "1.25x", "1.35x", "1.45x"]
 const EXPORT_TYPES = ["Nightly (SSPM)", "Rhythia (RHM)", "Rewrite (PHXM)", "Novastra (NPK)", "SSQE (QEMZ)"]
 const GAMES = ["Rhythia", "Novastra"]
 const LEFT_NAVS = ["OPTIONS", "TIMING", "PATTERNS", "PLAYTEST"]
@@ -480,7 +482,9 @@ func build():
 	_numeric(X + 0, Y + 325, 150, 40, 31, "p:approachDistance", g, true)
 	_numeric(X + 235, Y + 325, 150, 40, 31, "p:hitWindow", g, true)
 	_slider(X + 0, Y + 410, 400, 32, "playerAR", 149, 1, 39, g)
-	_check(X + 0, Y + 460, "Approach Fade", 27, "approachFade", g)
+	_check(X + 0, Y + 460, "Approach Fade", 27, "approachFade", g, X + 225)
+	_label(X + 235, Y + 460, 70, 30, "Speed:", 30, g, false)
+	_dropdown(X + 305, Y + 455, 105, 40, 27, PLAYTEST_SPEEDS, "s:playtestSpeed", g)
 	_btn(X + 0, Y + 520, 200, 40, "PLAY FROM START", 27, "_playtest", [true], g)
 	_btn(X + 210, Y + 520, 200, 40, "PLAY HERE", 27, "_playtest", [false], g)
 	_label(X + 0, Y + 20, 100, 30, "Camera Mode:", 30, g, false)
