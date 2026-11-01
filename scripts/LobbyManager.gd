@@ -1742,7 +1742,7 @@ func _presence_now() -> Dictionary:
 	if Rhythia.in_map and get_tree().current_scene != null:
 		game = get_tree().current_scene.find_node("Game", true, false)
 		var hud = game.get_node_or_null("HUD") if game != null else null
-		if hud != null and bool(hud.get("spectating")):
+		if hud != null and hud.get("spectating") == true: # (null when the HUD has no such value: bool(null) is an error)
 			spectating_someone = true
 	var playing: bool = Rhythia.in_map and not Rhythia.replaying and not spectating_someone and Rhythia.selected_song != null
 	var p := {

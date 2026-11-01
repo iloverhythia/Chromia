@@ -417,11 +417,15 @@ class ObjList extends Reference:
 	func clear_selected():
 		set_selected([])
 
+	# (only the ones flagged last time are cleared: going over every note of a
+	# big map each time the selection changed was slow)
+	var _flagged: Array = []
 	func update_selection():
-		for o in items:
+		for o in _flagged:
 			o.selected = false
 		for o in selected:
 			o.selected = true
+		_flagged = selected.duplicate()
 
 	func get_closest(ms: float) -> float:
 		var closest := -1.0
@@ -496,8 +500,62 @@ class ObjList extends Reference:
 	func add(o):
 		items.append(o)
 
+	# Puts objects where they go by time (after any at the same time), so the
+	# list stays sorted without sorting all of it again: placing a note on a map
+	# with 20,000 sorted all 20,000 (a fifth of a second every time).
+	func insert_sorted(add: Array):
+		if add.empty():
+			return
+		var adds := add.duplicate()
+		_stable_sort(adds)
+		if adds.size() > 64:
+			# many (a paste, undoing a big delete): the two sorted lists merged
+			var n := items.size()
+			var m := adds.size()
+			var out := []
+			out.resize(n + m)
+			var i := 0
+			var j := 0
+			var k := 0
+			while i < n and j < m:
+				if adds[j].ms < items[i].ms:
+					out[k] = adds[j]
+					j += 1
+				else:
+					out[k] = items[i]
+					i += 1
+				k += 1
+			while i < n:
+				out[k] = items[i]
+				i += 1
+				k += 1
+			while j < m:
+				out[k] = adds[j]
+				j += 1
+				k += 1
+			items = out
+			return
+		for o in adds:
+			var lo := 0
+			var hi := items.size()
+			while lo < hi:
+				var mid := (lo + hi) >> 1
+				if items[mid].ms <= o.ms:
+					lo = mid + 1
+				else:
+					hi = mid
+			items.insert(lo, o)
+
 	func remove_all(list: Array):
 		if list.empty():
+			return
+		if list.size() <= 64:
+			# a few: found one by one (Array.find is fast; the loop below is slow on big maps)
+			for o in list:
+				var i := items.find(o)
+				if i >= 0:
+					items.remove(i)
+			update_selection()
 			return
 		var set := {}
 		for o in list:
@@ -529,7 +587,7 @@ class ObjList extends Reference:
 
 	func apply_replace(remove: Array, add: Array, bez: Array):
 		remove_all(remove)
-		items += add
+		insert_sorted(add)
 		sort()
 		set_selected(add.duplicate())
 		bezier_nodes = bez.duplicate()

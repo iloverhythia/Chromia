@@ -601,7 +601,7 @@ func _apply_diff(adds: Array, removes: Array, peer: Dictionary):
 			if gone.has(n):
 				lost.append(n)
 		map.notes.items = keep
-	map.notes.items.append_array(added)
+	map.notes.insert_sorted(added) # (where they go: sorting a big map each time was slow)
 	map.notes.sort()
 	# notes someone else moved that were selected here: still selected, where they went
 	var sel := []

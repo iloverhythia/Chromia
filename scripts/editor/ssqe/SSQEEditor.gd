@@ -336,8 +336,24 @@ func set_tempo_slider(v: float):
 		set_current_time(t)
 		play_music()
 
+# Where the song is. The playback position only moves when the audio thread
+# mixes the next piece, so the time since then is added. That time is worked
+# out here (when the position was seen to move) instead of asking
+# AudioServer.get_time_since_last_mix(), which waits for the audio thread to
+# finish mixing: that wait was most of each frame while playing.
+var _pp_last := -1.0
+var _pp_seen := 0.0 # when it was seen to move (s)
+var _pp_checked := 0.0 # the time before that it was looked at
+
 func _real_pos() -> float:
-	var p := music.get_playback_position() + (AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency()) * tempo()
+	var pp := music.get_playback_position()
+	var now := OS.get_ticks_usec() / 1000000.0
+	if pp != _pp_last or now - _pp_seen > 0.5:
+		# (it moved between the last look and now: halfway is the best guess)
+		_pp_seen = now if _pp_checked <= 0.0 or now - _pp_checked > 0.1 else (now + _pp_checked) / 2.0
+		_pp_last = pp
+	_pp_checked = now
+	var p := pp + (max(0.0, now - _pp_seen) - AudioServer.get_output_latency()) * tempo()
 	if abs(tempo() - 1.0) > 0.001:
 		p -= 2048.0 / AudioServer.get_mix_rate() * tempo() # the pitch shift's own delay
 	return p
