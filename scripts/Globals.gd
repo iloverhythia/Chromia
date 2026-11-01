@@ -615,6 +615,9 @@ func get_files_recursive(
 	return {files = files, folders = folders}
 
 func notify(type: int, body: String, title: String = "Notification", time: float = 5):
+	# (the website's game view shows only the replay: no notices like "Test build")
+	if load("res://scripts/WebReplay.gd").wanted():
+		return
 	notify_gui.notify(type, body, title, time)
 
 var url_regex: RegEx = RegEx.new()
