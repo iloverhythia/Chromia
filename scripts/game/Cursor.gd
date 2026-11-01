@@ -63,7 +63,12 @@ func move_cursor_abs(mdel: Vector2):
 	var rx = mdel.x
 	var ry = mdel.y
 
-	if Rhythia.mod_hardrock:
+	# (a replay's positions were already kept in by the player's own edge drift
+	# when they played: clamped again with the viewer's, a player with edge
+	# drift had their cursor squashed onto the grid's edge)
+	if Rhythia.replaying:
+		pass
+	elif Rhythia.mod_hardrock:
 		var hard_cock = edger - 0.6
 		rx = clamp(rx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 		ry = clamp(ry, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))

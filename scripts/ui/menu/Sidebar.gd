@@ -265,7 +265,8 @@ func _ready():
 			"Test build: scores go to the TEST leaderboards, not the real ones.",
 			"Test build", 4.0)
 	# (Quest: shown once the VR menu is up; the first, flat menu isn't visible)
-	if (Rhythia.last_session_crashed or (Rhythia.always_show_crash_log and Rhythia.last_session_trail.strip_edges() != "")) and not Rhythia.crash_report_shown and (Rhythia.vr or not OS.has_feature("quest")):
+	# (not in the website's game view: closing the browser tab counts as a crash there)
+	if (Rhythia.last_session_crashed or (Rhythia.always_show_crash_log and Rhythia.last_session_trail.strip_edges() != "")) and not Rhythia.crash_report_shown and (Rhythia.vr or not OS.has_feature("quest")) and not load("res://scripts/WebReplay.gd").wanted():
 		Rhythia.crash_report_shown = true
 		call_deferred("_show_crash_report")
 	for i in range(buttons.size()):

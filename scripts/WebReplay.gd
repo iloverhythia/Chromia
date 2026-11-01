@@ -48,6 +48,7 @@ var recording := false
 var _game_scene = null # the song scene while the replay plays
 var _waiting := false # Watch / Record pressed, the song not started yet
 var _seen_loader := false
+var _ending := false # the song ended, the video stops in a moment
 
 var _layer: CanvasLayer
 var _title: Label
@@ -207,7 +208,18 @@ func _on_watch():
 
 func _on_record():
 	recording = true
+	# the page draws the game at 1920x1080 while it records (scaled down to
+	# fit), so the video is that size, not the size of the game view
+	_record_size(true)
+	_buttons.visible = false
+	yield(get_tree().create_timer(0.6), "timeout")
 	_play()
+
+# asks the score page around the game view (score.html) to size it for a video
+func _record_size(on: bool):
+	var js = Engine.get_singleton("JavaScript")
+	if js != null:
+		js.eval("try { window.parent && window.parent !== window && window.parent.postMessage({ chromia: 'record-size', on: %s }, '*'); } catch (e) {}" % ("true" if on else "false"), true)
 
 func _play():
 	if not ready_to_play:
@@ -217,6 +229,7 @@ func _play():
 	_game_scene = null
 	_waiting = true
 	_seen_loader = false
+	_ending = false
 	Rhythia.replay = Replay.new()
 	Rhythia.replaying = true
 	Rhythia.replay_path = Globals.p(replay_path)
@@ -242,17 +255,31 @@ func _process(_delta):
 			var js = Engine.get_singleton("JavaScript")
 			if js != null:
 				js.eval("window.__chromiaRec && window.__chromiaRec.start(60)", true)
+	elif _game_scene != null and cur == _game_scene and not _ending:
+		# the song ended (Game.ending): a moment more, then the video stops and
+		# it's back here, without the results screen
+		var g = cur.get_node_or_null("Game")
+		if g != null and bool(g.get("ending")):
+			_ending = true
+			yield(get_tree().create_timer(1.2), "timeout")
+			_stop_recording()
+			if get_tree().current_scene == _game_scene:
+				get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 	elif _game_scene != null and cur != _game_scene:
-		# the song is over (results, or back to the menu)
+		# the song is over (back to the menu)
 		_game_scene = null
-		if recording:
-			recording = false
-			var js = Engine.get_singleton("JavaScript")
-			if js != null:
-				js.eval("window.__chromiaRec && window.__chromiaRec.stop(%s)" % to_json(title), true)
-			_status.text = "Your video is saving."
-		else:
-			_status.text = ""
+		_ending = false
+		_stop_recording()
 		_watch.text = "Watch again"
 		_buttons.visible = true
 		_layer.visible = true
+
+func _stop_recording():
+	if not recording:
+		return
+	recording = false
+	var js = Engine.get_singleton("JavaScript")
+	if js != null:
+		js.eval("window.__chromiaRec && window.__chromiaRec.stop(%s)" % to_json(title), true)
+	_status.text = "Your video is saving."
+	_record_size(false)
