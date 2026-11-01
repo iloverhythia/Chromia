@@ -208,7 +208,18 @@ func _on_watch():
 
 func _on_record():
 	recording = true
+	# the page draws the game at 1920x1080 while it records (scaled down to
+	# fit), so the video is that size, not the size of the game view
+	_record_size(true)
+	_buttons.visible = false
+	yield(get_tree().create_timer(0.6), "timeout")
 	_play()
+
+# asks the score page around the game view (score.html) to size it for a video
+func _record_size(on: bool):
+	var js = Engine.get_singleton("JavaScript")
+	if js != null:
+		js.eval("try { window.parent && window.parent !== window && window.parent.postMessage({ chromia: 'record-size', on: %s }, '*'); } catch (e) {}" % ("true" if on else "false"), true)
 
 func _play():
 	if not ready_to_play:
@@ -271,3 +282,4 @@ func _stop_recording():
 	if js != null:
 		js.eval("window.__chromiaRec && window.__chromiaRec.stop(%s)" % to_json(title), true)
 	_status.text = "Your video is saving."
+	_record_size(false)
