@@ -2152,6 +2152,9 @@ var vr_grid_distance: float = 2.25
 # VR aim: how far the cursor moves for how far you turn the controller (1 =
 # exactly where you point)
 var vr_sensitivity: float = 1.0
+# VR height: your view this many metres higher (+) or lower (-) than where the
+# game puts it (the menu screen and the grid stay where they are)
+var vr_height: float = 0.0
 # controller rumble on hits (0..1) and on misses
 var vr_haptics: float = 0.5
 var vr_haptic_miss: bool = true
@@ -4036,6 +4039,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_grid_distance = clamp(float(data.vr_grid_distance), 0.75, 5.0)
 		if data.has("vr_sensitivity"):
 			vr_sensitivity = clamp(float(data.vr_sensitivity), 0.25, 4.0)
+		if data.has("vr_height"):
+			vr_height = clamp(float(data.vr_height), -1.0, 1.0)
 		if data.has("vr_haptics"):
 			vr_haptics = clamp(float(data.vr_haptics), 0.0, 1.0)
 		if data.has("vr_haptic_miss"):
@@ -4609,6 +4614,7 @@ func _write_settings_file(saveFile: String):
 			vr_menu_ui = vr_menu_ui,
 			vr_grid_distance = vr_grid_distance,
 			vr_sensitivity = vr_sensitivity,
+			vr_height = vr_height,
 			vr_haptics = vr_haptics,
 			vr_haptic_miss = vr_haptic_miss,
 			vr_hand = vr_hand,

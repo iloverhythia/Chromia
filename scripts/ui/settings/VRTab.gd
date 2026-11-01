@@ -110,6 +110,11 @@ func _ready():
 	envs.append(["A background...", BG_ITEM])
 	_env_pick = _option_row("Environment", envs, "_on_env")
 	box.add_child(HSeparator.new())
+	_label("Height", f_title, ACCENT)
+	_label("Raise or lower yourself: higher puts you above the menu screen and the grid, lower below them. Applies straight away, in the menu and in songs. 0 = where the game puts you.", f_body, DIM, true)
+	_value_row(["Your height", "vr_height", -1.0, 1.0, 0.01, " cm", 100.0])
+	_button(box, "Reset height", "_reset_height")
+	box.add_child(HSeparator.new())
 	_label("In songs", f_title, ACCENT)
 	_label("How far away the grid is (where the notes come from and where you hit them). Closer fills more of your view, like a wider FOV; further fits it all in view. Changes from the next song you play. Default 2.25 m.", f_body, DIM, true)
 	_screen_row(GRID_ROW)
@@ -475,6 +480,11 @@ func _on_glow(i: int):
 func _apply_xr():
 	if Rhythia.vr_player != null and Rhythia.vr_player.has_method("apply_xr_settings"):
 		Rhythia.vr_player.apply_xr_settings()
+	_save_soon()
+
+func _reset_height():
+	Rhythia.vr_height = 0.0
+	_load_values()
 	_save_soon()
 
 func _reset_grid():

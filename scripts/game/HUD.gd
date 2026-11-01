@@ -1201,7 +1201,7 @@ func _update_spectate_target_name():
 			if int(p.get("peer_id", -1)) == spectate_peer_id:
 				name_text = Globals.s(p.get("name", "Player"))
 	_spectate_banner.text = "👁 SPECTATING: %s" % name_text
-	_update_spectate_vr(name_text)
+	_update_spectate_vr_panel(name_text)
 
 # VR, watching someone: the top-left banner and its Stop button are on the
 # flat screen, which the headset doesn't show. A panel above the right HUD
@@ -1219,7 +1219,7 @@ func _vr_button_names(action: String) -> String:
 				names.append(String(nb[0]))
 	return names.join(" or ") if names.size() > 0 else ""
 
-func _update_spectate_vr(name_text: String):
+func _update_spectate_vr_panel(name_text: String):
 	if not Rhythia.vr:
 		return
 	if _spec_vr_sprite == null:

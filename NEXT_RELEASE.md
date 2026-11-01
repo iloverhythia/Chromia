@@ -10,3 +10,6 @@ in scripts/Savia.gd and empties this list.
 - Map editor is much faster: placing, deleting and moving notes on big maps no longer freezes for a moment (about 30 times quicker on a 20,000-note map, undo/redo too), and playing the song in the editor no longer slows every frame down
 - Your Online status shows you playing again while you're in a map (it errored and wasn't sent)
 - Map screen: a Leaderboard tab (next to Best and History) on ranked maps shows everyone's best pass, top first: their picture, SP, accuracy, misses and speed (click someone to open their profile)
+- VR: move the keyboard anywhere on the menu screen by dragging the bar along its top; it stays where you put it (Reset in the bar puts it back)
+- VR: a Height setting (Settings > VR > Height) raises or lowers you up to 1 m, in the menu and in songs
+- Fixed the in-game HUD failing to load in the last test builds (two features had a function with the same name)

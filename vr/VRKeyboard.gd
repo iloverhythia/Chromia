@@ -5,7 +5,8 @@ extends Control
 # are pressed with the controller pointer and are sent to the text box as real
 # key presses, so everything works as with a keyboard (search as you type,
 # Enter to confirm...). It sits at the bottom of the screen, or at the top when
-# the text box is down there.
+# the text box is down there, until you move it: drag the bar along its top
+# with the pointer and it stays there (Reset in the bar puts it back).
 
 const ROWS := [
 	["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"],
@@ -21,6 +22,8 @@ const KEY_W := 82.0
 const KEY_H := 52.0
 const GAP := 6.0
 const PAD := 12.0
+const BAR := 40.0 # the grab bar along the top
+const POS_FILE := "user://vr_keyboard.cfg"
 
 var panel: Panel
 var _keys := [] # [button, base character]
@@ -28,6 +31,9 @@ var _shift := false
 var _shift_btn: Button
 var _target: Control = null
 var _font: DynamicFont
+var _dragging := false
+var _drag_from := Vector2() # pointer minus panel position when the drag began
+var _saved_pos = null # Vector2 where you put it, or null: the usual place
 
 func _ready():
 	mouse_filter = MOUSE_FILTER_IGNORE
@@ -46,16 +52,18 @@ func _ready():
 	add_child(panel)
 	var cols: int = ROWS[0].size()
 	var w: float = PAD * 2 + cols * KEY_W + (cols - 1) * GAP
-	var h: float = PAD * 2 + 5 * KEY_H + 4 * GAP
+	var h: float = BAR + PAD * 2 + 5 * KEY_H + 4 * GAP
 	panel.rect_size = Vector2(w, h)
+	_add_bar(w)
+	_load_pos()
 	for r in range(ROWS.size()):
 		for c in range(ROWS[r].size()):
 			var ch: String = ROWS[r][c]
-			var b := _key(ch, Vector2(PAD + c * (KEY_W + GAP), PAD + r * (KEY_H + GAP)), Vector2(KEY_W, KEY_H))
+			var b := _key(ch, Vector2(PAD + c * (KEY_W + GAP), BAR + PAD + r * (KEY_H + GAP)), Vector2(KEY_W, KEY_H))
 			b.connect("pressed", self, "_on_char", [ch])
 			_keys.append([b, ch])
 	# bottom row: shift, space, backspace, enter, done
-	var y: float = PAD + 4 * (KEY_H + GAP)
+	var y: float = BAR + PAD + 4 * (KEY_H + GAP)
 	var x: float = PAD
 	_shift_btn = _key("Shift", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H))
 	_shift_btn.connect("pressed", self, "_on_shift")
@@ -114,6 +122,8 @@ func _show_for(c: Control):
 	if r.end.y > y - 4.0:
 		y = 8.0 # the text box is down there: keyboard at the top
 	panel.rect_position = Vector2(x, y).floor()
+	if _saved_pos is Vector2:
+		panel.rect_position = _clamped(_saved_pos)
 	panel.visible = true
 	Rhythia.trail("VR keyboard for %s" % c.name)
 
@@ -162,3 +172,69 @@ func _send(unicode: int, scancode: int):
 		ev.scancode = scancode
 		ev.unicode = unicode if pressed else 0
 		get_viewport().input(ev)
+
+# --- moving it -------------------------------------------------------------------------
+func _add_bar(w: float):
+	var bar := Panel.new()
+	bar.name = "Bar"
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(1, 0.756863, 0.960784, 0.16)
+	sb.corner_radius_top_left = 12
+	sb.corner_radius_top_right = 12
+	bar.add_stylebox_override("panel", sb)
+	bar.rect_position = Vector2(2, 2)
+	bar.rect_size = Vector2(w - 4, BAR - 4)
+	bar.mouse_default_cursor_shape = CURSOR_MOVE
+	bar.connect("gui_input", self, "_on_bar_input")
+	panel.add_child(bar)
+	var l := Label.new()
+	l.text = ":::  Drag here to move the keyboard  :::"
+	l.add_font_override("font", _font)
+	l.add_color_override("font_color", Color(1, 0.86, 0.98, 0.85))
+	l.align = Label.ALIGN_CENTER
+	l.valign = Label.VALIGN_CENTER
+	l.rect_size = bar.rect_size
+	l.mouse_filter = MOUSE_FILTER_IGNORE
+	bar.add_child(l)
+	var reset := Button.new()
+	reset.text = "Reset"
+	reset.theme = load("res://uitheme.tres")
+	reset.add_font_override("font", _font)
+	reset.focus_mode = FOCUS_NONE
+	reset.rect_size = Vector2(KEY_W * 1.2, BAR - 10)
+	reset.rect_position = Vector2(bar.rect_size.x - reset.rect_size.x - 4, 3)
+	reset.connect("pressed", self, "_on_reset")
+	bar.add_child(reset)
+
+func _on_bar_input(ev):
+	if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
+		_dragging = ev.pressed
+		if ev.pressed:
+			_drag_from = ev.global_position - panel.rect_position
+		else:
+			_saved_pos = panel.rect_position
+			_save_pos()
+	elif ev is InputEventMouseMotion and _dragging:
+		panel.rect_position = _clamped(ev.global_position - _drag_from)
+
+# kept on the screen
+func _clamped(p: Vector2) -> Vector2:
+	var vs: Vector2 = get_viewport_rect().size
+	return Vector2(clamp(p.x, 0, max(0.0, vs.x - panel.rect_size.x)), clamp(p.y, 0, max(0.0, vs.y - panel.rect_size.y))).floor()
+
+func _on_reset():
+	_saved_pos = null
+	_save_pos()
+	if is_instance_valid(_target):
+		_show_for(_target)
+
+func _load_pos():
+	var cfg := ConfigFile.new()
+	if cfg.load(POS_FILE) == OK and cfg.has_section_key("keyboard", "pos"):
+		var p = cfg.get_value("keyboard", "pos")
+		_saved_pos = p if p is Vector2 else null
+
+func _save_pos():
+	var cfg := ConfigFile.new()
+	cfg.set_value("keyboard", "pos", _saved_pos)
+	cfg.save(POS_FILE)

@@ -159,6 +159,8 @@ func _place_eye():
 	if is_nan(eye) or is_inf(eye):
 		eye = EYE_HEIGHT
 	# (_lock_frame: a locked play area's placement from before a restart)
+	# (the VR height setting: metres, in game units)
+	eye += float(Rhythia.vr_height) * ARVRServer.world_scale
 	var want_o := Transform(Basis(), Vector3(0, eye, 0)) * _lock_frame
 	if not origin.transform.is_equal_approx(want_o):
 		origin.transform = want_o
