@@ -125,6 +125,14 @@ func finish():
 	var _read = Rhythia.selected_song.read_notes()
 	Rhythia.unlock_song_notes(Rhythia.selected_song) # (unlocked before anything that could fail on a broken map)
 	var _n_notes: int = _read.size() if _read is Array else 0
+	# (VR: these questions are a flat-screen prompt the headset doesn't show, so
+	# the load waited for an answer nobody could give: a black screen. VR takes
+	# the answer that keeps going, or goes back to the menu.)
+	if _n_notes == 0 and Rhythia.vr:
+		Rhythia.trail("song load: no notes, back to the menu (VR)")
+		Globals.notify(Globals.NOTIFY_WARN, "This map doesn't have any notes.", "Warning")
+		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+		return
 	if _n_notes == 0:
 		Globals.confirm_prompt.open(
 			"This map doesn't have any notes.",
@@ -137,7 +145,11 @@ func finish():
 		return
 
 	Rhythia.start_log("notes read, checking audio")
-	if Rhythia.selected_song.stream() == Globals.error_sound:
+	var broken_audio: bool = Rhythia.selected_song.stream() == Globals.error_sound
+	if broken_audio and Rhythia.vr:
+		Rhythia.trail("song load: broken audio, playing without music (VR)")
+		Globals.notify(Globals.NOTIFY_WARN, "This map's audio appears to be broken: no music.", "Warning")
+	elif broken_audio:
 		Globals.confirm_prompt.open(
 			"This map's audio appears to be broken. You can still play the map, but there won't be any music.",
 			"Warning",
@@ -153,7 +165,7 @@ func finish():
 			yield(Globals.confirm_prompt, "done_closing")
 
 
-	if Rhythia.show_warnings:
+	if Rhythia.show_warnings and not Rhythia.vr:
 		if (
 			(
 				Rhythia.smart_trail and
