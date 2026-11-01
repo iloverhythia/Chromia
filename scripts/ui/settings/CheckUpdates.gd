@@ -2,6 +2,9 @@ extends Button
 
 # Settings > "Check for Updates": same update check the game runs at startup.
 var _busy: bool = false
+# switching the update channel: they already said yes, so no "Download it?"
+# and no "Later" (the other channel's build is what they asked for)
+var _switching := false
 
 func _pressed():
 	if _busy:
@@ -25,17 +28,19 @@ func _pressed():
 		_reset()
 		return
 
-	Globals.confirm_prompt.open(
-		"Version %s is available (you have %s).\nDownload and install it now?" % [latest, current],
-		"Update Available",
-		[{text = "Not now", wait = 0}, {text = "Update", wait = 0}]
-	)
-	var sel = yield(Globals.confirm_prompt, "option_selected")
-	Globals.confirm_prompt.close()
-	yield(Globals.confirm_prompt, "done_closing")
-	if not bool(sel):
-		_reset()
-		return
+	var sel = 1
+	if not _switching:
+		Globals.confirm_prompt.open(
+			"Version %s is available (you have %s).\nDownload and install it now?" % [latest, current],
+			"Update Available",
+			[{text = "Not now", wait = 0}, {text = "Update", wait = 0}]
+		)
+		sel = yield(Globals.confirm_prompt, "option_selected")
+		Globals.confirm_prompt.close()
+		yield(Globals.confirm_prompt, "done_closing")
+		if not bool(sel):
+			_reset()
+			return
 
 	text = "Downloading..."
 	Online.attempt_update(true)
@@ -56,12 +61,21 @@ func _pressed():
 		text = "Reopen to update"
 		return
 
-	Globals.confirm_prompt.open(
-		"Version %s is installed. Restart the game now to use it?" % latest,
-		"Update Installed",
-		[{text = "Later", wait = 0}, {text = "Restart", wait = 0}]
-	)
-	sel = yield(Globals.confirm_prompt, "option_selected")
+	if _switching:
+		Globals.confirm_prompt.open(
+			"Version %s is installed. Restart the game to use it." % latest,
+			"Update Installed",
+			[{text = "Restart", wait = 0}]
+		)
+		yield(Globals.confirm_prompt, "option_selected")
+		sel = 1
+	else:
+		Globals.confirm_prompt.open(
+			"Version %s is installed. Restart the game now to use it?" % latest,
+			"Update Installed",
+			[{text = "Later", wait = 0}, {text = "Restart", wait = 0}]
+		)
+		sel = yield(Globals.confirm_prompt, "option_selected")
 	Globals.confirm_prompt.close()
 	if bool(sel):
 		Rhythia.save_settings()
@@ -70,6 +84,7 @@ func _pressed():
 		text = "Restart to update"
 
 func _reset():
+	_switching = false
 	_busy = false
 	disabled = false
 	text = "Check for Updates"
@@ -115,6 +130,7 @@ func _on_channel(ch: Button):
 		Rhythia.save_settings()
 		_channel_text(ch)
 		Globals.notify(Globals.NOTIFY_INFO, "Getting the %s build..." % ("test" if Rhythia.tester_channel == "test" else "stable"), "Update Channel")
+		_switching = not _busy
 		_pressed() # get that channel's build now
 		return
 	var to_test: bool = Online.wanted_channel() != "test"
@@ -132,6 +148,7 @@ func _on_channel(ch: Button):
 	Rhythia.update_channel = "test" if to_test else "stable"
 	Rhythia.save_settings()
 	_channel_text(ch)
+	_switching = not _busy
 	_pressed() # get that channel's build now
 
 func _on_crash_reports():
