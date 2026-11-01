@@ -27,3 +27,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating someone on a map you already have no longer downloads it again (and again): the same map saved under a slightly different name (one that came from the server) is now recognised
 - VR: the Spectators list now shows in the headset, above the left panel (it was only on the desktop window)
 - Alt + scroll volume no longer gets stuck on after Alt-Tab (every scroll changed the volume, sometimes to very loud, and the map list wouldn't scroll)
+- Chat: emoji show in the message box as you type (they were blank or boxes)

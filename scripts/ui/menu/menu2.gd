@@ -291,6 +291,7 @@ func _build_lobby_ui():
 	lobby_chat_input.placeholder_text = "Message..."
 	lobby_chat_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lobby_chat_input.max_length = 300
+	preload("res://scripts/ui/Emoji.gd").field(lobby_chat_input) # (emoji show as you type)
 	lobby_chat_input.connect("text_entered", self, "_on_lobby_chat_submitted")
 	chat_row.add_child(lobby_chat_input)
 	var chat_send_button = _make_button("Send", ui_theme)
@@ -350,6 +351,7 @@ func _build_lobby_ui():
 	global_chat_input.placeholder_text = "Message everyone..."
 	global_chat_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	global_chat_input.max_length = 300
+	preload("res://scripts/ui/Emoji.gd").field(global_chat_input) # (emoji show as you type)
 	global_chat_input.connect("text_entered", self, "_on_global_chat_submitted")
 	global_chat_row.add_child(global_chat_input)
 	var global_chat_send_button = _make_button("Send", ui_theme)

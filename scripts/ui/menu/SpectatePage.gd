@@ -556,6 +556,7 @@ func _build_window():
 	chat_input.size_flags_horizontal = SIZE_EXPAND_FILL
 	chat_input.max_length = 300
 	_style_field(chat_input)
+	preload("res://scripts/ui/Emoji.gd").field(chat_input) # (emoji show as you type)
 	chat_input.connect("text_entered", self, "_on_chat_entered")
 	row.add_child(chat_input)
 	chat_send = Button.new()

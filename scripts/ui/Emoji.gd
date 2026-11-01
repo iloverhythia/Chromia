@@ -66,6 +66,114 @@ static func _codepoints(s: String) -> Array:
 		i += 1
 	return out
 
+# --- emoji while typing (in a LineEdit) ---------------------------------------
+# A LineEdit can only draw its font, so it gets a BitmapFont that holds the
+# emoji typed so far as pictures (the same ones), with its own font as the
+# fallback for everything else. The pictures are added as they're typed.
+# If this Godot can't (checked once), the field keeps its font.
+#
+#   Emoji.field(line_edit)    once its font is set
+static func field(le: LineEdit):
+	if le == null or le.has_node("EmojiField"):
+		return
+	var f := Field.new()
+	f.name = "EmojiField"
+	le.add_child(f)
+
+class Field extends Node:
+	var le: LineEdit
+	var base: Font = null
+	var bf: BitmapFont = null
+	var px := 0
+	var have := {} # codepoint -> true (in bf)
+
+	func _ready():
+		le = get_parent()
+		le.connect("text_changed", self, "_on_text")
+		le.connect("resized", self, "_on_text", [""])
+		_on_text(le.text)
+
+	func _on_text(_t):
+		if Engine.has_meta("chromia_emoji_field_bad"):
+			return
+		var E = load("res://scripts/ui/Emoji.gd")
+		var text := le.text
+		if bf == null and not E._maybe(text):
+			return # (nothing to draw yet: the field keeps its own font)
+		var cur := le.get_font("font")
+		if cur != bf:
+			base = cur # (its font, or one set since)
+			bf = null
+		if base == null:
+			return
+		var h := int(base.get_height())
+		if bf == null or px != h:
+			_build(h)
+		var d: Dictionary = E._data()
+		if not d.ok:
+			return
+		var added := false
+		var check := ""
+		for c in E._codepoints(text):
+			var cp: int = c[0]
+			if cp < 0xA9 or have.has(cp):
+				continue
+			var key := "%x" % cp
+			if not d.e.has(key):
+				continue
+			var tex: Texture = E._texture(key)
+			if tex == null:
+				continue
+			_add(cp, tex)
+			added = true
+			if check == "" and cp >= 0x10000:
+				check = text.substr(c[1], c[2] - c[1])
+		if check != "" and not Engine.has_meta("chromia_emoji_field_ok"):
+			# does this Godot draw a BitmapFont's emoji (two UTF-16 halves on Windows)?
+			if abs(bf.get_string_size(check).x - _advance()) > 0.5:
+				Engine.set_meta("chromia_emoji_field_bad", true)
+				le.add_font_override("font", base)
+				bf = null
+				return
+			Engine.set_meta("chromia_emoji_field_ok", true)
+		if added:
+			le.update()
+
+	func _size() -> int:
+		return int(max(8, round(px * 0.85)))
+
+	func _advance() -> float:
+		return float(_size() + 2)
+
+	func _build(h: int):
+		px = h
+		have = {}
+		bf = BitmapFont.new()
+		bf.height = base.get_height()
+		bf.ascent = base.get_ascent()
+		bf.fallback = base
+		# the joiner, the variation mark and skin tones: nothing on their own
+		for cp in [0x200D, 0xFE0F, 0x1F3FB, 0x1F3FC, 0x1F3FD, 0x1F3FE, 0x1F3FF]:
+			bf.add_char(cp, -1, Rect2(), Vector2(), 0)
+			have[cp] = true
+		le.add_font_override("font", bf)
+
+	func _add(cp: int, tex: Texture):
+		var s := _size()
+		var img: Image = tex.get_data()
+		if img == null:
+			return
+		img = img.duplicate()
+		if img.is_compressed():
+			img.decompress()
+		img.clear_mipmaps()
+		img.resize(s, s, Image.INTERPOLATE_LANCZOS)
+		var t := ImageTexture.new()
+		t.create_from_image(img, Texture.FLAG_FILTER)
+		bf.add_texture(t)
+		bf.add_char(cp, bf.get_texture_count() - 1, Rect2(0, 0, s, s), Vector2(1, round((px - s) / 2.0)), _advance())
+		have[cp] = true
+
 static func _maybe(s: String) -> bool:
 	for i in range(s.length()):
 		if ord(s[i]) >= 0x2000:
