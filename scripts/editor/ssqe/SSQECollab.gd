@@ -304,7 +304,8 @@ func _on_invited(msg: Dictionary):
 	var st: Dictionary = page.ed.s if page and page.ed else SSQESettings.load_settings()
 	var allow := bool(st.get("allowCollabInvites", true))
 	if not allow or s != null or Rhythia.in_map:
-		_send_server({"type": "collab_reply", "room": room, "accept": false})
+		# (busy: mapping with someone already; the server leaves that to the game)
+		_send_server({"type": "collab_reply", "room": room, "accept": false, "busy": s != null})
 		return
 	_popup_invite = {"room": room, "from": from, "name": name, "at": OS.get_ticks_msec()}
 	popup_label.text = "%s wants to map with you in the map editor." % name
