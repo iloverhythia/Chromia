@@ -351,7 +351,10 @@ func get_cursor_position(ms: float):
 
 	var a2 = Vector2(ap.x, ap.y)
 	var b2 = Vector2(bp.x, bp.y)
-	var v = clamp(smoothstep(ap.z, bp.z, ms), 0, 1)
+	# a straight line between the recorded positions (they're samples in time:
+	# easing in and out of each one put the cursor off its real path on fast
+	# moves, most visibly at the hits)
+	var v = clamp(inverse_lerp(ap.z, bp.z, ms), 0, 1) if bp.z > ap.z else 1.0
 	return lerp(a2, b2, v)
 
 var trigger_cursor: int = 0
