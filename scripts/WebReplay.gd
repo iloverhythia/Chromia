@@ -208,20 +208,24 @@ func _on_watch():
 
 func _on_record():
 	recording = true
-	# fullscreen while it records: the video is the screen's size, not the size
-	# of the game view on the page (the click on Record lets the page do it)
+	# a big picture while it records, not the size of the game view on the page
 	_record_size(true)
 	_buttons.visible = false
 	yield(get_tree().create_timer(0.8), "timeout")
 	_play()
 
-# fullscreen on / off for a recording
+# The recording's size, on / off. In the score page (a frame): the page draws
+# the frame at 1920x1080 and shrinks it to fit, so the video is 1080p.
+# Fullscreen needed a click the browser could see, and the game reads clicks
+# a frame later, so it was refused. On its own page: fullscreen, when allowed.
 func _record_size(on: bool):
 	var js = Engine.get_singleton("JavaScript")
 	if js == null:
 		return
+	var inside := "window.parent && window.parent !== window"
+	js.eval("try { if (%s) window.parent.postMessage({ chromia: 'record-size', on: %s }, location.origin); } catch (e) {}" % [inside, "true" if on else "false"], true)
 	if on:
-		js.eval("try { var d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen).call(d); } catch (e) {}", true)
+		js.eval("try { if (!(%s)) { var d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen).call(d); } } catch (e) {}" % inside, true)
 	else:
 		js.eval("try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}", true)
 
@@ -285,5 +289,5 @@ func _stop_recording():
 	var js = Engine.get_singleton("JavaScript")
 	if js != null:
 		js.eval("window.__chromiaRec && window.__chromiaRec.stop(%s)" % to_json(title), true)
-	_status.text = "Your video is saving."
+	_status.text = "Your video is ready: Save video, under the game."
 	_record_size(false)
