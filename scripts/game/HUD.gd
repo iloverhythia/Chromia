@@ -202,6 +202,9 @@ func _make_sp_label():
 		return
 	_sp_label = noteslabel.duplicate()
 	_sp_label.name = "SP"
+	# (the score's font: it sits right above the score, and Notes' regular
+	# weight looked out of place there; Settings > Fonts still applies)
+	_sp_label.add_font_override("font", scorelabel.get_font("font"))
 	_sp_label.visible = true
 	_sp_label.margin_top = -890.0
 	_sp_label.margin_bottom = -815.0
