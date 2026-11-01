@@ -24,7 +24,7 @@ func _ready():
 	if target == "xp_boost":
 		Rhythia.connect("discord_login_changed", self, "upd") # (Discord can sign in after the settings were built)
 
-# Experimental: "10x XP", only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
+# Experimental: "10x EXP" (your level), only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
 func _add_xp_boost_toggle():
 	var parent = get_parent()
 	if parent == null or parent.has_node("XpBoost"):
@@ -32,8 +32,8 @@ func _add_xp_boost_toggle():
 	var cb = duplicate()
 	cb.name = "XpBoost"
 	cb.target = "xp_boost"
-	cb.text = "10x XP"
-	cb.hint_tooltip = "10 times the XP for your plays (ranked XP and your level)."
+	cb.text = "10x EXP"
+	cb.hint_tooltip = "10 times the EXP for your plays (your level; ranked XP stays the same)."
 	parent.add_child(cb)
 
 # Phones: "Touch Indicator" (rings under the fingers) goes under this one.

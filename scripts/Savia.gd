@@ -192,8 +192,8 @@ var jp: int = 0
 var sp: int = 0
 var in_map: bool = false
 var discord_user: Dictionary = {}
-# Experimental "10x XP": only shown to, and only honoured by the server for,
-# this Discord account (the server checks the account's linked Discord itself)
+# Experimental "10x EXP" (level experience, PlayerLevel.gd; not ranked XP):
+# only shown to this Discord account
 const XP_BOOST_DISCORD_ID = "697113209051545640"
 const XP_BOOST = 10
 var xp_boost: bool = false
@@ -429,7 +429,7 @@ func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, conten
 	if reasons.size() > 0:
 		Globals.notify(Globals.NOTIFY_WARN, "Won't count for XP — %s" % reasons.join(", "), "XP Not Valid")
 	else:
-		var scaled_xp = int(round(xp * current_xp_speed_multiplier())) * (XP_BOOST if xp_boost_on() else 1)
+		var scaled_xp = int(round(xp * current_xp_speed_multiplier()))
 		Globals.notify(Globals.NOTIFY_INFO, "This map is ranked for %d XP." % scaled_xp, "XP Valid")
 
 var _hwid_computed: bool = false
@@ -487,8 +487,6 @@ func report_map_completion(song_id: String):
 		SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
 		str(song_end_misses), str(song_end_total_notes), str(hitwindow_ms), mods_json.http_escape(), get_hardware_id().http_escape()
 	]
-	if xp_boost_on():
-		url += "&xp_boost=1"
 	if replay_b64 != "":
 		yield(_send_pass_env(cid), "completed")
 	var error
