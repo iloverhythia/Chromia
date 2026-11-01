@@ -180,18 +180,65 @@ func switch_account(new_id: String):
 func _on_move_progress(text: String):
 	emit_signal("init_stage_reached", text)
 
+# Settings > Keybinds: the actions you can rebind, and turn off (one by one,
+# or all at once): an action that's off has no keys or buttons at all.
+const KEYBIND_ACTIONS = ["pause", "give_up", "retry", "fullscreen", "ui_quicksettings", "fps", "volumeslider", "toggle_profile", "quit_game"]
+
 func load_keybinds():
 	var config = ConfigFile.new()
-	if config.load("user://settings.cfg") != OK or not config.has_section("keybinds"):
+	var ok: bool = config.load("user://settings.cfg") == OK
+	if ok and config.has_section("keybinds"):
+		for action in config.get_section_keys("keybinds"):
+			if not InputMap.has_action(action):
+				continue
+			var scancode = int(config.get_value("keybinds", action))
+			InputMap.action_erase_events(action)
+			var event = InputEventKey.new()
+			event.scancode = scancode
+			InputMap.action_add_event(action, event)
+	if ok:
+		for action in KEYBIND_ACTIONS:
+			if not keybind_on(action, config):
+				InputMap.action_erase_events(action)
+
+# on unless you turned it (or all of them) off
+func keybind_on(action: String, config = null) -> bool:
+	if config == null:
+		config = ConfigFile.new()
+		if config.load("user://settings.cfg") != OK:
+			return true
+	if bool(config.get_value("keybinds_off", "_all", false)) and action in KEYBIND_ACTIONS:
+		return false
+	return not bool(config.get_value("keybinds_off", action, false))
+
+# turn one action (or "_all") on or off and put its keys back / take them away
+func set_keybind_on(action: String, on: bool):
+	var config = ConfigFile.new()
+	config.load("user://settings.cfg")
+	config.set_value("keybinds_off", action, not on)
+	config.save("user://settings.cfg")
+	for a in (KEYBIND_ACTIONS if action == "_all" else [action]):
+		_restore_keybind(a, config)
+		if not keybind_on(a, config):
+			InputMap.action_erase_events(a)
+
+# the action's keys as set up: the game's own, with your rebound key instead
+func _restore_keybind(action: String, config: ConfigFile):
+	if not InputMap.has_action(action):
 		return
-	for action in config.get_section_keys("keybinds"):
-		if not InputMap.has_action(action):
-			continue
-		var scancode = int(config.get_value("keybinds", action))
-		InputMap.action_erase_events(action)
-		var event = InputEventKey.new()
-		event.scancode = scancode
-		InputMap.action_add_event(action, event)
+	InputMap.action_erase_events(action)
+	var setting = ProjectSettings.get_setting("input/" + action)
+	if setting is Dictionary:
+		for ev in setting.get("events", []):
+			if ev is InputEvent:
+				InputMap.action_add_event(action, ev)
+	if config.has_section_key("keybinds", action):
+		var custom := InputEventKey.new()
+		custom.scancode = int(config.get_value("keybinds", action))
+		for ev in InputMap.get_action_list(action):
+			if ev is InputEventKey:
+				InputMap.action_erase_event(action, ev)
+		InputMap.action_add_event(action, custom)
 
 var jp: int = 0
 var sp: int = 0

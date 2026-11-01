@@ -1147,17 +1147,6 @@ func _unhandled_input(event: InputEvent):
 		profile_canvas.visible = not profile_canvas.visible
 		_save_profile_ui_hidden(not profile_canvas.visible)
 
-const KEYBIND_ALLOWED_ACTIONS = [
-	"pause",
-	"give_up",
-	"retry",
-	"fullscreen",
-	"ui_quicksettings",
-	"fps",
-	"volumeslider",
-	"toggle_profile",
-	"quit_game"
-]
 
 func _build_keybinds_settings_tab():
 	var tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
@@ -1185,9 +1174,18 @@ func _build_keybinds_settings_tab():
 	hint.theme = ui_theme
 	hint.autowrap = true
 	list.add_child(hint)
+	# every keybind off at once (each row's On turns one off)
+	var all_off = CheckBox.new()
+	all_off.text = "Turn all keybinds off"
+	all_off.theme = ui_theme
+	all_off.hint_tooltip = "None of these keys (or controller buttons) do anything while this is on"
+	all_off.pressed = bool(_keybind_config().get_value("keybinds_off", "_all", false))
+	all_off.connect("toggled", self, "_on_all_keybinds_off")
+	list.add_child(all_off)
 	list.add_child(HSeparator.new())
+	_keybind_rows = []
 
-	for action in KEYBIND_ALLOWED_ACTIONS:
+	for action in Rhythia.KEYBIND_ACTIONS:
 		if not InputMap.has_action(action):
 			continue
 		var row = HBoxContainer.new()
@@ -1204,10 +1202,41 @@ func _build_keybinds_settings_tab():
 		key_btn.connect("pressed", self, "_on_keybind_button_pressed", [key_btn, action])
 		row.add_child(key_btn)
 
+		var on_box = CheckBox.new()
+		on_box.text = "On"
+		on_box.theme = ui_theme
+		on_box.hint_tooltip = "Turn this keybind off (its key does nothing)"
+		on_box.pressed = not bool(_keybind_config().get_value("keybinds_off", action, false))
+		on_box.connect("toggled", self, "_on_keybind_toggled", [action])
+		row.add_child(on_box)
+		_keybind_rows.append([action, key_btn, on_box])
+
 		list.add_child(row)
 
+	_refresh_keybind_rows()
 	tab_container.add_child(tab)
 	tab_container.connect("tab_changed", self, "_on_settings_tab_changed")
+
+var _keybind_rows := [] # [action, key button, On box]
+
+func _keybind_config() -> ConfigFile:
+	var c = ConfigFile.new()
+	c.load("user://settings.cfg")
+	return c
+
+func _on_keybind_toggled(on: bool, action: String):
+	Rhythia.set_keybind_on(action, on)
+	_refresh_keybind_rows()
+
+func _on_all_keybinds_off(off: bool):
+	Rhythia.set_keybind_on("_all", not off)
+	_refresh_keybind_rows()
+
+func _refresh_keybind_rows():
+	for r in _keybind_rows:
+		if is_instance_valid(r[1]):
+			r[1].text = _get_action_key_text(r[0]) if Rhythia.keybind_on(r[0]) else "(off)"
+			r[1].disabled = not Rhythia.keybind_on(r[0])
 
 func _on_settings_tab_changed(_tab_index):
 	_cancel_keybind_rebind()

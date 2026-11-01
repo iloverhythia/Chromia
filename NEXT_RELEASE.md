@@ -19,3 +19,4 @@ in scripts/Savia.gd and empties this list.
 - Settings > Fonts: a Size slider for the HUD's text (50% to 200%), seen by spectators too
 - Settings > Video & Audio: Fullscreen is now called Exclusive Fullscreen (the true fullscreen, run by your graphics driver), and it and Borderless Windowed turn each other off; F11 / Alt+Enter leaves Borderless Windowed first
 - Spectate: right-click someone's card for View stats (their level, XP, SP and places, passes, bio and best plays), Spectate, or their profile on the website
+- Settings > Keybinds: turn any keybind off with its On box, or all of them with Turn all keybinds off (their keys and controller buttons do nothing); turning one back on restores your key
