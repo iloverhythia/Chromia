@@ -3224,7 +3224,7 @@ func report_level():
 	if cid == "" or not ProjectSettings.get_setting("application/networking/enabled"):
 		return
 	var store = preload("res://scripts/PlayerLevel.gd").get_store()
-	var key := "%d/%d/%d" % [store.level, store.prestige, store.total_exp]
+	var key := "%d/%d/%d/%d" % [store.level, store.prestige, store.total_exp, store.cur_exp]
 	if key == _level_sent:
 		return
 	_level_sent = key
@@ -3232,7 +3232,8 @@ func report_level():
 	r.timeout = 10
 	add_child(r)
 	r.connect("request_completed", self, "_on_level_sent", [r])
-	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp], [], true, HTTPClient.METHOD_POST, "") != OK:
+	# (exp: how far into this level, for the website's ring around the picture)
+	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d&exp=%d" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp, store.cur_exp], [], true, HTTPClient.METHOD_POST, "") != OK:
 		r.queue_free()
 		_level_sent = ""
 

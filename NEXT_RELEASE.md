@@ -33,3 +33,4 @@ in scripts/Savia.gd and empties this list.
 - Switching the update channel downloads that build straight away and only offers Restart (no "Download it?" question or "Later" button)
 - Spectating: you see their exact colorset (custom and imported ones too, with their transparency, so note opacity matches), and the border is right when they use the default one
 - VR: replays now keep your head and hands, so the website's replay viewer can show your pass in first person like spectating (needs the updated server)
+- Your level's progress shows on your website profile (the line around your picture)
