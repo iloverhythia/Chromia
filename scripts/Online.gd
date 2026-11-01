@@ -140,9 +140,19 @@ func _mapdl_handler(id: String, map: Song):
 		if mapdl_res.result == HTTPRequest.RESULT_SUCCESS:
 			if mapdl_res.response_code == 200:
 				var old_db_id = map.id
-				dir.rename(Globals.p("user://mapdl.sspm.part"), Globals.p("user://maps/%s.sspm" % old_db_id))
+				var dest: String = Globals.p("user://maps/%s.sspm" % old_db_id)
+				# (each step says why when it goes wrong: these failed silently
+				# and left maps half done, "not converted")
+				var mv = dir.rename(Globals.p("user://mapdl.sspm.part"), dest)
+				if mv != OK and dir.file_exists(dest):
+					dir.remove(dest) # (an older copy in the way)
+					mv = dir.rename(Globals.p("user://mapdl.sspm.part"), dest)
+				if mv != OK:
+					_map_problem(map, "couldn't save the download (error %s)" % mv)
 
-				map.load_from_sspm(Globals.p("user://maps/%s.sspm" % old_db_id))
+				var lres = map.load_from_sspm(dest)
+				if lres is String:
+					_map_problem(map, "the downloaded file couldn't be read (%s)" % lres)
 				map.id = old_db_id
 				map.is_online = false
 				if map.songType != Globals.MAP_SSPM2:
@@ -153,7 +163,9 @@ func _mapdl_handler(id: String, map: Song):
 							"Skip Conversion"
 						)
 					else:
-						map.convert_to_sspm(true)
+						var cres = String(map.convert_to_sspm(true))
+						if cres != "Converted!":
+							_map_problem(map, "converting it failed: %s" % cres)
 				map_registry.emit_signal("item_updated", map)
 				emit_signal("map_downloaded", {id = id, success = true})
 			else:
@@ -165,6 +177,13 @@ func _mapdl_handler(id: String, map: Song):
 		else:
 			mapdl_error(id, "Unknown Error", map)
 
+
+# a downloaded map that didn't come out right: told, and kept in the trail
+# (logs/trail.txt) so a player can send it
+func _map_problem(map, why: String):
+	var nm := String(map.name) if map != null else "?"
+	Rhythia.trail("map download problem: %s (%s): %s" % [nm, String(map.id) if map != null else "?", why])
+	Globals.notify(Globals.NOTIFY_ERROR, "%s: %s" % [nm, why], "Map download")
 
 func download_map(map: Song):
 	var id = v4()
