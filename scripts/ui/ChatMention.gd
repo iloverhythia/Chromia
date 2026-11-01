@@ -269,5 +269,8 @@ func _choose(k: int):
 		after = after.substr(1)
 	field.text = (text.substr(0, _at) + put + after).substr(0, field.max_length if field.max_length > 0 else 100000)
 	field.caret_position = min(_at + put.length(), field.text.length())
+	var ef = field.get_node_or_null("EmojiField") # (letters in the name it may not have yet)
+	if ef != null:
+		ef._on_text("")
 	_hide()
 	field.grab_focus()
