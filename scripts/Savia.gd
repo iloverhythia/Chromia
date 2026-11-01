@@ -2500,6 +2500,9 @@ func _process(delta):
 	note_spin_t = fmod(note_spin_t + (delta * 0.5), 360)
 
 	if Input.is_action_just_pressed("fullscreen"):
+		# (Exclusive Fullscreen; Borderless Windowed goes off first)
+		if OS.window_borderless and not OS.window_fullscreen:
+			set_borderless_windowed(false)
 		OS.window_fullscreen = not OS.window_fullscreen
 	if Input.is_action_just_pressed("quit_game"):
 		quit_game()

@@ -17,3 +17,5 @@ in scripts/Savia.gd and empties this list.
 - Settings: the grid's Borders moved to the Background Editor tab
 - Background Editor > HUD panels: pick how the side panels look while you play (Chromia, Sound Space, Outlined, Glass, No background, or your own picture) and how big they are (50% to 200%). Spectators see your style and size
 - Settings > Fonts: a Size slider for the HUD's text (50% to 200%), seen by spectators too
+- Settings > Video & Audio: Fullscreen is now called Exclusive Fullscreen (the true fullscreen, run by your graphics driver), and it and Borderless Windowed turn each other off; F11 / Alt+Enter leaves Borderless Windowed first
+- Spectate: right-click someone's card for View stats (their level, XP, SP and places, passes, bio and best plays), Spectate, or their profile on the website

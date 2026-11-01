@@ -5441,7 +5441,7 @@ margin_top = 32.0
 margin_right = 269.0
 margin_bottom = 60.0
 rect_min_size = Vector2( 0, 28 )
-hint_tooltip = "because you don't have anything else to focus on, do you?"
+hint_tooltip = "The true fullscreen: your graphics driver runs the game on its own (lowest input delay; Alt-Tab is slower). Borderless Windowed is the other kind. F11 or Alt+Enter switches it too."
 theme = ExtResource( 1 )
 custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
 custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
@@ -5451,7 +5451,7 @@ custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
 custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
 custom_fonts/font = SubResource( 4 )
 action_mode = 0
-text = "Fullscreen"
+text = "Exclusive Fullscreen"
 flat = true
 script = ExtResource( 27 )
 
