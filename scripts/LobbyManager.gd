@@ -1903,13 +1903,29 @@ func _stop_bar_text() -> String:
 func _update_stop_bar():
 	var text := _stop_bar_text()
 	if text == "":
-		if _stop_canvas != null:
+		if _stop_canvas != null and is_instance_valid(_stop_canvas):
 			_stop_canvas.visible = false
 		return
+	if _stop_canvas != null and not is_instance_valid(_stop_canvas):
+		_stop_canvas = null # (it was on a VR menu screen that's gone)
 	if _stop_canvas == null:
 		_build_stop_bar()
+	_place_stop_bar()
 	_stop_label.text = text
 	_stop_canvas.visible = true
+
+# VR: the bar goes on the menu's floating screen (the flat window isn't in
+# the headset), where the pointer can press Stop; elsewhere here, on top.
+func _place_stop_bar():
+	var want: Node = self
+	if Rhythia.vr:
+		var m = Rhythia.menu_node()
+		if m != null and m.get_viewport() != get_tree().root:
+			want = m.get_viewport()
+	if _stop_canvas.get_parent() != want:
+		if _stop_canvas.get_parent() != null:
+			_stop_canvas.get_parent().remove_child(_stop_canvas)
+		want.add_child(_stop_canvas)
 
 func _build_stop_bar():
 	_stop_canvas = CanvasLayer.new()

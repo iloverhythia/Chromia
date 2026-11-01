@@ -650,6 +650,8 @@ func exit_spectate_mode():
 		_spectate_ui = null
 		_spectate_banner = null
 		_spectate_view_button = null
+	if _spec_vr_sprite != null:
+		_spec_vr_sprite.visible = false
 	if _spec_page_layer != null:
 		_spec_page_layer.queue_free()
 		_spec_page_layer = null
@@ -1196,6 +1198,67 @@ func _update_spectate_target_name():
 			if int(p.get("peer_id", -1)) == spectate_peer_id:
 				name_text = Globals.s(p.get("name", "Player"))
 	_spectate_banner.text = "👁 SPECTATING: %s" % name_text
+	_update_spectate_vr(name_text)
+
+# VR, watching someone: the top-left banner and its Stop button are on the
+# flat screen, which the headset doesn't show. A panel above the right HUD
+# panel says who it is and how to switch view / stop (the trigger switches
+# view while watching, so the buttons can't be clicked: holding give up stops).
+var _spec_vr_vp: Viewport = null
+var _spec_vr_label: Label = null
+var _spec_vr_sprite: Sprite3D = null
+
+func _vr_button_names(action: String) -> String:
+	var names := PoolStringArray()
+	for b in Rhythia.vr_bind(action):
+		for nb in Rhythia.VR_BUTTONS:
+			if int(nb[1]) == int(b):
+				names.append(String(nb[0]))
+	return names.join(" or ") if names.size() > 0 else ""
+
+func _update_spectate_vr(name_text: String):
+	if not Rhythia.vr:
+		return
+	if _spec_vr_sprite == null:
+		var right = get_node_or_null("RightHud")
+		if right == null:
+			return
+		_spec_vr_vp = Viewport.new()
+		_spec_vr_vp.size = Vector2(300, 220)
+		_spec_vr_vp.transparent_bg = true
+		_spec_vr_vp.hdr = false
+		_spec_vr_vp.usage = Viewport.USAGE_2D
+		_spec_vr_vp.msaa = Viewport.MSAA_DISABLED
+		_spec_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE
+		add_child(_spec_vr_vp)
+		_spec_vr_label = Label.new()
+		var f := DynamicFont.new()
+		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+		f.size = 24
+		_spec_vr_label.add_font_override("font", f)
+		_spec_vr_label.add_color_override("font_color", Color(1, 0.85, 0.2))
+		_spec_vr_label.anchor_right = 1.0
+		_spec_vr_label.anchor_bottom = 1.0
+		_spec_vr_label.margin_left = 8
+		_spec_vr_label.margin_right = -8
+		_spec_vr_label.autowrap = true
+		_spec_vr_label.valign = Label.VALIGN_BOTTOM # (grows upward from the panel)
+		_spec_vr_vp.add_child(_spec_vr_label)
+		_spec_vr_sprite = right.duplicate(0)
+		_spec_vr_sprite.name = "SpectateVR"
+		_spec_vr_sprite.texture = _spec_vr_vp.get_texture()
+		var h: float = _spec_vr_vp.size.y * _spec_vr_sprite.pixel_size
+		var panel_h: float = 900.0 * right.pixel_size
+		_spec_vr_sprite.transform.origin = right.transform.origin + Vector3(0, panel_h / 2.0 + h / 2.0 + 0.03, 0)
+		add_child(_spec_vr_sprite)
+	var stop_keys := _vr_button_names("give_up")
+	var lines := PoolStringArray(["Watching %s" % name_text, "Trigger: switch view"])
+	var lm = _get_lobby_manager()
+	if lm != null and lm.watch_mode:
+		lines.append("Hold %s: stop watching" % (stop_keys if stop_keys != "" else "give up"))
+	_spec_vr_label.text = lines.join("\n")
+	_spec_vr_sprite.visible = true
+	_spec_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE # (redrawn when it changes)
 
 var spectate_cursor: Spatial = null
 var _real_cursor: Spatial = null
