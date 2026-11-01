@@ -499,6 +499,11 @@ func _connect_socket() -> bool:
 	# (the website's game view of a replay stays offline: WebReplay.gd)
 	if load("res://scripts/WebReplay.gd").wanted():
 		return false
+	# The release build's start-up check (.github/workflows/release.yml) runs
+	# the game once with an empty user folder: online, every build made a new
+	# player account on the server. It only needs to reach the menu.
+	if OS.get_environment("CHROMIA_BOOT_CHECK") == "1" or OS.get_environment("CHROMIA_OFFLINE") == "1":
+		return false
 	# Background requests (map info etc.) retry at most every 2 s while the
 	# server is unreachable; joining/creating a lobby always tries right away.
 	var now := OS.get_ticks_msec()
