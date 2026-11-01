@@ -787,8 +787,9 @@ func _on_request_completed(result, response_code, headers, body, http_request: H
 		print("Failed to reach GitHub server. HTTP Status Code: ", response_code)
 
 func is_client_banned(client_id: String) -> bool:
-
-	return banned_clients.has(client_id)
+	# (no id, as in the website's game view of a replay, is never banned: the
+	# list on GitHub has an empty entry)
+	return client_id != "" and banned_clients.has(client_id)
 
 const LIVE_BAN_STATUS_URL = "https://savia.nysr.host/savia-live-ban-status"
 const LIVE_BAN_POLL_INTERVAL_SEC = 30.0
