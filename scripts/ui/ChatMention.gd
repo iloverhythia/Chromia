@@ -158,6 +158,10 @@ func _ready():
 	field.connect("focus_exited", self, "_on_focus_lost")
 
 func _on_focus_lost():
+	# (the box loses the focus as the screen closes, after this list has
+	# already left the scene: then there's nothing to do)
+	if not is_inside_tree():
+		return
 	# (a click on the list takes the focus first: hide a moment later)
 	yield(get_tree().create_timer(0.15), "timeout")
 	if is_instance_valid(field) and not field.has_focus():

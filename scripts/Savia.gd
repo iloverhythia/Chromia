@@ -412,8 +412,10 @@ func check_xp_eligibility_notice(song_id: String):
 	lobby_manager.get_map_rank(song_id)
 
 func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, content_hash: String):
-	if selected_song != null and String(selected_song.id) == song_id and not sp_rank_info.has(song_id):
-		sp_rank_info[song_id] = {"xp": xp if ranked else 0, "same": content_hash == "" or content_hash == selected_song.compute_chart_hash()}
+	# (kept for the HUD's SP; the map is compared with the ranked version later,
+	# in the song: not here, where the menu's star rating may be reading it)
+	if in_map and selected_song != null and String(selected_song.id) == song_id:
+		sp_rank_info[song_id] = {"xp": xp if ranked else 0, "hash": content_hash, "same": null}
 	if song_id != _xp_eligibility_song_id or selected_song == null or String(selected_song.id) != song_id:
 		return
 	_xp_eligibility_song_id = ""
@@ -482,7 +484,16 @@ func sp_for_accuracy(accuracy: float) -> int:
 	if selected_song == null:
 		return -1
 	var info = sp_rank_info.get(String(selected_song.id))
-	if not (info is Dictionary) or int(info.xp) <= 0 or not bool(info.same):
+	if not (info is Dictionary) or int(info.xp) <= 0:
+		return -1
+	if info.same == null: # (once per song)
+		if String(info.hash) == "":
+			info.same = true
+		else:
+			lock_song_notes(selected_song)
+			info.same = String(info.hash) == selected_song.compute_chart_hash()
+			unlock_song_notes(selected_song)
+	if not bool(info.same):
 		return -1
 	if not offline_rp_rules_ok(true):
 		return -1
