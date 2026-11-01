@@ -395,18 +395,25 @@ func end_forced_replay():
 
 var _xp_eligibility_song_id: String = ""
 
+# song id -> {"xp": the ranked map's value (0: not ranked), "same": the map is
+# the ranked version}: for the HUD's SP (Settings > UI > Show SP)
+var sp_rank_info := {}
+
 func check_xp_eligibility_notice(song_id: String):
-	if replaying or song_id == "":
+	if song_id == "":
 		return
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager == null:
 		return
-	_xp_eligibility_song_id = song_id
+	# (a replay: only the map's value for the HUD, no notice)
+	_xp_eligibility_song_id = song_id if not replaying else ""
 	if not lobby_manager.is_connected("map_rank_info_received", self, "_on_xp_eligibility_rank_info"):
 		lobby_manager.connect("map_rank_info_received", self, "_on_xp_eligibility_rank_info")
 	lobby_manager.get_map_rank(song_id)
 
 func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, content_hash: String):
+	if selected_song != null and String(selected_song.id) == song_id and not sp_rank_info.has(song_id):
+		sp_rank_info[song_id] = {"xp": xp if ranked else 0, "same": content_hash == "" or content_hash == selected_song.compute_chart_hash()}
 	if song_id != _xp_eligibility_song_id or selected_song == null or String(selected_song.id) != song_id:
 		return
 	_xp_eligibility_song_id = ""
@@ -466,6 +473,25 @@ func award_offline_rp():
 		Globals.notify(Globals.NOTIFY_INFO, "%d RP (+%d total)" % [int(round(res.rp)), int(round(res.gained))], "New best RP")
 
 # The ranked-way rules a pass needs to give RP (also the HUD's RP readout).
+# The SP a pass of the selected map would give at this accuracy, as the server
+# works it out (server/src/ranking.js passSp: the map's value x speed^2 x
+# accuracy^2, speed at most 3x, nothing under 60%). -1: it can't give SP (not
+# ranked, not the ranked version, or the rules XP needs aren't kept), or the
+# map's value hasn't come from the server yet.
+func sp_for_accuracy(accuracy: float) -> int:
+	if selected_song == null:
+		return -1
+	var info = sp_rank_info.get(String(selected_song.id))
+	if not (info is Dictionary) or int(info.xp) <= 0 or not bool(info.same):
+		return -1
+	if not offline_rp_rules_ok(true):
+		return -1
+	accuracy = clamp(accuracy, 0.0, 1.0)
+	if accuracy < 0.6:
+		return 0
+	var speed: float = clamp(current_speed_multiplier(), 0.05, 3.0)
+	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
+
 func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
 	if mod_nofail or mod_extra_energy or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
@@ -3006,7 +3032,7 @@ var attach_hp_to_grid: bool = false
 var attach_timer_to_grid: bool = false
 var simple_hud: bool = false
 var hide_spectators_list: bool = false # (Settings > UI: no Spectators list in the top left)
-var show_rp_hud: bool = false # (Settings > UI: the RP a pass would give right now, on the right panel)
+var show_sp_hud: bool = false # (Settings > UI: the SP a pass would give right now, top of the right panel)
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
 var rainbow_hud: bool = false
@@ -3834,8 +3860,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			simple_hud = data.simple_hud
 		if data.has("hide_spectators_list"):
 			hide_spectators_list = bool(data.hide_spectators_list)
-		if data.has("show_rp_hud"):
-			show_rp_hud = bool(data.show_rp_hud)
+		if data.has("show_sp_hud"):
+			show_sp_hud = bool(data.show_sp_hud)
 		if data.has("faraway_hud"):
 			faraway_hud = data.faraway_hud
 		if data.has("music_offset"):
@@ -4523,7 +4549,7 @@ func _write_settings_file(saveFile: String):
 			show_fc_grade = show_fc_grade,
 			simple_hud = simple_hud,
 			hide_spectators_list = hide_spectators_list,
-			show_rp_hud = show_rp_hud,
+			show_sp_hud = show_sp_hud,
 			faraway_hud = faraway_hud,
 			music_offset = music_offset,
 			auto_maximize = auto_maximize,

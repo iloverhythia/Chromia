@@ -3578,12 +3578,12 @@ flat = true
 script = ExtResource( 54 )
 target = "hide_spectators_list"
 
-[node name="ShowRP" type="CheckBox" parent="TabContainer/UI/UI/Group/H"]
+[node name="ShowSP" type="CheckBox" parent="TabContainer/UI/UI/Group/H"]
 margin_top = 568.0
 margin_right = 170.0
 margin_bottom = 596.0
 rect_min_size = Vector2( 0, 28 )
-hint_tooltip = "shows the RP you'd get if you passed right now, at your accuracy so far, at the top of the right panel (a dash when the play can't give RP, like with No Fail)"
+hint_tooltip = "shows the SP you'd get if you passed right now, at your accuracy so far and speed, at the top of the right panel (a dash when the play can't give SP: the map isn't ranked, No Fail is on...)"
 theme = ExtResource( 1 )
 custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
 custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
@@ -3593,10 +3593,10 @@ custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
 custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
 custom_fonts/font = SubResource( 59 )
 action_mode = 0
-text = "Show RP"
+text = "Show SP"
 flat = true
 script = ExtResource( 54 )
-target = "show_rp_hud"
+target = "show_sp_hud"
 
 [node name="SEPARATOR_SS" type="HSeparator" parent="TabContainer/UI"]
 margin_right = 1280.0
