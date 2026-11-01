@@ -6,3 +6,4 @@ in scripts/Savia.gd and empties this list.
 
 - Fixed a crash when you start watching someone from the Spectate window (since nov1-2026-a)
 - Fixed a possible freeze in the menu on ranked maps (since nov1-2026-a), and the Spectate window shows pictures uploaded to Chromia again
+- Map screen: History uses the whole row, so your attempts aren't squished (the Modifiers box comes back when you switch to Best)
