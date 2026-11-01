@@ -354,6 +354,7 @@ func _build_lobby_ui():
 	preload("res://scripts/ui/Emoji.gd").field(global_chat_input) # (emoji show as you type)
 	global_chat_input.connect("text_entered", self, "_on_global_chat_submitted")
 	global_chat_row.add_child(global_chat_input)
+	preload("res://scripts/ui/ChatMention.gd").attach(global_chat_input, _get_lobby_manager()) # (@ + Tab: names)
 	var global_chat_send_button = _make_button("Send", ui_theme)
 	global_chat_send_button.connect("pressed", self, "_on_global_chat_send_pressed")
 	global_chat_row.add_child(global_chat_send_button)
@@ -1831,6 +1832,8 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 	line.autowrap = true
 	if is_you:
 		line.add_color_override("font_color", Color(0.65, 0.85, 1.0))
+	elif preload("res://scripts/ui/ChatMention.gd").mentions_me(text, _get_lobby_manager()):
+		line.add_color_override("font_color", Color(1.0, 0.55, 0.75)) # (you're mentioned)
 	global_chat_log_box.add_child(line)
 	while global_chat_log_box.get_child_count() > GLOBAL_CHAT_MAX_LINES:
 		global_chat_log_box.get_child(0).queue_free()

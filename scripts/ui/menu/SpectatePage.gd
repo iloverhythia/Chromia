@@ -559,6 +559,7 @@ func _build_window():
 	preload("res://scripts/ui/Emoji.gd").field(chat_input) # (emoji show as you type)
 	chat_input.connect("text_entered", self, "_on_chat_entered")
 	row.add_child(chat_input)
+	preload("res://scripts/ui/ChatMention.gd").attach(chat_input, _lm) # (@ + Tab: names)
 	chat_send = Button.new()
 	chat_send.text = "Send"
 	_style_button(chat_send, true)
@@ -1151,22 +1152,16 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float):
 	chat.add_text(name + ": ")
 	chat.pop()
 	chat.pop()
-	# @mentions stand out (yours most)
-	var my_name := String(_lm.player_name).to_lower() if _lm != null else ""
-	var words := text.split(" ")
-	for i in range(words.size()):
-		var w: String = words[i]
-		var sep := " " if i < words.size() - 1 else ""
-		if w.begins_with("@") and w.length() > 1:
-			var me := my_name != "" and w.substr(1).to_lower().rstrip(".,!?:;") == my_name
+	# @mentions stand out (yours most); names with spaces count too
+	for part in preload("res://scripts/ui/ChatMention.gd").split(text, _lm):
+		if part[1]:
 			chat.push_font(font_chat_bold)
-			chat.push_color(HEART if me else LILAC)
-			chat.add_text(w)
+			chat.push_color(HEART if part[2] else LILAC)
+			chat.add_text(part[0])
 			chat.pop()
 			chat.pop()
-			chat.add_text(sep)
 		else:
-			preload("res://scripts/ui/Emoji.gd").add_text(chat, w + sep, 18) # (emoji as pictures)
+			preload("res://scripts/ui/Emoji.gd").add_text(chat, part[0], 18) # (emoji as pictures)
 	_chat_lines += 1
 	if _chat_lines > CHAT_MAX_LINES:
 		chat.remove_line(0)

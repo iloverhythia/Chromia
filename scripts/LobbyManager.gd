@@ -1543,6 +1543,9 @@ func _handle_message(msg: Dictionary):
 			if global_chat_history.size() > CHAT_HISTORY_MAX:
 				global_chat_history.pop_front()
 			emit_signal("global_chat_message_received", gm_client_id, gm_name, gm_text, gm_ts)
+			# someone wrote @you: a notification, wherever you are (even in a map)
+			if not Rhythia.mute_global_chat and gm_client_id != Rhythia.cid and preload("res://scripts/ui/ChatMention.gd").mentions_me(gm_text, self):
+				Globals.notify(Globals.NOTIFY_INFO, gm_text, "%s mentioned you" % gm_name)
 		"announcement":
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))
