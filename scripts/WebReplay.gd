@@ -208,18 +208,22 @@ func _on_watch():
 
 func _on_record():
 	recording = true
-	# the page draws the game at 1920x1080 while it records (scaled down to
-	# fit), so the video is that size, not the size of the game view
+	# fullscreen while it records: the video is the screen's size, not the size
+	# of the game view on the page (the click on Record lets the page do it)
 	_record_size(true)
 	_buttons.visible = false
-	yield(get_tree().create_timer(0.6), "timeout")
+	yield(get_tree().create_timer(0.8), "timeout")
 	_play()
 
-# asks the score page around the game view (score.html) to size it for a video
+# fullscreen on / off for a recording
 func _record_size(on: bool):
 	var js = Engine.get_singleton("JavaScript")
-	if js != null:
-		js.eval("try { window.parent && window.parent !== window && window.parent.postMessage({ chromia: 'record-size', on: %s }, '*'); } catch (e) {}" % ("true" if on else "false"), true)
+	if js == null:
+		return
+	if on:
+		js.eval("try { var d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen).call(d); } catch (e) {}", true)
+	else:
+		js.eval("try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}", true)
 
 func _play():
 	if not ready_to_play:
