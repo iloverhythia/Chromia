@@ -63,6 +63,7 @@ const VIEW_KEYS := [
 	"grade_b_color", "grade_c_color", "grade_d_color", "grade_f_color",
 	"sound_space_mode", "ss_score_popups", "ss_health_y", "ss_health_w", "ss_progress_y",
 	"ss_progress_w", "ss_hud", "hud_font", "hud_font_size", "hud_panel_style", "hud_panel_size",
+	"avatar",
 ]
 # content, sent as its id and looked up in your registries
 const ID_KEYS := {
@@ -582,4 +583,8 @@ static func _dec(v, cur):
 						return {"__skip": true}
 					out.append([clamp(float(x[0]), 0.0, 1.0), x[1]])
 				return out
+		TYPE_DICTIONARY:
+			# (the avatar's look: only colours and known items get through)
+			if typeof(v) == TYPE_DICTIONARY:
+				return load("res://scripts/avatar/AvatarLook.gd").normalized(v)
 	return {"__skip": true}

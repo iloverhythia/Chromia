@@ -22,6 +22,9 @@ func _ready():
 		$AltCam.current = false
 
 
+	# your avatar (Settings > Player Avatar); the player's own while you watch
+	# them with their settings (SpectateSettings sends it)
+	load("res://scripts/avatar/AvatarLook.gd").apply($Game/Avatar, Rhythia.get("avatar"))
 	if Rhythia.is_lacunella_enabled():
 		$Game/Avatar/Head/Accessories/CubellaHair.visible = true
 

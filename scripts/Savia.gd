@@ -3190,6 +3190,7 @@ var hud_font: String = "default" # Settings > Fonts: the song HUD's font (script
 var hud_font_size: float = 100.0 # Settings > Fonts: its size, % of normal
 var hud_panel_style: String = "chromia" # Settings > Background Editor > HUD panels (scripts/HudPanels.gd)
 var hud_panel_size: float = 100.0 # the side panels' size, % of normal
+var avatar: Dictionary = {} # your avatar's look (scripts/avatar/AvatarLook.gd)
 var ss_hud: bool = false # Sound Space HUD: the side panels, time and health bar look like Sound Space (without the rest of Sound Space Mode)
 var ss_health_y: float = 0.0     # Sound Space Mode: health bar moved up (+) / down (-)
 var ss_health_w: float = 100.0   # Sound Space Mode: health bar width, %
@@ -4071,6 +4072,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			hud_panel_style = String(data.hud_panel_style)
 		if data.has("hud_panel_size"):
 			hud_panel_size = clamp(float(data.hud_panel_size), 50.0, 200.0)
+		if data.has("avatar") and data.avatar is Dictionary:
+			avatar = data.avatar
 		for k in ["ss_health_y", "ss_health_w", "ss_progress_y", "ss_progress_w"]:
 			if data.has(k):
 				set(k, float(data[k]))
@@ -4660,6 +4663,7 @@ func _write_settings_file(saveFile: String):
 			hud_font_size = hud_font_size,
 			hud_panel_style = hud_panel_style,
 			hud_panel_size = hud_panel_size,
+			avatar = avatar,
 			ss_health_y = ss_health_y,
 			ss_health_w = ss_health_w,
 			ss_progress_y = ss_progress_y,
