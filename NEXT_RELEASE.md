@@ -9,3 +9,4 @@ in scripts/Savia.gd and empties this list.
 - Chat: opening the Spectate window puts you straight in the chat box, ready to type
 - Chat: the text you type shows again when your message has an emoji in it (only the emoji showed)
 - Website Game view: smoother playback and cursor, Record video goes fullscreen so the video is your screen's size, and it never shows a crash notice
+- Replays: the cursor stays in time with the notes after a skip or a pause (it could end up ahead of them, by a lot on a slow computer or in the browser)

@@ -1016,15 +1016,29 @@ func _process(delta: float):
 			var just_started_unpause: bool = false
 			var just_cancelled_unpause: bool = false
 			var should_end_unpause: bool = false
+			# A signal is acted on the first frame after its time: rms has run
+			# past it by up to a frame (much more on a slow browser), while the
+			# song time it sets is fixed. Without making up for that, the
+			# cursor (which follows rms) was ahead of the notes for the rest
+			# of the replay after a skip or a pause.
+			var skip_lag := 0.0
+			var pause_lag := 0.0
+			var unpause_lag := 0.0
 			if replay_sig.size() != 0:
 				print(replay_sig)
 			for s in replay_sig:
-				if s[1] == Globals.RS_PAUSE: should_pause = true
+				var lag: float = max(0.0, rms - float(s[0]))
+				if s[1] == Globals.RS_PAUSE:
+					should_pause = true
+					pause_lag = lag
 				elif s[1] == Globals.RS_GIVEUP: should_giveup = true
-				elif s[1] == Globals.RS_SKIP: should_skip = true
+				elif s[1] == Globals.RS_SKIP:
+					should_skip = true
+					skip_lag = lag
 				elif s[1] == Globals.RS_START_UNPAUSE:
 					just_started_unpause = true
 					replay_unpause = true
+					unpause_lag = lag
 				elif s[1] == Globals.RS_CANCEL_UNPAUSE:
 					just_cancelled_unpause = true
 					replay_unpause = false
@@ -1035,7 +1049,7 @@ func _process(delta: float):
 				var prev_ms = ms
 				if Rhythia.record_replays:
 					Rhythia.replay.store_sig(rms, Globals.RS_SKIP)
-				ms = next_ms - 1000 - (1000 * speed_multi)
+				ms = next_ms - 1000 - (1000 * speed_multi) + skip_lag * speed_multi
 				emit_signal("ms_change", ms)
 				do_note_queue()
 				if (ms + Rhythia.music_offset) >= Rhythia.start_offset:
@@ -1056,6 +1070,7 @@ func _process(delta: float):
 				Rhythia.song_end_pause_count += 1
 				pause_state = -1
 
+				ms -= pause_lag * speed_multi # (where the song was when they paused)
 				emit_signal("ms_change", ms)
 				pause_ms = ms
 				_n_music.stop()
@@ -1066,7 +1081,7 @@ func _process(delta: float):
 
 
 				pause_state = 1
-				ms = pause_ms - (pause_state * (750 * speed_multi))
+				ms = pause_ms - (pause_state * (750 * speed_multi)) + unpause_lag * speed_multi
 				emit_signal("ms_change", ms)
 				_n_music.volume_db = -30
 				_n_music.play((ms + Rhythia.music_offset) / 1000)
