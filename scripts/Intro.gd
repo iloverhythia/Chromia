@@ -9,7 +9,8 @@ var can_skip2 = false
 var date = OS.get_datetime()
 
 func _ready():
-	if Rhythia.single_map_mode:
+	# no intro in VR (also not from Settings' replay button)
+	if Rhythia.single_map_mode or Rhythia.vr or OS.has_feature("quest"):
 		get_tree().change_scene("res://scenes/init.tscn")
 		return
 
