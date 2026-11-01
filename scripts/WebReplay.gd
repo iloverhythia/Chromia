@@ -57,6 +57,8 @@ var _status: Label
 var _buttons: HBoxContainer
 var _watch: Button
 var _record: Button
+var _third: Button
+var third_person := false
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
@@ -98,6 +100,9 @@ func _build_screen():
 	_watch = _button("Watch", "_on_watch")
 	_record = _button("Record video", "_on_record")
 	_record.visible = _can_record()
+	# 3rd person: the alternate replay camera with the avatar (3 switches it while it plays too)
+	_third = _button("3rd person: off", "_on_third")
+	_third.hint_tooltip = "Watch from behind, with an avatar playing (press 3 while it plays to switch)"
 	_status = _label(box, "Getting the replay...", 15, Color(0.55, 0.56, 0.6))
 
 func _label(parent: Control, text: String, size: int, color: Color) -> Label:
@@ -202,6 +207,10 @@ func _run():
 	_buttons.visible = true
 
 # ── playing ──
+func _on_third():
+	third_person = not third_person
+	_third.text = "3rd person: on" if third_person else "3rd person: off"
+
 func _on_watch():
 	recording = false
 	_play()
@@ -240,6 +249,7 @@ func _play():
 	_ending = false
 	Rhythia.replay = Replay.new()
 	Rhythia.replaying = true
+	Rhythia.alt_cam = third_person
 	Rhythia.replay_path = Globals.p(replay_path)
 	get_tree().change_scene("res://scenes/loaders/songload.tscn")
 

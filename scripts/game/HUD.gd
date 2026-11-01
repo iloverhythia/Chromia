@@ -1092,6 +1092,42 @@ func _input(event):
 		get_tree().set_input_as_handled()
 	elif Rhythia.vr and event.is_action_pressed("vr_click"):
 		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
+	elif Rhythia.vr and event is InputEventJoypadButton and event.pressed and event.button_index == JOY_VR_THIRD:
+		toggle_third_person() # VR: B / Y (Pause does nothing while watching)
+		get_tree().set_input_as_handled()
+	elif not Rhythia.vr and event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_3:
+		toggle_third_person()
+		get_tree().set_input_as_handled()
+
+# 3rd person while watching: you see the player's avatar (Settings > Player
+# Avatar: theirs, sent with their settings) playing, from behind and to the
+# side, like the alternate replay camera. VR: B / Y moves you there (VRPlayer
+# reads vr_third_person); desktop: 3 switches to the alternate camera.
+const JOY_VR_THIRD := 1 # B / Y
+var third_person := false
+
+func toggle_third_person():
+	if not spectating:
+		return
+	third_person = not third_person
+	var look = null
+	var lm = _get_lobby_manager()
+	if lm != null and lm.player_view_settings.has(spectate_peer_id):
+		look = lm.player_view_settings[spectate_peer_id].get("avatar")
+	var root = get_tree().current_scene
+	if Rhythia.vr:
+		Rhythia.set_meta("vr_third_person", third_person)
+		var av = root.get_node_or_null("Game/Avatar") if root else null
+		if av is Spatial:
+			av.visible = third_person
+			if third_person:
+				av.get_node("Animations").play("Idle")
+				av.get_node("Head/Blinking").play("Blink")
+				load("res://scripts/avatar/AvatarLook.gd").apply(av, look)
+		Globals.notify(Globals.NOTIFY_INFO, "3rd person view" if third_person else "Your own view")
+	elif root != null and root.has_method("set_third_person"):
+		root.set_third_person(third_person, look)
+	_update_spectate_target_name()
 
 var _spectate_ui: Control = null
 var _spec_page_layer: CanvasLayer = null # the Spectate window while watching
@@ -1259,7 +1295,7 @@ func _update_spectate_vr_panel(name_text: String):
 		_spec_vr_sprite.transform.origin = right.transform.origin + Vector3(0, panel_h / 2.0 + h / 2.0 + 0.03, 0)
 		add_child(_spec_vr_sprite)
 	var stop_keys := _vr_button_names("give_up")
-	var lines := PoolStringArray(["Watching %s" % name_text, "Trigger: switch view"])
+	var lines := PoolStringArray(["Watching %s" % name_text, "Trigger: switch view", "B / Y: %s" % ("your own view" if third_person else "3rd person view")])
 	var lm = _get_lobby_manager()
 	if lm != null and lm.watch_mode:
 		lines.append("Hold %s: stop watching" % (stop_keys if stop_keys != "" else "give up"))
@@ -1500,6 +1536,8 @@ static func _you_or(lm, peer_id: int, name: String) -> String:
 	return "%s (you)" % name if peer_id == int(lm.local_peer_id) else name
 
 func _exit_tree():
+	if Rhythia.has_meta("vr_third_person"):
+		Rhythia.remove_meta("vr_third_person") # (3rd person ends with the song)
 
 	if _spectate_banner != null:
 		_spectate_banner.queue_free()

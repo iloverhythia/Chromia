@@ -72,6 +72,7 @@ func _process(delta):
 # moment, and your head moves on meanwhile: that is not a reset. So the jump
 # check pauses while a scene changes and for slow frames.
 const EYE_HEIGHT := 2.0          # game units (the fake VR head sits there too)
+const THIRD_OFFSET := Vector3(-2.0, 1.0, 1.2) # 3rd person spectating: left, up, back (game units)
 const JUMP_MOVE := 0.25          # game units in one frame (12 cm at world scale 2)
 const JUMP_TURN := deg2rad(15.0) # in one frame (heads don't turn that fast)
 const SETTLE_FRAMES := 8         # wait for the new pose to settle first
@@ -162,6 +163,10 @@ func _place_eye():
 	# (the VR height setting: metres, in game units)
 	eye += float(Rhythia.vr_height) * ARVRServer.world_scale
 	var want_o := Transform(Basis(), Vector3(0, eye, 0)) * _lock_frame
+	# watching someone in 3rd person (HUD.gd): behind and to the left of their
+	# avatar, turned toward the grid, like the alternate replay camera
+	if Rhythia.has_meta("vr_third_person") and bool(Rhythia.get_meta("vr_third_person")):
+		want_o = Transform(Basis(Vector3.UP, deg2rad(-25.0)), THIRD_OFFSET) * want_o
 	if not origin.transform.is_equal_approx(want_o):
 		origin.transform = want_o
 
