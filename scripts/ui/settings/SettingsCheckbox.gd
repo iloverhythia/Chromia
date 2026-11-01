@@ -5,6 +5,8 @@ export(String) var target
 func upd():
 #	print('scb "%s"' % name)
 	pressed = Rhythia.get(target)
+	if target == "xp_boost":
+		visible = String(Rhythia.discord_user.get("id", "")) == Rhythia.XP_BOOST_DISCORD_ID
 	
 func _pressed():
 	# var a = OS.get_ticks_usec()
@@ -17,6 +19,22 @@ func _ready():
 	upd()
 	if target == "absolute_mode" and Rhythia.device("mobile"):
 		call_deferred("_add_touch_toggle")
+	if target == "wave_menu":
+		call_deferred("_add_xp_boost_toggle")
+	if target == "xp_boost":
+		Rhythia.connect("discord_login_changed", self, "upd") # (Discord can sign in after the settings were built)
+
+# Experimental: "10x XP", only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
+func _add_xp_boost_toggle():
+	var parent = get_parent()
+	if parent == null or parent.has_node("XpBoost"):
+		return
+	var cb = duplicate()
+	cb.name = "XpBoost"
+	cb.target = "xp_boost"
+	cb.text = "10x XP"
+	cb.hint_tooltip = "10 times the XP for your plays (ranked XP and your level)."
+	parent.add_child(cb)
 
 # Phones: "Touch Indicator" (rings under the fingers) goes under this one.
 func _add_touch_toggle():

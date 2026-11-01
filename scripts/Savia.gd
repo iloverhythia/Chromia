@@ -192,6 +192,13 @@ var jp: int = 0
 var sp: int = 0
 var in_map: bool = false
 var discord_user: Dictionary = {}
+# Experimental "10x XP": only shown to, and only honoured by the server for,
+# this Discord account (the server checks the account's linked Discord itself)
+const XP_BOOST_DISCORD_ID = "697113209051545640"
+const XP_BOOST = 10
+var xp_boost: bool = false
+func xp_boost_on() -> bool:
+	return xp_boost and String(discord_user.get("id", "")) == XP_BOOST_DISCORD_ID
 var discord_login_error: String = ""
 signal discord_login_changed()
 # the name set on the website ("" when none): shown over the Discord name
@@ -422,7 +429,7 @@ func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, conten
 	if reasons.size() > 0:
 		Globals.notify(Globals.NOTIFY_WARN, "Won't count for XP — %s" % reasons.join(", "), "XP Not Valid")
 	else:
-		var scaled_xp = int(round(xp * current_xp_speed_multiplier()))
+		var scaled_xp = int(round(xp * current_xp_speed_multiplier())) * (XP_BOOST if xp_boost_on() else 1)
 		Globals.notify(Globals.NOTIFY_INFO, "This map is ranked for %d XP." % scaled_xp, "XP Valid")
 
 var _hwid_computed: bool = false
@@ -480,6 +487,8 @@ func report_map_completion(song_id: String):
 		SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
 		str(song_end_misses), str(song_end_total_notes), str(hitwindow_ms), mods_json.http_escape(), get_hardware_id().http_escape()
 	]
+	if xp_boost_on():
+		url += "&xp_boost=1"
 	if replay_b64 != "":
 		yield(_send_pass_env(cid), "completed")
 	var error
@@ -3244,6 +3253,8 @@ func _award_level_exp(play_ms: int):
 	var gained: int = store.exp_for_play(play_ms / 1000.0, stars, acc, song_end_type == Globals.END_PASS)
 	if gained <= 0:
 		return
+	if xp_boost_on():
+		gained *= XP_BOOST
 	var res: Dictionary = store.add_exp(gained)
 	if not show_xp_notifications:
 		return
@@ -3876,6 +3887,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			self.wave_menu_colorset = bool(data.wave_menu_colorset)
 		else:
 			self.wave_menu_colorset = false
+		if data.has("xp_boost"):
+			xp_boost = bool(data.xp_boost)
 		if data.has("ignore_controller_detection"):
 			ignore_controller_detection = data.ignore_controller_detection
 		if data.has("expand_hud_onhr"):
@@ -4504,6 +4517,7 @@ func _write_settings_file(saveFile: String):
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
 			wave_menu_colorset = wave_menu_colorset,
+			xp_boost = xp_boost,
 			wave_menu_default_v1 = true, # (the Wave Menu default was applied: your choice from now on)
 			ignore_controller_detection = ignore_controller_detection,
 			expand_hud_onhr = expand_hud_onhr,
