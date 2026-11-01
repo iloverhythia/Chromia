@@ -10,3 +10,4 @@ in scripts/Savia.gd and empties this list.
 - Downloading maps: when a map can't be saved, read or converted, you're told why (it failed without a word and the map stayed unconverted)
 - VR: maps no longer load to a black screen when the game wants to warn you about something (high cursor trail detail, broken audio, unusual approach rate or hit window): the warning was a flat-screen question the headset didn't show, so the game waited forever
 - Profile: the old name box is gone (your name is your Discord / website profile name, and lobbies use it too)
+- Fixed a crash right after a map finished downloading (most often in VR): the map was set up while the background star rating could be reading it

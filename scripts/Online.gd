@@ -150,6 +150,10 @@ func _mapdl_handler(id: String, map: Song):
 				if mv != OK:
 					_map_problem(map, "couldn't save the download (error %s)" % mv)
 
+				# (the background star rating may be reading this map's notes: it
+				# was rebuilt and converted under its feet, two threads on the same
+				# notes, and the game crashed right after a download, most on VR)
+				Rhythia.lock_song_notes(map)
 				var lres = map.load_from_sspm(dest)
 				if lres is String:
 					_map_problem(map, "the downloaded file couldn't be read (%s)" % lres)
@@ -166,6 +170,8 @@ func _mapdl_handler(id: String, map: Song):
 						var cres = String(map.convert_to_sspm(true))
 						if cres != "Converted!":
 							_map_problem(map, "converting it failed: %s" % cres)
+				Rhythia.unlock_song_notes(map)
+				Rhythia.trail("map downloaded: %s" % String(map.id))
 				map_registry.emit_signal("item_updated", map)
 				emit_signal("map_downloaded", {id = id, success = true})
 			else:
