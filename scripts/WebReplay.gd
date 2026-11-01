@@ -179,8 +179,17 @@ func _run():
 	var map_path := "user://maps/web_%s.sspm" % slug
 	if not _save(map_path, map_bytes):
 		return _fail("The map couldn't be saved in the browser.")
+	# the downloaded map, in place of any entry with its id (the browser
+	# version lists online maps whose notes aren't downloaded: "no notes"),
+	# and the one the replay plays whatever id the player had (Replay.gd)
+	var song = Song.new()
+	var res = song.load_from_sspm(Globals.p(map_path))
+	if res is String:
+		return _fail("The map couldn't be read (%s)." % res)
 	if Rhythia.registry_song:
-		Rhythia.registry_song.add_sspm_map(Globals.p(map_path))
+		Rhythia.registry_song.check_and_remove_id(song.id)
+		Rhythia.registry_song.add_item(song)
+	Engine.set_meta("web_replay_song", song)
 	var rep = yield(_fetch("/savia-public/api/player/%s/replay/%s/%s" % [String(p.player).http_escape(), String(p.map).http_escape(), String(p.get("i", "0")).http_escape()]), "completed")
 	if rep == null:
 		return _fail("This pass has no replay.")

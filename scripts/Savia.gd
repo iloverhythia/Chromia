@@ -53,6 +53,11 @@ func _ensure_client_id() -> String:
 	return new_id
 
 func set_client_id():
+	# the website's game view of a replay: no account at all (nothing it sends
+	# can make one: WebReplay.gd; the connection stays off too)
+	if load("res://scripts/WebReplay.gd").wanted():
+		detect_device()
+		return
 
 	var client_id = _ensure_client_id()
 	Rhythia.cid = client_id

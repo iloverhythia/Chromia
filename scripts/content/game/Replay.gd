@@ -133,6 +133,9 @@ func read_data(from_path: String = ""):
 			var song_id = id.substr(0, id.find_last(".")).substr(0, id.find_last("."))
 			# (loose: the same map can have another id on the player's computer)
 			var fsong = Rhythia.registry_song.get_song_loose(song_id)
+			# the website's game view: the map it downloaded for this replay
+			if Engine.has_meta("web_replay_song") and Engine.get_meta("web_replay_song") != null:
+				fsong = Engine.get_meta("web_replay_song")
 
 			debug_txt.replay_id = id
 			debug_txt.song_id = song_id
