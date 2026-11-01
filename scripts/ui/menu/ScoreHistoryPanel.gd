@@ -162,6 +162,8 @@ func _layout():
 	var mods = get_parent().get_node_or_null("Mods") if get_parent() != null else null
 	var pad_r = PAD_R if (mods is Control and mods.visible) else 12 # (nothing hangs over with the Modifiers box hidden)
 	var w = max(rect_size.x - PAD_L - pad_r, 120)
+	if not (mods is Control and mods.visible):
+		w = max(w * 2.0 / 3.0, 274 - PAD_L - PAD_R) # (the whole row was too wide: two thirds of it)
 	var h = rect_size.y
 	var vp = get_viewport()
 	if vp != null:
