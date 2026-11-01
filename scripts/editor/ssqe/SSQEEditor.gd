@@ -475,7 +475,7 @@ func _process(delta):
 
 func _update_modifiers():
 	key_ctrl = Input.is_key_pressed(KEY_CONTROL) or Input.is_key_pressed(KEY_META)
-	key_alt = Input.is_key_pressed(KEY_ALT)
+	key_alt = Rhythia.alt_held() # (not stuck on after Alt-Tab)
 	key_shift = Input.is_key_pressed(KEY_SHIFT)
 
 # index of the last object at or before ms (-1 if none)

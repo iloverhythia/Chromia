@@ -67,10 +67,17 @@ func _adopt_overlays():
 		old.remove_child(n)
 		vp.add_child(n)
 		guard.moved.append([n, old])
-	if not vp.has_node("VRKeyboard"):
+	if not vp.find_node("VRKeyboard", true, false):
+		# on its own layer, over the Spectate window (layer 95, with the global
+		# chat): on the menu's own layer it popped up behind it, so you couldn't
+		# type in the chat
+		var kl := CanvasLayer.new()
+		kl.name = "VRKeyboardLayer"
+		kl.layer = 126
+		vp.add_child(kl)
 		var kb = load("res://vr/VRKeyboard.gd").new()
 		kb.name = "VRKeyboard"
-		vp.add_child(kb)
+		kl.add_child(kb)
 
 class OverlayGuard extends Node:
 	var moved := [] # [node, its old parent]

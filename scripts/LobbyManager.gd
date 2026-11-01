@@ -41,6 +41,11 @@ signal spectate_denied(reason)
 signal watch_ended(text)
 signal presence_support_changed(supported)
 signal watchers_changed(count, names)
+# map editor collab (scripts/editor/ssqe/SSQECollab.gd): every collab_* message from the server
+signal collab_event(msg)
+# banned from chat (the server says so on connect and when it changes): chat boxes go grey (ChatBan.gd)
+signal chat_ban_changed(banned)
+var chat_banned := false
 signal unpublished_ranked_maps_received(song_ids)
 
 var _live_state_cache: Dictionary = {}
@@ -65,6 +70,7 @@ var is_host: bool = false
 var lobby_active: bool = false
 var lobby_code: String = ""
 var player_name: String = "Player"
+var collab_supported := false # the server can relay the map editor's collab (server_hello)
 var local_peer_id: int = -1
 
 var lobby_state: Dictionary = {
@@ -113,8 +119,15 @@ var _map_download_song_id: String = ""
 var _map_download_chunks: Array = []
 var _map_download_total_bytes: int = 0
 var _map_download_chars_received: int = 0
+# A map the player doesn't share (watch_only): kept in a hidden temporary folder
+# for the watch, out of your maps folder, and deleted when the watch ends (and
+# at the next start, after a crash). [[song id, file]]
+const WATCH_ONLY_DIR := "user://.watch_only"
+var _map_download_watch_only := false
+var _watch_only_maps := []
 
 func _ready():
+	_clear_watch_only_dir()
 	_client.connect("connection_established", self, "_on_connected")
 	_client.connect("connection_closed", self, "_on_closed")
 	_client.connect("connection_error", self, "_on_conn_error")
@@ -272,6 +285,11 @@ func send_chat_message(text: String):
 	if text == "" or not lobby_active:
 		return
 	_send({"type": "chat_message", "text": text.substr(0, 300)})
+
+# the map editor's collab: to the server (collab_invite / collab_reply / collab_send / collab_leave)
+func collab_send(payload: Dictionary):
+	payload["client_id"] = Rhythia.cid
+	_ensure_connected_then_send(payload)
 
 func send_global_chat_message(text: String):
 	text = text.strip_edges()
@@ -700,25 +718,31 @@ func upload_spectate_assets():
 	for a in spec.own_background_assets():
 		for u in a.uploads:
 			_upload_asset_file(u[0], u[1], u[2])
-	for kind in ["border", "mesh"]:
-		var file: String = spec.own_border_file() if kind == "border" else spec.own_mesh_file()
+	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()], ["font", "font", spec.own_font_file(String(Rhythia.hud_font))]]
+	if String(Rhythia.vr_hand) == "custom":
+		for hf in spec.own_hand_files():
+			sends.append([hf[0], "mesh", hf[1]]) # (VR hand models: .obj like a note mesh)
+	for snd in sends:
+		var key: String = snd[0]
+		var kind: String = snd[1]
+		var file: String = snd[2]
 		if file == "":
 			continue
 		var f := File.new()
 		var sha: String = f.get_sha256(file)
-		if sha == "" or _assets_sent.get(kind, "") == sha or f.open(file, File.READ) != OK:
+		if sha == "" or _assets_sent.get(key, "") == sha or f.open(file, File.READ) != OK:
 			continue
 		var data: PoolByteArray = f.get_buffer(f.get_len())
 		f.close()
-		_assets_sent[kind] = sha
+		_assets_sent[key] = sha
 		var http := HTTPRequest.new()
 		http.use_threads = true # (big files: never on the game's main thread)
 		add_child(http)
-		http.connect("request_completed", self, "_on_asset_uploaded", [http, kind])
+		http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
 		var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
 		if http.request_raw(url, ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, data) != OK:
 			http.queue_free()
-			_assets_sent.erase(kind)
+			_assets_sent.erase(key)
 
 func _on_asset_uploaded(result, code, _headers, _body, http, kind):
 	http.queue_free()
@@ -757,8 +781,11 @@ func fetch_spectate_assets(settings):
 	var spec = load("res://scripts/SpectateSettings.gd")
 	_tidy_asset_cache()
 	var wanted := []
-	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"]]:
+	for pair in [["border", "border_image", "png"], ["mesh", "mesh_file", "obj"], ["mesh", "vr_hand_file", "obj"], ["mesh", "vr_hand_left_file", "obj"]]:
 		wanted.append([pair[0], String(settings.get(pair[1], "")).to_lower(), pair[2]])
+	var fp: Array = spec.font_file_parts(String(settings.get("hud_font_file", "")))
+	if not fp.empty() and String(settings.get("hud_font", "")) == "custom":
+		wanted.append(["font", fp[0], fp[1]])
 	for k in ["custombg_image", "panobg_image"]:
 		var v: String = String(settings.get(k, "")).to_lower()
 		if v.find(".") == 64:
@@ -952,7 +979,7 @@ func _check_map_readiness():
 	if song_id == "" or song_id == _map_readiness_checked_song_id or is_host:
 		return
 	_map_readiness_checked_song_id = song_id
-	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
+	var song = Rhythia.registry_song.get_song_loose(song_id) if Rhythia.registry_song else false
 	if song:
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
@@ -990,7 +1017,7 @@ func _start_map_upload(song_id: String):
 	if not is_host and watchers_count <= 0:
 		print("[furria] upload aborted: this client isn't the host (server shouldn't have asked)")
 		return
-	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
+	var song = Rhythia.registry_song.get_song_loose(song_id) if Rhythia.registry_song else false
 	if not song or not ("filePath" in song):
 		print("[furria] upload aborted: song not found in local registry for id ", song_id)
 		return
@@ -1078,7 +1105,7 @@ func _advance_publish_queue():
 	_start_map_publish(_publish_queue.pop_front())
 
 func _start_map_publish(song_id: String):
-	var song = Rhythia.registry_song.get_item(song_id, Globals.SEARCH_ID) if Rhythia.registry_song else false
+	var song = Rhythia.registry_song.get_song_loose(song_id) if Rhythia.registry_song else false
 	if not song or not ("filePath" in song):
 		emit_signal("lobby_error", "Couldn't find that map locally to publish it.")
 		_advance_publish_queue()
@@ -1197,8 +1224,13 @@ func _finish_map_download(song_id: String):
 		emit_signal("lobby_error", "The map download was incomplete — try again.")
 		return
 	var dir = Directory.new()
-	dir.make_dir_recursive("user://maps")
 	var path = "user://maps/%s.sspm" % song_id
+	if _map_download_watch_only:
+		dir.make_dir_recursive(WATCH_ONLY_DIR)
+		path = "%s/%d%d.sspm" % [WATCH_ONLY_DIR, OS.get_unix_time(), randi() % 100000]
+		_watch_only_maps.append([song_id, path])
+	else:
+		dir.make_dir_recursive("user://maps")
 	var f = File.new()
 	if f.open(path, File.WRITE) != OK:
 		emit_signal("lobby_error", "Couldn't save the downloaded map.")
@@ -1210,6 +1242,8 @@ func _finish_map_download(song_id: String):
 		Rhythia.registry_song.check_and_remove_id(song_id)
 	var song = Rhythia.registry_song.add_sspm_map(path) if Rhythia.registry_song else null
 	print("[furria] add_sspm_map(", path, ") -> ", "OK" if song else "FAILED")
+	if song and _map_download_watch_only and not _watch_only_maps.empty():
+		_watch_only_maps[-1][0] = String(song.id) # (it's listed under the id in the file, which can differ from the one sent)
 	if song:
 		emit_signal("map_download_complete", song_id)
 
@@ -1281,11 +1315,21 @@ func _apply_server_name(msg: Dictionary):
 	Rhythia.emit_signal("discord_login_changed") # (the menu shows names again)
 
 func _handle_message(msg: Dictionary):
+	if Globals.s(msg.get("type", "")).begins_with("collab_"):
+		emit_signal("collab_event", msg) # (the map editor's collab handles these)
+		return
 	match Globals.s(msg.get("type", "")):
 		"auth_ok", "display_name_changed":
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
+			if msg.has("chat_banned") and bool(msg.get("chat_banned")) != chat_banned:
+				chat_banned = bool(msg.get("chat_banned"))
+				emit_signal("chat_ban_changed", chat_banned)
+		"chat_ban":
+			if bool(msg.get("banned", false)) != chat_banned:
+				chat_banned = bool(msg.get("banned", false))
+				emit_signal("chat_ban_changed", chat_banned)
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))
@@ -1396,13 +1440,20 @@ func _handle_message(msg: Dictionary):
 		"request_map_upload":
 			var upload_song_id = Globals.s(msg.get("song_id", ""))
 			print("[furria] received request_map_upload for ", upload_song_id)
-			if upload_song_id != "":
+			if upload_song_id != "" and bool(msg.get("watch", false)) and not bool(Rhythia.get("share_maps_with_spectators")) and not bool(msg.get("private", false)):
+				# someone watching from the Spectate tab doesn't have the map:
+				# not sent (Settings > Online > Share My Maps With Spectators).
+				# A newer server asks for a private copy instead ("private"): it
+				# keeps that in memory for the watch only, so that one is sent.
+				_send({"type": "decline_map_upload", "song_id": upload_song_id})
+			elif upload_song_id != "":
 				_start_map_upload(upload_song_id)
 		"map_download_start":
 			_map_download_song_id = Globals.s(msg.get("song_id", ""))
 			_map_download_chunks = []
 			_map_download_chars_received = 0
 			_map_download_total_bytes = int(msg.get("total_bytes", 0))
+			_map_download_watch_only = bool(msg.get("watch_only", false))
 			print("[furria] map_download_start ", _map_download_song_id, " (", _map_download_total_bytes, " bytes)")
 			emit_signal("map_download_started", _map_download_song_id)
 			emit_signal("map_download_progress", _map_download_song_id, 0, _map_download_total_bytes)
@@ -1426,6 +1477,7 @@ func _handle_message(msg: Dictionary):
 		"server_hello":
 			var feats = msg.get("features", [])
 			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
+			collab_supported = feats is Array and feats.has("collab")
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
@@ -1541,7 +1593,7 @@ func _scene_transition_now():
 		if spec.prefer_theirs() and first != -1 and has_player_settings(first):
 			spec.apply(player_view_settings[first], first)
 	if lobby_state.has("song_id") and lobby_state.song_id != "":
-		var song = Rhythia.registry_song.get_item(lobby_state.song_id, Globals.SEARCH_ID) if Rhythia.registry_song else null
+		var song = Rhythia.registry_song.get_song_loose(String(lobby_state.song_id)) if Rhythia.registry_song else null
 		var _n_notes: int = -1
 		if song:
 			Rhythia.lock_song_notes(song) # the star rater may be reading this map's notes
@@ -1689,6 +1741,9 @@ func _presence_now() -> Dictionary:
 		"type": "presence", "client_id": Rhythia.cid, "name": _presence_name(),
 		"status": "playing" if playing else "menu",
 		"allow_spectate": bool(Rhythia.allow_spectators),
+		# Settings > Online > Share My Maps With Spectators: the server sends
+		# nobody watching you your map (not even a copy it already has)
+		"share_maps": bool(Rhythia.get("share_maps_with_spectators")),
 		"device": _presence_device(),
 	}
 	if playing:
@@ -1765,6 +1820,10 @@ func subscribe_online():
 		_presence_retry_t = 0.0
 
 func unsubscribe_online():
+	# while following someone the list keeps coming: it's how following sees
+	# them start their next song (closing the Spectate window used to stop it)
+	if follow_number > 0 and not lobby_active:
+		return
 	_online_subscribed = false
 	if _connected():
 		_send({"type": "unsubscribe_online"})
@@ -1907,7 +1966,38 @@ func end_watch(text: String):
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+# the watch-only maps go (a moment later: the song may still be closing)
+func _forget_watch_only_maps():
+	if _watch_only_maps.empty():
+		return
+	var gone := _watch_only_maps.duplicate()
+	_watch_only_maps = []
+	yield(get_tree().create_timer(3.0), "timeout")
+	for m in gone:
+		# (only if it's still this copy: following them into the same map
+		# again within these seconds downloads a new one)
+		var item = Rhythia.registry_song.get_item(String(m[0]), Globals.SEARCH_ID) if Rhythia.registry_song else null
+		if item and String(item.get("filePath")) == String(m[1]):
+			Rhythia.registry_song.check_and_remove_id(String(m[0]))
+		Directory.new().remove(String(m[1]))
+	var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
+	if list != null and list.has_method("refresh_songs"):
+		list.refresh_songs()
+
+# at start: anything left from a watch that didn't end normally
+func _clear_watch_only_dir():
+	var d := Directory.new()
+	if d.open(WATCH_ONLY_DIR) != OK:
+		return
+	d.list_dir_begin(true, true)
+	var n := d.get_next()
+	while n != "":
+		d.remove(WATCH_ONLY_DIR.plus_file(n))
+		n = d.get_next()
+	d.list_dir_end()
+
 func _finish_watch_locally():
+	call_deferred("_forget_watch_only_maps")
 	if watch_mode:
 		reopen_spectate_tab = true
 	watch_mode = false

@@ -31,7 +31,7 @@ const CAMERA_KEYS := [
 ]
 # a VR player's beam, shown to a spectator who isn't in VR (in VR your own beam
 # keeps your look)
-const VR_LOOK_KEYS := ["vr_beam_color", "vr_beam_width", "vr_beam_rainbow"]
+const VR_LOOK_KEYS := ["vr_beam_color", "vr_beam_width", "vr_beam_rainbow", "vr_hide_beam"]
 # what the notes, cursor, grid and HUD look like
 const VIEW_KEYS := [
 	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity",
@@ -62,7 +62,7 @@ const VIEW_KEYS := [
 	"grade_ss_value", "grade_ss_shine", "grade_s_color", "grade_s_shine", "grade_a_color",
 	"grade_b_color", "grade_c_color", "grade_d_color", "grade_f_color",
 	"sound_space_mode", "ss_score_popups", "ss_health_y", "ss_health_w", "ss_progress_y",
-	"ss_progress_w",
+	"ss_progress_w", "ss_hud", "hud_font",
 ]
 # content, sent as its id and looked up in your registries
 const ID_KEYS := {
@@ -120,6 +120,12 @@ static func collect() -> Dictionary:
 		if typeof(e) != TYPE_NIL:
 			out[k] = e
 	out["_vr"] = bool(Rhythia.vr)
+	# your VR hands (shown to spectators: HUD.gd): the furry paws are in every
+	# game; custom models are uploaded (LobbyManager.upload_spectate_assets)
+	out["vr_hand"] = String(backup.get("vr_hand", Rhythia.vr_hand))
+	if out["vr_hand"] == "custom":
+		for hf in own_hand_files():
+			out[hf[0]] = File.new().get_sha256(hf[1])
 	out["_v"] = 1
 	# your cursor picture, for whoever watches you with your settings (the
 	# server keeps it by this hash: LobbyManager.upload_cursor_picture)
@@ -134,6 +140,10 @@ static func collect() -> Dictionary:
 	var mfile := own_mesh_file(backup.get("selected_mesh", Rhythia.selected_mesh))
 	if mfile != "":
 		out["mesh_file"] = File.new().get_sha256(mfile)
+	# your own HUD font (Settings > Fonts), as "<sha256>.<ttf|otf>"
+	var ffile := own_font_file(String(backup.get("hud_font", Rhythia.hud_font)))
+	if ffile != "":
+		out["hud_font_file"] = "%s.%s" % [File.new().get_sha256(ffile), ffile.get_extension().to_lower()]
 	# your backgrounds: the Custom Background picture / panorama and the
 	# Background Editor's layers ("none": spectators see none of theirs either)
 	for a in own_background_assets():
@@ -248,6 +258,17 @@ static func own_border_file(b = null) -> String:
 	return ""
 
 # your note mesh's .obj file, "" for a built-in mesh
+# your custom VR hand models: [[settings key, file]] (vr_hand.obj, and
+# vr_hand_left.obj if there is one), small enough to send
+static func own_hand_files() -> Array:
+	var out := []
+	var f := File.new()
+	for pair in [["vr_hand_file", "user://vr_hand.obj"], ["vr_hand_left_file", "user://vr_hand_left.obj"]]:
+		var p: String = Globals.p(pair[1])
+		if f.file_exists(p) and _small_enough(p):
+			out.append([pair[0], p])
+	return out
+
 static func own_mesh_file(m = null) -> String:
 	if m == null:
 		m = Rhythia.selected_mesh
@@ -257,6 +278,21 @@ static func own_mesh_file(m = null) -> String:
 	if p.get_extension().to_lower() != "obj" or not File.new().file_exists(p):
 		return ""
 	return p if _small_enough(p) else ""
+
+# your own font file when the HUD uses it, else ""
+static func own_font_file(font_id: String) -> String:
+	if font_id != "custom":
+		return ""
+	var p: String = load("res://scripts/HudFont.gd").custom_file()
+	return p if p != "" and _small_enough(p) else ""
+
+# a spectated player's font file name ("<sha256>.<ext>") -> [sha, ext] or []
+static func font_file_parts(v: String) -> Array:
+	v = v.to_lower()
+	if v.find(".") != 64:
+		return []
+	var ext := v.right(65)
+	return [v.left(64), ext] if ext in ["ttf", "otf"] else []
 
 static func _small_enough(p: String) -> bool:
 	var f := File.new()
@@ -321,6 +357,11 @@ static func apply(their: Dictionary, peer_id: int):
 	# top would turn their glow, bloom and cursor effects off every song
 	_assign("sound_space_mode", bool(their.get("sound_space_mode", false)))
 	_apply_backgrounds(their)
+	# their own HUD font (downloaded: LobbyManager.fetch_spectate_assets)
+	var fp := font_file_parts(String(their.get("hud_font_file", "")))
+	var fpath: String = cached_asset(fp[0], fp[1]) if not fp.empty() else ""
+	if fpath != "":
+		Rhythia.set_meta("spec_hud_font", fpath)
 	for k in FORCED:
 		_assign(k, FORCED[k])
 	Rhythia.set_meta("spec_for", peer_id)
@@ -358,7 +399,7 @@ static func _apply_backgrounds(their: Dictionary):
 					Rhythia.set_meta("spec_bg_dir", Globals.p(ASSET_CACHE))
 
 static func _clear_backgrounds():
-	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir"]:
+	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font"]:
 		if Rhythia.has_meta(k):
 			Rhythia.remove_meta(k)
 

@@ -53,6 +53,7 @@ var lobby_chat_box: VBoxContainer
 var lobby_chat_log_box: VBoxContainer
 var lobby_chat_scroll: ScrollContainer
 var lobby_chat_input: LineEdit
+var lobby_chat_send: Button = null # (grey while banned from chat: ChatBan.gd)
 const LOBBY_CHAT_MAX_LINES: int = 200
 
 var global_chat_box: VBoxContainer
@@ -290,11 +291,17 @@ func _build_lobby_ui():
 	lobby_chat_input.placeholder_text = "Message..."
 	lobby_chat_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lobby_chat_input.max_length = 300
+	preload("res://scripts/ui/Emoji.gd").field(lobby_chat_input) # (emoji show as you type)
 	lobby_chat_input.connect("text_entered", self, "_on_lobby_chat_submitted")
 	chat_row.add_child(lobby_chat_input)
 	var chat_send_button = _make_button("Send", ui_theme)
 	chat_send_button.connect("pressed", self, "_on_lobby_chat_send_pressed")
 	chat_row.add_child(chat_send_button)
+	lobby_chat_send = chat_send_button
+	var lm_ban = get_node_or_null("/root/LobbyManager")
+	if lm_ban != null:
+		lm_ban.connect("chat_ban_changed", self, "_apply_chat_ban")
+	_apply_chat_ban()
 	lobby_chat_box.add_child(chat_row)
 
 	vbox.add_child(HSeparator.new())
@@ -344,6 +351,7 @@ func _build_lobby_ui():
 	global_chat_input.placeholder_text = "Message everyone..."
 	global_chat_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	global_chat_input.max_length = 300
+	preload("res://scripts/ui/Emoji.gd").field(global_chat_input) # (emoji show as you type)
 	global_chat_input.connect("text_entered", self, "_on_global_chat_submitted")
 	global_chat_row.add_child(global_chat_input)
 	var global_chat_send_button = _make_button("Send", ui_theme)
@@ -1748,6 +1756,9 @@ func _on_copy_code_pressed():
 		OS.clipboard = lobby_manager.lobby_code
 		lobby_status_label.text = "● Code copied!"
 
+func _apply_chat_ban(_b = null):
+	preload("res://scripts/ui/ChatBan.gd").apply(lobby_chat_input, lobby_chat_send, preload("res://scripts/ui/ChatBan.gd").banned())
+
 func _on_lobby_chat_send_pressed():
 	_send_lobby_chat_from_input()
 
@@ -1769,11 +1780,19 @@ func _on_chat_message_received(peer_id: int, name: String, text: String, _ts: fl
 		return
 	var lobby_manager = _get_lobby_manager()
 	var is_you = lobby_manager != null and peer_id == lobby_manager.local_peer_id
-	var line = Label.new()
-	line.text = "%s: %s" % [name, text]
-	line.autowrap = true
-	if is_you:
-		line.add_color_override("font_color", Color(0.65, 0.85, 1.0))
+	# (a RichTextLabel, so emoji show as pictures: Emoji.gd)
+	var line = RichTextLabel.new()
+	line.fit_content_height = true
+	line.scroll_active = false
+	line.selection_enabled = true
+	line.mouse_filter = Control.MOUSE_FILTER_PASS
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_color_override("default_color", Color(0.65, 0.85, 1.0) if is_you else Color(1, 1, 1))
+	var lf = lobby_chat_input.get_font("font") if lobby_chat_input != null else null
+	if lf != null:
+		line.add_font_override("normal_font", lf)
+	line.add_text(name + ": ")
+	preload("res://scripts/ui/Emoji.gd").add_text(line, text, int(lf.get_height()) if lf != null else 18)
 	lobby_chat_log_box.add_child(line)
 	while lobby_chat_log_box.get_child_count() > LOBBY_CHAT_MAX_LINES:
 		lobby_chat_log_box.get_child(0).queue_free()
@@ -2413,6 +2432,7 @@ func _ready():
 	load("res://scripts/ui/settings/MeshesTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # note meshes grid + Note Builder
 	load("res://scripts/ui/settings/GeneratorTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Settings Generator (learns from how you play)
 	load("res://scripts/ui/settings/VRTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # VR: controller grip and buttons (in VR only)
+	load("res://scripts/ui/settings/FontsTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Fonts: the song HUD's font (yours is shown to spectators)
 	load("res://scripts/ui/settings/TransferTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # transfer code / file: settings and content to another device
 	load("res://scripts/ui/settings/HitEffectSettings.gd").build(get_node_or_null("Main/Settings/S/F/TabContainer")) # hit/miss effect options (Notes tab)
 	var lang_tabs = get_node_or_null("Main/Settings/S/F/TabContainer")

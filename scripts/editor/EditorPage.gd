@@ -14,6 +14,8 @@ const ACCENT = Color(1, 0.756863, 0.960784)
 const TEXT = Color(0.898039, 0.94902, 1, 1)
 const DIM = Color(0.62, 0.6, 0.68, 1)
 const RETURN_META = "chromia_editor_return"
+# the Playtest panel's speed choices: the game's speed levels (Globals.SPEED_*)
+const PLAYTEST_SPEEDS = {"0.69x": 9, "0.74x": 1, "0.8x": 2, "0.87x": 3, "1x": 0, "1.15x": 4, "1.25x": 5, "1.35x": 6, "1.45x": 8}
 const REF_H = 720.0
 
 var project = null
@@ -99,13 +101,29 @@ func _notify(text: String, title := "Map Editor", kind = null):
 func _ready():
 	connect("visibility_changed", self, "_on_visibility")
 	connect("resized", self, "_layout_home")
+	# (mapping together carries on over a playtest: SSQECollab.keep_for_playtest)
+	var kept = get_tree().root.get_node_or_null("KeptCollab")
+	if kept:
+		collab = kept
+		call_deferred("_adopt_collab")
+	else:
+		collab = load("res://scripts/editor/ssqe/SSQECollab.gd").new()
+		collab.name = "Collab"
+		collab.page = self
+		add_child(collab)
 	var root = get_tree().root
 	if root.has_meta(RETURN_META):
 		var info = root.get_meta(RETURN_META)
 		root.remove_meta(RETURN_META)
 		if typeof(info) == TYPE_DICTIONARY:
 			Rhythia.start_offset = float(info.get("prev_start_offset", 0.0))
+			if info.has("prev_speed"):
+				Rhythia.mod_speed_level = int(info.prev_speed)
 			call_deferred("_resume_after_playtest", info)
+
+func _adopt_collab():
+	if collab and is_instance_valid(collab) and collab.get_parent() != self:
+		collab.adopt(self)
 
 func _resume_after_playtest(info: Dictionary):
 	yield(get_tree().create_timer(0.1), "timeout")
@@ -126,6 +144,7 @@ func _on_visibility():
 		if ed and ed.playing:
 			ed.pause_music()
 		_pause_menu_music(false)
+		_close_home_settings()
 		if project != null and ed and ed.dirty:
 			_save_project_only()
 
@@ -196,7 +215,7 @@ func _build_home():
 	col.add_constant_override("separation", 10)
 	home.add_child(col)
 	for it in [["CREATE NEW MAP", "_on_new_map"], ["LOAD MAP", "_on_load_map"], ["PASTE MAP", "_on_paste_new"],
-			["EDIT LAST MAP", "_on_edit_last"], ["EDIT SELECTED MAP", "_on_edit_selected"]]:
+			["EDIT LAST MAP", "_on_edit_last"], ["EDIT SELECTED MAP", "_on_edit_selected"], ["COLLABORATE", "_on_collaborate"], ["SETTINGS", "_on_home_settings"]]:
 		var b = _btn(it[0], it[1])
 		b.add_font_override("font", f_title)
 		b.size_flags_vertical = SIZE_EXPAND_FILL
@@ -226,9 +245,32 @@ func _layout_home():
 	panel.rect_size = Vector2(w * 0.5 - 23 * s, h - 120 * s - 40 * s)
 	var col = home.get_node("Buttons")
 	col.rect_position = Vector2(w * 0.5 + 40 * s, 120 * s)
-	col.rect_size = Vector2(w * 0.5 - 80 * s, min(5 * 64 * s + 40, h - 160 * s))
+	col.rect_size = Vector2(w * 0.5 - 80 * s, min(7 * 64 * s + 60, h - 160 * s))
 	f_title.size = int(clamp(22 * s, 14, 48))
 	f_btn.size = int(clamp(15 * s, 11, 32))
+
+# mapping together (SSQECollab.gd): made with the page, so invites arrive
+# wherever you are in the menu
+var collab = null
+
+func _on_collaborate():
+	if collab:
+		collab.open_list()
+
+# the editor's Settings window, from the start screen (no map needs to be open)
+var settings_host = null
+
+func _on_home_settings():
+	if settings_host == null:
+		settings_host = load("res://scripts/editor/ssqe/SSQESettingsHost.gd").new()
+		settings_host.page = self
+		add_child(settings_host)
+	settings_host.visible = true
+	settings_host.open()
+
+func _close_home_settings():
+	if settings_host != null and settings_host.dialogs:
+		settings_host.dialogs.close_all()
 
 func _refresh_home():
 	if not _built:
@@ -284,7 +326,10 @@ func _project_row(p: Dictionary) -> Control:
 	if p.modified > 0:
 		var dt = OS.get_datetime_from_unix_time(p.modified)
 		when = "%04d-%02d-%02d" % [dt.year, dt.month, dt.day]
-	v.add_child(_label("%s%d notes · %s" % [(p.mapper + " · ") if p.mapper != "" else "", p.notes, when], f_small, LILAC))
+	var t2 = _label("%s%d notes · %s" % [(p.mapper + " · ") if p.mapper != "" else "", p.notes, when], f_small, LILAC)
+	t2.clip_text = true # (a long list of mappers made the list wider than its box)
+	t2.hint_tooltip = t2.text
+	v.add_child(t2)
 	var ob = _btn("OPEN", "open_project", [p.pid])
 	ob.rect_min_size = Vector2(70, 32)
 	ob.size_flags_vertical = SIZE_SHRINK_CENTER
@@ -617,6 +662,9 @@ func _open(pr):
 	if not (stream is AudioStream):
 		stream = null
 		_notify("Couldn't load this map's song.", "Map Editor", Globals.NOTIFY_WARN)
+	_close_home_settings()
+	if ed.s != null and settings_host != null:
+		ed.s = settings_host.s if settings_host.s is Dictionary and not settings_host.s.empty() else ed.s
 	home.visible = false
 	ed.visible = true
 	ed.open_map(map, stream)
@@ -705,7 +753,8 @@ func _on_save_as_path(path):
 	ed.toast("SAVED " + path.get_file())
 
 func playtest(from_start: bool):
-	if project == null:
+	# (once: a second click while it's starting would take the playtest's speed as yours)
+	if project == null or get_tree().root.has_meta(RETURN_META):
 		return
 	if ed.playing:
 		ed.pause_music()
@@ -714,7 +763,12 @@ func playtest(from_start: bool):
 		return
 	get_tree().root.set_meta(RETURN_META, {
 		"pid": project.pid, "time": ed.current_time(), "prev_start_offset": Rhythia.start_offset,
+		"prev_speed": Rhythia.mod_speed_level,
 	})
+	# the speed chosen in the Playtest panel, for this playtest only (put back after)
+	var sp := String(ed.s.get("playtestSpeed", "Selected"))
+	if PLAYTEST_SPEEDS.has(sp):
+		Rhythia.mod_speed_level = int(PLAYTEST_SPEEDS[sp])
 	Rhythia.select_song(song)
 	Rhythia.start_offset = 0.0 if from_start else max(0.0, ed.current_time() - 1000.0)
 	Rhythia.replaying = false
@@ -722,6 +776,8 @@ func playtest(from_start: bool):
 	if menu:
 		menu.black_fade_target = true
 	yield(get_tree().create_timer(0.35), "timeout")
+	if collab and collab.active():
+		collab.keep_for_playtest()
 	get_tree().change_scene("res://scenes/loaders/songload.tscn")
 
 # ---- the song and cover (for the export windows)

@@ -105,9 +105,7 @@ func rebuild():
 			st.add_normal(Vector3(0, 0, 1))
 			st.add_vertex(v[0])
 	var mesh: ArrayMesh = st.commit()
-	var mat = $Screen.get_active_material(0)
-	if mat is SpatialMaterial:
-		mat.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	var mat = _screen_material()
 	mesh.surface_set_material(0, mat)
 	$Screen.mesh = mesh
 	var shape := ConcavePolygonShape.new()
@@ -121,6 +119,19 @@ func rebuild():
 		var home: Transform = get_meta("home")
 		home.origin.z = -dist
 		set_meta("home", home)
+
+# the screen's look: the menu picture through menu_screen.shader, which
+# smooths it where the screen shows it smaller than it's drawn (jagged,
+# shimmering text in the headset)
+var _screen_mat: ShaderMaterial = null
+func _screen_material() -> Material:
+	if _screen_mat == null:
+		_screen_mat = ShaderMaterial.new()
+		_screen_mat.shader = load("res://vr/menu_screen.shader")
+		var tex: ViewportTexture = viewport.get_texture()
+		tex.flags = Texture.FLAG_FILTER
+		_screen_mat.set_shader_param("menu", tex)
+	return _screen_mat
 
 # x and z of the screen's edge at u (0 left .. 1 right); the screen's centre is
 # at the origin, the curve's centre at z = radius.

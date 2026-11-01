@@ -508,11 +508,16 @@ func enter_spectate_mode(peer_id: int):
 			lobby_manager.connect("player_settings_received", self, "_on_spectate_settings_received")
 	_create_ghost_cursor()
 	_create_spectate_banner()
-	if not Rhythia.vr and _spec_chat == null:
-		# global chat in the corner (Enter to type)
-		_spec_chat = load("res://scripts/game/SpectateChat.gd").new()
-		_spec_chat.setup(lobby_manager)
-		add_child(_spec_chat)
+	if not Rhythia.vr and _spec_page_layer == null:
+		# the Spectate window (eye button, bottom right): who's online and the
+		# global chat, the same as in the menu
+		_spec_page_layer = CanvasLayer.new()
+		_spec_page_layer.layer = 95
+		add_child(_spec_page_layer)
+		_spec_page = Control.new()
+		_spec_page.name = "Spectate"
+		_spec_page.set_script(load("res://scripts/ui/menu/SpectatePage.gd"))
+		_spec_page_layer.add_child(_spec_page)
 	if not Rhythia.vr:
 		# the switch button and the scoreboard are clicked with the mouse
 		Input.set_custom_mouse_cursor(null)
@@ -593,6 +598,7 @@ func exit_spectate_mode():
 		lobby_manager.report_spectate_target(-1)
 	_spec_reset_clock()
 	_spec_vr_head = null
+	_spec_hand_sig = ""
 	if _spec_vr_holder != null:
 		_spec_vr_holder.queue_free()
 		_spec_vr_holder = null
@@ -605,9 +611,10 @@ func exit_spectate_mode():
 		_spectate_ui = null
 		_spectate_banner = null
 		_spectate_view_button = null
-	if _spec_chat != null:
-		_spec_chat.queue_free()
-		_spec_chat = null
+	if _spec_page_layer != null:
+		_spec_page_layer.queue_free()
+		_spec_page_layer = null
+		_spec_page = null
 	if _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.visible = true
 		_real_cursor.set_process(true)
@@ -820,6 +827,7 @@ func _update_spectate_vr(ms: float):
 	if _spec_vr_hands.size() < 2:
 		return
 	_spec_vr_holder.visible = true
+	_spec_hand_look()
 	var pointing: int = 0 if pa[0] > 0.5 else 1 # left : right
 	for k in range(2):
 		var o: int = 8 + k * 7
@@ -832,6 +840,75 @@ func _update_spectate_vr(ms: float):
 		if k == pointing and ray.has_method("update_beam") and spectate_cursor != null:
 			ray.set_target(spectate_cursor.global_transform.origin)
 			ray.update_beam()
+
+# Their hands as they see them (Settings > VR > Hands): the furry paws, or
+# their own vr_hand.obj once downloaded (LobbyManager.fetch_spectate_assets);
+# checked about once a second until it's there.
+var _spec_hand_sig := ""
+var _spec_hand_check_at := 0
+func _spec_hand_look():
+	var now := OS.get_ticks_msec()
+	if now < _spec_hand_check_at:
+		return
+	_spec_hand_check_at = now + 1000
+	var lm = _get_lobby_manager()
+	var s = lm.player_view_settings.get(spectate_peer_id, {}) if lm != null else {}
+	if not (s is Dictionary):
+		s = {}
+	var kind: String = String(s.get("vr_hand", "default"))
+	var spec = _spec_settings()
+	var rpath: String = spec.cached_asset(String(s.get("vr_hand_file", "")).to_lower(), "obj") if kind == "custom" else ""
+	var lpath: String = spec.cached_asset(String(s.get("vr_hand_left_file", "")).to_lower(), "obj") if kind == "custom" else ""
+	var sig := "%s|%s|%s" % [kind, rpath, lpath]
+	if sig == _spec_hand_sig:
+		return
+	_spec_hand_sig = sig
+	var VRP = load("res://vr/VRPlayer.gd")
+	var meshes = null # [left, right]
+	if kind == "paw":
+		var r = load("res://vr/PawHand.gd").build()
+		meshes = [VRP._mirrored(r), r]
+	elif kind == "custom" and rpath != "":
+		var ObjParse = load("res://scripts/content/resources/ObjParse.gd")
+		var r = ObjParse.load_obj(rpath)
+		if r != null and r.get_surface_count() > 0:
+			var l = ObjParse.load_obj(lpath) if lpath != "" else null
+			if l == null or l.get_surface_count() == 0:
+				l = VRP._mirrored(r)
+			meshes = [l, r]
+	for k in range(_spec_vr_hands.size()):
+		var hand: Spatial = _spec_vr_hands[k]
+		var mi = hand.get_node_or_null("Mesh")
+		if not (mi is MeshInstance):
+			continue
+		if not mi.has_meta("hand_default"):
+			mi.set_meta("hand_default", [mi.mesh, mi.transform, mi.get_surface_material(0)])
+		var d: Array = mi.get_meta("hand_default")
+		var outline = mi.get_node_or_null("Outline")
+		var trail = mi.get_node_or_null("HandTrail")
+		var ray = hand.get_node_or_null("Ray")
+		if ray != null and "start_gap" in ray:
+			ray.start_gap = 0.0
+			if kind == "paw" and meshes != null:
+				ray.start_gap = max(0.0, ray.transform.origin.z + load("res://vr/PawHand.gd").TIP * VRP.UNITS_PER_M)
+		if meshes == null:
+			mi.mesh = d[0]
+			mi.transform = d[1]
+			mi.set_surface_material(0, d[2])
+			if outline:
+				outline.visible = true
+			if trail:
+				trail.transform = Transform()
+			continue
+		var mesh: Mesh = meshes[k]
+		mi.mesh = mesh
+		mi.transform = Transform(Basis().scaled(Vector3(VRP.UNITS_PER_M, VRP.UNITS_PER_M, VRP.UNITS_PER_M)), Vector3.ZERO)
+		for j in range(mesh.get_surface_count()):
+			mi.set_surface_material(j, null if mesh.surface_get_material(j) != null else d[2])
+		if outline:
+			outline.visible = false
+		if trail:
+			trail.transform = Transform(Basis().scaled(Vector3(0.02, 0.02, 0.06)), Vector3.ZERO)
 
 func _spec_index_before(ms: float) -> int:
 	var i: int = _spec_samples.size() - 1
@@ -928,7 +1005,15 @@ func toggle_spectate_view():
 	_check_view_settings()
 
 func _input(event):
-	if not spectating or (_spec_chat != null and _spec_chat.typing()):
+	if not spectating:
+		return
+	if _spec_page != null and is_instance_valid(_spec_page) and _spec_page.is_open():
+		# the Spectate window is open (typing in its chat...): the keys stay
+		# away from the game (R gives up, Space / Esc skip or pause, Tab switches)
+		if event is InputEventKey:
+			for a in ["give_up", "pause"]:
+				if event.is_action(a):
+					Input.action_release(a)
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_TAB:
 		toggle_spectate_view()
@@ -937,7 +1022,8 @@ func _input(event):
 		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
 
 var _spectate_ui: Control = null
-var _spec_chat: CanvasLayer = null # SpectateChat.gd
+var _spec_page_layer: CanvasLayer = null # the Spectate window while watching
+var _spec_page: Control = null # (SpectatePage.gd)
 var _spectate_banner: Label = null
 var _spectate_view_button: Button = null
 
@@ -1179,6 +1265,42 @@ var _spectators_banner: Label = null
 var _top_left_ui: CanvasLayer = null
 var _top_left_box: VBoxContainer = null
 const SPECTATORS_SHOWN := 8
+# In VR a screen overlay only reaches the desktop window: the list is drawn in
+# its own viewport, shown above the left panel like the rest of the HUD.
+var _spectators_vr_vp: Viewport = null
+var _spectators_vr_sprite: Sprite3D = null
+
+func _make_spectators_vr(label: Label) -> bool:
+	var left = get_node_or_null("LeftHud")
+	if left == null:
+		return false
+	var vp := Viewport.new()
+	vp.size = Vector2(300, 360)
+	vp.transparent_bg = true
+	vp.hdr = false
+	vp.usage = Viewport.USAGE_2D
+	vp.msaa = Viewport.MSAA_DISABLED
+	vp.render_target_update_mode = Viewport.UPDATE_ONCE
+	add_child(vp)
+	label.anchor_right = 1.0
+	label.anchor_bottom = 1.0
+	label.margin_left = 8
+	label.margin_right = -8
+	label.valign = Label.VALIGN_BOTTOM # (grows upward from the panel)
+	label.clip_text = true
+	label.get_font("font").size = 30
+	vp.add_child(label)
+	var s: Sprite3D = left.duplicate(0)
+	s.name = "SpectatorsHud"
+	s.texture = vp.get_texture()
+	var h: float = vp.size.y * s.pixel_size
+	var panel_h: float = 900.0 * left.pixel_size
+	s.transform.origin = left.transform.origin + Vector3(0, panel_h / 2.0 + h / 2.0 + 0.03, 0)
+	s.visible = false
+	add_child(s)
+	_spectators_vr_vp = vp
+	_spectators_vr_sprite = s
+	return true
 
 func _top_left() -> VBoxContainer:
 	if _top_left_box == null:
@@ -1205,7 +1327,8 @@ func _create_spectators_banner():
 	_spectators_banner.add_constant_override("shadow_offset_x", 2)
 	_spectators_banner.add_constant_override("shadow_offset_y", 2)
 	_spectators_banner.visible = false
-	_top_left().add_child(_spectators_banner)
+	if not (Rhythia.vr and _make_spectators_vr(_spectators_banner)):
+		_top_left().add_child(_spectators_banner)
 	var t := Timer.new() # (also follows switching who you watch)
 	t.wait_time = 0.5
 	t.pause_mode = PAUSE_MODE_PROCESS
@@ -1260,6 +1383,8 @@ func _on_lobby_state_changed_for_spectators_list():
 	# someone still shows who else is watching them)
 	if names.empty() or (Rhythia.hide_spectators_list and not spectating):
 		_spectators_banner.visible = false
+		if _spectators_vr_sprite != null:
+			_spectators_vr_sprite.visible = false
 		return
 	var lines := ["👁 Spectators (%d)" % names.size()]
 	var unnamed := 0
@@ -1272,7 +1397,11 @@ func _on_lobby_state_changed_for_spectators_list():
 			unnamed += 1
 	if unnamed > 0:
 		lines.append("   + %d more" % unnamed)
-	_spectators_banner.text = "\n".join(lines)
+	var txt := "\n".join(lines)
+	if _spectators_vr_sprite != null and (txt != _spectators_banner.text or not _spectators_vr_sprite.visible):
+		_spectators_vr_sprite.visible = true
+		_spectators_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE # (redrawn only when it changes)
+	_spectators_banner.text = txt
 	_spectators_banner.visible = true
 
 func _ready():
@@ -1419,6 +1548,7 @@ func _ready():
 		$EnergyVP/Control/Modifiers.visible = false
 
 	songnametxt.text = Rhythia.selected_song.name
+	load("res://scripts/HudFont.gd").apply_hud(self) # Settings > Fonts
 	load("res://scripts/game/SoundSpaceMode.gd").apply_hud(self) # Sound Space Mode (Experimental)
 
 	var ms = ""

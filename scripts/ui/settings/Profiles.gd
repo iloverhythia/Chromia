@@ -55,9 +55,8 @@ func _on_content_files_selected(files: PoolStringArray):
 			handled[mtl_files[base]] = true
 	for base in obj_files.keys():
 		if not handled.has(obj_files[base]):
-			Globals.notify(Globals.NOTIFY_ERROR,
-				"'%s.obj' needs its matching '%s.mtl' selected at the same time!!!!!" % [base, base],
-				"Mesh Import Failed")
+			_import_mesh_pair(obj_files[base], "", base)
+			handled[obj_files[base]] = true
 	for base in mtl_files.keys():
 		if not handled.has(mtl_files[base]):
 			Globals.notify(Globals.NOTIFY_ERROR,
@@ -111,9 +110,9 @@ func _import_profile_file(path: String):
 		return
 	output_file.store_string(profile_text)
 	output_file.close()
-	_set_active_profile_path(destination)
-	profiles.append(destination)
-	on_pressed(profiles.size() - 1)
+	# added as a new profile next to yours (your settings stay as they are)
+	_ready()
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Added the profile '%s'. Pick it in Presets to use it." % destination.get_file().trim_suffix(".settings.json"), "Content Imported")
 
 
 func _import_colorset_file(path: String):
@@ -130,26 +129,39 @@ func _import_colorset_file(path: String):
 
 	var name := path.get_file()
 	var destination := Globals.p(COLORSET_DIR.plus_file(name))
+	var n := 2
+	while File.new().file_exists(destination):
+		name = "%s (%d).%s" % [path.get_file().get_basename(), n, path.get_extension()]
+		destination = Globals.p(COLORSET_DIR.plus_file(name))
+		n += 1
 	var output_file := File.new()
 	if output_file.open(destination, File.WRITE) != OK:
 		Globals.notify(Globals.NOTIFY_ERROR, "Could not save the colorset.", "Import Failed")
 		return
 	output_file.store_string(content)
 	output_file.close()
-	Globals.notify(Globals.NOTIFY_SUCCESS, "Imported colorset '%s'." % name, "Content Imported")
+	Rhythia.load_color_txt(destination, "custom_" + destination.get_file().to_lower().md5_text()) # (in the list right away)
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Imported colorset '%s'." % name, "Content Imported")
 
 func _import_mesh_pair(obj_path: String, mtl_path: String, base_name: String):
 	var dir := Directory.new()
 	if not dir.dir_exists(Globals.p(MESH_DIR)):
 		dir.make_dir_recursive(Globals.p(MESH_DIR))
 
-	var obj_dest := Globals.p(MESH_DIR.plus_file(obj_path.get_file()))
-	var mtl_dest := Globals.p(MESH_DIR.plus_file(mtl_path.get_file()))
-
-	if dir.copy(obj_path, obj_dest) != OK or dir.copy(mtl_path, mtl_dest) != OK:
+	# (lowercase .obj: the game only loads that from the meshes folder)
+	var obj_dest := Globals.p(MESH_DIR.plus_file(obj_path.get_file().get_basename() + ".obj"))
+	if dir.copy(obj_path, obj_dest) != OK or (mtl_path != "" and dir.copy(mtl_path, obj_dest.get_basename() + ".mtl") != OK):
 		Globals.notify(Globals.NOTIFY_ERROR, "Could not save mesh '%s'." % base_name, "Import Failed")
 		return
-	Globals.notify(Globals.NOTIFY_SUCCESS, "Imported mesh '%s'." % base_name, "Content Imported")
+	var test = load("res://scripts/content/resources/ObjParse.gd").load_obj(obj_dest)
+	if test == null or test.get_surface_count() == 0:
+		dir.remove(obj_dest)
+		Globals.notify(Globals.NOTIFY_ERROR, "'%s' isn't a mesh the game can read." % obj_path.get_file(), "Import Failed")
+		return
+	var id: String = "ugc_" + obj_dest.get_file().to_lower().replace(" ", "_")
+	if Rhythia.registry_mesh != null and not (Rhythia.registry_mesh.get_item(id) is NoteMesh):
+		Rhythia.registry_mesh.add_item(NoteMesh.new(id, base_name + " (custom)", obj_dest, "You"))
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Imported mesh '%s'. Pick it in Settings > Meshes." % base_name, "Content Imported")
 
 func export_profile():
 	var profile_path := _get_active_profile_path()
@@ -259,7 +271,17 @@ func _migrate_legacy_profiles():
 		else:
 			print("Migrated profile to profiles folder: " + path)
 
+# Files dragged onto the window (RunMapButton.gd): profiles, colorsets and
+# meshes go in like Import Content
+static func import_dropped(tree: SceneTree, files: PoolStringArray) -> bool:
+	for n in tree.get_nodes_in_group("settings_profiles"):
+		n._on_content_files_selected(files)
+		return true
+	return false
+
 func _ready():
+	if not is_in_group("settings_profiles"):
+		add_to_group("settings_profiles")
 	var dir := Directory.new()
 	if not dir.dir_exists(Globals.p(PROFILES_DIR)):
 		dir.make_dir_recursive(Globals.p(PROFILES_DIR))

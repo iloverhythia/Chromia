@@ -270,6 +270,8 @@ static func record_attempt() -> void:
 	}
 	if typeof(R.discord_user) == TYPE_DICTIONARY and String(R.discord_user.get("avatar_url", "")) != "":
 		e["av"] = String(R.discord_user.get("avatar_url", ""))
+	elif Engine.has_meta("ss_my_site_avatar"): # (your Chromia profile picture)
+		e["av"] = String(Engine.get_meta("ss_my_site_avatar"))
 	# the replay of this attempt (not the throwaway ones recorded only for the
 	# auto retry, which are deleted back in the menu)
 	if R.record_replays and not bool(R.get("_forced_replay")) and R.replay != null and String(R.replay.id) != "":

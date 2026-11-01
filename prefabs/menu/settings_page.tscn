@@ -3578,6 +3578,240 @@ flat = true
 script = ExtResource( 54 )
 target = "hide_spectators_list"
 
+[node name="SEPARATOR_SS" type="HSeparator" parent="TabContainer/UI"]
+margin_right = 1280.0
+margin_bottom = 30.0
+rect_min_size = Vector2( 0, 10 )
+custom_constants/separation = 30
+custom_styles/separator = SubResource( 55 )
+
+[node name="SoundSpace" type="VBoxContainer" parent="TabContainer/UI"]
+margin_right = 1280.0
+margin_bottom = 300.0
+
+[node name="Group" type="MarginContainer" parent="TabContainer/UI/SoundSpace"]
+margin_right = 1280.0
+margin_bottom = 300.0
+mouse_filter = 1
+custom_constants/margin_left = 66
+
+[node name="H" type="GridContainer" parent="TabContainer/UI/SoundSpace/Group"]
+margin_left = 66.0
+margin_right = 1280.0
+margin_bottom = 300.0
+
+[node name="SoundSpaceHUD" type="CheckBox" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_top = 173.0
+margin_right = 955.0
+margin_bottom = 201.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "The side panels, the time and the health bar look like Sound Space's (its pixel font, multiplier box, COMBO, accuracy, score, misses and notes), in the same size and place as your panels. Nothing else changes; Sound Space Mode below changes everything."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Sound Space HUD"
+flat = true
+script = ExtResource( 54 )
+target = "ss_hud"
+
+[node name="SoundSpaceMode" type="CheckBox" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_top = 141.0
+margin_right = 955.0
+margin_bottom = 169.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "Songs look like the original Sound Space: grey side panels with your hits and misses, a thin health bar and progress bar, corner brackets around the grid, a grey square cursor, rounded notes, the Void background, a grey circle where you miss, and Sound Space's hit, miss and fail sounds."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Sound Space Mode"
+flat = true
+script = ExtResource( 54 )
+target = "sound_space_mode"
+
+[node name="SoundSpaceScorePopups" type="CheckBox" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_top = 173.0
+margin_right = 955.0
+margin_bottom = 201.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "Sound Space Mode: the points of each hit pop up under the grid, like in Sound Space."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Sound Space Mode: score popups"
+flat = true
+script = ExtResource( 54 )
+target = "ss_score_popups"
+
+[node name="SoundSpaceGameplayOnly" type="CheckBox" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_top = 173.0
+margin_right = 955.0
+margin_bottom = 201.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "Sound Space Mode only changes the songs; the menus (sidebar, map list, modifiers) stay Chromia's."
+mouse_filter = 1
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+text = "Sound Space Mode: gameplay only"
+flat = true
+script = ExtResource( 54 )
+target = "ss_gameplay_only"
+
+[node name="SSHealthY" type="HBoxContainer" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 0] moves Sound Space Mode's health bar up (+) or down (-)"
+
+[node name="Value" type="SpinBox" parent="TabContainer/UI/SoundSpace/Group/H/SSHealthY"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 0] moves Sound Space Mode's health bar up (+) or down (-)"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = -190.0
+max_value = 95.0
+step = 2.0
+allow_greater = false
+allow_lesser = false
+suffix = ""
+script = ExtResource( 81 )
+target = "ss_health_y"
+
+[node name="Label" type="Label" parent="TabContainer/UI/SoundSpace/Group/H/SSHealthY"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: health bar height"
+valign = 1
+
+[node name="SSHealthW" type="HBoxContainer" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's health bar is"
+
+[node name="Value" type="SpinBox" parent="TabContainer/UI/SoundSpace/Group/H/SSHealthW"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's health bar is"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = 10.0
+max_value = 145.0
+step = 5.0
+allow_greater = false
+allow_lesser = false
+suffix = "%"
+script = ExtResource( 81 )
+target = "ss_health_w"
+
+[node name="Label" type="Label" parent="TabContainer/UI/SoundSpace/Group/H/SSHealthW"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: health bar width"
+valign = 1
+
+[node name="SSProgressY" type="HBoxContainer" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 0] moves Sound Space Mode's song progress bar up (+) or down (-)"
+
+[node name="Value" type="SpinBox" parent="TabContainer/UI/SoundSpace/Group/H/SSProgressY"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 0] moves Sound Space Mode's song progress bar up (+) or down (-)"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = -115.0
+max_value = 165.0
+step = 2.0
+allow_greater = false
+allow_lesser = false
+suffix = ""
+script = ExtResource( 81 )
+target = "ss_progress_y"
+
+[node name="Label" type="Label" parent="TabContainer/UI/SoundSpace/Group/H/SSProgressY"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: progress bar height"
+valign = 1
+
+[node name="SSProgressW" type="HBoxContainer" parent="TabContainer/UI/SoundSpace/Group/H"]
+margin_right = 500.0
+margin_bottom = 32.0
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's song progress bar is"
+
+[node name="Value" type="SpinBox" parent="TabContainer/UI/SoundSpace/Group/H/SSProgressW"]
+margin_right = 200.0
+margin_bottom = 32.0
+rect_min_size = Vector2( 200, 32 )
+hint_tooltip = "[def. 100%] how wide Sound Space Mode's song progress bar is"
+focus_mode = 2
+theme = ExtResource( 1 )
+min_value = 10.0
+max_value = 130.0
+step = 5.0
+allow_greater = false
+allow_lesser = false
+suffix = "%"
+script = ExtResource( 81 )
+target = "ss_progress_w"
+
+[node name="Label" type="Label" parent="TabContainer/UI/SoundSpace/Group/H/SSProgressW"]
+margin_left = 204.0
+margin_top = 6.0
+margin_right = 480.0
+margin_bottom = 26.0
+theme = ExtResource( 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 3 )
+text = "Sound Space Mode: progress bar width"
+valign = 1
+
 [node name="UIColor" type="VBoxContainer" parent="TabContainer/UI"]
 margin_top = 562.0
 margin_right = 1280.0
@@ -6487,69 +6721,6 @@ script = ExtResource( 54 )
 target = "seasonal_themes"
 
 
-[node name="SoundSpaceMode" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_top = 141.0
-margin_right = 955.0
-margin_bottom = 169.0
-rect_min_size = Vector2( 0, 28 )
-hint_tooltip = "Songs look like the original Sound Space: grey side panels with your hits and misses, a thin health bar and progress bar, corner brackets around the grid, a grey square cursor, rounded notes, the Void background, a grey circle where you miss, and Sound Space's hit, miss and fail sounds."
-mouse_filter = 1
-theme = ExtResource( 1 )
-custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 4 )
-action_mode = 0
-text = "Sound Space Mode"
-flat = true
-script = ExtResource( 54 )
-target = "sound_space_mode"
-
-[node name="SoundSpaceScorePopups" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_top = 173.0
-margin_right = 955.0
-margin_bottom = 201.0
-rect_min_size = Vector2( 0, 28 )
-hint_tooltip = "Sound Space Mode: the points of each hit pop up under the grid, like in Sound Space."
-mouse_filter = 1
-theme = ExtResource( 1 )
-custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 4 )
-action_mode = 0
-text = "Sound Space Mode: score popups"
-flat = true
-script = ExtResource( 54 )
-target = "ss_score_popups"
-
-[node name="SoundSpaceGameplayOnly" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_top = 173.0
-margin_right = 955.0
-margin_bottom = 201.0
-rect_min_size = Vector2( 0, 28 )
-hint_tooltip = "Sound Space Mode only changes the songs; the menus (sidebar, map list, modifiers) stay Chromia's."
-mouse_filter = 1
-theme = ExtResource( 1 )
-custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
-custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 4 )
-action_mode = 0
-text = "Sound Space Mode: gameplay only"
-flat = true
-script = ExtResource( 54 )
-target = "ss_gameplay_only"
-
 [node name="AlwaysCrashLog" type="CheckBox" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
 margin_top = 173.0
 margin_right = 955.0
@@ -6570,134 +6741,6 @@ text = "Always show crash logs"
 flat = true
 script = ExtResource( 54 )
 target = "always_show_crash_log"
-
-[node name="SSHealthY" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_right = 500.0
-margin_bottom = 32.0
-hint_tooltip = "[def. 0] moves Sound Space Mode's health bar up (+) or down (-)"
-
-[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthY"]
-margin_right = 200.0
-margin_bottom = 32.0
-rect_min_size = Vector2( 200, 32 )
-hint_tooltip = "[def. 0] moves Sound Space Mode's health bar up (+) or down (-)"
-focus_mode = 2
-theme = ExtResource( 1 )
-min_value = -190.0
-max_value = 95.0
-step = 2.0
-allow_greater = false
-allow_lesser = false
-suffix = ""
-script = ExtResource( 81 )
-target = "ss_health_y"
-
-[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthY"]
-margin_left = 204.0
-margin_top = 6.0
-margin_right = 480.0
-margin_bottom = 26.0
-theme = ExtResource( 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 3 )
-text = "Sound Space Mode: health bar height"
-valign = 1
-
-[node name="SSHealthW" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_right = 500.0
-margin_bottom = 32.0
-hint_tooltip = "[def. 100%] how wide Sound Space Mode's health bar is"
-
-[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthW"]
-margin_right = 200.0
-margin_bottom = 32.0
-rect_min_size = Vector2( 200, 32 )
-hint_tooltip = "[def. 100%] how wide Sound Space Mode's health bar is"
-focus_mode = 2
-theme = ExtResource( 1 )
-min_value = 10.0
-max_value = 145.0
-step = 5.0
-allow_greater = false
-allow_lesser = false
-suffix = "%"
-script = ExtResource( 81 )
-target = "ss_health_w"
-
-[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSHealthW"]
-margin_left = 204.0
-margin_top = 6.0
-margin_right = 480.0
-margin_bottom = 26.0
-theme = ExtResource( 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 3 )
-text = "Sound Space Mode: health bar width"
-valign = 1
-
-[node name="SSProgressY" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_right = 500.0
-margin_bottom = 32.0
-hint_tooltip = "[def. 0] moves Sound Space Mode's song progress bar up (+) or down (-)"
-
-[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressY"]
-margin_right = 200.0
-margin_bottom = 32.0
-rect_min_size = Vector2( 200, 32 )
-hint_tooltip = "[def. 0] moves Sound Space Mode's song progress bar up (+) or down (-)"
-focus_mode = 2
-theme = ExtResource( 1 )
-min_value = -115.0
-max_value = 165.0
-step = 2.0
-allow_greater = false
-allow_lesser = false
-suffix = ""
-script = ExtResource( 81 )
-target = "ss_progress_y"
-
-[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressY"]
-margin_left = 204.0
-margin_top = 6.0
-margin_right = 480.0
-margin_bottom = 26.0
-theme = ExtResource( 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 3 )
-text = "Sound Space Mode: progress bar height"
-valign = 1
-
-[node name="SSProgressW" type="HBoxContainer" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
-margin_right = 500.0
-margin_bottom = 32.0
-hint_tooltip = "[def. 100%] how wide Sound Space Mode's song progress bar is"
-
-[node name="Value" type="SpinBox" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressW"]
-margin_right = 200.0
-margin_bottom = 32.0
-rect_min_size = Vector2( 200, 32 )
-hint_tooltip = "[def. 100%] how wide Sound Space Mode's song progress bar is"
-focus_mode = 2
-theme = ExtResource( 1 )
-min_value = 10.0
-max_value = 130.0
-step = 5.0
-allow_greater = false
-allow_lesser = false
-suffix = "%"
-script = ExtResource( 81 )
-target = "ss_progress_w"
-
-[node name="Label" type="Label" parent="TabContainer/Replays & Misc/Experimental/Group/H/SSProgressW"]
-margin_left = 204.0
-margin_top = 6.0
-margin_right = 480.0
-margin_bottom = 26.0
-theme = ExtResource( 1 )
-custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
-custom_fonts/font = SubResource( 3 )
-text = "Sound Space Mode: progress bar width"
-valign = 1
 
 [node name="SEPARATOR" type="HSeparator" parent="TabContainer/Replays & Misc"]
 margin_top = 501.0
@@ -6847,6 +6890,27 @@ text = "Allow Spectators"
 flat = true
 script = ExtResource( 54 )
 target = "allow_spectators"
+
+[node name="ShareMapsWithSpectators" type="CheckBox" parent="TabContainer/Online/Account/Group/H"]
+margin_top = 114.0
+margin_right = 318.0
+margin_bottom = 142.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "off (for unreleased maps): people watching you still see the map, but it's only passed along for that watch: the server doesn't keep it and it isn't saved in their maps (it's deleted when they stop watching). Lobby players still get the map so they can play it"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+pressed = true
+text = "Share My Maps With Spectators"
+flat = true
+script = ExtResource( 54 )
+target = "share_maps_with_spectators"
 
 [node name="ChatNotifications" type="CheckBox" parent="TabContainer/Online/Account/Group/H"]
 margin_top = 146.0

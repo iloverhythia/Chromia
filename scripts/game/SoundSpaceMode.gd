@@ -1,6 +1,6 @@
 extends Node
 
-# Settings > Replays & Misc > Experimental > "Sound Space Mode": songs look like
+# Settings > UI > Sound Space > "Sound Space Mode": songs look like
 # the classic (Roblox) Sound Space:
 # - a dark navy tunnel with grid lines (assets/worlds/soundspace/tunnel.tscn)
 # - corner brackets around the grid, with the time and a thin progress line at
@@ -18,6 +18,11 @@ extends Node
 #
 # HUD.gd adds this node (apply_hud); songload asks it for the background and
 # calls begin_song.
+#
+# Settings > UI > "Sound Space HUD" uses only the panels: the side panels,
+# time and health bar look like Sound Space, but they stay the size and in the
+# place your settings put them, and nothing else changes (no Sound Space
+# camera, cursor, grid, sounds or score popups).
 
 const DIR := "res://assets/soundspace/"
 const FONT := "res://assets/font/PressStart2P/PressStart2P-Regular.ttf"
@@ -55,6 +60,7 @@ var _hw := HEALTH_W
 var popups: CanvasLayer
 var _pops := [] # [label, world position, age]
 var _saved := {}
+var hud_only := false # Sound Space HUD (not the whole Sound Space Mode)
 
 # Classic Sound Space's look, for the length of a song. Your camera (half-lock,
 # spin, parallax, faraway HUD) is left as it is.
@@ -121,6 +127,10 @@ static func recover():
 static func enabled() -> bool:
 	return bool(Rhythia.get("sound_space_mode"))
 
+# Settings > UI > Sound Space HUD, without Sound Space Mode
+static func hud_only_enabled() -> bool:
+	return not enabled() and bool(Rhythia.get("ss_hud"))
+
 static func tex(name: String) -> Texture:
 	return load(DIR + name + ".png") as Texture
 
@@ -129,12 +139,14 @@ static func space_path(default_path: String) -> String:
 	return SPACE if enabled() else default_path
 
 static func apply_hud(h):
-	if not enabled() or h.has_node("SoundSpaceMode"):
+	if not (enabled() or hud_only_enabled()) or h.has_node("SoundSpaceMode"):
 		return
-	begin_song() # already on for this song unless something put yours back
+	if enabled():
+		begin_song() # already on for this song unless something put yours back
 	var n = load("res://scripts/game/SoundSpaceMode.gd").new()
 	n.name = "SoundSpaceMode"
 	n.hud = h
+	n.hud_only = not enabled()
 	h.add_child(n)
 	n._build()
 
@@ -171,6 +183,14 @@ func _panel_root(c: Control) -> Control:
 	root.rect_size = PANEL_SIZE
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vp: Viewport = c.get_parent()
+	if hud_only:
+		# the panel keeps its size (and its place, next to your grid): the
+		# Sound Space panel is scaled to fit inside it
+		var k: float = min(vp.size.x / PANEL_SIZE.x, vp.size.y / PANEL_SIZE.y)
+		root.rect_scale = Vector2(k, k)
+		root.rect_position = (vp.size - PANEL_SIZE * k) / 2.0
+		vp.add_child(root)
+		return root
 	vp.size = PANEL_SIZE
 	vp.add_child(root)
 	# the 3D sprite showing it picks up the new size
@@ -273,6 +293,8 @@ func _build():
 	popups.layer = 1
 	add_child(popups)
 
+	if hud_only:
+		return # (the panels only: no Sound Space places, sounds, cursor or grid)
 	_place_hud()
 
 	# sounds for this song only
@@ -364,7 +386,7 @@ func _ss_speed_icons(row: Node):
 		tr.add_child(t)
 
 func score_popup(note_pos: Vector3, gained: int):
-	if gained <= 0 or not bool(Rhythia.get("ss_score_popups")):
+	if hud_only or gained <= 0 or not bool(Rhythia.get("ss_score_popups")):
 		return
 	var outer = hud.Spawn.get_node_or_null("Outer")
 	if outer == null:

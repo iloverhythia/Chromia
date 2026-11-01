@@ -905,11 +905,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b"
 ]
 
 
 const VERSION_NOTES = {
+	"oct31-2026-b": "- Spectating: the eye button's Spectate window (who's online and the global chat) works while you watch someone, instead of the small corner chat\n- Banned from chat: the chat boxes and Send buttons go grey (\"You're banned from chat\")\n- Following someone you spectated works again after closing the Spectate window, and when they replay the same map\n- VR: spectators see your hands (furry paws or your custom vr_hand.obj)\n- VR: Settings > VR > Pointer > Hide the beam (pointing still works)\n- Drag colorsets (.txt) and note meshes (.obj, with or without .mtl) onto the game to add them\n- Dragging a settings profile (.json) onto the game adds it as a new profile instead of loading it over your settings\n- Editor: the waveform on the track draws half as many lines, so the editor runs smoother with it on and zooming is less jumpy\n- Emoji in chat: they show as pictures (Twemoji) in the Spectate window's global chat and in lobby chat\n- Your attempts list (History) shows your profile picture instead of your first letter (your Chromia picture if you don't use Discord), with bigger, clearer rows: the top three get a ring in their colour and the rank sits on a badge under the picture\n- Map editor: a SETTINGS button on the editor's start screen opens the editor settings without opening a map first, and long mapper names no longer push your map list under the buttons\n- Settings: all the Sound Space settings moved to their own Sound Space section in the UI tab, with a new Sound Space HUD option: the side panels, time and health bar look like Sound Space's (pixel font, multiplier box, COMBO, misses and notes) while everything else stays yours. Spectators see it too\n- Settings > Fonts (new tab): pick the font of the HUD while you play (Lato, Roboto, Ubuntu Mono, two pixel fonts, Noto Sans JP) or use your own .ttf / .otf font. The people spectating you see your font too (needs the updated server)\n- Settings > Online > Share My Maps With Spectators: turn it off for unreleased maps. People can still watch you, but your map is only passed along for that watch: the server doesn't keep it and it isn't saved in their maps (it's deleted when they stop watching)\n- The Map Browser is now the Content Browser, with tabs for Maps, Colorsets, Note Meshes, Settings Profiles and Cursors. Maps come from rhythia.com or from other Chromia players; everything else is shared by players. Press Add / Use / Download to get it straight into the game (great on a standalone VR headset), and upload your own files or share the colorset, mesh, cursor or settings you use now (size limits: maps 30 MB, meshes 6 MB, cursors 2 MB, profiles 512 KB, colorsets 64 KB; needs the update\n- Editor: the waveform is drawn as a picture once and reused, so playing the song in the editor no longer lags\n- New colorset: Seaside\n- Map editor: map together! COLLABORATE on the editor's start screen invites someone who's online (up to 5 people, with your Chromia accounts). The host's map and its song go to everyone, and every edit is live: notes, timing points, bookmarks and objects. You see where the others are in the song, their mouse over the grid, and the notes they placed in their colour. Turn invites off in the editor's Settings > Other (needs the updated server)\n- Mapping together: leaving no longer leaves the other person's line and name on the screen, and when someone is in another part of the song an arrow at the edge of the track shows their name and where they are; their marker sits on the song bar at the bottom with their name\n- Map editor: the waveform no longer lags at all. It's drawn by the graphics card from data worked out once when the song loads, so playing, scrolling and zooming don't stutter (they used to hitch for up to 40 ms), and changing the waveform's level of detail no longer freezes the editor\n- VR: you can type in the global chat (the keyboard showed up behind the Spectate window), the menu screen looks smoother (less jagged, shimmering text), foveated rendering defaults to Low (Medium made the edges of your view pixelated; Settings > VR changes it), Reload Content shows its progress on a panel in front of you instead of leaving you in the dark, and the Spectate eye no longer covers the screen's resize handle\n- Spectating someone on a map you already have no longer downloads it again (and again): the same map saved under a slightly different name (one that came from the server) is now recognised\n- VR: the Spectators list now shows in the headset, above the left panel (it was only on the desktop window)\n- Alt + scroll volume no longer gets stuck on after Alt-Tab (every scroll changed the volume, sometimes to very loud, and the map list wouldn't scroll)\n- Chat: emoji show in the message box as you type (they were blank or boxes)\n- Map editor, mapping together: playtesting no longer kicks you out (you stay in, the others' changes made while you play are there when you come back), and you can invite someone again after they didn't answer or after a playtest (they showed as busy or \"Invited\" for good)\n- Map editor: the Playtest panel has a Speed choice (0.69x to 1.45x) for playtesting at a speed other than the one picked in the game; \"Selected\" plays at that one as before, and your speed is back to normal after the playtest\n- Switching the update channel downloads that build straight away and only offers Restart (no \"Download it?\" question or \"Later\" button)",
 	"oct31-2026-a": "- Test builds no longer install themselves for tester accounts: you get the Update / Remind me in a day / Later box like everyone else\n- New Cursor Bloom setting (World & Cursor): real bloom on just the cursor (and its trail if you want), with size, strength, colour and a pulse on hits\n- Spectate: the search box is the same height as the favourites heart\n- Happy Halloween: on 31 October the menu waves turn orange and purple, with bats and embers (Settings > Replays & Misc > Seasonal Themes turns it off)\n- Chat while spectating: the global chat sits in the bottom-left corner while you watch someone; press Enter (or click it) to type\n- Spectating: the player's glow, bloom and cursor bloom show even if you use Sound Space Mode (it follows their setting while you watch)\n- The custom speed box can be clicked and typed in again\n- Settings: the buttons and tabs at the top stay put while the page scrolls\n- Ranked passes send the list of DLLs loaded into Chromia, and aren't accepted while Cheat Engine is running (you get a warning when a song starts)\n- Your level shows on the website (profile and leaderboards)",
 	"oct30-2026-d": "- Fixed: spectating looped (the map reloaded over and over) and spectate settings didn't load in oct30-2026-c\n- Spectate window: players are in leaderboard order\n- Profile > Leaderboard: Weighted (SP) comes first and is shown by default\n- The Wave Menu is now the default menu, in its own colours (turn it off or use your colorset in Settings like before)\n- New announcement banner: a dark card at the top in the Spectate window's style that slides down, with who sent it\n- Spectating: a bar at the bottom while you're joining someone, their song is loading, or you're following them to their next song, with a Stop button\n- Fixed: when the player you were about to watch finished or failed while their song was loading, you ended up playing the map yourself with their settings; now you go back to the menu\n- Fixed: the Grid (Rhythia) background showed a bright circle above and below you that changed colour with your hits\n- Smoother play: uploads and downloads for spectating (cursor pictures, borders, meshes, backgrounds) run in the background instead of on the game's main thread, and slow frames while playing are written to the trail log so stutters can be traced",
 	"oct30-2026-c": "- Spectate moved from the sidebar to a round eye button in the bottom-right corner of the menu. It opens a big Spectate window: everyone online in a grid with their picture, what they're doing and their leaderboard place, a search box, a heart filter for your favourite players (heart someone on their card), and the global chat underneath. Click someone who's playing to watch them\n- Map editor: no more lag from the waveform. The game froze for a moment when the waveform appeared, ran slowly while the song was being analysed, and at some zoom levels kept rebuilding the whole waveform while playing (very low FPS). Now it's built a little at a time, only where you look, and the song is analysed in the background without slowing the editor down\n- Spectate: a minimal eye button and sharp, smooth icons (no more jagged edges), a flatter, square look, smaller square player cards with each player's device and role, the search box at the top, the global chat on the right, and the window slides in from the side. Hearting a player works properly now (it used to flicker and could start spectating)\n- New chat notifications: a new global chat message shows briefly next to the Spectate eye, with an unread count until you open it (Settings > Online > Chat Notifications turns it off)\n- Map editor: the Settings window has a new look: a tab list on the left, settings grouped in sections with a short note on each, on/off switches, sliders that show their value, keybinds in two columns, and it uses most of the screen so everything is easy to read\n- Settings scrolls smoothly with the mouse wheel (it glides instead of jumping)\n- Spectating: you see the player's own custom border and note mesh with their settings (sent through the server like cursor pictures), and when they pause it shows Paused and waits, then picks up smoothly instead of stuttering (needs the updated server)\n- Fixed: resetting your cursor (or other custom picture) to default no longer opens a file picker\n- Spectating: a small Report button (top left) to report the player's skin, chat or something else. Staff get a screenshot, their skin settings and the chat\n- Spectate window: each player shows how many are watching them (when anyone is)\n- Spectating follows the player: when they finish or fail, you watch them again as soon as they start their next song (stops when you press Stop watching, play yourself, or they turn spectators off)\n- No more pop-up when someone starts watching you (the Spectators list shows it)\n- Discord status: Spectating <player> while you watch someone; the menu says Listening to music\n- The Report window while spectating is simpler and uses the game's own look\n- Spectating with the player's settings shows their backgrounds too: their Custom Background picture (and panorama) and their Background Editor images and videos (needs the updated server)",
@@ -1489,6 +1490,8 @@ func _star_req_done(song):
 		request_star_rating(next)
 
 func _notification(what):
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
+		_alt_down = false # (Alt-Tab: the game never sees Alt let go)
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
 		quit_game()
 	elif what == MainLoop.NOTIFICATION_APP_PAUSED:
@@ -2100,7 +2103,7 @@ var vr_play_lock_pitch: float = 0.0
 # VR graphics (vr/VRPlayer.gd apply_xr_settings): Meta Quest foveated rendering
 # 0 off .. 3 high, display refresh rate (0 = the headset's own), render
 # resolution (applies when VR starts) and glow (-1 = off on Quest, on on PC)
-var vr_foveation: int = 2
+var vr_foveation: int = 1 # (was 2: the edges of the view looked pixelated)
 var vr_refresh: float = 0.0
 var vr_render_scale: float = 1.0
 var vr_glow: int = -1
@@ -2109,6 +2112,8 @@ var vr_simple_bg: bool = false # VR songs on the plain VOID background
 var vr_beam_width: float = 1.0
 var vr_beam_color: Color = Color(0, 1, 1, 0.63)
 var vr_beam_rainbow: bool = false
+# Settings > VR > Pointer > Hide the beam: no beam from the hand (pointing still works)
+var vr_hide_beam: bool = false
 # in songs the beam ends on the cursor (kept inside the grid) instead of
 # going on past the grid's edges
 var vr_lock_beam: bool = false
@@ -2451,8 +2456,21 @@ var volume_label: Label
 var volume_percent: float = 1.0
 var volume_fade_timer: float = 0.0
 
+# Alt held, for Alt + scroll (volume). Not Input.is_key_pressed(KEY_ALT): after
+# Alt-Tab the game misses Alt being let go and that stays on, so every scroll
+# changed the volume (up to very loud) and lists wouldn't scroll. Pressed
+# after the window got focus, and the scroll itself says Alt is down.
+var _alt_down := false
+
+func alt_held(event = null) -> bool:
+	if event is InputEventWithModifiers and not event.alt:
+		return false
+	return _alt_down
+
 func _input(event):
-	if Input.is_key_pressed(KEY_ALT):
+	if event is InputEventKey and event.scancode == KEY_ALT and not event.echo:
+		_alt_down = event.pressed
+	if alt_held(event):
 		if event is InputEventMouseButton and event.pressed:
 			if event.button_index == BUTTON_WHEEL_UP:
 				_change_volume(0.05)
@@ -2808,6 +2826,9 @@ var mute_global_chat: bool = false
 # Settings > Online: others can watch you from their Spectate tab (the server
 # refuses anyone when this is off; LobbyManager sends it with your presence)
 var allow_spectators: bool = true
+# Settings > Online > Share My Maps With Spectators: off, a spectator without
+# the map isn't sent it (unreleased maps); they can still watch on maps they have
+var share_maps_with_spectators: bool = true
 # Spectate window: the players you hearted (player numbers), for its favorites filter
 var spectate_favorites: Array = []
 # Settings > Online > Chat Notifications: new global chat messages show next to the eye
@@ -3045,6 +3066,8 @@ var always_show_crash_log: bool = false # Experimental: show the last session's 
 func ss_menus_on() -> bool:
 	return sound_space_mode and not ss_gameplay_only
 var ss_score_popups: bool = true # Sound Space Mode: points pop up under the grid on each hit
+var hud_font: String = "default" # Settings > Fonts: the song HUD's font (scripts/HudFont.gd)
+var ss_hud: bool = false # Sound Space HUD: the side panels, time and health bar look like Sound Space (without the rest of Sound Space Mode)
 var ss_health_y: float = 0.0     # Sound Space Mode: health bar moved up (+) / down (-)
 var ss_health_w: float = 100.0   # Sound Space Mode: health bar width, %
 var ss_progress_y: float = 0.0   # Sound Space Mode: song progress bar moved up (+) / down (-)
@@ -3632,6 +3655,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mute_global_chat = data.mute_global_chat
 		if data.has("allow_spectators"):
 			allow_spectators = bool(data.allow_spectators)
+		if data.has("share_maps_with_spectators"):
+			share_maps_with_spectators = bool(data.share_maps_with_spectators)
 		if data.has("spectate_chat_notify"):
 			spectate_chat_notify = bool(data.spectate_chat_notify)
 		if data.has("spectate_favorites") and data.spectate_favorites is Array:
@@ -3906,6 +3931,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			always_show_crash_log = bool(data.always_show_crash_log)
 		if data.has("ss_score_popups"):
 			ss_score_popups = bool(data.ss_score_popups)
+		if data.has("ss_hud"):
+			ss_hud = bool(data.ss_hud)
+		if data.has("hud_font"):
+			hud_font = String(data.hud_font)
 		for k in ["ss_health_y", "ss_health_w", "ss_progress_y", "ss_progress_w"]:
 			if data.has(k):
 				set(k, float(data[k]))
@@ -3956,6 +3985,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_play_lock_pitch = clamp(float(data.vr_play_lock_pitch), -1.2, 1.2)
 		if data.has("vr_foveation"):
 			vr_foveation = int(clamp(int(data.vr_foveation), 0, 3))
+			# the old default (2, medium) made the edges of the view look
+			# pixelated: low instead, once (a level picked after this stays)
+			if vr_foveation == 2 and not data.has("vr_foveation_v2"):
+				vr_foveation = 1
 		if data.has("vr_refresh"):
 			vr_refresh = clamp(float(data.vr_refresh), 0.0, 144.0)
 		if data.has("vr_render_scale"):
@@ -3970,6 +4003,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_beam_color = Color(data.vr_beam_color)
 		if data.has("vr_beam_rainbow"):
 			vr_beam_rainbow = bool(data.vr_beam_rainbow)
+		if data.has("vr_hide_beam"):
+			vr_hide_beam = bool(data.vr_hide_beam)
 		if data.has("vr_lock_beam"):
 			vr_lock_beam = bool(data.vr_lock_beam)
 		if data.has("vr_aim_from_eyes"):
@@ -4387,6 +4422,7 @@ func _write_settings_file(saveFile: String):
 			lead_in_ms = lead_in_ms,
 			mute_global_chat = mute_global_chat,
 			allow_spectators = allow_spectators,
+			share_maps_with_spectators = share_maps_with_spectators,
 			spectate_favorites = spectate_favorites,
 			spectate_chat_notify = spectate_chat_notify,
 			mute_lobby_chat = mute_lobby_chat,
@@ -4479,6 +4515,8 @@ func _write_settings_file(saveFile: String):
 			always_show_crash_log = always_show_crash_log,
 			track_plays = track_plays,
 			ss_score_popups = ss_score_popups,
+			ss_hud = ss_hud,
+			hud_font = hud_font,
 			ss_health_y = ss_health_y,
 			ss_health_w = ss_health_w,
 			ss_progress_y = ss_progress_y,
@@ -4503,6 +4541,7 @@ func _write_settings_file(saveFile: String):
 			vr_play_lock_frame = vr_play_lock_frame,
 			vr_play_lock_pitch = vr_play_lock_pitch,
 			vr_foveation = vr_foveation,
+			vr_foveation_v2 = true,
 			vr_refresh = vr_refresh,
 			vr_render_scale = vr_render_scale,
 			vr_glow = vr_glow,
@@ -4510,6 +4549,7 @@ func _write_settings_file(saveFile: String):
 			vr_beam_width = vr_beam_width,
 			vr_beam_color = vr_beam_color.to_html(true),
 			vr_beam_rainbow = vr_beam_rainbow,
+			vr_hide_beam = vr_hide_beam,
 			vr_lock_beam = vr_lock_beam,
 			vr_aim_from_eyes = vr_aim_from_eyes,
 			vr_binds = vr_binds,
@@ -4664,6 +4704,13 @@ func register_colorsets():
 	registry_colorset.add_item(ColorSet.new(
 		[Color("#008cff"), Color("#ed3434"), Color("#10bd0d"), Color("#ffb300")],
 		"ssp_wii", "Wii Players", "balt"
+	))
+	registry_colorset.add_item(ColorSet.new(
+		[
+			Color("#d6fffa"), Color("#d1fffd"), Color("#ccf5ff"), Color("#bde9ff"),
+			Color("#b4defd"), Color("#b8d8fe"), Color("#c3d1fe"),
+		],
+		"ssp_seaside", "Seaside", ""
 	))
 
 func register_worlds():

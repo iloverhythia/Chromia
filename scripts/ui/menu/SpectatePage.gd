@@ -313,6 +313,7 @@ func _ready():
 	_build_window()
 	if _lm != null:
 		_lm.connect("global_chat_message_received", self, "_on_chat_message")
+		_lm.connect("chat_ban_changed", self, "_on_chat_ban")
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -555,6 +556,7 @@ func _build_window():
 	chat_input.size_flags_horizontal = SIZE_EXPAND_FILL
 	chat_input.max_length = 300
 	_style_field(chat_input)
+	preload("res://scripts/ui/Emoji.gd").field(chat_input) # (emoji show as you type)
 	chat_input.connect("text_entered", self, "_on_chat_entered")
 	row.add_child(chat_input)
 	chat_send = Button.new()
@@ -584,6 +586,9 @@ func _resize():
 	var m := 20.0 * _k
 	eye.rect_size = Vector2(d, d)
 	eye.rect_position = vp - Vector2(d + m, d + m)
+	if Rhythia.vr:
+		# (the VR screen's resize handle is in that corner: the eye goes beside it)
+		eye.rect_position.x -= load("res://vr/MenuResize.gd").ICON + 12.0
 	var tpx := int(ceil(d * 2.0))
 	if tpx != _eye_px:
 		_eye_px = tpx
@@ -1064,8 +1069,11 @@ func _fill_chat():
 	var muted: bool = Rhythia.mute_global_chat
 	chat_muted.visible = muted
 	chat.visible = not muted
-	chat_input.editable = not muted
-	chat_send.disabled = muted
+	var banned: bool = _lm != null and bool(_lm.get("chat_banned"))
+	preload("res://scripts/ui/ChatBan.gd").apply(chat_input, chat_send, banned)
+	if muted:
+		chat_input.editable = false
+		chat_send.disabled = true
 	if muted or _lm == null:
 		return
 	if _lm.global_chat_history.empty():
@@ -1076,6 +1084,10 @@ func _fill_chat():
 		return
 	for e in _lm.global_chat_history:
 		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)))
+
+func _on_chat_ban(_banned):
+	if chat_input != null:
+		_fill_chat()
 
 func _on_chat_message(client_id: String, name: String, text: String, ts: float):
 	if Rhythia.mute_global_chat:
@@ -1123,7 +1135,7 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float):
 			chat.pop()
 			chat.add_text(sep)
 		else:
-			chat.add_text(w + sep)
+			preload("res://scripts/ui/Emoji.gd").add_text(chat, w + sep, 18) # (emoji as pictures)
 	_chat_lines += 1
 	if _chat_lines > CHAT_MAX_LINES:
 		chat.remove_line(0)

@@ -80,9 +80,21 @@ func files_dropped(files: PoolStringArray, _screen: int):
 		Rhythia.replay_path = files[0]
 		get_viewport().get_node("Menu").black_fade_target = true
 		get_tree().change_scene("res://scenes/loaders/songload.tscn")
-	elif files.size() == 1 and files[0].get_extension() == "json" and _is_settings_json(files[0]):
-		_import_settings_json(files[0])
 	else:
+		# settings profiles, colorsets and note meshes: added like Settings >
+		# Import Content (a profile is added as a new one, not loaded over yours)
+		var content := PoolStringArray()
+		var rest := PoolStringArray()
+		for f in files:
+			var e: String = f.get_extension().to_lower()
+			if e == "json" or e == "txt" or e == "obj" or e == "mtl":
+				content.append(f)
+			else:
+				rest.append(f)
+		if not content.empty():
+			if not load("res://scripts/ui/settings/Profiles.gd").import_dropped(get_tree(), content):
+				Globals.notify(Globals.NOTIFY_WARN, "Open Settings once, then drop the file again.", "Import")
+		files = rest
 		var song
 		for file in files:
 			var ext = file.get_extension()

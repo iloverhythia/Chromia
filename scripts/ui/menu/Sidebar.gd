@@ -212,7 +212,9 @@ func _add_extra_pages():
 	var cm = get_node_or_null("../Main/Content/Menu")
 	if cm is ColorRect:
 		cm.color = Color(0, 0, 0, 0)
-	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/MapBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Map Browser", null)
+	# the Content Browser (maps from rhythia.com or players, and players' colorsets,
+	# meshes, profiles and cursors); still named MapBrowser for the skins
+	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/ContentBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Content Browser", null)
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
 	# everyone online and what they play, and the global chat: the eye button
 	_add_spectate()
@@ -226,7 +228,7 @@ func _add_extra_pages():
 				has_local = true
 				break
 		if not has_local:
-			Globals.call_deferred("notify", Globals.NOTIFY_INFO, "You don't have any maps yet. Pick an online map in the list to download it, or open the Map Browser (download icon on the left).", "Welcome to Chromia")
+			Globals.call_deferred("notify", Globals.NOTIFY_INFO, "You don't have any maps yet. Pick an online map in the list to download it, or open the Content Browser (download icon on the left).", "Welcome to Chromia")
 
 func _ready():
 	_add_extra_pages()
