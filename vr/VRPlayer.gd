@@ -304,7 +304,8 @@ static func array_to_transform(a: Array) -> Transform:
 	return Transform(Vector3(a[0], a[1], a[2]), Vector3(a[3], a[4], a[5]), Vector3(a[6], a[7], a[8]), Vector3(a[9], a[10], a[11]))
 
 # --- Hands -------------------------------------------------------------------
-# Settings > VR > Hands: "default" (the box), "paw" (PawHand.gd, built in) or
+# Settings > VR > Hands: "default" (the box), "paw" (PawHand.gd, built in),
+# "ball" (BallHand.gd, a white sphere) or
 # "custom": vr_hand.obj (and its .mtl / textures) in the user folder, the right
 # hand's model in metres with the controller at the origin, -Z forward (where
 # the pointer goes), +Y up. The left hand gets the mirror image, or its own
@@ -321,6 +322,9 @@ func apply_hand():
 	if want == "paw":
 		var right = load("res://vr/PawHand.gd").build()
 		meshes = [_mirrored(right), right]
+	elif want == "ball":
+		var ball = load("res://vr/BallHand.gd").build()
+		meshes = [ball, ball]
 	elif want == "custom":
 		meshes = _custom_hand_meshes()
 		if meshes == null:
@@ -330,8 +334,9 @@ func apply_hand():
 	for ray in [left_ray, right_ray]:
 		if "start_gap" in ray:
 			ray.start_gap = 0.0
-			if want == "paw":
-				ray.start_gap = max(0.0, ray.transform.origin.z + load("res://vr/PawHand.gd").TIP * UNITS_PER_M)
+			if want == "paw" or want == "ball":
+				var tip: float = load("res://vr/PawHand.gd").TIP if want == "paw" else load("res://vr/BallHand.gd").TIP
+				ray.start_gap = max(0.0, ray.transform.origin.z + tip * UNITS_PER_M)
 	for i in range(_hand_default.size()):
 		var d: Array = _hand_default[i]
 		var mi: MeshInstance = d[0]

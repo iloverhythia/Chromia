@@ -912,6 +912,9 @@ func _spec_hand_look():
 	if kind == "paw":
 		var r = load("res://vr/PawHand.gd").build()
 		meshes = [VRP._mirrored(r), r]
+	elif kind == "ball":
+		var b = load("res://vr/BallHand.gd").build()
+		meshes = [b, b]
 	elif kind == "custom" and rpath != "":
 		var ObjParse = load("res://scripts/content/resources/ObjParse.gd")
 		var r = ObjParse.load_obj(rpath)
@@ -933,8 +936,9 @@ func _spec_hand_look():
 		var ray = hand.get_node_or_null("Ray")
 		if ray != null and "start_gap" in ray:
 			ray.start_gap = 0.0
-			if kind == "paw" and meshes != null:
-				ray.start_gap = max(0.0, ray.transform.origin.z + load("res://vr/PawHand.gd").TIP * VRP.UNITS_PER_M)
+			if (kind == "paw" or kind == "ball") and meshes != null:
+				var tip: float = load("res://vr/PawHand.gd").TIP if kind == "paw" else load("res://vr/BallHand.gd").TIP
+				ray.start_gap = max(0.0, ray.transform.origin.z + tip * VRP.UNITS_PER_M)
 		if meshes == null:
 			mi.mesh = d[0]
 			mi.transform = d[1]

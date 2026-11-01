@@ -13,3 +13,4 @@ in scripts/Savia.gd and empties this list.
 - VR: move the keyboard anywhere on the menu screen by dragging the bar along its top; it stays where you put it (Reset in the bar puts it back)
 - VR: a Height setting (Settings > VR > Height) raises or lowers you up to 1 m, in the menu and in songs
 - Fixed the in-game HUD failing to load in the last test builds (two features had a function with the same name)
+- VR: a new Ball hand (Settings > VR > Hands): a plain round white sphere for each hand (spectators see it too)
