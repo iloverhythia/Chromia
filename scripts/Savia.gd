@@ -6196,6 +6196,13 @@ func do_init(_ud = null):
 		alert = ""
 		should_ask_about_replays = false
 		play_menu_music = false
+		# and light on the browser: the plain VOID world instead of the 3D
+		# tunnel, no anti-aliasing or HDR, the browser's own frame pacing
+		var void_world = registry_world.get_item("ssp_void") if registry_world else null
+		if void_world:
+			selected_space = void_world
+		max_fps_mode = true # (Max FPS mode: no cap, no MSAA, no HDR)
+		apply_max_fps_mode()
 	if alert != "":
 		emit_signal("init_stage_reached", "Alert prompt")
 		if not alert_snd_played: Globals.confirm_prompt.s_alert.play()
