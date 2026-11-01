@@ -71,6 +71,7 @@ var lobby_active: bool = false
 var lobby_code: String = ""
 var player_name: String = "Player"
 var collab_supported := false # the server can relay the map editor's collab (server_hello)
+var replay_vr_supported := false # the server takes replays with VR head / hands (server_hello)
 var local_peer_id: int = -1
 
 var lobby_state: Dictionary = {
@@ -1478,6 +1479,7 @@ func _handle_message(msg: Dictionary):
 			var feats = msg.get("features", [])
 			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
 			collab_supported = feats is Array and feats.has("collab")
+			replay_vr_supported = feats is Array and feats.has("replay_vr")
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []

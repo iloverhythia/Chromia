@@ -32,3 +32,4 @@ in scripts/Savia.gd and empties this list.
 - Map editor: the Playtest panel has a Speed choice (0.69x to 1.45x) for playtesting at a speed other than the one picked in the game; "Selected" plays at that one as before, and your speed is back to normal after the playtest
 - Switching the update channel downloads that build straight away and only offers Restart (no "Download it?" question or "Later" button)
 - Spectating: you see their exact colorset (custom and imported ones too, with their transparency, so note opacity matches), and the border is right when they use the default one
+- VR: replays now keep your head and hands, so the website's replay viewer can show your pass in first person like spectating (needs the updated server)

@@ -491,6 +491,42 @@ func _write_touches():
 		file.store_16(int(clamp(round(t[3] / touch_screen.x * 65535.0), 0, 65535)))
 		file.store_16(int(clamp(round(t[4] / touch_screen.y * 65535.0), 0, 65535)))
 
+# VR: the head and hands (the same pose spectators get: which hand points,
+# then head, left hand, right hand as position + rotation), for the website's
+# first-person replay view. Saved after the touches as "CVRP": u16 version 1,
+# u32 count, then u32 replay ms, u8 flags (1 = left handed), 21 i16 (positions
+# in mm, rotations * 32767). The game itself doesn't read it back.
+const VR_SIG := PoolByteArray([67, 86, 82, 80]) # "CVRP"
+const VR_SAMPLE_MS := 50
+var vr_samples: Array = []
+var _vr_last_ms := -100000
+
+func wants_vr_sample(ms: float) -> bool:
+	return recording and ms - _vr_last_ms >= VR_SAMPLE_MS
+
+func store_vr(ms: float, pose: Array):
+	if not recording or pose.size() < 22:
+		return
+	_vr_last_ms = int(ms)
+	vr_samples.append([int(max(0, floor(ms))), pose])
+
+func _write_vr():
+	if vr_samples.empty():
+		return
+	file.store_buffer(VR_SIG)
+	file.store_16(1) # version
+	file.store_32(vr_samples.size())
+	for s in vr_samples:
+		var pose: Array = s[1]
+		file.store_32(s[0])
+		file.store_8(1 if float(pose[0]) > 0.5 else 0)
+		for part in range(3):
+			var o: int = 1 + part * 7
+			for k in range(7):
+				var v: float = float(pose[o + k])
+				var q: int = int(round(v * 1000.0)) if k < 3 else int(round(v * 32767.0))
+				file.store_16(int(clamp(q, -32767, 32767)) & 0xFFFF) # (two's complement)
+
 func _read_touches():
 	touches = []
 	if file.get_len() - file.get_position() < 18:
@@ -519,6 +555,7 @@ func end_recording():
 	sig_count += 1
 	file.store_8(Globals.RS_END)
 	_write_touches()
+	_write_vr()
 	file.seek(endms_offset)
 	file.store_32(last_ms)
 	file.store_32(sig_count)
