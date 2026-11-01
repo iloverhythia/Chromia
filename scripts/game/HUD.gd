@@ -126,6 +126,7 @@ func update_static_values():
 		accbar.value = src_hits / float(src_total)
 	noteslabel.text = "%s/%s" % [Globals.comma_sep(src_hits), Globals.comma_sep(src_total)]
 	misseslabel.text = "%s" % Globals.comma_sep(src_misses)
+	_update_sp(src_hits, src_total)
 
 	if not spectating:
 		energybar.max_value = Game.max_energy
@@ -186,6 +187,44 @@ func update_static_values():
 
 	if not _tinted_hud():
 		lettergrade.set("custom_colors/font_color", gcol)
+
+# ── SP readout (Settings > UI > Show SP) ──
+# The SP passing now would give, at the accuracy so far, worked out like the
+# server does (Savia.sp_for_accuracy). "- SP" when the play can't give SP (map
+# not ranked, No Fail, other hit window...). At the top of the right panel,
+# above the score.
+var _sp_label: Label = null
+var _sp_hits = 0
+var _sp_total = 0
+
+func _make_sp_label():
+	if not Rhythia.show_sp_hud or Rhythia.selected_song == null:
+		return
+	_sp_label = noteslabel.duplicate()
+	_sp_label.name = "SP"
+	_sp_label.visible = true
+	_sp_label.margin_top = -890.0
+	_sp_label.margin_bottom = -815.0
+	get_node("RightVP/Control").add_child(_sp_label)
+	# (the map's value comes from the server a moment after the start)
+	var lm = _get_lobby_manager()
+	if lm != null and not lm.is_connected("map_rank_info_received", self, "_on_sp_rank_info"):
+		lm.connect("map_rank_info_received", self, "_on_sp_rank_info")
+	_update_sp(0, 0)
+
+func _on_sp_rank_info(_id, _ranked, _xp, _hash):
+	call_deferred("_update_sp", _sp_hits, _sp_total) # (after Savia keeps the value)
+
+func _update_sp(hits, total):
+	if _sp_label == null:
+		return
+	_sp_hits = hits
+	_sp_total = total
+	# (watching someone: their settings aren't known here)
+	_sp_label.visible = not spectating
+	var acc: float = 1.0 if total <= 0 else float(hits) / float(total)
+	var sp: int = Rhythia.sp_for_accuracy(acc)
+	_sp_label.text = "- SP" if sp < 0 else "%s SP" % Globals.comma_sep(sp)
 
 var miss_flash: float = 0
 
@@ -1423,6 +1462,7 @@ func _ready():
 		lobby_manager_for_spectators.connect("watchers_changed", self, "_on_watchers_changed_for_list")
 
 	$Stats/Label.visible = Rhythia.show_stats
+	_make_sp_label()
 
 	$GiveUpVP/Control.fill_color = giveup_fill_color
 
@@ -1537,7 +1577,7 @@ func _ready():
 			if n.visible: n.rect_position.y += 100
 
 		for n in $RightVP/Control.get_children():
-			n.visible = n.name == "SimpleBg" or n.name == "Misses" or n.name == "MissesTitle"
+			n.visible = n.name == "SimpleBg" or n.name == "Misses" or n.name == "MissesTitle" or (n.name == "SP" and _sp_label != null)
 			if n.visible: n.rect_position.y += 100
 
 	if Rhythia.faraway_hud:

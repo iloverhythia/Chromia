@@ -395,18 +395,25 @@ func end_forced_replay():
 
 var _xp_eligibility_song_id: String = ""
 
+# song id -> {"xp": the ranked map's value (0: not ranked), "same": the map is
+# the ranked version}: for the HUD's SP (Settings > UI > Show SP)
+var sp_rank_info := {}
+
 func check_xp_eligibility_notice(song_id: String):
-	if replaying or song_id == "":
+	if song_id == "":
 		return
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager == null:
 		return
-	_xp_eligibility_song_id = song_id
+	# (a replay: only the map's value for the HUD, no notice)
+	_xp_eligibility_song_id = song_id if not replaying else ""
 	if not lobby_manager.is_connected("map_rank_info_received", self, "_on_xp_eligibility_rank_info"):
 		lobby_manager.connect("map_rank_info_received", self, "_on_xp_eligibility_rank_info")
 	lobby_manager.get_map_rank(song_id)
 
 func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, content_hash: String):
+	if selected_song != null and String(selected_song.id) == song_id and not sp_rank_info.has(song_id):
+		sp_rank_info[song_id] = {"xp": xp if ranked else 0, "same": content_hash == "" or content_hash == selected_song.compute_chart_hash()}
 	if song_id != _xp_eligibility_song_id or selected_song == null or String(selected_song.id) != song_id:
 		return
 	_xp_eligibility_song_id = ""
@@ -454,13 +461,7 @@ func get_hardware_id() -> String:
 func award_offline_rp():
 	if replaying or selected_song == null or song_end_type != Globals.END_PASS:
 		return
-	if mod_nofail or mod_extra_energy or start_offset != 0 or song_end_pause_count > 0:
-		return
-	if replay != null and replay.autoplayer:
-		return
-	if not (is_equal_approx(hitwindow_ms, 55.0) or is_equal_approx(hitwindow_ms, 58.0)):
-		return
-	if not is_equal_approx(note_hitbox_size, 1.14) or health_model != Globals.HP_SOUNDSPACE:
+	if not offline_rp_rules_ok():
 		return
 	var stars: float = selected_song.get_star_rating()
 	if stars <= 0.0:
@@ -470,6 +471,35 @@ func award_offline_rp():
 	var res: Dictionary = store.record(String(selected_song.id), String(selected_song.name), stars, current_speed_multiplier(), acc, song_end_misses)
 	if res.best and show_xp_notifications:
 		Globals.notify(Globals.NOTIFY_INFO, "%d RP (+%d total)" % [int(round(res.rp)), int(round(res.gained))], "New best RP")
+
+# The ranked-way rules a pass needs to give RP (also the HUD's RP readout).
+# The SP a pass of the selected map would give at this accuracy, as the server
+# works it out (server/src/ranking.js passSp: the map's value x speed^2 x
+# accuracy^2, speed at most 3x, nothing under 60%). -1: it can't give SP (not
+# ranked, not the ranked version, or the rules XP needs aren't kept), or the
+# map's value hasn't come from the server yet.
+func sp_for_accuracy(accuracy: float) -> int:
+	if selected_song == null:
+		return -1
+	var info = sp_rank_info.get(String(selected_song.id))
+	if not (info is Dictionary) or int(info.xp) <= 0 or not bool(info.same):
+		return -1
+	if not offline_rp_rules_ok(true):
+		return -1
+	accuracy = clamp(accuracy, 0.0, 1.0)
+	if accuracy < 0.6:
+		return 0
+	var speed: float = clamp(current_speed_multiplier(), 0.05, 3.0)
+	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
+
+func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
+	if mod_nofail or mod_extra_energy or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
+		return false
+	if replay != null and replay.autoplayer:
+		return false
+	if not (is_equal_approx(hitwindow_ms, 55.0) or is_equal_approx(hitwindow_ms, 58.0)):
+		return false
+	return is_equal_approx(note_hitbox_size, 1.14) and health_model == Globals.HP_SOUNDSPACE
 
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
@@ -918,11 +948,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov1-2026-a": "- Settings > UI > Show SP: the SP you'd get if you passed right now, at your accuracy so far and your speed, at the top of the right panel (a dash when the map isn't ranked or the play can't give SP, like with No Fail)\n- Chat: @mentions. Type @ and the start of a name to pick someone (Tab or click), and you get a notification when someone mentions you, even in the middle of a map\n- Chat: opening the Spectate window puts you straight in the chat box, ready to type\n- Chat: the text you type shows again when your message has an emoji in it (only the emoji showed)\n- Website Game view: smoother playback and cursor, Record video goes fullscreen so the video is your screen's size, and it never shows a crash notice\n- Replays: the cursor stays in time with the notes after a skip or a pause (it could end up ahead of them, by a lot on a slow computer or in the browser)",
 	"oct31-2026-f": "- aaaaa",
 	"oct31-2026-e": "- aaaaaaaaaaaaaaaaaaaaaaaaaaa",
 	"oct31-2026-d": "- Replays: players with edge drift have their cursor where it really was (the viewer's own edge drift squashed it onto the grid's edge)",
@@ -2953,6 +2984,13 @@ var max_fps_mode: bool = false
 var realistic_autoplay: bool = false
 
 # Max FPS mode: uncapped frame rate, VSync off and no MSAA (anti-aliasing).
+# the website's game view (WebReplay.gd): no anti-aliasing or HDR
+func _web_replay_light():
+	var vp = get_viewport()
+	if vp:
+		vp.msaa = Viewport.MSAA_DISABLED
+		vp.hdr = false
+
 func apply_max_fps_mode():
 	var vp = get_viewport()
 	if max_fps_mode:
@@ -2995,6 +3033,7 @@ var attach_hp_to_grid: bool = false
 var attach_timer_to_grid: bool = false
 var simple_hud: bool = false
 var hide_spectators_list: bool = false # (Settings > UI: no Spectators list in the top left)
+var show_sp_hud: bool = false # (Settings > UI: the SP a pass would give right now, top of the right panel)
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
 var rainbow_hud: bool = false
@@ -3822,6 +3861,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			simple_hud = data.simple_hud
 		if data.has("hide_spectators_list"):
 			hide_spectators_list = bool(data.hide_spectators_list)
+		if data.has("show_sp_hud"):
+			show_sp_hud = bool(data.show_sp_hud)
 		if data.has("faraway_hud"):
 			faraway_hud = data.faraway_hud
 		if data.has("music_offset"):
@@ -4509,6 +4550,7 @@ func _write_settings_file(saveFile: String):
 			show_fc_grade = show_fc_grade,
 			simple_hud = simple_hud,
 			hide_spectators_list = hide_spectators_list,
+			show_sp_hud = show_sp_hud,
 			faraway_hud = faraway_hud,
 			music_offset = music_offset,
 			auto_maximize = auto_maximize,
@@ -6198,12 +6240,17 @@ func do_init(_ud = null):
 		should_ask_about_replays = false
 		play_menu_music = false
 		# and light on the browser: the plain VOID world instead of the 3D
-		# tunnel, no anti-aliasing or HDR, the browser's own frame pacing
+		# tunnel, no anti-aliasing or HDR. Vsync stays on: without it the
+		# browser's frames came at uneven times (choppy, the cursor jerky).
 		var void_world = registry_world.get_item("ssp_void") if registry_world else null
 		if void_world:
 			selected_space = void_world
-		max_fps_mode = true # (Max FPS mode: no cap, no MSAA, no HDR)
-		apply_max_fps_mode()
+		# (oct31-2026-f turned Max FPS mode on here, and the browser may have
+		# kept it in its settings)
+		max_fps_mode = false
+		OS.vsync_enabled = true
+		Engine.target_fps = 0 # (the browser paces the frames to the screen)
+		call_deferred("_web_replay_light") # (after a saved setting's own deferred apply)
 	if alert != "":
 		emit_signal("init_stage_reached", "Alert prompt")
 		if not alert_snd_played: Globals.confirm_prompt.s_alert.play()

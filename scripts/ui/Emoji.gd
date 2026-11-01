@@ -80,12 +80,21 @@ static func field(le: LineEdit):
 	f.name = "EmojiField"
 	le.add_child(f)
 
+# Emoji in a LineEdit: once its text has an emoji, the field switches to a
+# BitmapFont made here. Godot 3's BitmapFont can only fall back to another
+# BitmapFont, so the field's own (dynamic) font can't draw the letters for
+# it: every other character is drawn once from that font into a picture
+# (a small off-screen Viewport) and added to the BitmapFont as well. Plain
+# ASCII is drawn before the field switches over; other characters (accents,
+# other scripts) the first time they're typed (they show a frame later).
 class Field extends Node:
 	var le: LineEdit
 	var base: Font = null
 	var bf: BitmapFont = null
 	var px := 0
 	var have := {} # codepoint -> true (in bf)
+	var _pending := {} # codepoint -> true: to draw from the field's font
+	var _busy := false
 
 	func _ready():
 		le = get_parent()
@@ -101,7 +110,7 @@ class Field extends Node:
 		if bf == null and not E._maybe(text):
 			return # (nothing to draw yet: the field keeps its own font)
 		var cur := le.get_font("font")
-		if cur != bf:
+		if cur != bf and cur != base:
 			base = cur # (its font, or one set since)
 			bf = null
 		if base == null:
@@ -136,6 +145,12 @@ class Field extends Node:
 				bf = null
 				return
 			Engine.set_meta("chromia_emoji_field_ok", true)
+		# the other characters, from the field's own font
+		for c in E._codepoints(text):
+			var cp2: int = c[0]
+			if cp2 >= 32 and not have.has(cp2) and not d.e.has("%x" % cp2) and not (cp2 >= 0xD800 and cp2 <= 0xDFFF):
+				_pending[cp2] = true
+		_draw_pending()
 		if added:
 			le.update()
 
@@ -148,15 +163,18 @@ class Field extends Node:
 	func _build(h: int):
 		px = h
 		have = {}
+		_pending = {}
 		bf = BitmapFont.new()
 		bf.height = base.get_height()
 		bf.ascent = base.get_ascent()
-		bf.fallback = base
 		# the joiner, the variation mark and skin tones: nothing on their own
 		for cp in [0x200D, 0xFE0F, 0x1F3FB, 0x1F3FC, 0x1F3FD, 0x1F3FE, 0x1F3FF]:
 			bf.add_char(cp, -1, Rect2(), Vector2(), 0)
 			have[cp] = true
-		le.add_font_override("font", bf)
+		for cp in range(32, 127):
+			_pending[cp] = true
+		# (the field switches to it once the letters are drawn: _draw_pending)
+		_draw_pending()
 
 	func _add(cp: int, tex: Texture):
 		var s := _size()
@@ -173,6 +191,73 @@ class Field extends Node:
 		bf.add_texture(t)
 		bf.add_char(cp, bf.get_texture_count() - 1, Rect2(0, 0, s, s), Vector2(1, round((px - s) / 2.0)), _advance())
 		have[cp] = true
+
+	# draws the waiting characters from the field's font into one picture
+	func _draw_pending():
+		if _busy or _pending.empty() or bf == null:
+			return
+		_busy = true
+		var font := base
+		var into := bf
+		var codes: Array = _pending.keys()
+		_pending = {}
+		var h := int(ceil(font.get_height()))
+		var xs := []
+		var ws := []
+		var x := 1
+		for cp in codes:
+			var w := int(ceil(font.get_char_size(cp).x))
+			xs.append(x)
+			ws.append(w)
+			x += w + 2
+		var vp := Viewport.new()
+		vp.size = Vector2(max(x, 2), max(h, 2))
+		vp.transparent_bg = true
+		vp.usage = Viewport.USAGE_2D
+		vp.disable_3d = true
+		vp.render_target_v_flip = false
+		vp.render_target_update_mode = Viewport.UPDATE_ONCE
+		var canvas := Control.new()
+		canvas.connect("draw", self, "_draw_glyphs", [canvas, font, codes, xs])
+		vp.add_child(canvas)
+		add_child(vp)
+		yield(VisualServer, "frame_post_draw")
+		yield(VisualServer, "frame_post_draw")
+		var img: Image = vp.get_texture().get_data()
+		vp.queue_free()
+		_busy = false
+		if img == null or into != bf or not is_instance_valid(le):
+			return _draw_pending() # (the font changed meanwhile)
+		img.flip_y()
+		img.convert(Image.FORMAT_RGBA8)
+		# white letters (the field's text colour tints them); only the edges'
+		# see-through amount is kept
+		img.lock()
+		for py in range(img.get_height()):
+			for pxx in range(img.get_width()):
+				var a := img.get_pixel(pxx, py).a
+				img.set_pixel(pxx, py, Color(1, 1, 1, a))
+		img.unlock()
+		var t := ImageTexture.new()
+		t.create_from_image(img, Texture.FLAG_FILTER)
+		bf.add_texture(t)
+		var ti := bf.get_texture_count() - 1
+		for k in range(codes.size()):
+			var cp: int = codes[k]
+			var adv: float = font.get_char_size(cp).x
+			if ws[k] <= 0:
+				bf.add_char(cp, -1, Rect2(), Vector2(), adv)
+			else:
+				bf.add_char(cp, ti, Rect2(xs[k], 0, ws[k], h), Vector2(), adv)
+			have[cp] = true
+		if le.get_font("font") != bf:
+			le.add_font_override("font", bf)
+		le.update()
+		_draw_pending()
+
+	func _draw_glyphs(canvas: Control, font: Font, codes: Array, xs: Array):
+		for k in range(codes.size()):
+			canvas.draw_char(font, Vector2(xs[k], font.get_ascent()), char(codes[k]), "", Color(1, 1, 1))
 
 static func _maybe(s: String) -> bool:
 	for i in range(s.length()):
