@@ -981,6 +981,7 @@ func _spec_cursor_at(ms: float) -> Vector3:
 	return Vector3(pos.x, pos.y, z)
 
 func _apply_spectate_stats(sample: Dictionary):
+	_spectate_hit_sounds(int(sample.hits) - int(_spectate_data.hits), int(sample.misses) - int(_spectate_data.misses))
 	_spectate_data.score = sample.score
 	_spectate_data.hits = sample.hits
 	_spectate_data.misses = sample.misses
@@ -989,6 +990,29 @@ func _apply_spectate_stats(sample: Dictionary):
 	_spectate_data.combo_level = sample.combo_level
 	_spectate_data.energy_pct = sample.energy_pct
 	_spectate_data.lvl_progress_pct = sample.lvl_progress_pct
+
+# Watching someone: their hits and misses as sounds. The notes aren't judged
+# here while spectating (NoteManager skips its sounds then), so a spectator
+# heard nothing: the counts going up are the hits / misses. A big jump (the
+# first sample, joining late, switching player) isn't played.
+const SPEC_SOUND_JUMP := 6
+func _spectate_hit_sounds(dh: int, dm: int):
+	if not spectating or get_tree().paused:
+		return
+	if dh > 0 and dh <= SPEC_SOUND_JUMP and Rhythia.play_hit_snd:
+		var at: Transform = spectate_cursor.global_transform if is_instance_valid(spectate_cursor) else Transform()
+		for _k in range(min(dh, 3)):
+			SFXManager.play_hitsfx(at)
+	if dm > 0 and dm <= SPEC_SOUND_JUMP and Rhythia.play_miss_snd:
+		if Rhythia.sfx_2d:
+			var m2 = Spawn.get_node_or_null("Miss2D")
+			if m2 != null: m2.play()
+		else:
+			var m3 = Spawn.get_node_or_null("Miss")
+			if m3 != null:
+				if is_instance_valid(spectate_cursor):
+					m3.global_transform = spectate_cursor.global_transform
+				m3.play()
 
 # --- their settings or yours ----------------------------------------------------
 # Most settings are read when the song scene is built, so switching reloads it
