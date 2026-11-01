@@ -516,6 +516,9 @@ func _build_profile_ui():
 	lobby_name_input.rect_min_size = Vector2(0, 34)
 	lobby_name_input.theme = ui_theme
 	lobby_name_input.connect("text_changed", self, "_on_lobby_name_changed")
+	# (the old name box: hidden. Your name is your account's (Discord, or the
+	# website profile); this still holds the name lobbies are hosted / joined with)
+	lobby_name_input.visible = false
 	pvbox.add_child(lobby_name_input)
 
 	var rp_title = Label.new()
@@ -2137,7 +2140,7 @@ func _on_discord_login_changed():
 		discord_button.disabled = false
 		discord_status_label.text = "✓ Discord: %s" % String(Rhythia.discord_user.username)
 
-		if lobby_name_input != null and lobby_name_input.text.strip_edges() in ["", "Player"]:
+		if lobby_name_input != null and lobby_name_input.text != String(Rhythia.discord_user.username):
 			lobby_name_input.text = String(Rhythia.discord_user.username)
 			_on_lobby_name_changed(lobby_name_input.text)
 	else:
