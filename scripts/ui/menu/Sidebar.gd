@@ -232,6 +232,12 @@ func _add_extra_pages():
 
 func _ready():
 	_add_extra_pages()
+	var ft := Timer.new()
+	ft.name = "FlipCheck"
+	ft.wait_time = 1.0
+	ft.autostart = true
+	ft.connect("timeout", self, "_flip_check")
+	add_child(ft)
 	Rhythia.trail("menu open")
 	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
 	load("res://scripts/PackGuard.gd").ok()
@@ -366,3 +372,28 @@ func _show_crash_report():
 	if picked == 1:
 		OS.clipboard = Rhythia.crash_report()
 		Globals.notify(Globals.NOTIFY_SUCCEED, "The crash report is copied. Paste it in a message to the developer.", "Copied")
+
+# Player 1's game, one start in five: the menu upside down (for that session;
+# decided once the server has said who you are)
+const FLIP_PLAYER := 1
+func _flip_check():
+	var lm = get_node_or_null("/root/LobbyManager")
+	var n: int = int(lm.my_player_number) if lm else -1
+	if n <= 0:
+		return
+	$FlipCheck.stop()
+	if n != FLIP_PLAYER:
+		return
+	if not Engine.has_meta("menu_flip"):
+		randomize()
+		Engine.set_meta("menu_flip", randi() % 5 == 0)
+	if bool(Engine.get_meta("menu_flip")):
+		var m = get_parent()
+		if not m.is_connected("resized", self, "_flip_pivot"):
+			m.connect("resized", self, "_flip_pivot")
+		_flip_pivot()
+		m.rect_rotation = 180
+
+func _flip_pivot():
+	var m = get_parent()
+	m.rect_pivot_offset = m.rect_size / 2
