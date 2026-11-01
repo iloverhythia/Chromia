@@ -696,7 +696,8 @@ func _ready():
 		file.close()
 		if not decode.error and decode.result is Dictionary:
 			disable_intro = disable_intro or (decode.result.has("disable_intro") and decode.result.disable_intro)
-	if not disable_intro:
+	# (the website's game view of a replay: no intro, WebReplay.gd)
+	if not disable_intro and not load("res://scripts/WebReplay.gd").wanted():
 
 		get_tree().call_deferred("change_scene", "res://scenes/Intro.tscn")
 
