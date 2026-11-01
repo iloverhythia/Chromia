@@ -2957,6 +2957,13 @@ var max_fps_mode: bool = false
 var realistic_autoplay: bool = false
 
 # Max FPS mode: uncapped frame rate, VSync off and no MSAA (anti-aliasing).
+# the website's game view (WebReplay.gd): no anti-aliasing or HDR
+func _web_replay_light():
+	var vp = get_viewport()
+	if vp:
+		vp.msaa = Viewport.MSAA_DISABLED
+		vp.hdr = false
+
 func apply_max_fps_mode():
 	var vp = get_viewport()
 	if max_fps_mode:
@@ -6206,12 +6213,17 @@ func do_init(_ud = null):
 		should_ask_about_replays = false
 		play_menu_music = false
 		# and light on the browser: the plain VOID world instead of the 3D
-		# tunnel, no anti-aliasing or HDR, the browser's own frame pacing
+		# tunnel, no anti-aliasing or HDR. Vsync stays on: without it the
+		# browser's frames came at uneven times (choppy, the cursor jerky).
 		var void_world = registry_world.get_item("ssp_void") if registry_world else null
 		if void_world:
 			selected_space = void_world
-		max_fps_mode = true # (Max FPS mode: no cap, no MSAA, no HDR)
-		apply_max_fps_mode()
+		# (oct31-2026-f turned Max FPS mode on here, and the browser may have
+		# kept it in its settings)
+		max_fps_mode = false
+		OS.vsync_enabled = true
+		Engine.target_fps = 0 # (the browser paces the frames to the screen)
+		call_deferred("_web_replay_light") # (after a saved setting's own deferred apply)
 	if alert != "":
 		emit_signal("init_stage_reached", "Alert prompt")
 		if not alert_snd_played: Globals.confirm_prompt.s_alert.play()
