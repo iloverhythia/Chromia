@@ -355,6 +355,18 @@ func _send_left(pressed: bool, pos: Vector2):
 	ev.button_mask = BUTTON_MASK_LEFT if pressed else 0
 	ev.pressed = pressed
 	viewport.input(ev)
+	if pressed:
+		# (crash reports: a crash inside the click's own code stops before this
+		# line; one while drawing what it changed stops before "frame drawn")
+		Rhythia.trail("VR click handled")
+		Rhythia.trail_frames(2)
+
+# crash reports: what each click lands on (a pressed button takes the focus
+# before its own code runs)
+func _on_focus_changed(c):
+	if c is Node:
+		var path := String(viewport.get_path_to(c))
+		Rhythia.trail("VR menu focus: %s" % path.right(max(0, path.length() - 160)))
 
 func _process(delta):
 	_pace_redraw()
@@ -411,6 +423,7 @@ func _ready():
 	# window's, a click or pointer move was dropped whenever something on the
 	# window had used the last event
 	viewport.handle_input_locally = true
+	viewport.connect("gui_focus_changed", self, "_on_focus_changed")
 	# laid out like a window, drawn sharper
 	LAYOUT = Vector2.ZERO
 	rebuild()
