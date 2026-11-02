@@ -28,3 +28,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating: following someone keeps watching them when they restart a map (it used to stop)
 - Background Editor: a Background brightness slider darkens the background behind the notes (notes and HUD stay bright)
 - VR: the Ball hand is white now in every scene (it looked grey in dark spaces and menus)
+- Background Editor: add .mp4, .mov, .mkv, .avi and other videos (the Chromia server turns them into .webm for you, no sound, up to 2 minutes; you can close the settings while it works). GIFs move, and .webm / .ogv are added as they are

@@ -6,6 +6,7 @@ extends VBoxContainer
 
 const BG = preload("res://scripts/BgLayers.gd")
 const Preview = preload("res://scripts/ui/settings/BgEditorPreview.gd")
+const VideoConvert = preload("res://scripts/ui/settings/BgVideoConvert.gd")
 
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const PINK = Color(1, 0.756863, 0.960784)
@@ -39,6 +40,8 @@ var font_reg: DynamicFont
 var font_bold: DynamicFont
 var font_small: DynamicFont
 var _updating_ui := false
+var _convert_queue := [] # .mp4 / .mov... waiting to be made .webm by the server
+var _converting = null # its BgVideoConvert while one is
 
 # Called once from menu2.gd: adds the "Background Editor" tab after
 # "World & Cursor" in the settings TabContainer.
@@ -178,7 +181,7 @@ func _ready():
 	btns.add_child(_button("Remove", "_remove_selected"))
 	btns.add_child(_button("Open folder", "_open_folder"))
 	left.add_child(btns)
-	var formats = _label("Images, or .webm / .ogv videos.", font_small, DIM)
+	var formats = _label("Pictures, GIFs (they move) and videos. .webm / .ogv videos are added as they are; .mp4, .mov, .mkv, .avi... are made .webm by the Chromia server first (no sound, up to 2 minutes).", font_small, DIM)
 	formats.autowrap = true
 	formats.rect_min_size = Vector2(LEFT_W, 0)
 	left.add_child(formats)
@@ -562,7 +565,7 @@ func _on_import_pressed():
 		status.text = "File picker isn't available"
 		return
 	Globals.file_sel.open_file(self, "_on_files_picked",
-		PoolStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp, *.gif, *.webm, *.ogv ; Images and videos"]),
+		PoolStringArray(["*.png, *.jpg, *.jpeg, *.webp, *.bmp, *.gif, *.webm, *.ogv, *.mp4, *.mov, *.m4v, *.mkv, *.avi, *.wmv, *.flv, *.3gp ; Pictures, GIFs and videos"]),
 		true, OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS))
 
 func _on_files_picked(files):
@@ -577,12 +580,11 @@ func _on_files_picked(files):
 		if layers.size() >= BG.MAX_LAYERS:
 			msgs.append("layer limit reached")
 			break
+		if VideoConvert.can_convert(path):
+			_convert_queue.append(path)
+			continue
 		if not BG.is_supported_file(path):
-			var ext = path.get_extension().to_lower()
-			if ["mp4", "mov", "mkv", "avi", "m4v"].has(ext):
-				msgs.append("%s: .%s isn't supported, use .webm" % [path.get_file(), ext])
-			else:
-				msgs.append("%s isn't a supported file" % path.get_file())
+			msgs.append("%s isn't a supported file" % path.get_file())
 			continue
 		if add_layer_from_file(path):
 			added += 1
@@ -591,6 +593,44 @@ func _on_files_picked(files):
 	if added > 0:
 		msgs.push_front("Added %d layer%s" % [added, "" if added == 1 else "s"])
 	status.text = PoolStringArray(msgs).join(" · ")
+	_convert_next()
+
+# The next video the game can't play: the server makes it a .webm, then it's
+# added like any other (BgVideoConvert.gd; one at a time).
+func _convert_next():
+	if _converting != null and is_instance_valid(_converting):
+		return
+	_converting = null
+	if _convert_queue.empty():
+		return
+	if layers.size() >= BG.MAX_LAYERS:
+		_convert_queue.clear()
+		status.text = "You can have up to %d layers" % BG.MAX_LAYERS
+		return
+	_converting = VideoConvert.start(String(_convert_queue.pop_front()))
+	_converting.connect("progress", self, "_on_convert_progress")
+	_converting.connect("finished", self, "_on_converted")
+
+func _on_convert_progress(text: String):
+	status.text = text + ("  (%d more after it)" % _convert_queue.size() if _convert_queue.size() > 0 else "")
+
+func _on_converted(webm: String, error: String):
+	var src: String = _converting.src_name if _converting != null and is_instance_valid(_converting) else "the video"
+	_converting = null
+	if webm == "":
+		status.text = "%s: %s" % [src, error]
+	elif layers.size() >= BG.MAX_LAYERS:
+		status.text = "You can have up to %d layers" % BG.MAX_LAYERS
+	elif add_layer_from_file(webm):
+		layers[layers.size() - 1].name = src
+		_refresh_list()
+		_save_now()
+		status.text = "Added %s (made .webm)" % src
+	else:
+		status.text = "couldn't load the converted " + src
+	if webm != "":
+		Directory.new().remove(webm)
+	_convert_next()
 
 # Imports one file as a new top layer. Returns false if it can't be shown.
 func add_layer_from_file(path: String) -> bool:
