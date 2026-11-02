@@ -36,3 +36,4 @@ in scripts/Savia.gd and empties this list.
 - VR: Settings > VR > Controller grip > Calibrate: a dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second, and the grip's tilt and turn are set so the beam goes where your hand points (either hand; B / Y cancels)
 - Content Browser: a Hit Sounds tab. Play one to hear it, Use it to make it your hit sound, or share yours / upload a file (.ogg, .mp3, .wav)
 - Content Browser > Maps > Chromia players: every map on the Chromia server is listed too (ranked ones say Ranked), ready to download
+- Fixed the Ranked filter leaving out ranked maps whose id has capitals, spaces or signs like . ! ( ) (for example the Trrricksters!! map)

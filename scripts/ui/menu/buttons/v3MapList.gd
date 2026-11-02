@@ -75,7 +75,7 @@ func search_matches(s: Song):
 		(not s.is_broken or show_broken_maps) and
 		(_st == "" or s.lname().find(_st) != -1) and
 		(_at == "" or s.creator.to_lower().find(_at) != -1) and
-		(not xp_only_maps or ranked_song_ids.has(s.id)) and
+		(not xp_only_maps or ranked_song_ids.has(_canon(s.id))) and
 		(folder_filter == null or folder_filter.has(s.id))
 	)
 
@@ -365,9 +365,36 @@ func update_search_xponly(show: bool):
 	xp_only_maps = show
 	if ready: reload_to_current_page()
 
+# The server keeps ranked maps by a cleaned-up key (savia_web src/util.js
+# canonSongKey): lowercase, anything but a-z 0-9 _ - made "_", "m" in front
+# of an empty key or one starting with "_". A map's own id can have capitals,
+# spaces or other signs, so comparing them as they were left those ranked
+# maps out of the Ranked filter. Both sides are compared as keys now.
+var _canon_cache := {}
+func _canon(id: String) -> String:
+	if _canon_cache.has(id):
+		return _canon_cache[id]
+	var k := canon_key(id)
+	_canon_cache[id] = k
+	return k
+
+static func canon_key(id: String) -> String:
+	var src := id.strip_edges().to_lower()
+	var out := ""
+	for i in src.length():
+		var c := src.ord_at(i)
+		if (c >= 97 and c <= 122) or (c >= 48 and c <= 57) or c == 95 or c == 45:
+			out += char(c)
+		else:
+			# (JavaScript counts a character outside the BMP as two)
+			out += "__" if c > 0xFFFF else "_"
+	if out == "" or out.begins_with("_"):
+		out = "m" + out
+	return out.left(200)
+
 func _on_ranked_maps_received(song_ids: Array):
 	ranked_song_ids = {}
-	for id in song_ids: ranked_song_ids[id] = true
+	for id in song_ids: ranked_song_ids[canon_key(String(id))] = true
 	if xp_only_maps and ready: reload_to_current_page()
 
 func update_search_flipped(flip: bool):
