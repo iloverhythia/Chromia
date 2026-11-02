@@ -146,7 +146,7 @@ func _build_lobby_ui():
 	header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header_hbox.add_child(header_spacer)
 	lobby_status_label = Label.new()
-	lobby_status_label.text = "● Not connected"
+	lobby_status_label.text = "Not in a lobby"
 	lobby_status_label.theme = ui_theme
 	lobby_status_label.clip_text = true
 	lobby_status_label.rect_min_size = Vector2(120, 0)
@@ -1653,20 +1653,17 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 		lobby_error_label.visible = false
 
 	if not lobby_active:
-		lobby_status_label.text = "● Not connected"
+		lobby_status_label.text = "Not in a lobby"
 		for child in lobby_player_list_box.get_children():
 			child.queue_free()
-		var empty = Label.new()
-		empty.text = "Not in lobby..."
-		lobby_player_list_box.add_child(empty)
 		_clear_lobby_chat()
 		return
 
 	var state = lobby_manager.lobby_state
-	lobby_status_label.text = "● %s" % ("Hosting" if is_host else "Connected")
+	lobby_status_label.text = "Hosting a lobby" if is_host else "In a lobby"
 	lobby_code_label.text = lobby_manager.lobby_code
-	lobby_map_label.text = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none")
-	lobby_selected_map_label.text = "Selected: %s" % _get_selected_song_name()
+	lobby_map_label.text = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
+	lobby_selected_map_label.text = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
 	lobby_map_button.disabled = not is_host
 
 	_rebuild_player_list(lobby_manager.players, lobby_manager.local_peer_id)
@@ -1726,57 +1723,46 @@ func _make_player_tag_label(p: Dictionary) -> Label:
 	return label
 
 func _rebuild_player_list(players: Array, local_peer_id: int):
+	var S = _online_style()
 	for child in lobby_player_list_box.get_children():
 		child.queue_free()
 	if players.size() == 0:
-		var empty = Label.new()
-		empty.text = "Waiting for players…"
-		lobby_player_list_box.add_child(empty)
+		lobby_player_list_box.add_child(S.label("Waiting for players...", S.f_small, S.DIM))
 		return
 	var lobby_manager = _get_lobby_manager()
 	var viewer_is_host = lobby_manager != null and lobby_manager.is_host
-	var ui_theme = load("res://uitheme.tres")
 	for p in players:
-		var row = HBoxContainer.new()
-		var name_label = Label.new()
-		var prefix = "(host) " if p.get("is_host", false) else "• "
-		var you_suffix = "" if int(p.get("peer_id", -1)) == local_peer_id else ""
-		var map_suffix = ""
+		var row = S.card(lobby_player_list_box)
+		var pname: String = Globals.s(p.get("name", "Player"))
+		row.add_child(S.initial(pname))
+		var texts := VBoxContainer.new()
+		texts.add_constant_override("separation", 0)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(texts)
+		var you: bool = int(p.get("peer_id", -1)) == local_peer_id
+		texts.add_child(S.label(pname + ("  (you)" if you else ""), S.f_bold, S.TEXT))
+		var state := "Ready"
+		var col: Color = S.PLAYING
 		if p.get("missing_map", false):
-			map_suffix = "  [downloading map...]"
+			state = "Downloading the map..."
+			col = S.BAD
 		elif not p.get("map_ready", false):
-			map_suffix = "  [checking map...]"
-		name_label.text = "%s%s%s%s" % [prefix, p.get("name", "Player"), you_suffix, map_suffix]
-		if p.get("missing_map", false):
-			name_label.add_color_override("font_color", Color(1, 0.5, 0.4))
-		elif not p.get("map_ready", false):
-			name_label.add_color_override("font_color", Color(1, 0.85, 0.4))
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(name_label)
-
+			state = "Checking the map..."
+			col = S.WAITING
+		texts.add_child(S.label(state, S.f_small, col))
 		var tag_label = _make_player_tag_label(p)
 		if tag_label != null:
+			tag_label.add_font_override("font", S.f_small)
+			tag_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			row.add_child(tag_label)
-
-		var stats_label = Label.new()
-		var total = int(p.get("total_notes", 0))
-		if total > 0:
-			var acc_pct = float(p.get("accuracy", 0.0)) * 100.0
-			stats_label.text = ""
-		else:
-			stats_label.text = "-"
-		row.add_child(stats_label)
-
+		if p.get("is_host", false):
+			row.add_child(S.badge("HOST", S.PINK))
 		var target_peer_id = int(p.get("peer_id", -1))
 		if viewer_is_host and not p.get("is_host", false) and target_peer_id != local_peer_id:
-			var make_host_btn = Button.new()
-			make_host_btn.text = "Make Host"
-			make_host_btn.theme = ui_theme
-			make_host_btn.rect_min_size = Vector2(0, 28)
-			make_host_btn.connect("pressed", self, "_on_make_host_pressed", [target_peer_id])
-			row.add_child(make_host_btn)
-
-		lobby_player_list_box.add_child(row)
+			var b = S.make_button("Make host", self, "_on_make_host_pressed", [target_peer_id], false, true)
+			b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(b)
 
 func _on_make_host_pressed(target_peer_id: int):
 	var lobby_manager = _get_lobby_manager()
@@ -1787,7 +1773,7 @@ func _on_copy_code_pressed():
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null and lobby_manager.lobby_code != "":
 		OS.clipboard = lobby_manager.lobby_code
-		lobby_status_label.text = "● Code copied!"
+		lobby_status_label.text = "Code copied!"
 
 func _apply_chat_ban(_b = null):
 	preload("res://scripts/ui/ChatBan.gd").apply(lobby_chat_input, lobby_chat_send, preload("res://scripts/ui/ChatBan.gd").banned())
@@ -1862,6 +1848,8 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 	var line = Label.new()
 	line.text = "%s: %s" % [name, text]
 	line.autowrap = true
+	if global_chat_input != null and global_chat_input.has_font_override("font"):
+		line.add_font_override("font", global_chat_input.get_font("font"))
 	if is_you:
 		line.add_color_override("font_color", Color(0.65, 0.85, 1.0))
 	elif preload("res://scripts/ui/ChatMention.gd").mentions_me(text, _get_lobby_manager()):
@@ -2023,6 +2011,7 @@ func _grow(c: Control, min_h: float = 80):
 # The lobby panel was one long scrolling column. On its own page it's split
 # into three columns that fill the window: lobby controls | players | chats.
 func _layout_online_columns():
+	var S = _online_style()
 	var vbox = lobby_setup_box.get_parent()
 	var body_scroll = vbox.get_parent()
 	var margin = body_scroll.get_parent()
@@ -2031,13 +2020,36 @@ func _layout_online_columns():
 	var players_caption = vbox.get_child(player_scroll.get_index() - 1)
 	var footer = lobby_leave_button.get_parent()
 
+	# the window: the Spectate window's dark panel
+	lobby_panel.add_stylebox_override("panel", S.flat(S.WINDOW_BG, 4, Color(1, 1, 1, 0.07), 1))
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_constant_override("margin_" + side, 28)
+	margin.add_constant_override("margin_top", 22)
+
 	var root := VBoxContainer.new()
-	root.add_constant_override("separation", 10)
+	root.add_constant_override("separation", 14)
 	margin.add_child(root)
 	_online_root = root
-	_online_header = header
-	_move_to(header, root)
+
+	# header: the big title with the status under it (like the Profile page)
+	var head := HBoxContainer.new()
+	head.add_constant_override("separation", 12)
+	root.add_child(head)
+	_online_header = head
+	var titles := VBoxContainer.new()
+	titles.add_constant_override("separation", 0)
+	head.add_child(titles)
+	titles.add_child(S.title("Online"))
+	_move_to(lobby_status_label, titles)
+	lobby_status_label.add_font_override("font", S.f_small)
+	lobby_status_label.add_color_override("font_color", S.DIM)
+	lobby_status_label.rect_min_size = Vector2()
+	lobby_status_label.clip_text = false
+	head.add_child(S.spacer())
+	header.queue_free()
 	_move_to(lobby_error_label, root)
+	lobby_error_label.add_font_override("font", S.f_bold)
+	root.add_child(S.rule())
 
 	var cols := HBoxContainer.new()
 	cols.add_constant_override("separation", 16)
@@ -2045,37 +2057,203 @@ func _layout_online_columns():
 	root.add_child(cols)
 	_online_cols = cols
 
-	# Left: lobby controls, with the action buttons pinned to the bottom.
-	var left := _column_panel(cols, 1.0)
+	# left: play together (not in a lobby) or your lobby
+	var left = S.section(cols, 1.25)
 	_move_to(lobby_setup_box, left)
 	_move_to(lobby_active_box, left)
-	if _lobby_public_scroll != null:
-		_grow(_lobby_public_scroll, 120)
-		lobby_setup_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left.add_child(spacer)
-	_move_to(lobby_start_button, left)
-	_move_to(footer, left)
+	_build_online_setup(S)
+	_build_online_active(S, players_caption, player_scroll, footer)
 
-	# Middle: players, full height.
-	var mid := _column_panel(cols, 0.8)
-	_move_to(players_caption, mid)
-	_move_to(player_scroll, mid)
-	_grow(player_scroll, 120)
-
-	# Right: lobby chat above global chat, sharing the height.
-	var right := _column_panel(cols, 1.3)
+	# right: the chats
+	var right = S.section(cols, 1.0)
 	_move_to(lobby_chat_box, right)
 	lobby_chat_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_grow(lobby_chat_scroll, 80)
+	_style_chat_box(S, lobby_chat_box, lobby_chat_scroll, lobby_chat_input, lobby_chat_send, "Lobby chat")
 	_move_to(global_chat_box, right)
 	global_chat_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_grow(global_chat_scroll, 80)
+	_style_chat_box(S, global_chat_box, global_chat_scroll, global_chat_input, null, "Global chat")
 
 	# Whatever is left in the old column (separators) goes away.
 	margin.remove_child(body_scroll)
 	body_scroll.queue_free()
+	var online_page = get_node_or_null("Main/Online")
+	if online_page != null and not online_page.is_connected("visibility_changed", self, "_on_online_page_shown"):
+		online_page.connect("visibility_changed", self, "_on_online_page_shown")
+
+var _ost = null
+func _online_style():
+	if _ost == null:
+		_ost = load("res://scripts/ui/menu/OnlineStyle.gd").new()
+	return _ost
+
+# not in a lobby: host, join by code, and the public lobbies (always listed)
+func _build_online_setup(S):
+	var box = lobby_setup_box
+	box.add_constant_override("separation", 10)
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	for c in [lobby_public_checkbox, lobby_code_input, lobby_host_button.get_parent(), lobby_browse_button, _lobby_public_scroll]:
+		box.remove_child(c)
+	box.add_child(S.heading("Play together"))
+	box.add_child(S.label("Host a lobby and send your friends its code, or join theirs. Everyone plays the same map at the same time.", S.f_small, S.DIM, true))
+	var host_row := HBoxContainer.new()
+	host_row.add_constant_override("separation", 10)
+	box.add_child(host_row)
+	var host_btns = lobby_host_button.get_parent()
+	host_btns.remove_child(lobby_host_button)
+	host_btns.remove_child(lobby_join_button)
+	host_btns.queue_free()
+	lobby_host_button.text = "Host a lobby"
+	S.button(lobby_host_button, true)
+	lobby_host_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	host_row.add_child(lobby_host_button)
+	lobby_public_checkbox.text = "Public (anyone can join)"
+	S.check(lobby_public_checkbox)
+	host_row.add_child(lobby_public_checkbox)
+	var join_row := HBoxContainer.new()
+	join_row.add_constant_override("separation", 10)
+	box.add_child(join_row)
+	lobby_code_input.placeholder_text = "Friend's lobby code"
+	S.field(lobby_code_input)
+	lobby_code_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if not lobby_code_input.is_connected("text_entered", self, "_on_code_entered"):
+		lobby_code_input.connect("text_entered", self, "_on_code_entered")
+	join_row.add_child(lobby_code_input)
+	lobby_join_button.text = "Join"
+	S.button(lobby_join_button)
+	lobby_join_button.rect_min_size.x = 120
+	lobby_join_button.size_flags_horizontal = 0
+	join_row.add_child(lobby_join_button)
+	box.add_child(S.rule())
+	var pub_head := HBoxContainer.new()
+	box.add_child(pub_head)
+	pub_head.add_child(S.heading("Public lobbies"))
+	pub_head.add_child(S.spacer())
+	lobby_browse_button.text = "Refresh"
+	S.button(lobby_browse_button, false, true)
+	lobby_browse_button.disconnect("pressed", self, "_on_browse_public_pressed")
+	lobby_browse_button.connect("pressed", self, "_refresh_public_lobbies")
+	pub_head.add_child(lobby_browse_button)
+	box.add_child(_lobby_public_scroll)
+	S.scroll(_lobby_public_scroll)
+	_lobby_public_scroll.visible = true
+	_lobby_public_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_lobby_public_scroll.rect_min_size = Vector2(0, 120)
+	lobby_public_list_box.add_constant_override("separation", 8)
+
+# in a lobby: its code, map, players, then Start / Leave
+func _build_online_active(S, players_caption, player_scroll, footer):
+	var box = lobby_active_box
+	box.add_constant_override("separation", 10)
+	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var code_row = lobby_code_label.get_parent()
+	for c in [code_row, lobby_map_label, lobby_map_button, lobby_selected_map_label]:
+		box.remove_child(c)
+	box.add_child(S.heading("Your lobby"))
+	var top := HBoxContainer.new()
+	top.add_constant_override("separation", 10)
+	box.add_child(top)
+	# the code, big, with Copy
+	var code_card = S.card(top)
+	var code_texts := VBoxContainer.new()
+	code_texts.add_constant_override("separation", 0)
+	code_texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	code_card.add_child(code_texts)
+	code_texts.add_child(S.label("Lobby code", S.f_small, S.DIM))
+	code_row.remove_child(lobby_code_label)
+	code_texts.add_child(lobby_code_label)
+	lobby_code_label.add_font_override("font", S.f_code)
+	lobby_code_label.add_color_override("font_color", S.ACCENT)
+	code_row.remove_child(lobby_copy_code_button)
+	lobby_copy_code_button.text = "Copy"
+	S.button(lobby_copy_code_button)
+	lobby_copy_code_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	code_card.add_child(lobby_copy_code_button)
+	code_row.queue_free()
+	# the map
+	var map_card = S.card(top)
+	map_card.get_parent().size_flags_stretch_ratio = 1.4
+	var map_texts := VBoxContainer.new()
+	map_texts.add_constant_override("separation", 2)
+	map_texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_card.add_child(map_texts)
+	map_texts.add_child(lobby_map_label)
+	lobby_map_label.add_font_override("font", S.f_bold)
+	lobby_map_label.add_color_override("font_color", S.TEXT)
+	map_texts.add_child(lobby_selected_map_label)
+	lobby_selected_map_label.add_font_override("font", S.f_small)
+	lobby_selected_map_label.add_color_override("font_color", S.DIM)
+	lobby_map_button.text = "Use selected"
+	S.button(lobby_map_button)
+	lobby_map_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	map_card.add_child(lobby_map_button)
+	box.add_child(S.rule())
+	# players
+	players_caption.queue_free()
+	box.add_child(S.heading("Players"))
+	_move_to(player_scroll, box)
+	S.scroll(player_scroll)
+	_grow(player_scroll, 120)
+	lobby_player_list_box.add_constant_override("separation", 8)
+	# start / leave
+	var actions := HBoxContainer.new()
+	actions.add_constant_override("separation", 10)
+	box.add_child(actions)
+	_move_to(lobby_start_button, actions)
+	S.button(lobby_start_button, true)
+	lobby_start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lobby_start_button.rect_min_size.y = 44
+	footer.remove_child(lobby_leave_button)
+	lobby_leave_button.size_flags_horizontal = 0
+	lobby_leave_button.text = "Leave lobby"
+	S.button(lobby_leave_button)
+	lobby_leave_button.rect_min_size = Vector2(140, 44)
+	actions.add_child(lobby_leave_button)
+	# (Back to Maps: the sidebar does that)
+	footer.get_parent().remove_child(footer)
+	footer.queue_free()
+	lobby_close_button = null
+
+func _style_chat_box(S, box: VBoxContainer, sc: ScrollContainer, input: LineEdit, send: Button, title_text: String):
+	box.add_constant_override("separation", 8)
+	for c in box.get_children():
+		if c is Label or c is HSeparator:
+			c.queue_free()
+	var h = S.heading(title_text)
+	box.add_child(h)
+	box.move_child(h, 0)
+	S.scroll(sc)
+	_grow(sc, 80)
+	if input != null:
+		S.field(input)
+		var row = input.get_parent()
+		for c in row.get_children():
+			if c is Button:
+				S.button(c, true)
+				c.rect_min_size.x = 90
+
+func _on_code_entered(_t: String):
+	_on_join_lobby_pressed()
+
+# the Online page shown: the public lobbies listed (and kept up to date)
+func _on_online_page_shown():
+	var page = get_node_or_null("Main/Online")
+	var lobby_manager = _get_lobby_manager()
+	if page == null or lobby_manager == null:
+		return
+	if page.is_visible_in_tree():
+		_refresh_public_lobbies()
+	elif _browsing_public:
+		_browsing_public = false
+		lobby_manager.unsubscribe_public_lobbies()
+
+func _refresh_public_lobbies():
+	var lobby_manager = _get_lobby_manager()
+	_browsing_public = true
+	if lobby_manager != null:
+		lobby_manager.list_public_lobbies()
+	if lobby_public_list_box.get_child_count() == 0:
+		var S = _online_style()
+		lobby_public_list_box.add_child(S.label("Looking for lobbies...", S.f_small, S.DIM))
 
 func _show_online_page():
 	var sidebar = get_node_or_null("Sidebar")
@@ -2316,34 +2494,31 @@ func _on_browse_public_pressed():
 func _on_public_lobbies_received(lobbies: Array):
 	if not _browsing_public:
 		return
+	var S = _online_style()
 	for child in lobby_public_list_box.get_children():
 		child.queue_free()
 	if lobbies.size() == 0:
-		var empty = Label.new()
-		empty.text = "No public lobbies right now."
-		lobby_public_list_box.add_child(empty)
+		lobby_public_list_box.add_child(S.label("No public lobbies right now. Host one and it shows here for everyone.", S.f_small, S.DIM, true))
 		return
-	var ui_theme = load("res://uitheme.tres")
 	for l in lobbies:
-		var row = HBoxContainer.new()
-		var label = Label.new()
+		var row = S.card(lobby_public_list_box)
+		var host: String = Globals.s(l.get("host_name", "Player"))
+		row.add_child(S.initial(host))
+		var texts := VBoxContainer.new()
+		texts.add_constant_override("separation", 0)
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(texts)
+		texts.add_child(S.label("%s's lobby" % host, S.f_bold, S.TEXT))
+		var n := int(l.get("player_count", 0))
+		texts.add_child(S.label("%d player%s" % [n, "" if n == 1 else "s"], S.f_small, S.DIM))
 		var started = bool(l.get("started", false))
-		label.text = "%s (%s)%s" % [
-			String(l.get("host_name", "Player")), int(l.get("player_count", 0)),
-			"  [in progress]" if started else "",
-		]
 		if started:
-			label.add_color_override("font_color", Color(0.8, 0.8, 0.6))
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(label)
-		var join_btn = Button.new()
-		join_btn.text = "Spectate" if started else "Join"
-		join_btn.theme = ui_theme
-		join_btn.rect_min_size = Vector2(0, 28)
-		var code = String(l.get("code", ""))
-		join_btn.connect("pressed", self, "_on_join_public_pressed", [code])
-		row.add_child(join_btn)
-		lobby_public_list_box.add_child(row)
+			row.add_child(S.badge("PLAYING", S.PLAYING))
+		var b = S.make_button("Spectate" if started else "Join", self, "_on_join_public_pressed", [String(l.get("code", ""))], not started, true)
+		b.rect_min_size.x = 96
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(b)
 
 func _on_join_public_pressed(code: String):
 	var name_text = lobby_name_input.text.strip_edges()
@@ -2369,7 +2544,7 @@ func _on_selected_song_changed(_song):
 		_refresh_ranker_panel_for_selected_song()
 
 func _on_lobby_created(code):
-	lobby_code_label.text = "Code: %s" % code
+	lobby_code_label.text = code
 	lobby_status_label.text = "Lobby created. Share the code."
 	_update_lobby_ui()
 

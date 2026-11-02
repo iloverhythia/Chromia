@@ -317,6 +317,7 @@ func _ready():
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
+	get_tree().create_timer(1.5).connect("timeout", self, "_prewarm")
 
 func _build_eye():
 	eye = EyeButton.new()
@@ -640,11 +641,19 @@ func _on_dim_input(ev):
 
 # ------------------------------------------------------------------ open / close
 
-# opening slides the window in from the right and fades it in (the menu dims
-# behind it); closing does the same backwards, quicker
-const SLIDE_IN := 0.28
-const SLIDE_OUT := 0.16
+# opening: the window rises a little, grows from 96.5% and fades in while the
+# menu dims behind it; closing is the same backwards, quicker. To keep it
+# smooth, the motion starts a frame after the window appears (that frame does
+# the setup work) and the cards / chat are filled once it has finished (a list
+# that comes in meanwhile waits). The window is drawn once, unseen, after the
+# menu loads, so its text is ready the first time it opens.
+const SLIDE_IN := 0.34
+const SLIDE_OUT := 0.18
+const RISE := 26.0
+const FROM_SCALE := 0.965
 var _tween: Tween
+var _animating := false
+var _held_list = null # [list, you] that came in while opening
 
 func _slide(opening: bool):
 	if _tween == null:
@@ -652,34 +661,68 @@ func _slide(opening: bool):
 		add_child(_tween)
 	_tween.remove_all()
 	var home := window.rect_position
-	var away := home + Vector2(70.0 * _k, 0)
+	var away := home + Vector2(0, RISE * _k)
+	window.rect_pivot_offset = window.rect_size / 2.0
 	var dim = overlay.get_child(0)
 	if opening:
 		window.rect_position = away
+		window.rect_scale = Vector2.ONE * FROM_SCALE
 		window.modulate.a = 0.0
 		dim.modulate.a = 0.0
-		_tween.interpolate_property(window, "rect_position", away, home, SLIDE_IN, Tween.TRANS_CUBIC, Tween.EASE_OUT)
-		_tween.interpolate_property(window, "modulate:a", 0.0, 1.0, SLIDE_IN * 0.8, Tween.TRANS_SINE, Tween.EASE_OUT)
-		_tween.interpolate_property(dim, "modulate:a", 0.0, 1.0, SLIDE_IN, Tween.TRANS_SINE, Tween.EASE_OUT)
+		_tween.interpolate_property(window, "rect_position", away, home, SLIDE_IN, Tween.TRANS_QUART, Tween.EASE_OUT)
+		_tween.interpolate_property(window, "rect_scale", window.rect_scale, Vector2.ONE, SLIDE_IN, Tween.TRANS_QUART, Tween.EASE_OUT)
+		_tween.interpolate_property(window, "modulate:a", 0.0, 1.0, SLIDE_IN * 0.7, Tween.TRANS_SINE, Tween.EASE_OUT)
+		_tween.interpolate_property(dim, "modulate:a", 0.0, 1.0, SLIDE_IN * 0.8, Tween.TRANS_SINE, Tween.EASE_OUT)
+		_tween.interpolate_callback(self, SLIDE_IN, "_opened")
 	else:
-		_tween.interpolate_property(window, "rect_position", home, away, SLIDE_OUT, Tween.TRANS_CUBIC, Tween.EASE_IN)
+		var to := window.rect_position + Vector2(0, RISE * 0.5 * _k)
+		_tween.interpolate_property(window, "rect_position", window.rect_position, to, SLIDE_OUT, Tween.TRANS_QUAD, Tween.EASE_IN)
+		_tween.interpolate_property(window, "rect_scale", window.rect_scale, Vector2.ONE * 0.985, SLIDE_OUT, Tween.TRANS_QUAD, Tween.EASE_IN)
 		_tween.interpolate_property(window, "modulate:a", window.modulate.a, 0.0, SLIDE_OUT, Tween.TRANS_SINE, Tween.EASE_IN)
 		_tween.interpolate_property(dim, "modulate:a", dim.modulate.a, 0.0, SLIDE_OUT, Tween.TRANS_SINE, Tween.EASE_IN)
 		_tween.interpolate_callback(self, SLIDE_OUT, "_closed")
 	_tween.start()
 
+func _opened():
+	_animating = false
+	if not _open:
+		return
+	if _held_list != null:
+		var h = _held_list
+		_held_list = null
+		_on_list(h[0], h[1])
+	_fill_chat()
+	_update_info()
+
 func _closed():
 	if not _open:
 		overlay.visible = false
+		window.rect_scale = Vector2.ONE
 		_resize() # (back where it belongs for next time)
+
+# drawn once, unseen, so the first open doesn't stop to make its text
+func _prewarm():
+	if _open or overlay == null:
+		return
+	overlay.visible = true
+	window.modulate.a = 0.02
+	overlay.get_child(0).modulate.a = 0.0
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	if not _open:
+		overlay.visible = false
+		window.modulate.a = 1.0
+		overlay.get_child(0).modulate.a = 1.0
 
 func open():
 	if _open:
 		return
 	_open = true
+	_animating = true
 	overlay.visible = true
 	_resize()
-	_slide(true)
+	window.modulate.a = 0.0 # (unseen until the motion starts next frame)
+	overlay.get_child(0).modulate.a = 0.0
 	_clear_notice()
 	if _lm != null:
 		if not _lm.is_connected("online_players_received", self, "_on_list"):
@@ -688,17 +731,21 @@ func open():
 			_lm.connect("presence_support_changed", self, "_on_support")
 		_lm.subscribe_online()
 		if not _lm.online_players.empty():
-			_on_list(_lm.online_players, _lm.my_player_number)
-	_fill_chat()
+			_held_list = [_lm.online_players, _lm.my_player_number]
 	_update_info()
 	# ready to type in the chat (not on phones: it would pop the keyboard up)
 	if chat_input.editable and chat_input.is_visible_in_tree() and not Rhythia.device("mobile"):
 		chat_input.call_deferred("grab_focus")
+	yield(get_tree(), "idle_frame")
+	if _open:
+		_slide(true)
 
 func close():
 	if not _open:
 		return
 	_open = false
+	_animating = false
+	_held_list = null
 	_slide(false)
 	if chat_input.has_focus():
 		chat_input.release_focus()
@@ -733,6 +780,9 @@ func _update_info():
 	info.visible = text != ""
 
 func _on_list(lst: Array, you: int):
+	if _animating:
+		_held_list = [lst, you] # (after the opening motion)
+		return
 	_list = lst
 	_you = you
 	var playing := 0
