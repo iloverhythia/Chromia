@@ -1,15 +1,18 @@
 extends Node
 
 # A video the game can't play (.mp4, .mov, .mkv, .avi...) for the Background
-# Editor: sent to the Chromia server, which makes it a .webm (savia_web
+# Editor: sent to the Chromia server, which makes it an .ogv (savia_web
 # src/videoconvert.js), then downloaded and added as a layer.
 #
 # It lives under the scene tree's root, so it finishes even if the settings are
 # closed meanwhile (the layer is then added to the saved layout).
-#   convert(path)  -> "progress"(text), "finished"(webm path or "", error text)
+#   convert(path)  -> "progress"(text), "finished"(.ogv path or "", error text)
+#
+# .ogv (Theora) because every version of the game plays it: the iPhone one has
+# no .webm player, so there .webm files are sent to be converted too.
 
 signal progress(text)
-signal finished(webm_path, error)
+signal finished(ogv_path, error)
 
 const URL := "https://savia.nysr.host/savia-convert-video"
 const EXTS := ["mp4", "mov", "m4v", "mkv", "avi", "wmv", "flv", "3gp"]
@@ -23,7 +26,12 @@ var _job := ""
 var _waited := 0.0
 
 static func can_convert(path: String) -> bool:
-	return EXTS.has(path.get_extension().to_lower())
+	var ext := path.get_extension().to_lower()
+	return EXTS.has(ext) or (ext == "webm" and not plays_webm())
+
+# (no .webm player in the iPhone version of Godot 3)
+static func plays_webm() -> bool:
+	return ClassDB.class_exists("VideoStreamWebm") and ClassDB.can_instance("VideoStreamWebm")
 
 static func start(path: String) -> Node:
 	var c = load("res://scripts/ui/settings/BgVideoConvert.gd").new()
@@ -109,10 +117,10 @@ func _download():
 	var dir := Directory.new()
 	dir.make_dir_recursive(Globals.p(OUT_DIR))
 	var base := src_name.get_basename()
-	var out: String = Globals.p(OUT_DIR).plus_file("%s.webm" % (base if base != "" else "video"))
+	var out: String = Globals.p(OUT_DIR).plus_file("%s.ogv" % (base if base != "" else "video"))
 	var http := _new_http("_on_downloaded", [out])
 	http.download_file = out
-	if http.request("%s/%s.webm" % [URL, _job]) != OK:
+	if http.request("%s/%s.ogv" % [URL, _job]) != OK:
 		_done("", "couldn't reach the server")
 
 func _on_downloaded(result, code, _headers, _body, out: String):
@@ -120,24 +128,33 @@ func _on_downloaded(result, code, _headers, _body, out: String):
 		Directory.new().remove(out)
 		_done("", "couldn't download the converted video (%s)" % str(code))
 		return
+	var f := File.new()
+	var head := PoolByteArray()
+	if f.open(out, File.READ) == OK:
+		head = f.get_buffer(4)
+		f.close()
+	if head.get_string_from_ascii() != "OggS":
+		Directory.new().remove(out)
+		_done("", "the server sent back something that isn't a video")
+		return
 	_done(out, "")
 
-func _done(webm: String, error: String):
+func _done(ogv: String, error: String):
 	if not get_signal_connection_list("finished").empty():
-		emit_signal("finished", webm, error)
+		emit_signal("finished", ogv, error)
 	else:
-		_add_to_saved(webm, error) # (the Background Editor was closed meanwhile)
+		_add_to_saved(ogv, error) # (the Background Editor was closed meanwhile)
 	queue_free()
 
 # no Background Editor open: the video goes on top of the saved layout
-func _add_to_saved(webm: String, error: String):
-	if webm == "":
+func _add_to_saved(ogv: String, error: String):
+	if ogv == "":
 		Globals.notify(Globals.NOTIFY_INFO, "%s: %s" % [src_name, error], "Background Editor")
 		return
 	var BG = load("res://scripts/BgLayers.gd")
 	var d: Dictionary = BG.load_own_data()
-	var file: String = BG.import_file(webm) if d.layers.size() < BG.MAX_LAYERS else ""
-	Directory.new().remove(webm)
+	var file: String = BG.import_file(ogv) if d.layers.size() < BG.MAX_LAYERS else ""
+	Directory.new().remove(ogv)
 	if file == "":
 		Globals.notify(Globals.NOTIFY_INFO, "%s couldn't be added (layer limit or disk)" % src_name, "Background Editor")
 		return

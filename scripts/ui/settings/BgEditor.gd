@@ -40,7 +40,7 @@ var font_reg: DynamicFont
 var font_bold: DynamicFont
 var font_small: DynamicFont
 var _updating_ui := false
-var _convert_queue := [] # .mp4 / .mov... waiting to be made .webm by the server
+var _convert_queue := [] # .mp4 / .mov... waiting to be made .ogv by the server
 var _converting = null # its BgVideoConvert while one is
 
 # Called once from menu2.gd: adds the "Background Editor" tab after
@@ -181,7 +181,7 @@ func _ready():
 	btns.add_child(_button("Remove", "_remove_selected"))
 	btns.add_child(_button("Open folder", "_open_folder"))
 	left.add_child(btns)
-	var formats = _label("Pictures, GIFs (they move) and videos. .webm / .ogv videos are added as they are; .mp4, .mov, .mkv, .avi... are made .webm by the Chromia server first (no sound, up to 2 minutes).", font_small, DIM)
+	var formats = _label("Pictures, GIFs (they move) and videos. .webm / .ogv videos are added as they are; .mp4, .mov, .mkv, .avi... are made .ogv by the Chromia server first (no sound, up to 2 minutes).", font_small, DIM)
 	formats.autowrap = true
 	formats.rect_min_size = Vector2(LEFT_W, 0)
 	left.add_child(formats)
@@ -589,13 +589,13 @@ func _on_files_picked(files):
 		if add_layer_from_file(path):
 			added += 1
 		else:
-			msgs.append("couldn't load " + path.get_file())
+			msgs.append("couldn't load %s: %s" % [path.get_file(), _why_not(path)])
 	if added > 0:
 		msgs.push_front("Added %d layer%s" % [added, "" if added == 1 else "s"])
 	status.text = PoolStringArray(msgs).join(" · ")
 	_convert_next()
 
-# The next video the game can't play: the server makes it a .webm, then it's
+# The next video the game can't play: the server makes it an .ogv, then it's
 # added like any other (BgVideoConvert.gd; one at a time).
 func _convert_next():
 	if _converting != null and is_instance_valid(_converting):
@@ -625,12 +625,20 @@ func _on_converted(webm: String, error: String):
 		layers[layers.size() - 1].name = src
 		_refresh_list()
 		_save_now()
-		status.text = "Added %s (made .webm)" % src
+		status.text = "Added %s (converted)" % src
 	else:
-		status.text = "couldn't load the converted " + src
+		status.text = "couldn't load the converted %s: %s" % [src, _why_not(webm)]
 	if webm != "":
 		Directory.new().remove(webm)
 	_convert_next()
+
+# why a file couldn't be shown, in words
+func _why_not(path: String) -> String:
+	if BG.is_video_file(path):
+		if Globals.new_video_stream(path) == null:
+			return "this device can't play .%s videos" % path.get_extension().to_lower()
+		return "the video couldn't be read (a .webm must be VP8 / VP9, an .ogv Theora)"
+	return "it isn't a picture the game can read"
 
 # Imports one file as a new top layer. Returns false if it can't be shown.
 func add_layer_from_file(path: String) -> bool:
