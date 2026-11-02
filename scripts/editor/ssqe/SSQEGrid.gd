@@ -126,7 +126,7 @@ func _draw():
 
 	# grid letters
 	if s.gridLetters:
-		var keys: Array = SSQESettings.NUMPAD_KEYS if s.numpad else SSQESettings.GRID_KEYS
+		var keys: Array = SSQESettings.grid_keys(s)
 		var f: DynamicFont = ed.font(int(round(38 * text_scale * 0.78)), true)
 		for i in range(keys.size()):
 			var gx := i % 3

@@ -267,7 +267,8 @@ func font(px: int, bold := false) -> DynamicFont:
 func text_font(text_size: float, scale := -1.0, bold := false) -> DynamicFont:
 	if scale < 0:
 		scale = min(wd, hd)
-	return font(int(round(text_size * TEXT_K * scale)), bold)
+	var fs := clamp(float(s.get("fontScale", 1.0)), 0.5, 2.0) if s is Dictionary else 1.0
+	return font(int(round(text_size * TEXT_K * scale * fs)), bold)
 
 # Control.Resize: a stage rect -> editor pixels (stretch: "XY", "X", "Y" or "")
 func stage_rect(x: float, y: float, w: float, h: float, stretch := "XY") -> Rect2:

@@ -1585,6 +1585,7 @@ func _st_tab(t: String):
 		"GRAPHICS":
 			_sr_section("Look", "")
 			_sr_toggle("Legacy UI", "The editor in Sound Space Quantum Editor Plus's own look: its fonts, controls and colours", "legacyUI")
+			_sr_slider("Font scale", "Every text in the editor", "fontScale", 0.5, 2.0, 0.05)
 			_sr_section("Display", "")
 			_sr_slider("Editor background opacity", "", "editorBGOpacity", 0, 255, 1)
 			_sr_slider("Grid opacity", "", "gridOpacity", 0, 255, 1)
@@ -1651,6 +1652,8 @@ func _st_tab(t: String):
 		"KEYBINDS":
 			_st_keybinds()
 		"OTHER":
+			_sr_section("From SSQE+", "")
+			_sr_button("Import SSQE+ settings", "settings.txt from your Sound Space Quantum Editor Plus folder (next to the .exe): colours, keybinds, grid keys, patterns, playtest and the rest", "IMPORT", "_st_import_ssqe")
 			_sr_section("Saving", "")
 			_sr_toggle("Enable autosave", "", "autosave")
 			_sr_slider("Autosave interval", "minutes", "autosaveInterval", 0.5, 30, 0.5)
@@ -1714,6 +1717,45 @@ func _sr_row(label: String, hint: String) -> HBoxContainer:
 		hl.add_color_override("font_color", ST_DIM)
 		names.add_child(hl)
 	return h
+
+# a row with a button on the right
+func _sr_button(label: String, hint: String, text: String, method: String) -> Button:
+	var h := _sr_row(label, hint)
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = FOCUS_NONE
+	b.size_flags_vertical = SIZE_SHRINK_CENTER
+	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	b.add_font_override("font", ed.font(int(13 * _st.k), true))
+	b.rect_min_size = Vector2(110 * _st.k, 30 * _st.k)
+	_st_flat(b, true)
+	b.connect("pressed", self, method)
+	h.add_child(b)
+	return b
+
+# SSQE+'s settings.txt (or the web editor's saved settings): SSQEImportSettings.gd
+func _st_import_ssqe():
+	if Globals.file_sel == null:
+		return
+	Globals.file_sel.open_file(self, "_st_import_picked", PoolStringArray(["*.txt, *.json ; SSQE+ settings (settings.txt)"]), false, OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS))
+
+func _st_import_picked(files):
+	var path := ""
+	if files is String:
+		path = files
+	elif (files is PoolStringArray or files is Array) and files.size() > 0:
+		path = String(files[0])
+	if path == "":
+		return
+	var r: Dictionary = load("res://scripts/editor/ssqe/SSQEImportSettings.gd").import_file(path, ed.s)
+	if not r.ok:
+		Globals.notify(Globals.NOTIFY_WARN, String(r.error), "Import SSQE+ settings")
+		return
+	ed.settings_changed()
+	var extra: String = (" (" + PoolStringArray(r.notes).join(", ") + ")") if not r.notes.empty() else ""
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Imported %d settings from SSQE+%s." % [r.count, extra], "Import SSQE+ settings")
+	if windows.has("settings"):
+		_st_tab(_st.tab) # (the values shown again)
 
 func _sr_hover(sb: StyleBoxFlat, on: bool):
 	sb.bg_color = ST_ROW_HOVER if on else ST_ROW

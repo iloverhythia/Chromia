@@ -174,6 +174,8 @@ static func defaults() -> Dictionary:
 		"autosaveInterval": 0.5, # minutes
 		"lastSettingsTab": "COLORS",
 		"legacyUI": false, # SSQE+'s own look (SSQELegacy.gd)
+		"gridKeys": GRID_KEYS.duplicate(), # the 9 keys that place notes (rebindable, like SSQE's)
+		"fontScale": 1.0, # every text's size (SSQE's Font Scale: FontRenderer.cs)
 	}
 
 static func load_settings() -> Dictionary:
@@ -204,7 +206,21 @@ static func load_settings() -> Dictionary:
 				s[key] = v
 	if not (s.patterns is Array) or s.patterns.size() != 10:
 		s.patterns = ["", "", "", "", "", "", "", "", "", ""]
+	if not (s.gridKeys is Array) or s.gridKeys.size() != 9:
+		s.gridKeys = GRID_KEYS.duplicate()
+	else:
+		var gk := []
+		for k in s.gridKeys:
+			gk.append(int(k))
+		s.gridKeys = gk
 	return s
+
+# the 9 keys that place notes: the numpad, or the grid keys (yours)
+static func grid_keys(s: Dictionary) -> Array:
+	if s.get("numpad", false):
+		return NUMPAD_KEYS
+	var gk = s.get("gridKeys", GRID_KEYS)
+	return gk if gk is Array and gk.size() == 9 else GRID_KEYS
 
 static func save_settings(s: Dictionary):
 	Directory.new().make_dir_recursive(Globals.p("user://editor"))
@@ -227,7 +243,7 @@ static func compare_keybind(s: Dictionary, code: int, ctrl: bool, alt: bool, shi
 		result.append("pattern%d" % pattern)
 	if ctrl or alt or shift:
 		return result
-	var keys: Array = NUMPAD_KEYS if s.numpad else GRID_KEYS
+	var keys: Array = grid_keys(s)
 	var i := keys.find(code)
 	if i >= 0:
 		result.append("gridKey%d|%d" % [i % 3, i / 3])

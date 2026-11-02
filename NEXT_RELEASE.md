@@ -40,3 +40,5 @@ in scripts/Savia.gd and empties this list.
 - Online > Admin (staff only) in the same look as the rest of the Online page, and bigger Lobby / Admin tabs
 - Map editor: Legacy UI (editor Settings > Graphics > Look): the editor in Sound Space Quantum Editor Plus's own look, with its fonts, dark outlined buttons, round checkboxes, cyan / magenta colours and solid background. Turn it on or off any time
 - Online lobby: players show their profile picture instead of their initial
+- Map editor: import your SSQE+ settings (editor Settings > Other > Import SSQE+ settings, pick settings.txt from your Sound Space Quantum Editor Plus folder): colours, note colours, keybinds, grid keys, patterns, playtest settings and the rest
+- Map editor: Font scale (Settings > Graphics) makes every text in the editor bigger or smaller, and the grid keys (QWE / ASD / ZXC) can be your own keys
