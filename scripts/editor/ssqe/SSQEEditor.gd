@@ -204,6 +204,8 @@ func settings_changed():
 		if panels:
 			panels.apply_look()
 			_layout()
+		if page and page.has_method("legacy_ui_changed"):
+			page.legacy_ui_changed()
 	SSQESettings.show_gradients(get_tree(), bool(s.get("controlGradients", true)))
 	if page and page.audio and page.audio.has_method("remake_waveform"):
 		page.audio.remake_waveform()

@@ -43,6 +43,8 @@ func settings_changed():
 	if page and page.ed:
 		page.ed.s = s
 		page.ed.settings_changed()
+	elif page and page.has_method("legacy_ui_changed"):
+		page.legacy_ui_changed()
 
 func font(px: int, bold := false) -> DynamicFont:
 	px = int(clamp(px, 6, 160))

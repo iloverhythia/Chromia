@@ -1653,7 +1653,7 @@ func _st_tab(t: String):
 			_st_keybinds()
 		"OTHER":
 			_sr_section("From SSQE+", "")
-			_sr_button("Import SSQE+ settings", "settings.txt from your Sound Space Quantum Editor Plus folder (next to the .exe): colours, keybinds, grid keys, patterns, playtest and the rest", "IMPORT", "_st_import_ssqe")
+			_sr_button("Import SSQE+ settings", "Your SSQE+ setup (.ssqes, from SSQE+'s EXPORT SETUP) or settings.txt from its folder: colours, keybinds, grid keys, patterns, playtest and the rest", "IMPORT", "_st_import_ssqe")
 			_sr_section("Saving", "")
 			_sr_toggle("Enable autosave", "", "autosave")
 			_sr_slider("Autosave interval", "minutes", "autosaveInterval", 0.5, 30, 0.5)
@@ -1737,7 +1737,7 @@ func _sr_button(label: String, hint: String, text: String, method: String) -> Bu
 func _st_import_ssqe():
 	if Globals.file_sel == null:
 		return
-	Globals.file_sel.open_file(self, "_st_import_picked", PoolStringArray(["*.txt, *.json ; SSQE+ settings (settings.txt)"]), false, OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS))
+	Globals.file_sel.open_file(self, "_st_import_picked", PoolStringArray(["*.ssqes, *.txt, *.json ; SSQE+ settings (.ssqes setup or settings.txt)"]), false, OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS))
 
 func _st_import_picked(files):
 	var path := ""

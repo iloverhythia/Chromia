@@ -1028,6 +1028,9 @@ func _paste_bookmarks():
 		ed.toast("NO BOOKMARKS TO PASTE (\"ms ~ text\" PER LINE)", "warn")
 
 func _open_settings():
+	if L.on(ed.s) and ed.page and ed.page.has_method("open_legacy_settings"):
+		ed.page.open_legacy_settings() # (SSQE+'s Settings screen, over the editor)
+		return
 	if ed.dialogs:
 		ed.dialogs.settings()
 

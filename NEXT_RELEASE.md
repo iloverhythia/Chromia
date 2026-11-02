@@ -42,3 +42,5 @@ in scripts/Savia.gd and empties this list.
 - Online lobby: players show their profile picture instead of their initial
 - Map editor: import your SSQE+ settings (editor Settings > Other > Import SSQE+ settings, pick settings.txt from your Sound Space Quantum Editor Plus folder): colours, note colours, keybinds, grid keys, patterns, playtest settings and the rest
 - Map editor: Font scale (Settings > Graphics) makes every text in the editor bigger or smaller, and the grid keys (QWE / ASD / ZXC) can be your own keys
+- Map editor, Legacy UI: the editor's start screen, Create, Settings and Keybinds screens are SSQE+'s own (SOUND SPACE+ QUANTUM EDITOR PLUS menu with the changelog and your maps along the bottom, Create with Audio ID / Import Audio, every SSQE+ setting incl. VSync, FPS limit, font scale, playtest game, and the keybinds screen with grid keys, RESET buttons and CTRL / ALT / SHIFT Held)
+- Map editor: Import SSQE+ settings takes SSQE+'s setup files (.ssqes) as well as settings.txt

@@ -176,6 +176,20 @@ static func defaults() -> Dictionary:
 		"legacyUI": false, # SSQE+'s own look (SSQELegacy.gd)
 		"gridKeys": GRID_KEYS.duplicate(), # the 9 keys that place notes (rebindable, like SSQE's)
 		"fontScale": 1.0, # every text's size (SSQE's Font Scale: FontRenderer.cs)
+		# SSQE+'s Settings screen (SSQELegacyScreens.gd)
+		"useVSync": false,
+		"limitPlayerFPS": false,
+		"fpsLimit": 60.0, # (shown +60; 305 = unlimited)
+		"lowerBackgroundFPS": true,
+		"msaa": true,
+		"playtestGame": "Chromia", # Chromia (the game itself), Rhythia or Novastra (on a computer)
+		"rhythiaPath": "",
+		"novaPath": "",
+		"fullscreenPlayer": false,
+		"skipDownload": true,
+		"checkUpdates": true,
+		"createGame": "Sound Space",
+		"legacyClosedMaps": [], # maps taken off the open-maps bar
 	}
 
 static func load_settings() -> Dictionary:

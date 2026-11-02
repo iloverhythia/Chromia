@@ -1,9 +1,10 @@
 extends Reference
 
 # Import your Sound Space Quantum Editor Plus settings (editor Settings >
-# Other > Import SSQE+ settings): the desktop editor's settings.txt (next to
-# "Sound Space Quantum Editor.exe") or the web editor's saved settings (the
-# JSON in its localStorage, "ssqe-web-editor-settings").
+# Other > Import SSQE+ settings): a setup file (.ssqes, SSQE+'s EXPORT SETUP:
+# {format: "ssqes", settings: {editor, player}, assets, learned}), the desktop
+# editor's settings.txt (next to "Sound Space Quantum Editor.exe") or the web
+# editor's saved settings (the JSON in its localStorage).
 #
 # Desktop values (SSQE+ Preferences/SettingsManager.cs): colours [R,G,B,A],
 # keybinds ["KeyName", ctrl, shift, alt] with OpenTK key names, sliders
@@ -24,10 +25,11 @@ const BOOLS := ["waveform", "classicWaveform", "correctOnCopy", "gridNumbers", "
 	"autoAdvance", "selectTool", "curveBezier", "gridLetters", "reverseScroll", "applyOnPaste", "jumpPaste",
 	"pauseScroll", "clampSR", "pasteReversed", "adjustNotes", "monoAudio", "muteSfx", "muteMusic",
 	"smoothAutoplay", "gridSquircles", "controlGradients", "oldQuantumSnap", "scaleMetronome", "moveOnGridKey",
-	"mode3D", "mode3DHitEffect"]
+	"mode3D", "mode3DHitEffect", "useVSync", "limitPlayerFPS", "lowerBackgroundFPS", "msaa", "skipDownload",
+	"checkUpdates", "fullscreenPlayer"]
 const NUMBERS := ["editorBGOpacity", "gridOpacity", "trackOpacity", "waveformDetail", "sfxOffset", "musicOffset",
 	"bezierDivisor", "gridSquircleDetail", "gridSquircleRadius", "maxPolyphony", "gridZoom", "gridNoteSize",
-	"rotateBy", "scaleBy", "grid3DOpacity", "fontScale"]
+	"rotateBy", "scaleBy", "grid3DOpacity", "fontScale", "fpsLimit"]
 # sliders: [value, max, step] on the desktop, a number on the web
 const SLIDERS := ["cursorPos", "approachRate", "quantumSnapping", "quantumXOffset", "quantumYOffset",
 	"masterVolume", "sfxVolume"]
@@ -125,6 +127,24 @@ static func import_text(text: String, s: Dictionary) -> Dictionary:
 	if p.error != OK or not (p.result is Dictionary):
 		return {"ok": false, "error": "That isn't an SSQE+ settings file (settings.txt is JSON)."}
 	var d: Dictionary = p.result
+	var notes := []
+	# a setup file (.ssqes): the editor's settings with the player's in them
+	if String(d.get("format", "")) == "ssqes" and d.get("settings") is Dictionary:
+		var st: Dictionary = d.settings
+		var merged := {}
+		if st.get("player") is Dictionary:
+			for k in st.player:
+				merged[k] = st.player[k]
+		if st.get("editor") is Dictionary:
+			for k in st.editor:
+				merged[k] = st.editor[k]
+			# (the player's own colours / volumes are the map player's, not the editor's)
+		if st.get("player") is Dictionary:
+			for k in ["noteScale", "cursorScale", "lockCursor", "gridGuides", "sensitivity", "parallax", "fov",
+					"approachDistance", "hitWindow", "playerApproachRate", "approachFade", "cameraMode"]:
+				if st.player.has(k):
+					merged[k] = st.player[k]
+		d = merged
 	var known := 0
 	for k in d:
 		if s.has(k) or PLAYER.has(k) or k in ["enableAutosave", "noteColors", "gridKeys", "playerApproachRate", "cameraMode", "approachFade"]:
@@ -132,7 +152,6 @@ static func import_text(text: String, s: Dictionary) -> Dictionary:
 	if known < 3:
 		return {"ok": false, "error": "That doesn't look like SSQE+'s settings (none of its settings are in it)."}
 	var count := 0
-	var notes := []
 	for k in BOOLS:
 		if d.has(k) and typeof(d[k]) == TYPE_BOOL and s.has(k) and typeof(s[k]) == TYPE_BOOL:
 			s[k] = d[k]
@@ -147,6 +166,16 @@ static func import_text(text: String, s: Dictionary) -> Dictionary:
 		if d.has(k) and d[k] is String and s.has(k):
 			s[k] = d[k]
 			count += 1
+	if d.get("createGame") is String and s.has("createGame"):
+		s.createGame = d.createGame
+		count += 1
+	if d.get("playtestGame") is String and s.has("playtestGame"):
+		var g: String = d.playtestGame
+		s.playtestGame = "Rhythia" if g.begins_with("Rhythia") else ("Novastra" if g.begins_with("Nova") else "Chromia")
+		count += 1
+	if d.has("buttonGradients") and typeof(d.buttonGradients) == TYPE_BOOL and not d.has("controlGradients"):
+		s.controlGradients = d.buttonGradients
+		count += 1
 	if d.has("enableAutosave") and typeof(d.enableAutosave) == TYPE_BOOL:
 		s.autosave = d.enableAutosave
 		count += 1
