@@ -1734,7 +1734,7 @@ func _rebuild_player_list(players: Array, local_peer_id: int):
 	for p in players:
 		var row = S.card(lobby_player_list_box)
 		var pname: String = Globals.s(p.get("name", "Player"))
-		row.add_child(S.initial(pname))
+		row.add_child(S.avatar(pname, Globals.s(p.get("avatar_url", "")), self))
 		var texts := VBoxContainer.new()
 		texts.add_constant_override("separation", 0)
 		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL

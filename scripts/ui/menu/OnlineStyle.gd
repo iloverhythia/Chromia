@@ -269,6 +269,79 @@ func initial(name: String) -> Control:
 	c.add_child(l)
 	return c
 
+# their profile picture (round), with their initial until it's loaded or
+# when they have none; `owner` holds the download
+var _pics := {} # url -> Texture
+var _waiting := {} # url -> [TextureRect]
+func avatar(name: String, url: String, owner: Node) -> Control:
+	var c = initial(name)
+	if url.begins_with("/"):
+		url = "https://savia.nysr.host" + url
+	if not url.begins_with("http"):
+		return c
+	var pic := TextureRect.new()
+	pic.expand = true
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.anchor_right = 1.0
+	pic.anchor_bottom = 1.0
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.visible = false
+	c.add_child(pic)
+	if _pics.has(url):
+		_show_pic(pic, _pics[url])
+		return c
+	if _waiting.has(url):
+		_waiting[url].append(pic)
+		return c
+	_waiting[url] = [pic]
+	var r := HTTPRequest.new()
+	r.timeout = 15
+	r.use_threads = OS.can_use_threads()
+	owner.add_child(r)
+	r.connect("request_completed", self, "_on_pic", [r, url])
+	if r.request(url) != OK:
+		r.queue_free()
+		_waiting.erase(url)
+	return c
+
+func _show_pic(pic: TextureRect, tex: Texture):
+	if is_instance_valid(pic):
+		pic.texture = tex
+		pic.visible = true
+		var lbl = pic.get_parent().get_child(0) if pic.get_parent() != null else null
+		if lbl is Label:
+			lbl.visible = false
+
+func _on_pic(result: int, code: int, _h, data: PoolByteArray, r: HTTPRequest, url: String):
+	r.queue_free()
+	var waiting: Array = _waiting.get(url, [])
+	_waiting.erase(url)
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or data.empty():
+		return
+	var img := Image.new()
+	if img.load_png_from_buffer(data) != OK and img.load_jpg_from_buffer(data) != OK and img.load_webp_from_buffer(data) != OK:
+		return
+	var n := 96
+	img.resize(n, n, Image.INTERPOLATE_BILINEAR)
+	img.convert(Image.FORMAT_RGBA8)
+	img.lock()
+	var rr := n / 2.0
+	for y in range(n):
+		for x in range(n):
+			var dist := Vector2(x + 0.5 - rr, y + 0.5 - rr).length()
+			if dist > rr:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+			elif dist > rr - 1.0:
+				var col := img.get_pixel(x, y)
+				col.a *= rr - dist
+				img.set_pixel(x, y, col)
+	img.unlock()
+	var tex := ImageTexture.new()
+	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+	_pics[url] = tex
+	for pic in waiting:
+		_show_pic(pic, tex)
+
 func spacer(expand: bool = true) -> Control:
 	var s = Control.new()
 	if expand:

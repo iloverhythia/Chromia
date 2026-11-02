@@ -39,3 +39,4 @@ in scripts/Savia.gd and empties this list.
 - Fixed the Ranked filter leaving out ranked maps whose id has capitals, spaces or signs like . ! ( ) (for example the Trrricksters!! map)
 - Online > Admin (staff only) in the same look as the rest of the Online page, and bigger Lobby / Admin tabs
 - Map editor: Legacy UI (editor Settings > Graphics > Look): the editor in Sound Space Quantum Editor Plus's own look, with its fonts, dark outlined buttons, round checkboxes, cyan / magenta colours and solid background. Turn it on or off any time
+- Online lobby: players show their profile picture instead of their initial
