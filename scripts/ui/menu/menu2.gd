@@ -2471,6 +2471,7 @@ func _ready():
 	load("res://scripts/ui/settings/VRTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # VR: controller grip and buttons (in VR only)
 	load("res://scripts/ui/settings/FontsTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Fonts: the song HUD's font (yours is shown to spectators)
 	load("res://scripts/ui/settings/TransferTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # transfer code / file: settings and content to another device
+	load("res://scripts/ui/settings/SkinsTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Chromia skins (.cskin): everything you have on, in one file
 	load("res://scripts/ui/settings/HitEffectSettings.gd").build(get_node_or_null("Main/Settings/S/F/TabContainer")) # hit/miss effect options (Notes tab)
 	var lang_tabs = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if lang_tabs != null and not lang_tabs.has_node("Language"):

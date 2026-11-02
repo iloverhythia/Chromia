@@ -89,6 +89,10 @@ func files_dropped(files: PoolStringArray, _screen: int):
 			var e: String = f.get_extension().to_lower()
 			if e == "json" or e == "txt" or e == "obj" or e == "mtl":
 				content.append(f)
+			elif e == "cskin":
+				# a Chromia skin: shown in Settings > Skins to put on
+				if not load("res://scripts/ui/settings/SkinsTab.gd").import_dropped(get_tree(), f):
+					Globals.notify(Globals.NOTIFY_WARN, "Open Settings once, then drop the skin again.", "Import")
 			else:
 				rest.append(f)
 		if not content.empty():

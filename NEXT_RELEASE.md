@@ -29,3 +29,4 @@ in scripts/Savia.gd and empties this list.
 - Background Editor: a Background brightness slider darkens the background behind the notes (notes and HUD stay bright)
 - VR: the Ball hand is white now in every scene (it looked grey in dark spaces and menus)
 - Background Editor: add .mp4, .mov, .mkv, .avi and other videos (the Chromia server turns them into .webm for you, no sound, up to 2 minutes; you can close the settings while it works). GIFs move, and .webm / .ogv are added as they are
+- Chromia skins (.cskin): Settings > Skins exports everything you have on into one file (your look settings, colorset, note mesh, border, hit and miss sounds, cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture, avatar, VR hands) for others to import. Putting one on keeps your old look as "Before <skin>" in My skins so you can go back. You can also drop a .cskin on the game window
