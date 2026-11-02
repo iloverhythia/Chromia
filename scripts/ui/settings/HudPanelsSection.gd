@@ -12,6 +12,8 @@ var _size_l: Label
 var _img_btn: Button
 var _status: Label
 var _theme: Theme
+var _bright: HSlider
+var _bright_l: Label
 
 func _ready():
 	_theme = load("res://uitheme.tres")
@@ -22,6 +24,38 @@ func _ready():
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 8)
 	add_child(v)
+	# the background's brightness in songs (scripts/game/BgVeil.gd)
+	v.add_child(_text("Background brightness", 20, TEXT, "res://assets/font/Lato/Lato-Bold.ttf"))
+	v.add_child(HSeparator.new())
+	v.add_child(_text("How bright the background is while you play: lower darkens the world behind the notes. The notes, cursor, grid and HUD stay as they are. People spectating you see it too.", 14, DIM))
+	var brow := HBoxContainer.new()
+	brow.add_constant_override("separation", 10)
+	v.add_child(brow)
+	var bl := _text("Brightness", 16, TEXT)
+	bl.rect_min_size = Vector2(90, 0)
+	brow.add_child(bl)
+	_bright = HSlider.new()
+	_bright.theme = _theme
+	_bright.min_value = 0
+	_bright.max_value = 100
+	_bright.step = 5
+	_bright.rect_min_size = Vector2(320, 28)
+	_bright.size_flags_vertical = SIZE_SHRINK_CENTER
+	_bright.connect("value_changed", self, "_on_bright")
+	brow.add_child(_bright)
+	_bright_l = _text("", 16, TEXT)
+	_bright_l.rect_min_size = Vector2(60, 0)
+	brow.add_child(_bright_l)
+	var breset := Button.new()
+	breset.theme = _theme
+	breset.text = "Reset"
+	breset.rect_min_size = Vector2(80, 32)
+	breset.connect("pressed", self, "_on_bright", [100.0, true])
+	brow.add_child(breset)
+	var sp := Control.new()
+	sp.rect_min_size = Vector2(0, 14)
+	v.add_child(sp)
+
 	v.add_child(_text("HUD panels", 20, TEXT, "res://assets/font/Lato/Lato-Bold.ttf"))
 	v.add_child(HSeparator.new())
 	v.add_child(_text("How the two side panels look while you play, and how big they are. Sound Space is the Sound Space HUD. People spectating you see your style and size (your own picture stays yours).", 14, DIM))
@@ -93,6 +127,8 @@ func _refresh():
 	_refreshing = true
 	_style.select(max(0, HudPanels.ids().find(HudPanels.current())))
 	_size.value = float(Rhythia.hud_panel_size)
+	_bright.value = float(Rhythia.bg_brightness)
+	_bright_l.text = "%d%%" % int(Rhythia.bg_brightness)
 	_size_l.text = "%d%%" % int(Rhythia.hud_panel_size)
 	var img := HudPanels.image_file()
 	_img_btn.visible = HudPanels.current() == "image"
@@ -138,5 +174,12 @@ func _on_picked(files):
 		img.resize(int(img.get_width() * 1024 / m), int(img.get_height() * 1024 / m), Image.INTERPOLATE_BILINEAR)
 	img.save_png(Globals.p(HudPanels.IMAGE_BASE + ".png"))
 	HudPanels.set_style("image")
+	Rhythia.save_settings()
+	_refresh()
+
+func _on_bright(v: float, force := false):
+	if _refreshing and not force:
+		return
+	Rhythia.bg_brightness = clamp(v, 0.0, 100.0)
 	Rhythia.save_settings()
 	_refresh()

@@ -36,6 +36,13 @@ func _ready():
 		$Game/Avatar/Head/Accessories/CubellaHair.visible = true
 
 
+	# background brightness (Settings > Background Editor)
+	var veil = load("res://scripts/game/BgVeil.gd")
+	veil.add_to($Camera)
+	veil.add_to($AltCam)
+	if Rhythia.vr and Rhythia.vr_player != null and "head" in Rhythia.vr_player:
+		veil.add_to(Rhythia.vr_player.head)
+
 	if Rhythia.vhs_shader:
 		$Camera/VHS.visible = true
 		$AltCam/VHS.visible = true
@@ -71,3 +78,8 @@ func _process(delta):
 		if lobby_manager == null or not lobby_manager.lobby_active:
 			get_tree().paused = false
 			get_tree().reload_current_scene()
+
+func _exit_tree():
+	# (the VR headset's camera stays when the song ends: its veil goes)
+	if Rhythia.vr and Rhythia.vr_player != null and "head" in Rhythia.vr_player:
+		load("res://scripts/game/BgVeil.gd").remove_from(Rhythia.vr_player.head)

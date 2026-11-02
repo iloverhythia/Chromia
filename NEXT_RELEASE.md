@@ -24,3 +24,6 @@ in scripts/Savia.gd and empties this list.
 - Spectating: 3rd person view. In VR press B / Y while you watch someone: you move behind and beside them and see their avatar play (the avatar from their Player Avatar editor). On PC press 3. Replays: press 3 to switch to the avatar camera
 - VR: the intro cutscene never plays in VR (on the Quest it used to play every time the game opened); the Replay Intro button says so instead
 - Maps with WAV music (some rhythia.com downloads) play their music: they said the audio was broken. WAV files with extra sections (JUNK, LIST...) and 8, 24 and 32-bit ones work too
+- Spectating with their settings no longer shows bits of your own: colours, note shapes, effects or backgrounds you don't have fall back to the defaults instead of yours, and their HUD options (stats, config, avatar, panels) are used too
+- Spectating: following someone keeps watching them when they restart a map (it used to stop)
+- Background Editor: a Background brightness slider darkens the background behind the notes (notes and HUD stay bright)

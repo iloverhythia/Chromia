@@ -63,7 +63,7 @@ const VIEW_KEYS := [
 	"grade_b_color", "grade_c_color", "grade_d_color", "grade_f_color",
 	"sound_space_mode", "ss_score_popups", "ss_health_y", "ss_health_w", "ss_progress_y",
 	"ss_progress_w", "ss_hud", "hud_font", "hud_font_size", "hud_panel_style", "hud_panel_size",
-	"avatar",
+	"avatar", "show_sp_hud", "show_stats", "show_config", "ss_gameplay_only", "bg_brightness",
 ]
 # content, sent as its id and looked up in your registries
 const ID_KEYS := {
@@ -73,6 +73,12 @@ const ID_KEYS := {
 	"selected_hit_effect": "registry_effect",
 	"selected_miss_effect": "registry_effect",
 	"selected_border": "registry_border",
+}
+# their pick isn't in your game (a custom world, an effect you don't have):
+# the game's default, not yours (yours showing up looked like your settings)
+const DEFAULT_IDS := {
+	"selected_colorset": "ssp_cottoncandy", "selected_mesh": "ssp_rounded", "selected_space": "ssp_space_tunnel",
+	"selected_hit_effect": "ssp_ripple", "selected_miss_effect": "ssp_miss", "selected_border": "default",
 }
 # set while theirs are on (their colorset is the one they had on screen)
 const FORCED := {"random_colorset": false}
@@ -356,6 +362,8 @@ static func apply(their: Dictionary, peer_id: int):
 	for k in ID_KEYS:
 		if their.has(k) and typeof(their[k]) == TYPE_STRING:
 			var item = _lookup(k, their[k])
+			if item == null:
+				item = _lookup(k, String(DEFAULT_IDS.get(k, "")))
 			if item != null:
 				_assign(k, item)
 	# their colorset as they have it (newer games send the colours)
@@ -391,7 +399,7 @@ static func apply(their: Dictionary, peer_id: int):
 	Rhythia.set_meta("spec_for", peer_id)
 
 # Their backgrounds (worlds/custom/custombg.gd and BgLayers.gd read these):
-# "none" = they have none (so you don't see yours); not downloaded = yours stay.
+# "none" = they have none (so you don't see yours); not downloaded yet = none.
 static func _apply_backgrounds(their: Dictionary):
 	_clear_backgrounds()
 	for pair in [["custombg_image", "spec_custombg"], ["panobg_image", "spec_panobg"]]:
@@ -399,15 +407,17 @@ static func _apply_backgrounds(their: Dictionary):
 		if v == "none":
 			Rhythia.set_meta(pair[1], "")
 		elif v.find(".") == 64:
-			var p := cached_asset(v.left(64), v.right(65))
-			if p != "":
-				Rhythia.set_meta(pair[1], p)
+			# (not downloaded yet: none, not yours)
+			Rhythia.set_meta(pair[1], cached_asset(v.left(64), v.right(65)))
 	var lv := String(their.get("bg_layers", ""))
 	if lv == "none":
 		Rhythia.set_meta("spec_bg_layers", {"enabled": false, "placement": "front", "layers": []})
 	elif lv != "":
 		var lp := cached_asset(lv, "json")
-		if lp != "":
+		if lp == "":
+			# (not downloaded yet: none, not yours)
+			Rhythia.set_meta("spec_bg_layers", {"enabled": false, "placement": "front", "layers": []})
+		else:
 			var f := File.new()
 			if f.open(lp, File.READ) == OK:
 				var parsed = JSON.parse(f.get_as_text())

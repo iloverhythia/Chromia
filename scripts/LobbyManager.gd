@@ -934,6 +934,14 @@ func send_solo_view_settings():
 	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
 
+# a song starts (not in a lobby): while you're watched, the server takes it as
+# a restart and moves your watchers to this play (Retry used to leave them on
+# the old one, so following never picked the new one up)
+func send_play_started():
+	if lobby_active or watch_mode or presence_supported != 1 or not _connected():
+		return
+	_send({"type": "play_started"})
+
 func request_player_settings(peer_id: int):
 	if lobby_active and peer_id > 0 and peer_id != local_peer_id:
 		if watch_mode and player_view_settings.has(peer_id):
@@ -1502,9 +1510,15 @@ func _handle_message(msg: Dictionary):
 				_finish_watch_locally()
 			emit_signal("spectate_denied", Globals.s(msg.get("reason", "You can't watch them right now.")))
 		"watch_ended":
-			if Globals.s(msg.get("reason", "")) == "disabled":
+			var why := Globals.s(msg.get("reason", ""))
+			if why == "disabled":
 				follow_number = -1 # (they don't want spectators: no following either)
+			var again := follow_number
 			end_watch(Globals.s(msg.get("text", "They stopped playing.")))
+			# they restarted the map: watch the new play right away (once the
+			# menu is back), not when the online list next says they're playing
+			if why == "restarted" and again > 0:
+				_rewatch_after_restart(again)
 		"watchers_changed":
 			var was := watchers_count
 			watchers_count = int(msg.get("count", 0))
@@ -1973,6 +1987,13 @@ func _build_stop_bar():
 	stop.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 15))
 	stop.connect("pressed", self, "stop_watching")
 	h.add_child(stop)
+
+func _rewatch_after_restart(number: int):
+	yield(get_tree().create_timer(1.0), "timeout")
+	if follow_number != number or watch_mode or lobby_active:
+		return
+	_follow_tried_at = OS.get_ticks_msec()
+	spectate_player(number)
 
 # the server ended it (they finished, failed, left, turned spectators off)
 func end_watch(text: String):

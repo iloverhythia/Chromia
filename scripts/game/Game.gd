@@ -787,6 +787,8 @@ func _ready():
 		$Spawn.active = true
 		if lobby_manager != null and not lobby_manager.lobby_active:
 			lobby_manager.send_solo_view_settings() # for anyone who starts watching (Spectate tab)
+			if not Rhythia.replaying:
+				lobby_manager.send_play_started() # (a restart: whoever watches moves to this play)
 
 	if is_late_join:
 		$Spawn.active = false
