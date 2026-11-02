@@ -37,3 +37,4 @@ in scripts/Savia.gd and empties this list.
 - Content Browser: a Hit Sounds tab. Play one to hear it, Use it to make it your hit sound, or share yours / upload a file (.ogg, .mp3, .wav)
 - Content Browser > Maps > Chromia players: every map on the Chromia server is listed too (ranked ones say Ranked), ready to download
 - Fixed the Ranked filter leaving out ranked maps whose id has capitals, spaces or signs like . ! ( ) (for example the Trrricksters!! map)
+- Online > Admin (staff only) in the same look as the rest of the Online page, and bigger Lobby / Admin tabs

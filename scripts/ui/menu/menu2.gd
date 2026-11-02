@@ -1921,17 +1921,39 @@ func _embed_admin_in_online():
 	if admin_toggle_button != null:
 		admin_toggle_button.visible = false
 	var ui_theme = load("res://uitheme.tres")
+	var S = _online_style()
 	_online_lobby_tab = _make_button("Lobby", ui_theme)
-	_online_lobby_tab.toggle_mode = true
+	S.tab(_online_lobby_tab)
 	_online_lobby_tab.pressed = true
 	_online_lobby_tab.connect("pressed", self, "_show_online_tab", [false])
 	_online_admin_tab = _make_button("Admin", ui_theme)
-	_online_admin_tab.toggle_mode = true
+	S.tab(_online_admin_tab)
 	_online_admin_tab.connect("pressed", self, "_show_online_tab", [true])
+	# the admin tools in the page's look (the "Admin" title: the tab says it)
+	var body = _first_vbox(admin_panel)
+	if body is VBoxContainer:
+		body.set_meta("ost_section", true)
+		body.add_constant_override("separation", 10)
+		if body.get_child_count() > 0 and body.get_child(0) is Label and body.get_child(0).text == "Admin":
+			body.get_child(0).visible = false
+	S.restyle_tree(admin_panel)
+	var gap = Control.new()
+	gap.rect_min_size = Vector2(14, 0)
+	_online_header.add_child(gap)
+	_online_header.move_child(gap, 1)
 	_online_header.add_child(_online_lobby_tab)
-	_online_header.move_child(_online_lobby_tab, 1)
+	_online_header.move_child(_online_lobby_tab, 2)
 	_online_header.add_child(_online_admin_tab)
-	_online_header.move_child(_online_admin_tab, 2)
+	_online_header.move_child(_online_admin_tab, 3)
+
+func _first_vbox(n: Node):
+	for c in n.get_children():
+		if c is VBoxContainer:
+			return c
+		var f = _first_vbox(c)
+		if f != null:
+			return f
+	return null
 
 func _show_online_tab(admin: bool):
 	_online_cols.visible = not admin

@@ -131,6 +131,68 @@ func button(b: Button, accent: bool = false, small: bool = false) -> Button:
 	b.rect_min_size = Vector2(0, 30 if small else 40)
 	return b
 
+# a tab (Lobby / Admin): the active one filled lilac
+func tab(b: Button) -> Button:
+	button(b)
+	b.toggle_mode = true
+	b.add_font_override("font", f_head)
+	for k in ["font_color", "font_color_hover", "font_color_pressed", "font_color_hover_pressed"]:
+		b.add_color_override(k, TEXT)
+	b.add_color_override("font_color", DIM)
+	var on = Color(LILAC.r, LILAC.g, LILAC.b, 0.3)
+	b.add_stylebox_override("pressed", flat(on, 3, LILAC, 2, 22, 8))
+	b.add_stylebox_override("hover_pressed", flat(Color(LILAC.r, LILAC.g, LILAC.b, 0.38), 3, ACCENT, 2, 22, 8))
+	b.add_stylebox_override("normal", flat(BTN_BG, 3, Color(1, 1, 1, 0.06), 1, 22, 8))
+	b.add_stylebox_override("hover", flat(BTN_HOVER, 3, Color(1, 1, 1, 0.1), 1, 22, 8))
+	b.rect_min_size = Vector2(130, 48)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return b
+
+# restyles a panel built with the old theme (the admin tools): captions become
+# pink headings, separators thin rules, and fields / buttons / checkboxes /
+# scrollbars the page's own; rows added later get it too
+func restyle_tree(n: Node, top := true):
+	if n is HSeparator:
+		var r = rule()
+		var parent = n.get_parent()
+		var i = n.get_index()
+		parent.remove_child(n)
+		n.queue_free()
+		parent.add_child(r)
+		parent.move_child(r, i)
+		return
+	if n.has_meta("ost_done"):
+		return
+	n.set_meta("ost_done", true)
+	if n is Button and not (n is CheckBox) and not (n is OptionButton):
+		button(n, false, n.rect_min_size.y > 0 and n.rect_min_size.y <= 30)
+	elif n is CheckBox:
+		check(n)
+	elif n is LineEdit:
+		field(n)
+	elif n is ScrollContainer:
+		scroll(n)
+	elif n is Label:
+		var l: Label = n
+		if l.get_parent() is VBoxContainer and l.get_parent().has_meta("ost_section"):
+			l.add_font_override("font", f_head)
+			l.add_color_override("font_color", PINK)
+		else:
+			l.add_font_override("font", f_regular)
+			if not l.has_color_override("font_color"):
+				l.add_color_override("font_color", TEXT)
+	elif n is PanelContainer and top:
+		n.add_stylebox_override("panel", flat(SECTION_BG, 4, Color(1, 1, 1, 0.05), 1, 18, 16))
+	if n is BoxContainer and not n.is_connected("sort_children", self, "_restyle_new"):
+		n.connect("sort_children", self, "_restyle_new", [n])
+	for c in n.get_children():
+		restyle_tree(c, false)
+
+func _restyle_new(box: Node):
+	for c in box.get_children():
+		if not c.has_meta("ost_done") or c is HSeparator:
+			restyle_tree(c, false)
+
 func make_button(text: String, target: Object, method: String, binds: Array = [], accent: bool = false, small: bool = false) -> Button:
 	var b = Button.new()
 	b.text = text
