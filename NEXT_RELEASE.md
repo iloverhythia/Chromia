@@ -38,3 +38,4 @@ in scripts/Savia.gd and empties this list.
 - Content Browser > Maps > Chromia players: every map on the Chromia server is listed too (ranked ones say Ranked), ready to download
 - Fixed the Ranked filter leaving out ranked maps whose id has capitals, spaces or signs like . ! ( ) (for example the Trrricksters!! map)
 - Online > Admin (staff only) in the same look as the rest of the Online page, and bigger Lobby / Admin tabs
+- Map editor: Legacy UI (editor Settings > Graphics > Look): the editor in Sound Space Quantum Editor Plus's own look, with its fonts, dark outlined buttons, round checkboxes, cyan / magenta colours and solid background. Turn it on or off any time

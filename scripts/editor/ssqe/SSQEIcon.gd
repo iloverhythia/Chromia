@@ -35,6 +35,8 @@ func _process(_d):
 
 func _draw():
 	var c := ACCENT if _hover else LILAC
+	if ed and ed.s is Dictionary and bool(ed.s.get("legacyUI", false)):
+		c = Color(1, 1, 1, 1.0 if _hover else 0.85) # (SSQE's white play / mute icons)
 	var sz := rect_size
 	if kind == "play":
 		var m: float = min(sz.x, sz.y) * 0.5

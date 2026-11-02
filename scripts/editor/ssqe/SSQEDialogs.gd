@@ -1583,6 +1583,8 @@ func _st_tab(t: String):
 			_sr_color("Color 5", "Special objects", "color5")
 			_st_note_colors()
 		"GRAPHICS":
+			_sr_section("Look", "")
+			_sr_toggle("Legacy UI", "The editor in Sound Space Quantum Editor Plus's own look: its fonts, controls and colours", "legacyUI")
 			_sr_section("Display", "")
 			_sr_slider("Editor background opacity", "", "editorBGOpacity", 0, 255, 1)
 			_sr_slider("Grid opacity", "", "gridOpacity", 0, 255, 1)

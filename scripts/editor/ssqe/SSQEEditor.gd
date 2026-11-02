@@ -106,6 +106,8 @@ func _ready():
 	dialogs.ed = self
 	add_child(dialogs)
 	panels.build()
+	panels.apply_look()
+	_legacy_shown = bool(s.get("legacyUI", false))
 	move_child(dialogs, get_child_count() - 1) # windows above everything
 	_layout()
 	set_process(true)
@@ -192,9 +194,16 @@ func open_map(m, stream: AudioStream):
 		panels.on_map_opened()
 	_layout()
 
+var _legacy_shown = null
 func settings_changed():
 	SSQESettings.save_settings(s)
 	update_volume()
+	# Legacy UI turned on / off: the controls change look now
+	if _legacy_shown != bool(s.get("legacyUI", false)):
+		_legacy_shown = bool(s.get("legacyUI", false))
+		if panels:
+			panels.apply_look()
+			_layout()
 	SSQESettings.show_gradients(get_tree(), bool(s.get("controlGradients", true)))
 	if page and page.audio and page.audio.has_method("remake_waveform"):
 		page.audio.remake_waveform()
@@ -239,11 +248,15 @@ func toast(text: String, kind := "info"):
 
 func font(px: int, bold := false) -> DynamicFont:
 	px = int(clamp(px, 6, 160))
-	var key := px * 2 + (1 if bold else 0)
+	var legacy: bool = bool(s.get("legacyUI", false)) if s is Dictionary else false
+	var key := px * 4 + (1 if bold else 0) + (2 if legacy else 0)
 	if _fonts.has(key):
 		return _fonts[key]
 	var f := DynamicFont.new()
-	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf" if bold else "res://assets/font/Lato/Lato-Regular.ttf")
+	if legacy:
+		f.font_data = load("res://assets/font/SSQE/main.ttf") # (SSQE: Source Sans Pro Bold for everything)
+	else:
+		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf" if bold else "res://assets/font/Lato/Lato-Regular.ttf")
 	f.size = px
 	f.use_filter = true
 	f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf"))

@@ -173,6 +173,7 @@ static func defaults() -> Dictionary:
 		"playtestSpeed": "Selected", # (Playtest panel: "Selected" is the speed picked in the game's mods)
 		"autosaveInterval": 0.5, # minutes
 		"lastSettingsTab": "COLORS",
+		"legacyUI": false, # SSQE+'s own look (SSQELegacy.gd)
 	}
 
 static func load_settings() -> Dictionary:
@@ -250,5 +251,6 @@ static func keybind_text(b: Array) -> String:
 	return PoolStringArray(parts).join("+")
 
 static func color(s: Dictionary, key: String, a := 1.0) -> Color:
-	var c: Array = s.get(key, [255, 255, 255])
+	# (Legacy UI: SSQE's own colours where they're still Chromia's defaults)
+	var c: Array = load("res://scripts/editor/ssqe/SSQELegacy.gd").color_value(s, key)
 	return Color(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, a)
