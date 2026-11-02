@@ -27,3 +27,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating with their settings no longer shows bits of your own: colours, note shapes, effects or backgrounds you don't have fall back to the defaults instead of yours, and their HUD options (stats, config, avatar, panels) are used too
 - Spectating: following someone keeps watching them when they restart a map (it used to stop)
 - Background Editor: a Background brightness slider darkens the background behind the notes (notes and HUD stay bright)
+- VR: the Ball hand is white now in every scene (it looked grey in dark spaces and menus)
