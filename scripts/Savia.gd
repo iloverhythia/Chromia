@@ -2276,30 +2276,37 @@ var def_fail_snd: AudioStream
 var def_pb_snd: AudioStream
 var def_menu_bgm: AudioStream
 
-# The menu music: no songs come with the game any more (seven songs were
-# about 15 MB of every download and install). A custom menu song
-# (user://menu.ogg / .mp3 / .wav) still plays and loops; without one the menu
-# is quiet. Songs listed here would play one after another in a random order
-# (scripts/ui/menu/buttons/PlaySong.gd).
-const MENU_PLAYLIST = []
+# The menu music: the songs come from the Chromia server the first time
+# (scripts/MenuMusic.gd keeps them in user://caches/menu_music; they were 15 MB
+# of every download and install) and play one after another in a random order
+# (scripts/ui/menu/buttons/PlaySong.gd). Every song plays once before any
+# repeats, and a new round never starts with the song that just played. The
+# order carries on when you come back to the menu after a song. A custom menu
+# song (user://menu.ogg / .mp3 / .wav) replaces them and loops, as before.
 var _menu_bag: Array = []
 var _menu_last: String = ""
 var _menu_seeded: bool = false
 
 func next_menu_track() -> AudioStream:
-	if MENU_PLAYLIST.empty():
-		return null # (no built-in menu songs)
+	var have: Array = load("res://scripts/MenuMusic.gd").get_or_start().ready_paths()
+	if have.empty():
+		return null # (none downloaded yet: PlaySong starts when one is)
+	for p in _menu_bag.duplicate():
+		if not have.has(p):
+			_menu_bag.erase(p)
 	if _menu_bag.empty():
 		if not _menu_seeded:
 			randomize()
 			_menu_seeded = true
-		_menu_bag = MENU_PLAYLIST.duplicate()
+		_menu_bag = have.duplicate()
 		_menu_bag.shuffle()
 		if _menu_bag.size() > 1 and _menu_bag[0] == _menu_last:
 			_menu_bag.push_back(_menu_bag.pop_front())
 	var path: String = _menu_bag.pop_front()
 	_menu_last = path
-	var s = load(path)
+	var s = Globals.audioLoader.load_file(path)
+	if s == Globals.error_sound or not (s is AudioStream):
+		return null
 	if s is AudioStreamOGGVorbis or s is AudioStreamMP3:
 		s.loop = false # the next song follows instead
 	return s
@@ -6245,7 +6252,8 @@ func do_init(_ud = null):
 
 	emit_signal("init_stage_reached", "Init default assets 6/6")
 	if lp: yield(get_tree(), "idle_frame")
-	def_menu_bgm = load(MENU_PLAYLIST[0]) if not MENU_PLAYLIST.empty() else null
+	def_menu_bgm = null # (the menu songs are downloaded: MenuMusic.gd)
+	load("res://scripts/MenuMusic.gd").get_or_start() # (starts fetching them)
 
 	emit_signal("init_stage_reached", "Check Banned")
 	yield(get_tree(), "idle_frame")
