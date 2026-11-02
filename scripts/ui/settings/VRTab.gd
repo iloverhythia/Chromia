@@ -166,6 +166,11 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Controller grip", f_title, ACCENT)
 	_label("Changes the angle and position of the pointer on your hand, so it points where feels natural to you. Watch the beam move while you change it. This is for the right hand; the left hand gets the mirror image.", f_body, DIM, true)
+	_label("Easiest: Calibrate. A dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second. The tilt and turn are set so the beam goes where your hand points.", f_body, DIM, true)
+	var grip_btns := HBoxContainer.new()
+	grip_btns.add_constant_override("separation", 10)
+	box.add_child(grip_btns)
+	_button(grip_btns, "Calibrate", "_calibrate_grip")
 	for row in GRIP_ROWS:
 		_grip_row(row)
 	_button(box, "Reset grip", "_reset_grip")
@@ -613,6 +618,19 @@ func _on_bind(_idx: int, action: String):
 	if Rhythia.vr and not Rhythia.fake_vr:
 		Rhythia.apply_vr_binds()
 	_save_soon()
+
+# (vr/GripCalibrate.gd: the dot in front of you, then the sliders show the result)
+func _calibrate_grip():
+	if not Rhythia.vr or Rhythia.vr_player == null or not is_instance_valid(Rhythia.vr_player):
+		return
+	if Rhythia.vr_player.has_node("GripCalibrate"):
+		return
+	var c = load("res://vr/GripCalibrate.gd").start(Rhythia.vr_player)
+	c.connect("finished", self, "_on_calibrated")
+
+func _on_calibrated(_applied: bool):
+	if is_inside_tree():
+		_load_values()
 
 func _reset_grip():
 	Rhythia.vr_grip_rot = Vector3.ZERO

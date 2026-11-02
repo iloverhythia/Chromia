@@ -33,3 +33,4 @@ in scripts/Savia.gd and empties this list.
 - Online page redone: a clear "Play together" section (Host a lobby, Public, join with a friend's code), public lobbies always listed with Refresh, and inside a lobby a big lobby code with Copy, the map, players as cards (ready / checking / downloading the map, HOST) and Start / Leave. Same look as the Spectate window
 - The Spectate window opens smoothly (it no longer stutters while it fills in)
 - Menu music is back: the seven menu songs play again. They're downloaded from the Chromia server the first time (about 15 MB, once) instead of making every download bigger, and then play from your game's cache, offline too
+- VR: Settings > VR > Controller grip > Calibrate: a dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second, and the grip's tilt and turn are set so the beam goes where your hand points (either hand; B / Y cancels)
