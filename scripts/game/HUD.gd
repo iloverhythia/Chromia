@@ -123,6 +123,33 @@ func _mod_icon(name: String):
 	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	modicons.add_child(r)
+	return r
+
+# the custom speed's icon says how fast: "137%" in its lower half, under the dial
+func _speed_custom_icon():
+	var r = _mod_icon("speed_custom")
+	if r == null:
+		return
+	var pct := int(round(float(Globals.speed_multi[Globals.SPEED_CUSTOM]) * 100.0))
+	var l := Label.new()
+	l.name = "Pct"
+	l.text = "%d%%" % pct
+	var f := DynamicFont.new()
+	f.font_data = load("res://assets/font/Lato/Lato-Black.ttf")
+	f.size = 17 if pct < 1000 else 13
+	f.outline_size = 2
+	f.outline_color = Color(0.12, 0.05, 0.25)
+	f.use_filter = true
+	l.add_font_override("font", f)
+	l.add_color_override("font_color", Color(1, 1, 1))
+	l.align = Label.ALIGN_CENTER
+	l.valign = Label.VALIGN_CENTER
+	l.anchor_right = 1
+	l.anchor_bottom = 1
+	l.margin_top = 30 # (the dial is in the top half)
+	l.margin_bottom = -10
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.add_child(l)
 
 func update_static_values():
 	var src_hits = _spectate_data.hits if spectating else Game.hits
@@ -1783,8 +1810,7 @@ func _ready():
 			Globals.SPEED_PPP: modicons.get_node("SpeedPPP").visible = true
 			Globals.SPEED_PPPP: modicons.get_node("SpeedPPPP").visible = true
 			Globals.SPEED_CUSTOM:
-				_mod_icon("speed_custom")
-				mods.append("S%s" % [Globals.speed_multi[Globals.SPEED_CUSTOM] * 100]) # (the icon doesn't say how fast)
+				_speed_custom_icon() # (with its percentage on it)
 	# the other mods: their icons, like the speed ones (only here, in a map)
 	if Rhythia.mod_nofail: _mod_icon("nofail")
 	if Rhythia.mod_sudden_death: _mod_icon("sudden_death")

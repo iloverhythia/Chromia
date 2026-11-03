@@ -4,3 +4,4 @@ Add one line per change, starting with "- " (players read these in the
 update log). Publishing to production turns them into the new version's notes
 in scripts/Savia.gd and empties this list.
 - No more little stutter when someone starts spectating you in the middle of a map.
+- In a map, the custom speed icon shows its speed (for example 137%).
