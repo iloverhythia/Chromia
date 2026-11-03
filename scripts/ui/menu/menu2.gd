@@ -1988,6 +1988,78 @@ func _place_rank_button():
 	ranker_toggle_button.size_flags_horizontal = 0
 	_update_rank_button()
 
+# ---- MOTD: today's Map of the Day (admins: the game has the admin key).
+# Next to Rank Map, while a map's screen is open. Ranks the map too (with the
+# Rank panel's XP, or the server's suggestion) when it isn't ranked yet.
+var motd_button: Button = null
+func _update_motd_button():
+	var lm = _get_lobby_manager()
+	var show: bool = lm != null and lm.has_admin_key() and _map_screen_open()
+	if motd_button == null:
+		if not show:
+			return
+		var row = get_node_or_null("Main/Maps/MapRegistry/T")
+		if row == null:
+			return
+		motd_button = Button.new()
+		motd_button.name = "MotdButton"
+		motd_button.text = "MOTD"
+		motd_button.hint_tooltip = "Make this map today's Map of the Day (ranked, at the top of everyone's maps)"
+		motd_button.rect_min_size = Vector2(0, 28)
+		motd_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		motd_button.size_flags_horizontal = 0
+		motd_button.focus_mode = Control.FOCUS_NONE
+		var like = row.get_node_or_null("Random")
+		if like != null:
+			motd_button.theme = like.theme
+		motd_button.add_color_override("font_color", Color(1, 0.9, 0.05))
+		motd_button.add_color_override("font_color_hover", Color(1, 0.95, 0.4))
+		motd_button.connect("pressed", self, "_on_motd_pressed")
+		row.add_child(motd_button)
+		if not lm.is_connected("admin_motd_result", self, "_on_motd_result"):
+			lm.connect("admin_motd_result", self, "_on_motd_result")
+	# just left of Rank Map (or of the Search box)
+	var row2 = motd_button.get_parent()
+	var anchor = ranker_toggle_button if ranker_toggle_button != null and ranker_toggle_button.get_parent() == row2 else row2.get_node_or_null("Search")
+	if anchor != null and motd_button.get_index() != anchor.get_index() - 1:
+		row2.move_child(motd_button, max(0, anchor.get_index() - (1 if motd_button.get_index() < anchor.get_index() else 0)))
+	if motd_button.visible != show:
+		motd_button.visible = show
+	if show:
+		var is_it: bool = lm.is_motd(String(Rhythia.selected_song.id))
+		motd_button.disabled = is_it
+		motd_button.hint_tooltip = "This is today's Map of the Day" if is_it else "Make this map today's Map of the Day (ranked, at the top of everyone's maps)"
+
+func _on_motd_pressed():
+	var lm = _get_lobby_manager()
+	if lm == null or Rhythia.selected_song == null:
+		return
+	var xp: int = int(ranker_xp_input.value) if ranker_xp_input != null else 0
+	if xp <= 0:
+		# (not ranked yet and no XP set: the server's suggestion, from this
+		# map's notes per second and length; a ranked map keeps its own XP)
+		var song = Rhythia.selected_song
+		var secs: float = float(song.last_ms) / 1000.0
+		if int(song.note_count) > 0 and secs > 0:
+			var nps: float = float(song.note_count) / secs
+			xp = int(clamp(round(0.32 * pow(nps, 1.8) * pow(secs, 0.3)), 1, 10000))
+	lm.admin_set_motd(String(Rhythia.selected_song.id), _get_selected_song_name(), xp, Rhythia.selected_song.compute_chart_hash())
+	lm.publish_map_to_server(String(Rhythia.selected_song.id)) # (everyone can then download it)
+	Globals.notify(Globals.NOTIFY_INFO, "Making %s the Map of the Day..." % _get_selected_song_name(), "Map of the Day")
+
+func _on_motd_result(ok: bool, reason: String):
+	if ok:
+		Globals.notify(Globals.NOTIFY_SUCCEED, "It's today's Map of the Day (ranked, at the top of everyone's maps).", "Map of the Day")
+		var lm = _get_lobby_manager()
+		if lm != null:
+			lm.get_motd()
+			lm.list_ranked_maps()
+		return
+	var text := "The server said no (%s)." % reason
+	if reason == "needs_xp":
+		text = "This map isn't ranked and the server doesn't have its file yet: set its XP in Rank Map first (or press MOTD again in a moment, once it's uploaded)."
+	Globals.notify(Globals.NOTIFY_WARN, text, "Map of the Day")
+
 func _map_screen_open() -> bool:
 	var maps = get_node_or_null("Main/Maps")
 	var results = get_node_or_null("Main/Maps/Results")
@@ -2782,6 +2854,7 @@ func _on_mods_changed_for_lobby():
 
 func _process(delta):
 	_update_rank_button()
+	_update_motd_button()
 	_layout_lobby_ui()
 	if lobby_toggle_button != null:
 		var sidebar = get_node_or_null("Sidebar")

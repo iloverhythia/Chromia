@@ -317,6 +317,32 @@ func build_list():
 		append_filtering_favorites(disp, logic)
 		append_filtering_favorites(disp, amogus)
 		append_filtering_favorites(disp, unknown)
+	_motd_first()
+
+# The Map of the Day (LobbyManager.motd_song_id) at the very top, whatever the
+# sort and filters (only a search for something else leaves it out)
+var _motd_song = null
+func _motd_first():
+	_motd_song = null
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm == null or String(lm.motd_song_id) == "":
+		return
+	var found = null
+	for s in songs:
+		if s != null and canon_key(String(s.id)) == lm.motd_song_id:
+			found = s
+			break
+	if found == null:
+		return
+	if (_st != "" or _at != "") and not search_matches(found):
+		return
+	disp.erase(found)
+	disp.push_front(found)
+	_motd_song = found
+
+func _on_motd_changed():
+	if is_inside_tree():
+		reload_to_current_page()
 
 func reload_to_current_page(_a = null):
 	scrolling_to = false
@@ -519,6 +545,8 @@ func make_song_button(id: int = -1):
 		strip.margin_bottom = -6
 		btn.add_child(strip)
 	btn.get_node("Cloud").visible = map.is_online
+	if map == _motd_song:
+		_mark_motd(btn)
 	rbtn.disabled = false
 	rbtn.connect("pressed", self, "on_pressed", [id, map])
 
@@ -529,6 +557,31 @@ func make_song_button(id: int = -1):
 	if map == Rhythia.selected_song:
 		btn.get_node("Select").pressed = true
 	return btn
+
+# the Map of the Day's button: a bright yellow outline (instead of its
+# difficulty's colour) and its name on it, with a tick once you've passed it
+const MOTD_YELLOW := Color(1, 0.9, 0.05)
+func _mark_motd(btn: Panel):
+	btn.self_modulate = MOTD_YELLOW
+	var lm = get_node_or_null("/root/LobbyManager")
+	var tag := Label.new()
+	tag.name = "MotdTag"
+	tag.text = "MAP OF THE DAY" + ("  -  DONE" if lm != null and lm.motd_completed else "")
+	tag.add_color_override("font_color", MOTD_YELLOW)
+	tag.add_color_override("font_color_shadow", Color(0, 0, 0, 0.8))
+	var nf = btn.get_node("Name").get_font("font")
+	if nf is DynamicFont:
+		var f: DynamicFont = nf.duplicate()
+		f.size = int(max(12, nf.size * 0.7))
+		tag.add_font_override("font", f)
+	tag.align = Label.ALIGN_RIGHT
+	tag.anchor_left = 1
+	tag.anchor_right = 1
+	tag.margin_left = -260
+	tag.margin_right = -12
+	tag.margin_top = 8
+	tag.mouse_filter = MOUSE_FILTER_IGNORE
+	btn.add_child(tag)
 
 func pg_up():
 	if cur_map < 0 or btns.empty(): return
@@ -735,7 +788,10 @@ func _ready():
 	if lobby_manager != null:
 		if not lobby_manager.is_connected("ranked_maps_received", self, "_on_ranked_maps_received"):
 			lobby_manager.connect("ranked_maps_received", self, "_on_ranked_maps_received")
+		if not lobby_manager.is_connected("motd_changed", self, "_on_motd_changed"):
+			lobby_manager.connect("motd_changed", self, "_on_motd_changed")
 		lobby_manager.list_ranked_maps()
+		lobby_manager.get_motd()
 
 	Engine.iterations_per_second = 60
 	call_deferred("firstload")

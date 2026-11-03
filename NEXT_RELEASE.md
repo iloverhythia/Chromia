@@ -54,3 +54,4 @@ in scripts/Savia.gd and empties this list.
 - In a map, every mod you have on now shows its icon next to the speed icon (not just the speed mods).
 - Spectating: the cursor of the person you watch always shows, also with Show cursor off, and is drawn over the grid, its background and panels.
 - Sound Space HUD (panels only): the health bar is right under the grid and the progress bar right over it again, with the mod icons under the health bar.
+- Map of the Day: one ranked map a day, picked by the admins, at the very top of your maps with a bright yellow outline. Pass it on its day to add to the Map of the Day badge on your profile.

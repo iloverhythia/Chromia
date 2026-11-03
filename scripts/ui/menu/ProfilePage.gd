@@ -12,6 +12,7 @@ var _theme: Theme = preload("res://uitheme.tres")
 var avatar_rect: TextureRect
 var name_label: Label
 var tag_label: Label
+var motd_badge: Label # Map of the Day: how many days' maps completed
 var rank_label: Label
 var stats_label: Label
 var status_label: Label
@@ -96,6 +97,9 @@ func _ready():
 	tag_label = _label("", 16)
 	tag_label.visible = false
 	names.add_child(tag_label)
+	motd_badge = _label("", 16, Color(1, 0.9, 0.05))
+	motd_badge.visible = false
+	names.add_child(motd_badge)
 	rank_label = _label("", 20, Color(1, 0.75, 0.85))
 	names.add_child(rank_label)
 
@@ -359,6 +363,12 @@ func _show_profile(p: Dictionary):
 			tag_label.add_color_override("font_color", Color(c))
 	else:
 		tag_label.visible = false
+	# (the Map of the Day badge: one for each day's map they completed)
+	var motd := int(p.get("motd_count", 0))
+	motd_badge.text = "MAP OF THE DAY  x%d" % motd
+	motd_badge.hint_tooltip = "Completed %d Map%s of the Day" % [motd, "" if motd == 1 else "s"]
+	motd_badge.mouse_filter = Control.MOUSE_FILTER_PASS
+	motd_badge.visible = motd > 0
 	rank_label.text = "#%s SP   •   #%s XP%s" % [Globals.s(p.get("sp_rank", "-")), Globals.s(p.get("xp_rank", "-")), "   •   ranker" if p.get("is_ranker", false) else ""]
 	stats_label.text = "%s SP     %s XP\n%s passes on %s maps%s" % [
 		_fmt(p.get("sp", 0)), _fmt(p.get("xp", 0)),

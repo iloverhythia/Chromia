@@ -35,6 +35,8 @@ signal map_publish_status_received(song_id, published)
 signal map_publish_progress(song_id, bytes_sent, total_bytes)
 signal map_publish_complete(song_id)
 signal ranked_maps_received(song_ids)
+signal motd_changed() # Map of the Day: motd_song_id, motd_name, motd_completed, motd_count
+signal admin_motd_result(ok, reason)
 # the Spectate tab
 signal online_players_received(list, you)
 signal spectate_denied(reason)
@@ -418,6 +420,28 @@ func get_my_map_stats(song_id: String):
 func list_ranked_maps():
 	_ensure_connected_then_send({"type": "list_ranked_maps"})
 
+# ---- Map of the Day (savia_web src/motd.js): one ranked map a day
+var motd_song_id: String = "" # (the server's key for it: v3MapList.canon_key)
+var motd_name: String = ""
+var motd_day: String = ""
+var motd_completed: bool = false # (you passed it today)
+var motd_count: int = 0 # days' maps you've completed
+
+func get_motd():
+	_ensure_connected_then_send({"type": "get_motd", "client_id": Rhythia.cid})
+
+# admins: today's map of the day (ranked with xp first, if it isn't yet)
+func admin_set_motd(song_id: String, song_name: String, xp: int, content_hash: String):
+	if not has_admin_key() or song_id == "":
+		return
+	var m := {"type": "admin_set_motd", "admin_key": _admin_key, "song_id": song_id, "song_name": song_name.substr(0, 200), "content_hash": content_hash}
+	if xp > 0:
+		m["xp"] = xp
+	_ensure_connected_then_send(m)
+
+func is_motd(song_id: String) -> bool:
+	return motd_song_id != "" and load("res://scripts/ui/menu/buttons/v3MapList.gd").canon_key(song_id) == motd_song_id
+
 func list_unpublished_ranked_maps():
 	_ensure_connected_then_send({"type": "list_unpublished_ranked_maps", "client_id": Rhythia.cid})
 
@@ -569,6 +593,8 @@ func _send_lobby_intent():
 func _on_connected(_proto = ""):
 	_send_lobby_intent()
 	_send({"type": "hello"})
+	if Rhythia.cid != "":
+		_send({"type": "get_motd", "client_id": Rhythia.cid})
 	if presence_supported == 1:
 		_send_presence(true)
 		if _online_subscribed:
@@ -1612,6 +1638,17 @@ func _handle_message(msg: Dictionary):
 			Rhythia.apply_rotated_client_id(Globals.s(msg.get("new_client_id", "")))
 		"ranked_maps":
 			emit_signal("ranked_maps_received", msg.get("song_ids", []))
+		"motd":
+			motd_song_id = Globals.s(msg.get("song_id", ""))
+			motd_name = Globals.s(msg.get("song_name", ""))
+			motd_day = Globals.s(msg.get("day", ""))
+			motd_completed = bool(msg.get("completed", false))
+			motd_count = int(msg.get("count", 0))
+			emit_signal("motd_changed")
+		"admin_motd_ok":
+			emit_signal("admin_motd_result", true, "")
+		"admin_motd_denied":
+			emit_signal("admin_motd_result", false, Globals.s(msg.get("reason", "")))
 		"unpublished_ranked_maps":
 			emit_signal("unpublished_ranked_maps_received", msg.get("song_ids", []))
 		"set_map_rank_ok":
