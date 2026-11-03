@@ -71,7 +71,8 @@ jobs:
             echo "channel=stable" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$version" >> "$GITHUB_OUTPUT"
-          if gh release view "$version" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          # (a draft left by a run whose upload failed doesn't count: it's finished this time)
+          if [ "$(gh release view "$version" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft 2>/dev/null)" = "false" ]; then
             echo "Release $version already exists; nothing to do."
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
@@ -410,7 +411,7 @@ jobs:
           if [ "$CHANNEL" = "test" ]; then
             pre=(--prerelease)
             # what changed since the last test build
-            prev=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 60 --json tagName,isPrerelease -q '[.[] | select(.isPrerelease)][0].tagName' || true)
+            prev=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 60 --json tagName,isPrerelease,isDraft -q '[.[] | select(.isPrerelease and (.isDraft | not))][0].tagName' || true)
             changes=""
             if [ -n "$prev" ]; then
               changes=$(gh api "repos/$GITHUB_REPOSITORY/compare/$prev...$GITHUB_SHA" --jq '.commits[].commit.message | split("\n")[0] | "- " + .' 2>/dev/null | tail -n 40 || true)
@@ -437,8 +438,27 @@ jobs:
           for f in "chromia-linux.zip" "chromia-macos.zip" "chromia-android.apk" "chromia-ios.ipa" "chromia-ios.pck" "chromia-ios-compat.txt" "chromia-quest.apk" "chromia-quest.pck" "chromia-quest-compat.txt" "chromia-quest-store.apk"; do
             [ -f "$f" ] && files+=("$f")
           done
-          gh release create "$TAG" "${files[@]}" "${pre[@]}" \
-            --target "$GITHUB_SHA" --title "Chromia $TAG" --notes "$notes"
+          # GitHub's upload API fails now and then (HTTP 500, or "already
+          # exists" after its own retry), so each part is retried: the release
+          # is made as a draft, the files are uploaded (--clobber replaces a
+          # half-uploaded one), and only then is it published.
+          retry() {
+            for i in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "::warning::attempt $i failed: $*"
+              sleep $((i * 10))
+            done
+            return 1
+          }
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            retry gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft "${pre[@]}" \
+              --target "$GITHUB_SHA" --title "Chromia $TAG" --notes "$notes" \
+              || gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null
+          fi
+          for f in "${files[@]}"; do
+            retry gh release upload "$TAG" "$f" --repo "$GITHUB_REPOSITORY" --clobber
+          done
+          retry gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
 
       # The release is published without the Quest files when their build
       # fails (so the other platforms still update), but the run turns red so
