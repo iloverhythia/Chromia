@@ -52,3 +52,4 @@ in scripts/Savia.gd and empties this list.
 - Mapping together: your stored nodes (Store Nodes) are yours only. Nothing the others do (placing, moving or deleting notes, even the ones you stored) changes them.
 - Editor colours: Color 3 is now only the 1/2 beat ticks. The preview (timeline view and bookmarks) has its own Color 6, stored nodes their own Color 7, and the waveform uses Color 4 like its setting says.
 - In a map, every mod you have on now shows its icon next to the speed icon (not just the speed mods).
+- Spectating: the cursor of the person you watch always shows, also with Show cursor off, and is drawn over the grid, its background and panels.

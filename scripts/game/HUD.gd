@@ -1407,9 +1407,15 @@ func _put_cursor_picture(tex):
 		mat = SpatialMaterial.new()
 		mat.flags_transparent = true
 		mat.flags_unshaded = true
-	mat.albedo_color = Color(1, 1, 1, mat.albedo_color.a)
+	mat.albedo_color = Color(1, 1, 1, max(mat.albedo_color.a, 0.5))
 	mat.albedo_texture = tex
-	mesh.set_surface_material(0, mat)
+	mesh.set_surface_material(0, _on_top(mat))
+
+# drawn over the grid, notes and backgrounds, like the cursor you play with
+static func _on_top(mat: SpatialMaterial) -> SpatialMaterial:
+	mat.flags_no_depth_test = true
+	mat.render_priority = 100
+	return mat
 
 func _create_ghost_cursor():
 	if spectate_cursor != null:
@@ -1430,6 +1436,17 @@ func _create_ghost_cursor():
 	var dup_trail = spectate_cursor.get_node_or_null("Mesh2")
 	if dup_trail != null:
 		dup_trail.visible = false
+	# the one you watch is always shown: a copy of your cursor was hidden with
+	# Show cursor off, and could be drawn behind a grid background or panels
+	spectate_cursor.visible = true
+	var dm = spectate_cursor.get_node_or_null("Mesh")
+	if dm is MeshInstance:
+		dm.visible = true
+		var m0 = dm.get_surface_material(0)
+		if m0 == null and dm.mesh != null:
+			m0 = dm.mesh.surface_get_material(0)
+		if m0 is SpatialMaterial:
+			dm.set_surface_material(0, _on_top(m0.duplicate()))
 
 func _on_round_ended():
 	exit_spectate_mode()
