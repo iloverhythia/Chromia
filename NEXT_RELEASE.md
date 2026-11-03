@@ -53,3 +53,4 @@ in scripts/Savia.gd and empties this list.
 - Editor colours: Color 3 is now only the 1/2 beat ticks. The preview (timeline view and bookmarks) has its own Color 6, stored nodes their own Color 7, and the waveform uses Color 4 like its setting says.
 - In a map, every mod you have on now shows its icon next to the speed icon (not just the speed mods).
 - Spectating: the cursor of the person you watch always shows, also with Show cursor off, and is drawn over the grid, its background and panels.
+- Sound Space HUD (panels only): the health bar is right under the grid and the progress bar right over it again, with the mod icons under the health bar.
