@@ -46,3 +46,5 @@ in scripts/Savia.gd and empties this list.
 - Map editor: Import SSQE+ settings takes SSQE+'s setup files (.ssqes) as well as settings.txt
 - Editor settings: a long note no longer pushes the buttons and sliders off the right side of the window.
 - Mapping together: pausing during a playtest (or a long song load) no longer drops you out of the session.
+- Mapping together is much less laggy, especially on big maps.
+- Mapping together: Store Nodes keeps your bezier nodes on the right notes when the others add or move notes.

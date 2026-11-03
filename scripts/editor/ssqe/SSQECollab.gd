@@ -121,6 +121,7 @@ func _come_back(ed):
 		s.extra = ""
 		_apply_extra(extra_of(old))
 		ed.on_map_changed()
+		_index_all()
 		s.version = -1
 	if s.role == "guest":
 		send({"k": "resync"}, s.host)
@@ -163,9 +164,17 @@ static func _r3(v: float) -> String:
 	return "%.3f" % (round(v * 1000.0) / 1000.0)
 
 static func key_of(n) -> String:
+	var v := Vector3(n.x, n.y, n.ms)
+	var e: int = (1 + n.style * 64 + n.direction) if n.enable_easing else 0
+	if n._ck_v == v and n._ck_e == e and n._ck != "":
+		return n._ck
 	var k := "%s|%s|%d" % [_r3(n.x), _r3(n.y), int(round(n.ms))]
 	if n.enable_easing:
 		k += "|%d|%d" % [n.style, n.direction]
+	n._ck = k
+	n._ck_h = k.hash()
+	n._ck_v = v
+	n._ck_e = e
 	return k
 
 static func note_of(k: String):
@@ -186,7 +195,8 @@ static func count_keys(items: Array) -> Dictionary:
 static func hash_notes(items: Array) -> int:
 	var h := items.size()
 	for n in items:
-		h = (h + key_of(n).hash()) & 0x7fffffff
+		key_of(n)
+		h = (h + n._ck_h) & 0x7fffffff
 	return h
 
 static func extra_of(map) -> String:
@@ -349,6 +359,7 @@ func _start(role: String, room: String, host_number: int, host_name: String):
 		"map": null, "synced": {}, "version": -1, "extra": "", "last_p": "", "last_sel": "",
 		"last_send": 0, "last_sum": 0, "last_local": 0, "last_extra": 0, "last_full": 0, "misses": 0,
 		"got_snap": role == "host", "snap": null, "last_chunk": 0, "asked_meta": 0,
+		"known": {}, "cur": {}, "by_key": {}, "hsum": 0, "items_hash": 0, "scan_i": 0, "dirty": {}, "last_d": 0,
 	}
 	page.call("_ensure_built")
 	var sb = Rhythia.menu_node("Sidebar")
@@ -496,8 +507,168 @@ func _song_arrived():
 
 func _attach():
 	s.synced = count_keys(s.map.notes.items)
+	_index_all()
 	s.version = s.map.version
 	s.extra = extra_of(s.map)
+
+# ------------------------------------------------------------------ keeping track of the notes
+# What the notes are, kept up to date as they change, instead of being worked
+# out again from every note many times a second (on a big map that was most
+# of the lag). s.known: note -> its key; s.cur: key -> how many; s.by_key:
+# key -> the notes; s.hsum: their keys' hashes added up (the fingerprint);
+# s.dirty: the keys whose count changed since the last change went out.
+const SCAN := 100 # notes looked at again each tick, in case one changed some other way
+
+func _index_all():
+	var known := {}
+	var cur := {}
+	var by_key := {}
+	var hs := 0
+	for n in s.map.notes.items:
+		var k := key_of(n)
+		known[n] = k
+		cur[k] = int(cur.get(k, 0)) + 1
+		if by_key.has(k):
+			by_key[k].append(n)
+		else:
+			by_key[k] = [n]
+		hs = (hs + int(n._ck_h)) & 0x7fffffff
+	s.known = known
+	s.cur = cur
+	s.by_key = by_key
+	s.hsum = hs
+	s.items_hash = s.map.notes.items.hash()
+	s.scan_i = 0
+	var dirty := {}
+	for k in cur:
+		dirty[k] = true
+	for k in s.synced:
+		dirty[k] = true
+	s.dirty = dirty
+
+func _track_add(n):
+	var k := key_of(n)
+	s.known[n] = k
+	s.cur[k] = int(s.cur.get(k, 0)) + 1
+	if s.by_key.has(k):
+		s.by_key[k].append(n)
+	else:
+		s.by_key[k] = [n]
+	s.hsum = (int(s.hsum) + int(n._ck_h)) & 0x7fffffff
+	s.dirty[k] = true
+
+func _track_remove(n):
+	var k: String = s.known[n]
+	s.known.erase(n)
+	var c := int(s.cur.get(k, 0)) - 1
+	if c > 0:
+		s.cur[k] = c
+	else:
+		s.cur.erase(k)
+	if s.by_key.has(k):
+		var l: Array = s.by_key[k]
+		l.erase(n)
+		if l.empty():
+			s.by_key.erase(k)
+	s.hsum = (int(s.hsum) - int(k.hash())) & 0x7fffffff
+	s.dirty[k] = true
+
+# a note that may have been moved where it is (dragging moves them in place)
+func _retrack(n):
+	if s.known.has(n) and key_of(n) != s.known[n]:
+		_track_remove(n)
+		_track_add(n)
+
+# this side's notes: what was added, removed or moved since the last look
+func _check_local():
+	var notes = s.map.notes
+	var items: Array = notes.items
+	var now := OS.get_ticks_msec()
+	var h := items.hash() # (native: cheap; the same while nothing's added, removed or reordered)
+	if h != int(s.items_hash):
+		s.items_hash = h
+		# quick: an edit's new notes are selected, and the ones it took away were
+		# selected before it (placing, deleting, moving, pasting, undo)
+		for n in notes.selected:
+			if not s.known.has(n):
+				_track_add(n)
+		for n in s.get("prev_sel", []):
+			if s.known.has(n) and items.find(n) == -1:
+				_track_remove(n)
+		if items.size() != s.known.size():
+			_full_check(items)
+		else:
+			s.unverified = true # (looked at properly soon, in case it was something else)
+	if s.get("unverified", false) and now - int(s.get("last_verify", 0)) > 1500:
+		_full_check(items)
+	for n in notes.selected:
+		_retrack(n)
+	s.prev_sel = notes.selected.duplicate()
+	var cnt := items.size()
+	for _i in range(min(SCAN, cnt)):
+		if int(s.scan_i) >= cnt:
+			s.scan_i = 0
+		_retrack(items[int(s.scan_i)])
+		s.scan_i = int(s.scan_i) + 1
+
+# every note: which are new here and which have gone
+func _full_check(items: Array):
+	s.unverified = false
+	s.last_verify = OS.get_ticks_msec()
+	var added := false
+	for n in items:
+		if not s.known.has(n):
+			_track_add(n)
+			added = true
+	if items.size() != s.known.size():
+		var here := {}
+		for n in items:
+			here[n] = true
+		for n in s.known.keys():
+			if not here.has(n):
+				_track_remove(n)
+
+func _notes_hash() -> int:
+	return (s.known.size() + int(s.hsum)) & 0x7fffffff
+
+# Store Nodes keeps the nodes as places in the list of notes, and the others'
+# notes coming in move those places: the nodes are kept as the notes they are
+func _bez_objs() -> Array:
+	var out := []
+	var items: Array = s.map.notes.items
+	for i in s.map.notes.bezier_nodes:
+		if int(i) < items.size():
+			out.append(items[int(i)])
+	return out
+
+func _bez_put(objs: Array):
+	if objs.empty():
+		return
+	var at := {}
+	for o in objs:
+		at[o] = true
+	var idx := []
+	var items: Array = s.map.notes.items
+	for i in range(items.size()):
+		if at.has(items[i]):
+			idx.append(i)
+	s.map.notes.bezier_nodes = idx
+
+# of `free`, the note closest to n (taken out of free), or null
+static func _closest(free: Array, n):
+	var bi := -1
+	var bd := INF
+	for i in range(free.size()):
+		var m = free[i]
+		var d: float = abs(m.ms - n.ms) / 100.0 + Vector2(m.x - n.x, m.y - n.y).length()
+		if d < bd:
+			bd = d
+			bi = i
+	if bi < 0:
+		return null
+	var o = free[bi]
+	free.remove(bi)
+	return o
 
 func _after_remote_change():
 	var ed = _ed()
@@ -508,6 +679,7 @@ func _after_remote_change():
 func _apply_snapshot(parts: Array):
 	var map = s.map
 	var first: Dictionary = parts[0]
+	var bez := _bez_objs()
 	var sel := {}
 	for n in map.notes.selected:
 		sel[key_of(n)] = true
@@ -563,8 +735,10 @@ func _apply_snapshot(parts: Array):
 		if sel.has(key_of(n)):
 			keep.append(n)
 	map.notes.set_selected(keep)
+	_bez_put(bez)
 	_apply_extra(String(first.get("extra", "")))
 	s.synced = agreed
+	_index_all() # (and what was done here goes out next tick, on top of it)
 	s.got_snap = true
 	_after_remote_change()
 	# (this side's own changes go out next tick, on top of it)
@@ -572,16 +746,17 @@ func _apply_snapshot(parts: Array):
 
 func _apply_diff(adds: Array, removes: Array, peer: Dictionary):
 	var map = s.map
-	var want := {}
-	for k in removes:
-		want[k] = int(want.get(k, 0)) + 1
+	var items: Array = map.notes.items
+	for n in map.notes.selected:
+		_retrack(n) # (where this side's own notes are now, before taking theirs)
+	var bez := _bez_objs()
 	var gone := {}
-	if not want.empty():
-		for n in map.notes.items:
-			var k := key_of(n)
-			if int(want.get(k, 0)) > 0:
-				gone[n] = true
-				want[k] -= 1
+	for k in removes:
+		if s.by_key.has(k):
+			for n in s.by_key[k]:
+				if not gone.has(n):
+					gone[n] = true
+					break
 	var col := _color_of(int(peer.number))
 	var added := []
 	for k in adds:
@@ -593,16 +768,23 @@ func _apply_diff(adds: Array, removes: Array, peer: Dictionary):
 	var was_sel: Array = map.notes.selected
 	var lost := []
 	if not gone.empty():
-		var keep := []
-		for n in map.notes.items:
-			if not gone.has(n):
-				keep.append(n)
+		if gone.size() > 32:
+			var keep := []
+			for n in items:
+				if not gone.has(n):
+					keep.append(n)
+			map.notes.items = keep
+		else:
+			for n in gone:
+				items.erase(n) # (native: quicker than going through every note here)
 		for n in was_sel:
 			if gone.has(n):
 				lost.append(n)
-		map.notes.items = keep
-	map.notes.insert_sorted(added) # (where they go: sorting a big map each time was slow)
-	map.notes.sort()
+		for n in gone:
+			_track_remove(n)
+	map.notes.insert_sorted(added) # (where they go, in order: no sorting the whole map)
+	for n in added:
+		_track_add(n)
 	# notes someone else moved that were selected here: still selected, where they went
 	var sel := []
 	for n in was_sel:
@@ -611,18 +793,23 @@ func _apply_diff(adds: Array, removes: Array, peer: Dictionary):
 	if not lost.empty() and added.size() >= lost.size():
 		var free := added.duplicate()
 		for n in lost:
-			var bi := -1
-			var bd := INF
-			for i in range(free.size()):
-				var m = free[i]
-				var d: float = abs(m.ms - n.ms) / 100.0 + Vector2(m.x - n.x, m.y - n.y).length()
-				if d < bd:
-					bd = d
-					bi = i
-			if bi >= 0:
-				sel.append(free[bi])
-				free.remove(bi)
+			var to = _closest(free, n)
+			if to != null:
+				sel.append(to)
 	map.notes.set_selected(sel)
+	# stored bezier nodes: the same notes, or where someone moved them
+	if not bez.empty():
+		var nodes := []
+		var free2 := added.duplicate()
+		for n in bez:
+			if not gone.has(n):
+				nodes.append(n)
+			else:
+				var to2 = _closest(free2, n)
+				if to2 != null:
+					to2.anchored = n.anchored
+					nodes.append(to2)
+		_bez_put(nodes)
 	# what all agree on now, so these don't go straight back
 	for k in removes:
 		var c := int(s.synced.get(k, 0))
@@ -632,6 +819,7 @@ func _apply_diff(adds: Array, removes: Array, peer: Dictionary):
 			s.synced.erase(k)
 	for k in adds:
 		s.synced[k] = int(s.synced.get(k, 0)) + 1
+	s.items_hash = map.notes.items.hash()
 	_after_remote_change()
 
 func _apply_extra(x: String):
@@ -789,7 +977,7 @@ func _receive(p: Dictionary):
 			peer.other["at"] = OS.get_ticks_msec()
 		"sum":
 			if s.role == "guest" and s.map and s.phase == "mapping" and s.got_snap:
-				if int(p.get("h", 0)) != hash_notes(s.map.notes.items) and OS.get_ticks_msec() - int(s.last_local) > 1500:
+				if int(p.get("h", 0)) != _notes_hash() and OS.get_ticks_msec() - int(s.last_local) > 1500:
 					s.misses += 1
 					if s.misses >= 2:
 						send({"k": "resync"}, s.host)
@@ -859,31 +1047,38 @@ func _tick():
 	var map = s.map
 	if s.role == "guest" and not s.got_snap:
 		return
-	# the notes: what's been added and removed since all last agreed (looked at
-	# after an edit here, and once a second in case something didn't count as one)
-	if map.version != s.version or now - int(s.last_full) > 1000:
-		s.version = map.version
-		s.last_full = now
-		var cur := count_keys(map.notes.items)
+	# the notes: what's been added and removed since all last agreed
+	_check_local()
+	if not s.dirty.empty() and now - int(s.get("last_d", 0)) >= 50:
+		s.last_d = now
 		var a := []
 		var r := []
-		for k in cur:
-			for _q in range(int(s.synced.get(k, 0)), int(cur[k])):
+		for k in s.dirty:
+			var c := int(s.cur.get(k, 0))
+			var y := int(s.synced.get(k, 0))
+			for _q in range(y, c):
 				a.append(k)
-		for k in s.synced:
-			for _q in range(int(cur.get(k, 0)), int(s.synced[k])):
+			for _q in range(c, y):
 				r.append(k)
+			if c > 0:
+				s.synced[k] = c
+			else:
+				s.synced.erase(k)
+		s.dirty = {}
 		if not a.empty() or not r.empty():
 			send({"k": "d", "a": a, "r": r})
 			s.last_local = now
 			var mine := {}
 			for k in a:
 				mine[k] = true
-			for n in map.notes.items:
-				if not n.has_meta("by") and mine.has(key_of(n)):
-					n.set_meta("by", me())
-		s.synced = cur
-		# timing points, bookmarks and extra objects
+			for k in mine:
+				for n in s.by_key.get(k, []):
+					if not n.has_meta("by"):
+						n.set_meta("by", me())
+	# timing points, bookmarks and extra objects (looked at after an edit here)
+	if map.version != s.version or now - int(s.last_full) > 2000:
+		s.version = map.version
+		s.last_full = now
 		var x := extra_of(map)
 		if x != s.extra:
 			s.extra = x
@@ -908,7 +1103,7 @@ func _tick():
 	# the host: a fingerprint every 3 seconds, so a lost change gets put right
 	if s.role == "host" and now - int(s.last_sum) > 3000:
 		s.last_sum = now
-		send({"k": "sum", "h": hash_notes(map.notes.items)})
+		send({"k": "sum", "h": _notes_hash()})
 	# someone not heard from for 3 minutes has gone
 	for n in s.peers.keys():
 		if now - int(s.peers[n].heard) > 180000:
@@ -1143,10 +1338,11 @@ func _refresh_ui():
 			"receiving", "opening":
 				var pct: int = int(100.0 * s.song.got / max(1, s.song.n)) if s.song else 0
 				waiting_label.text = "Mapping with %s.\n\nGetting the song... %d%%" % [s.host_name, pct]
-		bar.margin_left = -330
-		bar.margin_right = 330
-		bar.margin_top = -118
-		bar.margin_bottom = -70
+		if bar.margin_left != -330: # (once: setting them again every tick laid the bar out again)
+			bar.margin_left = -330
+			bar.margin_right = 330
+			bar.margin_top = -118
+			bar.margin_bottom = -70
 
 # the others: a line on the track and the timeline where they are, and their mouse over the grid
 func _draw_overlay():

@@ -156,6 +156,12 @@ class Obj extends Reference:
 	var data: Array = []
 	# Chromia: whose note this is in a collab (unused) / colour override
 	var by_color = null
+	# Chromia: mapping together's key for this note (SSQECollab.key_of), kept
+	# until the note moves: making it again for every note was the lag
+	var _ck := ""
+	var _ck_h := 0
+	var _ck_v := Vector3()
+	var _ck_e := 0
 
 	func fields() -> Array:
 		match id:
