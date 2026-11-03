@@ -2533,7 +2533,24 @@ func _ready():
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("FailSound"), linear2db(0.6))
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("PBSound"), linear2db(0.6))
 
+# Settings > Video & Audio > Fullscreen: the screen the game is on, no frame,
+# one pixel taller than it so the graphics driver keeps it an ordinary window
+# (Exclusive Fullscreen is OS.window_fullscreen; Borderless Windowed below)
+var normal_fullscreen: bool = false
+func set_normal_fullscreen(enabled: bool):
+	if enabled:
+		var scr: int = OS.current_screen
+		OS.window_fullscreen = false
+		OS.window_maximized = false
+		OS.window_borderless = true
+		normal_fullscreen = true
+		OS.window_position = OS.get_screen_position(scr)
+		OS.window_size = OS.get_screen_size(scr) + Vector2(0, 1)
+	elif normal_fullscreen:
+		set_borderless_windowed(false)
+
 func set_borderless_windowed(enabled: bool):
+	normal_fullscreen = false
 	OS.window_borderless = enabled
 	if enabled:
 		OS.window_fullscreen = false
@@ -2555,10 +2572,13 @@ func _process(delta):
 	note_spin_t = fmod(note_spin_t + (delta * 0.5), 360)
 
 	if Input.is_action_just_pressed("fullscreen"):
-		# (Exclusive Fullscreen; Borderless Windowed goes off first)
-		if OS.window_borderless and not OS.window_fullscreen:
+		# (Exclusive Fullscreen; Fullscreen or Borderless Windowed just goes off)
+		if normal_fullscreen and not OS.window_fullscreen:
+			set_normal_fullscreen(false)
+		elif OS.window_borderless and not OS.window_fullscreen:
 			set_borderless_windowed(false)
-		OS.window_fullscreen = not OS.window_fullscreen
+		else:
+			OS.window_fullscreen = not OS.window_fullscreen
 	if Input.is_action_just_pressed("quit_game"):
 		quit_game()
 	if _post_death_retry_armed and Input.is_action_just_pressed("retry"):
@@ -3687,7 +3707,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 				data.erase(k)
 				continue
 			var is_num := vt == TYPE_BOOL or vt == TYPE_INT or vt == TYPE_REAL
-			var ct := typeof(get(k)) if not k in ["vsync_enabled", "window_fullscreen", "window_borderless", "target_fps"] else TYPE_BOOL
+			var ct := typeof(get(k)) if not k in ["vsync_enabled", "window_fullscreen", "window_borderless", "normal_fullscreen", "target_fps"] else TYPE_BOOL
 			if (ct == TYPE_BOOL or ct == TYPE_INT or ct == TYPE_REAL) and not is_num and not (k == "edge_drift" and vt == TYPE_STRING):
 				print("[settings] ignoring %s (unexpected value %s)" % [k, data[k]])
 				data.erase(k)
@@ -3958,6 +3978,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			OS.window_fullscreen = data.window_fullscreen
 		if data.has("window_borderless"):
 			set_borderless_windowed(data.window_borderless)
+		if data.has("normal_fullscreen") and bool(data.normal_fullscreen) and not OS.window_fullscreen:
+			set_normal_fullscreen(true)
 		if data.has("cursor_face_velocity"):
 			cursor_face_velocity = data.cursor_face_velocity
 		if data.has("seasonal_themes"):
@@ -4541,7 +4563,8 @@ func _write_settings_file(saveFile: String):
 			vsync_enabled = OS.vsync_enabled,
 
 			window_fullscreen = OS.window_fullscreen,
-			window_borderless = OS.window_borderless,
+			window_borderless = OS.window_borderless and not normal_fullscreen,
+			normal_fullscreen = normal_fullscreen,
 			selected_colorset = (_colorset_before_random.id if _colorset_before_random != null else selected_colorset.id),
 			selected_hit_sound_id = (selected_hit_sound.id if selected_hit_sound else "default"),
 			selected_miss_sound_id = (selected_miss_sound.id if selected_miss_sound else "default"),
