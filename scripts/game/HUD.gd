@@ -1521,6 +1521,9 @@ func _create_spectators_banner():
 	var f = DynamicFont.new()
 	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	f.size = 18
+	# (the letters drawn now, at the start: the first time someone watched,
+	# making them mid-song cost a frame)
+	f.get_string_size("Spectators (0123456789) + more ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz_-.")
 	_spectators_banner.add_font_override("font", f)
 	_spectators_banner.add_color_override("font_color", Color(0.9, 0.9, 0.9))
 	_spectators_banner.add_color_override("font_color_shadow", Color(0, 0, 0, 0.6))

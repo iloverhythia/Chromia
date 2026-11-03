@@ -779,7 +779,7 @@ func upload_spectate_assets():
 		if file == "":
 			continue
 		var f := File.new()
-		var sha: String = f.get_sha256(file)
+		var sha: String = load("res://scripts/SpectateSettings.gd").sha_of(file)
 		if sha == "" or _assets_sent.get(key, "") == sha or f.open(file, File.READ) != OK:
 			continue
 		var data: PoolByteArray = f.get_buffer(f.get_len())
@@ -943,7 +943,7 @@ func upload_cursor_picture():
 	if pic == "":
 		return
 	var f := File.new()
-	var sha: String = f.get_sha256(pic)
+	var sha: String = load("res://scripts/SpectateSettings.gd").sha_of(pic)
 	if sha == "" or sha == _cursor_sent or f.open(pic, File.READ) != OK:
 		return
 	var data: PoolByteArray = f.get_buffer(f.get_len())
@@ -968,12 +968,15 @@ func _on_cursor_uploaded(result, code, _headers, _body, http):
 # Playing alone: your display settings go to the server at the start of the
 # song, so whoever starts watching from the Spectate tab sees it your way
 # right away (servers with the Spectate tab only; a lobby uses the above).
+var _solo_settings_sent := false # (this song's settings are on the server already)
 func send_solo_view_settings():
+	_solo_settings_sent = false
 	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
 	upload_cursor_picture()
 	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+	_solo_settings_sent = true
 
 # a song starts (not in a lobby): while you're watched, the server takes it as
 # a restart and moves your watchers to this play (Retry used to leave them on
@@ -1566,7 +1569,11 @@ func _handle_message(msg: Dictionary):
 			var nm = msg.get("names", [])
 			watcher_names = nm if nm is Array else []
 			if watchers_count > 0 and was == 0 and Rhythia.in_map:
-				send_view_settings() # so they see it your way
+				# so they see it your way (playing alone, the server has had them
+				# since the song started and gives them to whoever watches: sending
+				# them again mid-song only made the game stutter)
+				if lobby_active or not _solo_settings_sent:
+					send_view_settings()
 				var game = get_tree().current_scene.find_node("Game", true, false) if get_tree().current_scene else null
 				if game != null and game.has_method("_sync_lobby_stats"):
 					game._sync_lobby_stats()

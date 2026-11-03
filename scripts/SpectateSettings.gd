@@ -85,6 +85,31 @@ const FORCED := {"random_colorset": false}
 # someone playing in VR: a still camera
 const FLAT_FOR_VR := {"cam_unlock": false, "parallax": 0.0, "ui_parallax": 0.0, "grid_parallax": 0.0}
 
+# a file's sha256, worked out again only when the file changes (its size or
+# time): hashing every skin file (background videos too) each time someone
+# started watching made the game stutter mid-song
+const _SHA_KEY := "chromia_sha_cache"
+static func sha_of(path: String) -> String:
+	if path == "":
+		return ""
+	var f := File.new()
+	if not f.file_exists(path):
+		return ""
+	if not Engine.has_meta(_SHA_KEY):
+		Engine.set_meta(_SHA_KEY, {})
+	var cache: Dictionary = Engine.get_meta(_SHA_KEY)
+	var mt: int = f.get_modified_time(path)
+	var size := -1
+	if f.open(path, File.READ) == OK:
+		size = f.get_len()
+		f.close()
+	var c = cache.get(path)
+	if c is Array and int(c[0]) == mt and int(c[1]) == size:
+		return String(c[2])
+	var sha: String = f.get_sha256(path)
+	cache[path] = [mt, size, sha]
+	return sha
+
 static func all_keys() -> Array:
 	var out: Array = CAMERA_KEYS + VIEW_KEYS + VR_LOOK_KEYS + ID_KEYS.keys() + FORCED.keys()
 	return out
@@ -144,25 +169,25 @@ static func collect() -> Dictionary:
 	out["vr_hand"] = String(backup.get("vr_hand", Rhythia.vr_hand))
 	if out["vr_hand"] == "custom":
 		for hf in own_hand_files():
-			out[hf[0]] = File.new().get_sha256(hf[1])
+			out[hf[0]] = sha_of(hf[1])
 	out["_v"] = 1
 	# your cursor picture, for whoever watches you with your settings (the
 	# server keeps it by this hash: LobbyManager.upload_cursor_picture)
 	var pic := own_cursor_file()
 	if pic != "":
-		out["cursor_image"] = File.new().get_sha256(pic)
+		out["cursor_image"] = sha_of(pic)
 	# your own border picture and note mesh (built-in ones every game has):
 	# uploaded by LobbyManager.upload_spectate_assets, named here by hash
 	var bfile := own_border_file(backup.get("selected_border", Rhythia.selected_border))
 	if bfile != "":
-		out["border_image"] = File.new().get_sha256(bfile)
+		out["border_image"] = sha_of(bfile)
 	var mfile := own_mesh_file(backup.get("selected_mesh", Rhythia.selected_mesh))
 	if mfile != "":
-		out["mesh_file"] = File.new().get_sha256(mfile)
+		out["mesh_file"] = sha_of(mfile)
 	# your own HUD font (Settings > Fonts), as "<sha256>.<ttf|otf>"
 	var ffile := own_font_file(String(backup.get("hud_font", Rhythia.hud_font)))
 	if ffile != "":
-		out["hud_font_file"] = "%s.%s" % [File.new().get_sha256(ffile), ffile.get_extension().to_lower()]
+		out["hud_font_file"] = "%s.%s" % [sha_of(ffile), ffile.get_extension().to_lower()]
 	# your backgrounds: the Custom Background picture / panorama and the
 	# Background Editor's layers ("none": spectators see none of theirs either)
 	for a in own_background_assets():
@@ -225,7 +250,7 @@ static func _own_background_assets() -> Array:
 		if ext == "" or size <= 0 or size > MEDIA_MAX_BYTES:
 			out.append({"key": pair[0], "value": "none", "uploads": []})
 		else:
-			var sha: String = File.new().get_sha256(p)
+			var sha: String = sha_of(p)
 			out.append({"key": pair[0], "value": "%s.%s" % [sha, ext], "uploads": [["media", p, sha]]})
 	# the Background Editor: its media by hash, and the layout naming them
 	var BG = load("res://scripts/BgLayers.gd")
@@ -241,7 +266,7 @@ static func _own_background_assets() -> Array:
 			var size := _file_size(p)
 			if ext == "" or size <= 0 or size > MEDIA_MAX_BYTES:
 				continue
-			var sha: String = File.new().get_sha256(p)
+			var sha: String = sha_of(p)
 			var copy: Dictionary = l.duplicate()
 			copy.file = "%s.%s" % [sha, ext]
 			layers.append(copy)
@@ -255,7 +280,7 @@ static func _own_background_assets() -> Array:
 		if f.open(layout_path, File.WRITE) == OK:
 			f.store_string(JSON.print({"enabled": true, "placement": d.placement, "layers": layers}))
 			f.close()
-			var lsha: String = File.new().get_sha256(layout_path)
+			var lsha: String = sha_of(layout_path)
 			uploads.append(["bglayers", layout_path, lsha])
 			out.append({"key": "bg_layers", "value": lsha, "uploads": uploads})
 	return out
