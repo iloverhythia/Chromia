@@ -110,6 +110,20 @@ func song_end(end_type: int):
 var combo_ring_target: float = 0
 var combo_ring_value: float = 0
 
+# a mod's icon in the row with the speed ones (assets/images/modifiers/64)
+func _mod_icon(name: String):
+	var tex = load("res://assets/images/modifiers/64/%s_colored.png" % name)
+	if tex == null or modicons.has_node("Mod_" + name):
+		return
+	var r := TextureRect.new()
+	r.name = "Mod_" + name
+	r.texture = tex
+	r.rect_min_size = Vector2(64, 64)
+	r.expand = true
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modicons.add_child(r)
+
 func update_static_values():
 	var src_hits = _spectate_data.hits if spectating else Game.hits
 	var src_total = _spectate_data.total_notes if spectating else Game.total_notes
@@ -1748,32 +1762,29 @@ func _ready():
 			Globals.SPEED_PP: modicons.get_node("SpeedPP").visible = true
 			Globals.SPEED_PPP: modicons.get_node("SpeedPPP").visible = true
 			Globals.SPEED_PPPP: modicons.get_node("SpeedPPPP").visible = true
-			Globals.SPEED_CUSTOM: mods.append("S%s" % [Globals.speed_multi[Globals.SPEED_CUSTOM] * 100])
-	if Rhythia.mod_sudden_death: mods.append("SuddenDeath")
-	if Rhythia.mod_extra_energy: mods.append("Energy+")
-	if Rhythia.mod_no_regen: mods.append("NoRegen")
-	if Rhythia.mod_mirror_x or Rhythia.mod_mirror_y:
-		var mirrorst = tr("Mirror")
-		if Rhythia.mod_mirror_x: mirrorst += "X"
-		if Rhythia.mod_mirror_y: mirrorst += "Y"
-		mods.append(mirrorst)
-	if Rhythia.mod_ghost: mods.append(tr("Ghost"))
-	if Rhythia.mod_nearsighted: mods.append("Nearsight")
-	if Rhythia.mod_chaos: mods.append(tr("Chaos"))
-	if Rhythia.mod_earthquake: mods.append(tr("Earthquake"))
+			Globals.SPEED_CUSTOM:
+				_mod_icon("speed_custom")
+				mods.append("S%s" % [Globals.speed_multi[Globals.SPEED_CUSTOM] * 100]) # (the icon doesn't say how fast)
+	# the other mods: their icons, like the speed ones (only here, in a map)
+	if Rhythia.mod_nofail: _mod_icon("nofail")
+	if Rhythia.mod_sudden_death: _mod_icon("sudden_death")
+	if Rhythia.mod_extra_energy: _mod_icon("extra_energy")
+	if Rhythia.mod_no_regen: _mod_icon("no_regen")
+	if Rhythia.mod_mirror_x: _mod_icon("mirror_x")
+	if Rhythia.mod_mirror_y: _mod_icon("mirror_y")
+	if Rhythia.mod_ghost: _mod_icon("ghost")
+	if Rhythia.mod_nearsighted: _mod_icon("nearsighted")
+	if Rhythia.mod_chaos: _mod_icon("chaos")
+	if Rhythia.mod_earthquake: _mod_icon("earthquake")
 	if Rhythia.mod_360:
+		_mod_icon("mod_360")
 		var speed = Rhythia.mod_360_speed
-		var prefix = "-360" if speed < 0 else "360"
-		var abs_speed = abs(speed)
-
-		if abs_speed == 1:
-			mods.append(prefix)
-		else:
-			mods.append("%sx%s" % [prefix, abs_speed])
-	if Rhythia.mod_strobe: mods.append(tr("Strobe"))
-	if Rhythia.mod_hardrock: mods.append(tr("Hard Rock"))
-	if Rhythia.mod_hard_mode: mods.append(tr("Hard Mode"))
-	if Rhythia.mod_flashlight: mods.append(tr("Flashlight"))
+		if speed < 0 or abs(speed) != 1: # (which way and how fast: not on the icon)
+			mods.append(("%sx%s" % ["-360" if speed < 0 else "360", abs(speed)]) if abs(speed) != 1 else "-360")
+	if Rhythia.mod_strobe: _mod_icon("strobe")
+	if Rhythia.mod_hardrock: _mod_icon("hardrock")
+	if Rhythia.mod_hard_mode: _mod_icon("hard_mode")
+	if Rhythia.mod_flashlight: _mod_icon("flashlight")
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
 		ms += tr(" Vulnus Judgement ")
