@@ -424,7 +424,7 @@ func import_vmap_with_difficulty(difficulty_id:int,is_loop:bool=true):
 			
 			if result == "Converted!":
 				Rhythia.registry_song.check_and_remove_id(song.id)
-				Rhythia.registry_song.add_sspm_map("user://maps/%s.sspm" % song.id)
+				Rhythia.registry_song.add_sspm_map(Globals.p("user://maps/%s.sspm" % song.id)) # (where convert_to_sspm saved it)
 				return 1
 			else:
 				$Finish/Error.text = result + (" (%s)" % song.custom_data.difficulty_name)
@@ -834,7 +834,7 @@ func finish_map():
 		$Finish/Wait.visible = false
 		if result == "Converted!":
 			Rhythia.registry_song.check_and_remove_id(song.id)
-			Rhythia.registry_song.add_sspm_map("user://maps/%s.sspm" % song.id)
+			Rhythia.registry_song.add_sspm_map(Globals.p("user://maps/%s.sspm" % song.id)) # (where convert_to_sspm saved it)
 			$Finish/Success.visible = true
 		else:
 			$Finish/Error.text = result

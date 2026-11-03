@@ -8,6 +8,7 @@ const SSQEMap = preload("res://scripts/editor/ssqe/SSQEMap.gd")
 const F = preload("res://scripts/editor/ssqe/SSQEFormats.gd")
 const SSQESettings = preload("res://scripts/editor/ssqe/SSQESettings.gd")
 const SSQESlider = preload("res://scripts/editor/ssqe/SSQESlider.gd")
+const L = preload("res://scripts/editor/ssqe/SSQELegacy.gd")
 const RM = SSQEMap.RenderMode
 
 const CAMERA_MODES = ["half lock", "full lock", "spin"]
@@ -374,7 +375,7 @@ func set_easingDirection(v):
 # ================================================================== build
 
 func build():
-	theme = load("res://uitheme.tres")
+	theme = L.make_theme(ed.s) if L.on(ed.s) else load("res://uitheme.tres")
 	var s: Dictionary = ed.s
 	# the background: the menu shows through, dimmed (SSQE's editor background)
 	background = ColorRect.new()
@@ -646,6 +647,8 @@ func layout():
 				if tw > avail and tw > 0:
 					f = ed.font(int(max(6, floor(f.size * avail / tw))))
 			n.add_font_override("font", f)
+			if n is CheckBox and L.on(ed.s):
+				_legacy_check_icons(n, r.size.y)
 			if n is OptionButton:
 				n.get_popup().add_font_override("font", f)
 			elif n is SpinBox:
@@ -851,11 +854,59 @@ func update():
 	else:
 		fever_preview.visible = false
 	# background
-	background.color = Color(30 / 255.0, 30 / 255.0, 30 / 255.0, float(s.editorBGOpacity) / 255.0)
+	background.color = Color(30 / 255.0, 30 / 255.0, 30 / 255.0, _bg_opacity(s))
 	# toast
 	if toast_t > 0:
 		toast_t -= ed.get_process_delta_time()
 		toast_label.modulate.a = clamp(toast_t / 0.5, 0, 1)
+
+# Legacy UI: SSQE's solid background unless you changed the opacity
+static func _bg_opacity(s: Dictionary) -> float:
+	var o := float(s.editorBGOpacity)
+	if L.on(s) and int(o) == 170: # (Chromia's default; SSQE's is 255)
+		o = 255.0
+	return o / 255.0
+
+# Chromia's look or Legacy UI (SSQE+'s): the theme, checkbox and label
+# colours and the sliders' colours (fonts: ed.font)
+func apply_look():
+	var legacy := L.on(ed.s)
+	ed._fonts.clear()
+	theme = L.make_theme(ed.s) if legacy else load("res://uitheme.tres")
+	var c1: Color = SSQESettings.color(ed.s, "color1")
+	var c2: Color = SSQESettings.color(ed.s, "color2")
+	for it in items:
+		var n = it.node
+		if not is_instance_valid(n):
+			continue
+		if n is Button or n is LineEdit or n is OptionButton:
+			n.theme = theme
+		if n is CheckBox:
+			for k in ["font_color", "font_color_hover", "font_color_pressed", "font_color_hover_pressed", "font_color_focus"]:
+				n.add_color_override(k, c1 if legacy else TEXT)
+			if not legacy:
+				for k in ["checked", "unchecked"]:
+					n.add_icon_override(k, null) # (back to the theme's)
+		elif n is Label and it.has("color_key"):
+			n.add_color_override("font_color", SSQESettings.color(ed.s, it.color_key))
+		elif n is SSQESlider:
+			n.line_color = c2 if legacy else SSQESlider.ACCENT
+			n.dot_color = c1 if legacy else SSQESlider.LILAC
+			n.update()
+	if toast_label:
+		toast_label.add_font_override("font", ed.font(int(32 * ed.hd)))
+
+var _check_icon_cache := {}
+func _legacy_check_icons(c: CheckBox, h: float):
+	var px := int(round(h))
+	var c2: Color = SSQESettings.color(ed.s, "color2")
+	var key := "%d|%s" % [px, c2.to_html()]
+	if not _check_icon_cache.has(key):
+		_check_icon_cache[key] = L.checkbox_icons(px, c2)
+	var ic: Array = _check_icon_cache[key]
+	c.add_icon_override("unchecked", ic[0])
+	c.add_icon_override("checked", ic[1])
+	c.add_constant_override("hseparation", int(px * 0.15))
 
 func show_toast(text: String, c: Color):
 	if toast_label == null:
@@ -977,6 +1028,9 @@ func _paste_bookmarks():
 		ed.toast("NO BOOKMARKS TO PASTE (\"ms ~ text\" PER LINE)", "warn")
 
 func _open_settings():
+	if L.on(ed.s) and ed.page and ed.page.has_method("open_legacy_settings"):
+		ed.page.open_legacy_settings() # (SSQE+'s Settings screen, over the editor)
+		return
 	if ed.dialogs:
 		ed.dialogs.settings()
 

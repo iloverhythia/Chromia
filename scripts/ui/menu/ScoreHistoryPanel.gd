@@ -16,6 +16,8 @@ const FONT_JP = preload("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf")
 const PREFS_PATH = "user://score_history/ui.cfg"
 const MODE_BEST = 0
 const MODE_HISTORY = 1
+const MODE_BOARD = 2 # the map's leaderboard (ranked maps): everyone's best pass, from the server
+const TAB_ORDER = [MODE_BEST, MODE_BOARD, MODE_HISTORY]
 const SWITCH_H = 28
 # The slot's rect is wider than what's visible: the sidebar covers its left
 # edge and the Mods box's labels hang over its right edge.
@@ -162,6 +164,8 @@ func _layout():
 	var mods = get_parent().get_node_or_null("Mods") if get_parent() != null else null
 	var pad_r = PAD_R if (mods is Control and mods.visible) else 12 # (nothing hangs over with the Modifiers box hidden)
 	var w = max(rect_size.x - PAD_L - pad_r, 120)
+	if not (mods is Control and mods.visible):
+		w = max(w * 2.0 / 3.0, 274 - PAD_L - PAD_R) # (the whole row was too wide: two thirds of it)
 	var h = rect_size.y
 	var vp = get_viewport()
 	if vp != null:
@@ -182,25 +186,25 @@ func _make_switch() -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_constant_override("separation", 2)
 	var group := ButtonGroup.new()
-	var pair := []
-	for i in range(2):
+	var pair := {} # mode -> button
+	for i in TAB_ORDER:
 		var b := Button.new()
-		b.text = "Best" if i == MODE_BEST else "History"
+		b.text = ["Best", "History", "Leaderboard"][i]
 		b.toggle_mode = true
 		b.group = group
 		b.focus_mode = FOCUS_NONE
-		b.rect_min_size = Vector2(58 if i == MODE_BEST else 76, SWITCH_H)
+		b.rect_min_size = Vector2([58, 76, 108][i], SWITCH_H)
 		b.add_font_override("font", _f_tab)
 		b.connect("pressed", self, "_set_mode", [i, true])
 		h.add_child(b)
-		pair.append(b)
+		pair[i] = b
 	_switches.append(pair)
 	return h
 
 func _set_mode(m: int, save: bool = true):
 	mode = m
 	for pair in _switches:
-		for i in range(pair.size()):
+		for i in pair:
 			if is_instance_valid(pair[i]):
 				pair[i].pressed = (i == mode)
 				pair[i].modulate = Color(1, 1, 1, 1) if i == mode else Color(1, 1, 1, 0.5)
@@ -208,9 +212,11 @@ func _set_mode(m: int, save: bool = true):
 		var want_end = (mode == MODE_BEST)
 		if end_info.visible != want_end:
 			end_info.visible = want_end
-	visible = (mode == MODE_HISTORY)
-	_show_mods(mode != MODE_HISTORY)
-	if mode == MODE_HISTORY:
+	visible = (mode != MODE_BEST)
+	_show_mods(mode == MODE_BEST)
+	if is_instance_valid(_hide_box):
+		_hide_box.visible = mode == MODE_HISTORY
+	if mode != MODE_BEST:
 		_refresh()
 		call_deferred("_layout")
 	if save:
@@ -233,12 +239,12 @@ func _show_mods(on: bool):
 # SongInfoScreen / EndInfo turn the PB box on whenever they update; keep it
 # hidden while History is showing.
 func _on_end_info_visibility():
-	if mode == MODE_HISTORY and is_instance_valid(end_info) and end_info.visible:
+	if mode != MODE_BEST and is_instance_valid(end_info) and end_info.visible:
 		end_info.call_deferred("hide")
 
 func _on_song_changed(_s = null):
 	_dirty = true
-	if mode == MODE_HISTORY:
+	if mode != MODE_BEST:
 		_refresh()
 
 func _on_hide_failed(on: bool):
@@ -249,6 +255,9 @@ func _on_hide_failed(on: bool):
 func _refresh():
 	var song = Rhythia.selected_song
 	var id := String(song.id) if song != null else ""
+	if mode == MODE_BOARD:
+		_refresh_board(id)
+		return
 	if id != _loaded_id or _dirty:
 		_loaded_id = id
 		_entries = ScoreHistory.load_entries(id)
@@ -668,7 +677,8 @@ func _watch(e: Dictionary):
 func _load_prefs():
 	var cfg := ConfigFile.new()
 	if cfg.load(PREFS_PATH) == OK:
-		mode = MODE_HISTORY if int(cfg.get_value("ui", "mode", MODE_BEST)) == MODE_HISTORY else MODE_BEST
+		var m := int(cfg.get_value("ui", "mode", MODE_BEST))
+		mode = m if m in [MODE_BEST, MODE_HISTORY, MODE_BOARD] else MODE_BEST
 		hide_failed = bool(cfg.get_value("ui", "hide_failed", false))
 
 func _save_prefs():
@@ -683,3 +693,228 @@ func _save_prefs():
 func _exit_tree():
 	if Rhythia.is_connected("selected_song_changed", self, "_on_song_changed"):
 		Rhythia.disconnect("selected_song_changed", self, "_on_song_changed")
+
+# --- the map's leaderboard ------------------------------------------------------------
+# Everyone's best pass on a ranked map (the server's list, the same as the
+# website's map page): place, picture, name, SP, accuracy, misses and speed.
+# Asked for again when it's a minute old. A click opens their profile.
+const BOARD_TTL_MS = 60000
+var _board_cache := {} # song id -> {at, rows, ranked}
+var _board_req: HTTPRequest = null
+var _board_for := ""
+
+func _refresh_board(id: String):
+	_clear_rows()
+	if id == "":
+		_board_message("\nPick a map to see its leaderboard.")
+		return
+	var c = _board_cache.get(id)
+	if c != null and OS.get_ticks_msec() - int(c.at) < BOARD_TTL_MS:
+		_show_board(id, c)
+		return
+	_board_message("\nLoading the leaderboard...")
+	if _board_req != null and is_instance_valid(_board_req):
+		_board_req.cancel_request()
+		_board_req.queue_free()
+	_board_for = id
+	_board_req = HTTPRequest.new()
+	_board_req.timeout = 15
+	add_child(_board_req)
+	_board_req.connect("request_completed", self, "_on_board", [_board_req, id])
+	if _board_req.request(SITE + "/savia-public/api/map/" + id.http_escape()) != OK:
+		_board_message("\nCouldn't load the leaderboard.")
+
+func _on_board(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String):
+	r.queue_free()
+	if r != _board_req:
+		return # (an older request: another map was picked since)
+	_board_req = null
+	var c := {"at": OS.get_ticks_msec(), "rows": [], "ranked": false, "ok": true}
+	if result != HTTPRequest.RESULT_SUCCESS or (code != 200 and code != 404):
+		c.ok = false
+	elif code == 200:
+		var j = parse_json(body.get_string_from_utf8())
+		if j is Dictionary:
+			c.ranked = true
+			var lb = j.get("leaderboard", [])
+			c.rows = lb if lb is Array else []
+	if c.ok:
+		_board_cache[id] = c
+	var song = Rhythia.selected_song
+	if mode == MODE_BOARD and song != null and String(song.id) == id:
+		if c.ok:
+			_show_board(id, c)
+		else:
+			_board_message("\nCouldn't load the leaderboard (are you online?).")
+
+func _show_board(_id: String, c: Dictionary):
+	_clear_rows()
+	if not c.ranked:
+		_board_message("\nThis map isn't ranked, so it has no leaderboard.")
+		return
+	if c.rows.empty():
+		_board_message("\nNo passes yet.\nPass it to be first on the leaderboard!")
+		return
+	_empty.visible = false
+	var me := -1
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null:
+		me = int(lm.my_player_number)
+	var show_fc: bool = Rhythia.show_fc_grade
+	for e in c.rows:
+		if e is Dictionary:
+			_rows.add_child(_make_board_row(e, show_fc, me))
+	_scroll.scroll_vertical = 0
+
+func _clear_rows():
+	if _rows == null: return
+	for ch in _rows.get_children():
+		if ch != _empty:
+			_rows.remove_child(ch)
+			ch.queue_free()
+	_pending.clear()
+	set_process(false)
+
+func _board_message(t: String):
+	if _empty == null: return
+	_empty.text = t
+	_empty.visible = true
+
+func _make_board_row(e: Dictionary, show_fc: bool, me: int) -> Control:
+	var rank := int(e.get("rank", 0))
+	var number := int(e.get("number", -1))
+	var mine := number > 0 and number == me
+	var top := rank >= 1 and rank <= 3
+	var rank_col: Color = RANK_COLORS[rank - 1] if top else C_DIM
+	var acc := float(e.get("accuracy", 0.0))
+	var misses := int(e.get("misses", 0))
+	var spd := float(e.get("speed", 1.0))
+	var nm := Globals.s(e.get("name", ""))
+	if nm == "":
+		nm = "Player #%d" % number
+
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = SIZE_EXPAND_FILL
+	panel.mouse_filter = MOUSE_FILTER_PASS
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.09, 0.07, 0.11, 0.92)
+	if top:
+		sb.bg_color = sb.bg_color.linear_interpolate(rank_col, 0.12)
+	if mine:
+		sb.bg_color = sb.bg_color.linear_interpolate(C_ACCENT, 0.14)
+	sb.border_color = rank_col if top else (C_ACCENT if mine else Color(1, 1, 1, 0.07))
+	sb.border_width_left = 3
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 10
+	sb.content_margin_top = 9
+	sb.content_margin_bottom = 9
+	panel.add_stylebox_override("panel", sb)
+	var sbh: StyleBoxFlat = sb.duplicate()
+	sbh.bg_color = sb.bg_color.lightened(0.12)
+	panel.set_meta("sb", sb)
+	panel.set_meta("sbh", sbh)
+	panel.connect("mouse_entered", self, "_row_hover", [panel, true])
+	panel.connect("mouse_exited", self, "_row_hover", [panel, false])
+	panel.connect("gui_input", self, "_board_row_input", [number])
+	panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 9)
+	h.mouse_filter = MOUSE_FILTER_IGNORE
+	panel.add_child(h)
+
+	# picture with the place across its bottom, as in History
+	var av := Panel.new()
+	av.rect_min_size = Vector2(AVATAR, AVATAR)
+	av.size_flags_vertical = SIZE_SHRINK_CENTER
+	av.mouse_filter = MOUSE_FILTER_IGNORE
+	var avs := StyleBoxFlat.new()
+	avs.bg_color = C_LILAC
+	avs.set_corner_radius_all(AVATAR / 2)
+	avs.anti_aliasing = true
+	if top:
+		avs.border_color = rank_col
+		avs.set_border_width_all(2)
+	av.add_stylebox_override("panel", avs)
+	var ini := _label(nm.substr(0, 1).to_upper(), _f_avatar, Color(0.12, 0.08, 0.16))
+	ini.align = Label.ALIGN_CENTER
+	ini.valign = Label.VALIGN_CENTER
+	ini.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	av.add_child(ini)
+	var pic := TextureRect.new()
+	pic.expand = true
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	pic.mouse_filter = MOUSE_FILTER_IGNORE
+	pic.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	var inset := 3 if top else 0
+	pic.margin_left = inset
+	pic.margin_top = inset
+	pic.margin_right = -inset
+	pic.margin_bottom = -inset
+	pic.visible = false
+	av.add_child(pic)
+	var url := Globals.s(e.get("avatar_url", ""))
+	if url != "":
+		_show_avatar(_abs_url(url), pic)
+	var tag := PanelContainer.new()
+	tag.mouse_filter = MOUSE_FILTER_IGNORE
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Color(0.07, 0.05, 0.09, 0.95)
+	ts.border_color = rank_col if top else Color(1, 1, 1, 0.18)
+	ts.set_border_width_all(1)
+	ts.set_corner_radius_all(3)
+	ts.content_margin_left = 3
+	ts.content_margin_right = 3
+	tag.add_stylebox_override("panel", ts)
+	tag.add_child(_label("#%d" % rank, _f_rank, rank_col if top else C_TEXT))
+	av.add_child(tag)
+	var tw: float = _f_rank.get_string_size("#%d" % rank).x + 8
+	tag.rect_position = Vector2((AVATAR - tw) / 2, AVATAR - 10)
+	h.add_child(av)
+
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = SIZE_EXPAND_FILL
+	v.size_flags_vertical = SIZE_SHRINK_CENTER
+	v.add_constant_override("separation", 0)
+	v.mouse_filter = MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	var name_l := _label(nm + (" (you)" if mine else ""), _f_name, C_ACCENT if mine else C_TEXT)
+	name_l.clip_text = true
+	name_l.size_flags_horizontal = SIZE_EXPAND_FILL
+	v.add_child(name_l)
+	var sp_l := _label("%s SP" % Globals.comma_sep(int(e.get("sp", 0))), _f_small, Color("#6ff1ff"))
+	sp_l.clip_text = true
+	v.add_child(sp_l)
+	var extra := PoolStringArray()
+	extra.append("Full combo" if misses == 0 else "%d miss%s" % [misses, "" if misses == 1 else "es"])
+	if abs(spd - 1.0) > 0.001:
+		extra.append(_speed_str(spd))
+	var when := int(float(e.get("ts", 0)) / 1000.0)
+	if when > 0:
+		extra.append(_ago(when))
+	var l3 := _label(extra.join(" · "), _f_small, C_DIM)
+	l3.clip_text = true
+	v.add_child(l3)
+
+	var right := VBoxContainer.new()
+	right.mouse_filter = MOUSE_FILTER_IGNORE
+	right.add_constant_override("separation", -4)
+	right.size_flags_vertical = SIZE_SHRINK_CENTER
+	h.add_child(right)
+	var g = ScoreHistory.grade_for(acc, show_fc and misses == 0)
+	var gl := _label(g[0], _f_grade, g[1])
+	gl.align = Label.ALIGN_CENTER
+	right.add_child(gl)
+	var al := _label("%.2f%%" % (acc * 100.0), _f_acc, C_ACCENT)
+	al.align = Label.ALIGN_CENTER
+	right.add_child(al)
+	panel.hint_tooltip = "#%d %s\n%d SP, %.2f%%, %s\nClick to open their profile" % [rank, nm, int(e.get("sp", 0)), acc * 100.0, extra.join(", ")]
+	return panel
+
+func _board_row_input(ev, number: int):
+	if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
+		if ev.pressed:
+			_press_pos = ev.global_position
+		elif ev.global_position.distance_to(_press_pos) < 12 and number > 0:
+			OS.shell_open(SITE + "/profile?id=%d" % number)

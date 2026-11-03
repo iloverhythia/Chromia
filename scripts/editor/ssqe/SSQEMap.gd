@@ -156,6 +156,12 @@ class Obj extends Reference:
 	var data: Array = []
 	# Chromia: whose note this is in a collab (unused) / colour override
 	var by_color = null
+	# Chromia: mapping together's key for this note (SSQECollab.key_of), kept
+	# until the note moves: making it again for every note was the lag
+	var _ck := ""
+	var _ck_h := 0
+	var _ck_v := Vector3()
+	var _ck_e := 0
 
 	func fields() -> Array:
 		match id:
@@ -404,7 +410,10 @@ class Sorter:
 class ObjList extends Reference:
 	var items: Array = []
 	var selected: Array = []
-	var bezier_nodes: Array = [] # indices into items
+	# Store Nodes: the notes themselves (not places in the list), so only what
+	# you do changes them: other people's notes coming in while mapping
+	# together, before them in the song, moved places in the list
+	var bezier_nodes: Array = []
 	var map_ref: WeakRef
 
 	func size() -> int:
@@ -417,11 +426,15 @@ class ObjList extends Reference:
 	func clear_selected():
 		set_selected([])
 
+	# (only the ones flagged last time are cleared: going over every note of a
+	# big map each time the selection changed was slow)
+	var _flagged: Array = []
 	func update_selection():
-		for o in items:
+		for o in _flagged:
 			o.selected = false
 		for o in selected:
 			o.selected = true
+		_flagged = selected.duplicate()
 
 	func get_closest(ms: float) -> float:
 		var closest := -1.0
@@ -496,8 +509,62 @@ class ObjList extends Reference:
 	func add(o):
 		items.append(o)
 
+	# Puts objects where they go by time (after any at the same time), so the
+	# list stays sorted without sorting all of it again: placing a note on a map
+	# with 20,000 sorted all 20,000 (a fifth of a second every time).
+	func insert_sorted(add: Array):
+		if add.empty():
+			return
+		var adds := add.duplicate()
+		_stable_sort(adds)
+		if adds.size() > 64:
+			# many (a paste, undoing a big delete): the two sorted lists merged
+			var n := items.size()
+			var m := adds.size()
+			var out := []
+			out.resize(n + m)
+			var i := 0
+			var j := 0
+			var k := 0
+			while i < n and j < m:
+				if adds[j].ms < items[i].ms:
+					out[k] = adds[j]
+					j += 1
+				else:
+					out[k] = items[i]
+					i += 1
+				k += 1
+			while i < n:
+				out[k] = items[i]
+				i += 1
+				k += 1
+			while j < m:
+				out[k] = adds[j]
+				j += 1
+				k += 1
+			items = out
+			return
+		for o in adds:
+			var lo := 0
+			var hi := items.size()
+			while lo < hi:
+				var mid := (lo + hi) >> 1
+				if items[mid].ms <= o.ms:
+					lo = mid + 1
+				else:
+					hi = mid
+			items.insert(lo, o)
+
 	func remove_all(list: Array):
 		if list.empty():
+			return
+		if list.size() <= 64:
+			# a few: found one by one (Array.find is fast; the loop below is slow on big maps)
+			for o in list:
+				var i := items.find(o)
+				if i >= 0:
+					items.remove(i)
+			update_selection()
 			return
 		var set := {}
 		for o in list:
@@ -521,15 +588,23 @@ class ObjList extends Reference:
 		label = label.replace("[S]", "S" if max(old_objects.size(), new_objects.size()) > 1 else "")
 		var old_bez := bezier_nodes.duplicate()
 		var new_bez := []
-		for n in bezier_nodes:
-			if n < items.size() + new_objects.size() - old_objects.size():
-				new_bez.append(n)
+		if not bezier_nodes.empty():
+			# an edit makes copies, one for each: a node that was edited is its copy
+			var same: bool = old_objects.size() == new_objects.size()
+			var at := {}
+			for i in range(old_objects.size()):
+				at[old_objects[i]] = i
+			for n in bezier_nodes:
+				if not at.has(n):
+					new_bez.append(n)
+				elif same:
+					new_bez.append(new_objects[at[n]])
 		m.undo.add({"label": label, "kind": "list", "list": self, "old": old_objects.duplicate(), "new": new_objects.duplicate(),
 			"old_bez": old_bez, "new_bez": new_bez})
 
 	func apply_replace(remove: Array, add: Array, bez: Array):
 		remove_all(remove)
-		items += add
+		insert_sorted(add)
 		sort()
 		set_selected(add.duplicate())
 		bezier_nodes = bez.duplicate()
@@ -682,6 +757,12 @@ func tempo() -> float:
 
 func bezier_nodes() -> Array:
 	return notes.bezier_nodes
+
+# the stored nodes in song order (Store Nodes' notes)
+func bezier_node_notes() -> Array:
+	var nodes: Array = notes.bezier_nodes.duplicate()
+	ObjList._stable_sort(nodes)
+	return nodes
 
 func active_list() -> ObjList:
 	match render_mode:

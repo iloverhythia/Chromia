@@ -317,6 +317,7 @@ func _ready():
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
+	get_tree().create_timer(1.5).connect("timeout", self, "_prewarm")
 
 func _build_eye():
 	eye = EyeButton.new()
@@ -640,11 +641,19 @@ func _on_dim_input(ev):
 
 # ------------------------------------------------------------------ open / close
 
-# opening slides the window in from the right and fades it in (the menu dims
-# behind it); closing does the same backwards, quicker
-const SLIDE_IN := 0.28
-const SLIDE_OUT := 0.16
+# opening: the window rises a little, grows from 96.5% and fades in while the
+# menu dims behind it; closing is the same backwards, quicker. To keep it
+# smooth, the motion starts a frame after the window appears (that frame does
+# the setup work) and the cards / chat are filled once it has finished (a list
+# that comes in meanwhile waits). The window is drawn once, unseen, after the
+# menu loads, so its text is ready the first time it opens.
+const SLIDE_IN := 0.34
+const SLIDE_OUT := 0.18
+const RISE := 26.0
+const FROM_SCALE := 0.965
 var _tween: Tween
+var _animating := false
+var _held_list = null # [list, you] that came in while opening
 
 func _slide(opening: bool):
 	if _tween == null:
@@ -652,34 +661,68 @@ func _slide(opening: bool):
 		add_child(_tween)
 	_tween.remove_all()
 	var home := window.rect_position
-	var away := home + Vector2(70.0 * _k, 0)
+	var away := home + Vector2(0, RISE * _k)
+	window.rect_pivot_offset = window.rect_size / 2.0
 	var dim = overlay.get_child(0)
 	if opening:
 		window.rect_position = away
+		window.rect_scale = Vector2.ONE * FROM_SCALE
 		window.modulate.a = 0.0
 		dim.modulate.a = 0.0
-		_tween.interpolate_property(window, "rect_position", away, home, SLIDE_IN, Tween.TRANS_CUBIC, Tween.EASE_OUT)
-		_tween.interpolate_property(window, "modulate:a", 0.0, 1.0, SLIDE_IN * 0.8, Tween.TRANS_SINE, Tween.EASE_OUT)
-		_tween.interpolate_property(dim, "modulate:a", 0.0, 1.0, SLIDE_IN, Tween.TRANS_SINE, Tween.EASE_OUT)
+		_tween.interpolate_property(window, "rect_position", away, home, SLIDE_IN, Tween.TRANS_QUART, Tween.EASE_OUT)
+		_tween.interpolate_property(window, "rect_scale", window.rect_scale, Vector2.ONE, SLIDE_IN, Tween.TRANS_QUART, Tween.EASE_OUT)
+		_tween.interpolate_property(window, "modulate:a", 0.0, 1.0, SLIDE_IN * 0.7, Tween.TRANS_SINE, Tween.EASE_OUT)
+		_tween.interpolate_property(dim, "modulate:a", 0.0, 1.0, SLIDE_IN * 0.8, Tween.TRANS_SINE, Tween.EASE_OUT)
+		_tween.interpolate_callback(self, SLIDE_IN, "_opened")
 	else:
-		_tween.interpolate_property(window, "rect_position", home, away, SLIDE_OUT, Tween.TRANS_CUBIC, Tween.EASE_IN)
+		var to := window.rect_position + Vector2(0, RISE * 0.5 * _k)
+		_tween.interpolate_property(window, "rect_position", window.rect_position, to, SLIDE_OUT, Tween.TRANS_QUAD, Tween.EASE_IN)
+		_tween.interpolate_property(window, "rect_scale", window.rect_scale, Vector2.ONE * 0.985, SLIDE_OUT, Tween.TRANS_QUAD, Tween.EASE_IN)
 		_tween.interpolate_property(window, "modulate:a", window.modulate.a, 0.0, SLIDE_OUT, Tween.TRANS_SINE, Tween.EASE_IN)
 		_tween.interpolate_property(dim, "modulate:a", dim.modulate.a, 0.0, SLIDE_OUT, Tween.TRANS_SINE, Tween.EASE_IN)
 		_tween.interpolate_callback(self, SLIDE_OUT, "_closed")
 	_tween.start()
 
+func _opened():
+	_animating = false
+	if not _open:
+		return
+	if _held_list != null:
+		var h = _held_list
+		_held_list = null
+		_on_list(h[0], h[1])
+	_fill_chat()
+	_update_info()
+
 func _closed():
 	if not _open:
 		overlay.visible = false
+		window.rect_scale = Vector2.ONE
 		_resize() # (back where it belongs for next time)
+
+# drawn once, unseen, so the first open doesn't stop to make its text
+func _prewarm():
+	if _open or overlay == null:
+		return
+	overlay.visible = true
+	window.modulate.a = 0.02
+	overlay.get_child(0).modulate.a = 0.0
+	yield(get_tree(), "idle_frame")
+	yield(get_tree(), "idle_frame")
+	if not _open:
+		overlay.visible = false
+		window.modulate.a = 1.0
+		overlay.get_child(0).modulate.a = 1.0
 
 func open():
 	if _open:
 		return
 	_open = true
+	_animating = true
 	overlay.visible = true
 	_resize()
-	_slide(true)
+	window.modulate.a = 0.0 # (unseen until the motion starts next frame)
+	overlay.get_child(0).modulate.a = 0.0
 	_clear_notice()
 	if _lm != null:
 		if not _lm.is_connected("online_players_received", self, "_on_list"):
@@ -688,17 +731,21 @@ func open():
 			_lm.connect("presence_support_changed", self, "_on_support")
 		_lm.subscribe_online()
 		if not _lm.online_players.empty():
-			_on_list(_lm.online_players, _lm.my_player_number)
-	_fill_chat()
+			_held_list = [_lm.online_players, _lm.my_player_number]
 	_update_info()
 	# ready to type in the chat (not on phones: it would pop the keyboard up)
 	if chat_input.editable and chat_input.is_visible_in_tree() and not Rhythia.device("mobile"):
 		chat_input.call_deferred("grab_focus")
+	yield(get_tree(), "idle_frame")
+	if _open:
+		_slide(true)
 
 func close():
 	if not _open:
 		return
 	_open = false
+	_animating = false
+	_held_list = null
 	_slide(false)
 	if chat_input.has_focus():
 		chat_input.release_focus()
@@ -733,6 +780,9 @@ func _update_info():
 	info.visible = text != ""
 
 func _on_list(lst: Array, you: int):
+	if _animating:
+		_held_list = [lst, you] # (after the opening motion)
+		return
 	_list = lst
 	_you = you
 	var playing := 0
@@ -1048,6 +1098,10 @@ func _on_card_hover(c: Dictionary, on: bool):
 	_card_style(c)
 
 func _on_card_input(ev, c: Dictionary):
+	if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_RIGHT:
+		_card_menu(c, ev.global_position)
+		c.card.accept_event()
+		return
 	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT):
 		return
 	# the heart (a little bigger than it looks, so it's easy to hit)
@@ -1244,3 +1298,246 @@ func _on_avatar(result: int, code: int, _headers, data: PoolByteArray, r: HTTPRe
 		if is_instance_valid(pic):
 			pic.texture = tex
 			pic.visible = true
+
+# --- right-click a card: View stats -------------------------------------------------
+# Their profile (the same as the website's: level, XP and SP with their places,
+# passes, bio, last online) and their best plays, in a box over the window.
+const STATS_SITE := "https://savia.nysr.host"
+var _ctx: PopupMenu = null
+var _ctx_card = null
+var _stats: Control = null
+var _stats_box: VBoxContainer = null
+var _stats_for := -1
+
+func _card_menu(c: Dictionary, at: Vector2):
+	if _ctx == null or not is_instance_valid(_ctx):
+		_ctx = PopupMenu.new()
+		_ctx.add_font_override("font", font_regular)
+		_ctx.connect("id_pressed", self, "_on_card_menu")
+		window.add_child(_ctx)
+	_ctx.clear()
+	_ctx.add_item("View stats", 0)
+	if c.can and not c.is_you:
+		_ctx.add_item("Spectate", 1)
+	_ctx.add_item("Open their profile on the website", 2)
+	_ctx_card = c
+	_ctx.popup(Rect2(at, Vector2(1, 1)))
+
+func _on_card_menu(id: int):
+	var c = _ctx_card
+	if not (c is Dictionary):
+		return
+	match id:
+		0:
+			_show_stats(int(c.number), String(c.nm))
+		1:
+			_spectate(c)
+		2:
+			OS.shell_open(STATS_SITE + "/profile?id=%d" % int(c.number))
+
+func _show_stats(number: int, nm: String):
+	if number <= 0:
+		return
+	_close_stats()
+	_stats_for = number
+	_stats = ColorRect.new()
+	_stats.color = Color(0, 0, 0, 0.55)
+	_stats.anchor_right = 1.0
+	_stats.anchor_bottom = 1.0
+	_stats.mouse_filter = MOUSE_FILTER_STOP
+	_stats.connect("gui_input", self, "_on_stats_bg_input")
+	window.add_child(_stats)
+	var card := PanelContainer.new()
+	card.add_stylebox_override("panel", _pad(_flat(CARD_BG, 10, ACCENT, 2), 22 * _k, 18 * _k))
+	card.rect_min_size = Vector2(560, 0) * _k
+	_stats.add_child(card)
+	_stats_box = VBoxContainer.new()
+	_stats_box.add_constant_override("separation", int(10 * _k))
+	card.add_child(_stats_box)
+	_stats_box.add_child(_label("%s  #%d" % [nm, number], font_title, TEXT))
+	_stats_box.add_child(_label("Loading their stats...", font_regular, DIM))
+	call_deferred("_center_stats", card)
+	_stats_get(STATS_SITE + "/savia-public/api/player/%d" % number, "_on_stats_profile")
+
+func _center_stats(card: Control):
+	if is_instance_valid(card) and is_instance_valid(_stats):
+		card.rect_size = Vector2.ZERO # (back to what its contents need)
+		card.rect_position = ((_stats.rect_size - card.rect_size) / 2.0).floor()
+
+func _on_stats_bg_input(ev):
+	if ev is InputEventMouseButton and ev.pressed and _stats is Control:
+		var card = _stats.get_child(0) if _stats.get_child_count() > 0 else null
+		if card == null or not card.get_global_rect().has_point(ev.global_position):
+			_close_stats()
+
+func _close_stats():
+	if _stats != null and is_instance_valid(_stats):
+		_stats.queue_free()
+	_stats = null
+	_stats_box = null
+
+func _stats_get(url: String, method: String):
+	var r := HTTPRequest.new()
+	r.timeout = 15
+	add_child(r)
+	r.connect("request_completed", self, "_on_stats_http", [r, method, _stats_for])
+	if r.request(url) != OK:
+		r.queue_free()
+		call(method, null, _stats_for)
+
+func _on_stats_http(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, method: String, number: int):
+	r.queue_free()
+	var j = null
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200:
+		j = parse_json(body.get_string_from_utf8())
+	call(method, j, number)
+
+func _stat_cell(grid: GridContainer, title: String, value: String, sub: String = ""):
+	var v := VBoxContainer.new()
+	v.add_constant_override("separation", 0)
+	v.size_flags_horizontal = SIZE_EXPAND_FILL
+	v.add_child(_label(title, font_tiny, DIM))
+	v.add_child(_label(value, font_name, ACCENT))
+	if sub != "":
+		v.add_child(_label(sub, font_tiny, DIM))
+	grid.add_child(v)
+
+static func _num(n) -> String:
+	var s := str(int(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.right(s.length() - 3) + out
+		s = s.left(s.length() - 3)
+	return s + out
+
+func _on_stats_profile(p, number: int):
+	if _stats_box == null or number != _stats_for:
+		return
+	for ch in _stats_box.get_children():
+		_stats_box.remove_child(ch) # (now: it still counted for the box's size until freed)
+		ch.queue_free()
+	if not (p is Dictionary):
+		_stats_box.add_child(_label("No stats yet", font_title, TEXT))
+		_stats_box.add_child(_label("They haven't passed a ranked map (or the server couldn't be reached).", font_regular, DIM))
+		_stats_buttons(number)
+		return
+	var head := HBoxContainer.new()
+	head.add_constant_override("separation", int(14 * _k))
+	_stats_box.add_child(head)
+	var av := TextureRect.new()
+	av.rect_min_size = Vector2(64, 64) * _k
+	av.expand = true
+	av.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	av.visible = false
+	head.add_child(av)
+	var url := Globals.s(p.get("avatar_url", ""))
+	if url != "":
+		_load_avatar(url, av)
+	var names := VBoxContainer.new()
+	names.size_flags_horizontal = SIZE_EXPAND_FILL
+	names.alignment = BoxContainer.ALIGN_CENTER
+	head.add_child(names)
+	var tag = p.get("tag")
+	var title := Globals.s(p.get("name", "Player"))
+	names.add_child(_label(title, font_title, TEXT))
+	var line2 := "Player #%d" % int(p.get("number", number))
+	if tag is Dictionary and Globals.s(tag.get("text", "")) != "":
+		line2 += "  ·  " + Globals.s(tag.get("text", ""))
+	if bool(p.get("online", false)):
+		line2 += "  ·  online now"
+	elif p.get("last_seen") != null:
+		line2 += "  ·  last online " + _ago_text(int(float(p.get("last_seen")) / 1000.0))
+	names.add_child(_label(line2, font_small, DIM))
+
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_constant_override("hseparation", int(16 * _k))
+	_stats_box.add_child(grid)
+	var lv = p.get("level")
+	var lv_text := "-"
+	if lv is Dictionary:
+		lv_text = str(int(lv.get("level", 0)))
+		if int(lv.get("prestige", 0)) > 0:
+			lv_text += "  (P%d)" % int(lv.get("prestige", 0))
+	_stat_cell(grid, "LEVEL", lv_text)
+	_stat_cell(grid, "XP", _num(p.get("xp", 0)), ("#%d" % int(p.xp_rank)) if p.get("xp_rank") != null else "")
+	_stat_cell(grid, "SP", _num(p.get("sp", 0)), ("#%d" % int(p.sp_rank)) if p.get("sp_rank") != null else "")
+	_stat_cell(grid, "PASSES", _num(p.get("pass_count", 0)), "%d maps" % int(p.get("map_count", 0)))
+	var bio := Globals.s(p.get("bio", "")).strip_edges()
+	if bio != "":
+		var b := _label(bio, font_small, TEXT)
+		b.autowrap = true
+		b.rect_min_size = Vector2(516, 0) * _k
+		_stats_box.add_child(b)
+	_stats_box.add_child(_label("Best plays", font_bold, LILAC))
+	var plays := VBoxContainer.new()
+	plays.name = "Plays"
+	plays.add_constant_override("separation", int(4 * _k))
+	_stats_box.add_child(plays)
+	plays.add_child(_label("Loading...", font_small, DIM))
+	_stats_buttons(number)
+	_stats_get(STATS_SITE + "/savia-public/api/player/%d/scores" % number, "_on_stats_scores")
+	call_deferred("_center_stats", _stats_box.get_parent())
+
+func _on_stats_scores(j, number: int):
+	if _stats_box == null or number != _stats_for:
+		return
+	var plays = _stats_box.get_node_or_null("Plays")
+	if plays == null:
+		return
+	for ch in plays.get_children():
+		plays.remove_child(ch)
+		ch.queue_free()
+	var rows: Array = j.get("scores", []) if j is Dictionary and j.get("scores") is Array else []
+	var best := []
+	for r in rows:
+		if r is Dictionary and float(r.get("sp_weighted", 0)) > 0:
+			best.append(r)
+	best.sort_custom(self, "_by_sp_weighted")
+	if not (j is Dictionary):
+		plays.add_child(_label("Couldn't load their plays.", font_small, DIM))
+	elif best.empty():
+		plays.add_child(_label("No ranked passes yet.", font_small, DIM))
+	for i in range(min(5, best.size())):
+		var r: Dictionary = best[i]
+		var h := HBoxContainer.new()
+		h.add_constant_override("separation", int(10 * _k))
+		plays.add_child(h)
+		var nm := _label(Globals.s(r.get("song_name", "")), font_small, TEXT)
+		nm.clip_text = true
+		nm.size_flags_horizontal = SIZE_EXPAND_FILL
+		h.add_child(nm)
+		var spd := float(r.get("speed", 1.0))
+		var extra := "%.2f%%" % (float(r.get("accuracy", 0)) * 100.0)
+		if abs(spd - 1.0) > 0.001:
+			extra += "  %.2fx" % spd
+		h.add_child(_label(extra, font_small, DIM))
+		h.add_child(_label("%s SP" % _num(r.get("sp_weighted", 0)), font_small, ACCENT))
+	call_deferred("_center_stats", _stats_box.get_parent())
+
+func _by_sp_weighted(a, b) -> bool:
+	return float(a.get("sp_weighted", 0)) > float(b.get("sp_weighted", 0))
+
+func _stats_buttons(number: int):
+	var row := HBoxContainer.new()
+	row.add_constant_override("separation", int(10 * _k))
+	row.alignment = BoxContainer.ALIGN_END
+	_stats_box.add_child(row)
+	var web := Button.new()
+	web.text = "Open on the website"
+	web.add_font_override("font", font_regular)
+	web.connect("pressed", OS, "shell_open", [STATS_SITE + "/profile?id=%d" % number])
+	row.add_child(web)
+	var close := Button.new()
+	close.text = "Close"
+	close.add_font_override("font", font_bold)
+	close.connect("pressed", self, "_close_stats")
+	row.add_child(close)
+
+static func _ago_text(ts: int) -> String:
+	var d := OS.get_unix_time() - ts
+	if d < 3600:
+		return "%d min ago" % int(max(1, d / 60))
+	if d < 86400:
+		return "%d h ago" % int(d / 3600)
+	return "%d days ago" % int(d / 86400)

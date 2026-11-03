@@ -110,6 +110,11 @@ func _ready():
 	envs.append(["A background...", BG_ITEM])
 	_env_pick = _option_row("Environment", envs, "_on_env")
 	box.add_child(HSeparator.new())
+	_label("Height", f_title, ACCENT)
+	_label("Raise or lower yourself: higher puts you above the menu screen and the grid, lower below them. Applies straight away, in the menu and in songs. 0 = where the game puts you.", f_body, DIM, true)
+	_value_row(["Your height", "vr_height", -1.0, 1.0, 0.01, " cm", 100.0])
+	_button(box, "Reset height", "_reset_height")
+	box.add_child(HSeparator.new())
 	_label("In songs", f_title, ACCENT)
 	_label("How far away the grid is (where the notes come from and where you hit them). Closer fills more of your view, like a wider FOV; further fits it all in view. Changes from the next song you play. Default 2.25 m.", f_body, DIM, true)
 	_screen_row(GRID_ROW)
@@ -144,7 +149,7 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
-	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
+	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
 	box.add_child(HSeparator.new())
 	_label("Graphics", f_title, ACCENT)
 	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
@@ -161,6 +166,11 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Controller grip", f_title, ACCENT)
 	_label("Changes the angle and position of the pointer on your hand, so it points where feels natural to you. Watch the beam move while you change it. This is for the right hand; the left hand gets the mirror image.", f_body, DIM, true)
+	_label("Easiest: Calibrate. A dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second. The tilt and turn are set so the beam goes where your hand points.", f_body, DIM, true)
+	var grip_btns := HBoxContainer.new()
+	grip_btns.add_constant_override("separation", 10)
+	box.add_child(grip_btns)
+	_button(grip_btns, "Calibrate", "_calibrate_grip")
 	for row in GRIP_ROWS:
 		_grip_row(row)
 	_button(box, "Reset grip", "_reset_grip")
@@ -477,6 +487,11 @@ func _apply_xr():
 		Rhythia.vr_player.apply_xr_settings()
 	_save_soon()
 
+func _reset_height():
+	Rhythia.vr_height = 0.0
+	_load_values()
+	_save_soon()
+
 func _reset_grid():
 	Rhythia.vr_grid_distance = 2.25
 	_load_values()
@@ -603,6 +618,19 @@ func _on_bind(_idx: int, action: String):
 	if Rhythia.vr and not Rhythia.fake_vr:
 		Rhythia.apply_vr_binds()
 	_save_soon()
+
+# (vr/GripCalibrate.gd: the dot in front of you, then the sliders show the result)
+func _calibrate_grip():
+	if not Rhythia.vr or Rhythia.vr_player == null or not is_instance_valid(Rhythia.vr_player):
+		return
+	if Rhythia.vr_player.has_node("GripCalibrate"):
+		return
+	var c = load("res://vr/GripCalibrate.gd").start(Rhythia.vr_player)
+	c.connect("finished", self, "_on_calibrated")
+
+func _on_calibrated(_applied: bool):
+	if is_inside_tree():
+		_load_values()
 
 func _reset_grip():
 	Rhythia.vr_grip_rot = Vector3.ZERO

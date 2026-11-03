@@ -35,6 +35,8 @@ signal map_publish_status_received(song_id, published)
 signal map_publish_progress(song_id, bytes_sent, total_bytes)
 signal map_publish_complete(song_id)
 signal ranked_maps_received(song_ids)
+signal motd_changed() # Map of the Day: motd_song_id, motd_name, motd_completed, motd_count
+signal admin_motd_result(ok, reason)
 # the Spectate tab
 signal online_players_received(list, you)
 signal spectate_denied(reason)
@@ -135,6 +137,14 @@ func _ready():
 	_client.connect("data_received", self, "_on_data")
 	Rhythia.connect("mods_changed", self, "_on_local_mods_changed")
 	set_process(true)
+	# the connection keeps answering the server's pings while the game is
+	# paused (a playtest's pause menu, a song loading): the server dropped a
+	# connection that went quiet for 30-60 s, which ended mapping together
+	var poller := Node.new()
+	poller.name = "PausedPoll"
+	poller.pause_mode = PAUSE_MODE_PROCESS
+	poller.set_script(_PausedPoll)
+	add_child(poller)
 
 	var config = ConfigFile.new()
 	if config.load(_SETTINGS_PATH) == OK:
@@ -146,6 +156,13 @@ func _save_player_name():
 	config.load(_SETTINGS_PATH)
 	config.set_value("multiplayer", "player_name", player_name)
 	config.save(_SETTINGS_PATH)
+
+const _PausedPoll = preload("res://scripts/LobbyPausedPoll.gd")
+
+# (while paused: LobbyPausedPoll.gd)
+func poll_while_paused():
+	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
+		_client.poll()
 
 func _process(_delta):
 	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
@@ -403,6 +420,28 @@ func get_my_map_stats(song_id: String):
 func list_ranked_maps():
 	_ensure_connected_then_send({"type": "list_ranked_maps"})
 
+# ---- Map of the Day (savia_web src/motd.js): one ranked map a day
+var motd_song_id: String = "" # (the server's key for it: v3MapList.canon_key)
+var motd_name: String = ""
+var motd_day: String = ""
+var motd_completed: bool = false # (you passed it today)
+var motd_count: int = 0 # days' maps you've completed
+
+func get_motd():
+	_ensure_connected_then_send({"type": "get_motd", "client_id": Rhythia.cid})
+
+# admins: today's map of the day (ranked with xp first, if it isn't yet)
+func admin_set_motd(song_id: String, song_name: String, xp: int, content_hash: String):
+	if not has_admin_key() or song_id == "":
+		return
+	var m := {"type": "admin_set_motd", "admin_key": _admin_key, "song_id": song_id, "song_name": song_name.substr(0, 200), "content_hash": content_hash}
+	if xp > 0:
+		m["xp"] = xp
+	_ensure_connected_then_send(m)
+
+func is_motd(song_id: String) -> bool:
+	return motd_song_id != "" and load("res://scripts/ui/menu/buttons/v3MapList.gd").canon_key(song_id) == motd_song_id
+
 func list_unpublished_ranked_maps():
 	_ensure_connected_then_send({"type": "list_unpublished_ranked_maps", "client_id": Rhythia.cid})
 
@@ -499,6 +538,11 @@ func _connect_socket() -> bool:
 	# (the website's game view of a replay stays offline: WebReplay.gd)
 	if load("res://scripts/WebReplay.gd").wanted():
 		return false
+	# The release build's start-up check (.github/workflows/release.yml) runs
+	# the game once with an empty user folder: online, every build made a new
+	# player account on the server. It only needs to reach the menu.
+	if OS.get_environment("CHROMIA_BOOT_CHECK") == "1" or OS.get_environment("CHROMIA_OFFLINE") == "1":
+		return false
 	# Background requests (map info etc.) retry at most every 2 s while the
 	# server is unreachable; joining/creating a lobby always tries right away.
 	var now := OS.get_ticks_msec()
@@ -549,6 +593,8 @@ func _send_lobby_intent():
 func _on_connected(_proto = ""):
 	_send_lobby_intent()
 	_send({"type": "hello"})
+	if Rhythia.cid != "":
+		_send({"type": "get_motd", "client_id": Rhythia.cid})
 	if presence_supported == 1:
 		_send_presence(true)
 		if _online_subscribed:
@@ -928,6 +974,14 @@ func send_solo_view_settings():
 	upload_cursor_picture()
 	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+
+# a song starts (not in a lobby): while you're watched, the server takes it as
+# a restart and moves your watchers to this play (Retry used to leave them on
+# the old one, so following never picked the new one up)
+func send_play_started():
+	if lobby_active or watch_mode or presence_supported != 1 or not _connected():
+		return
+	_send({"type": "play_started"})
 
 func request_player_settings(peer_id: int):
 	if lobby_active and peer_id > 0 and peer_id != local_peer_id:
@@ -1497,9 +1551,15 @@ func _handle_message(msg: Dictionary):
 				_finish_watch_locally()
 			emit_signal("spectate_denied", Globals.s(msg.get("reason", "You can't watch them right now.")))
 		"watch_ended":
-			if Globals.s(msg.get("reason", "")) == "disabled":
+			var why := Globals.s(msg.get("reason", ""))
+			if why == "disabled":
 				follow_number = -1 # (they don't want spectators: no following either)
+			var again := follow_number
 			end_watch(Globals.s(msg.get("text", "They stopped playing.")))
+			# they restarted the map: watch the new play right away (once the
+			# menu is back), not when the online list next says they're playing
+			if why == "restarted" and again > 0:
+				_rewatch_after_restart(again)
 		"watchers_changed":
 			var was := watchers_count
 			watchers_count = int(msg.get("count", 0))
@@ -1578,6 +1638,17 @@ func _handle_message(msg: Dictionary):
 			Rhythia.apply_rotated_client_id(Globals.s(msg.get("new_client_id", "")))
 		"ranked_maps":
 			emit_signal("ranked_maps_received", msg.get("song_ids", []))
+		"motd":
+			motd_song_id = Globals.s(msg.get("song_id", ""))
+			motd_name = Globals.s(msg.get("song_name", ""))
+			motd_day = Globals.s(msg.get("day", ""))
+			motd_completed = bool(msg.get("completed", false))
+			motd_count = int(msg.get("count", 0))
+			emit_signal("motd_changed")
+		"admin_motd_ok":
+			emit_signal("admin_motd_result", true, "")
+		"admin_motd_denied":
+			emit_signal("admin_motd_result", false, Globals.s(msg.get("reason", "")))
 		"unpublished_ranked_maps":
 			emit_signal("unpublished_ranked_maps_received", msg.get("song_ids", []))
 		"set_map_rank_ok":
@@ -1742,7 +1813,7 @@ func _presence_now() -> Dictionary:
 	if Rhythia.in_map and get_tree().current_scene != null:
 		game = get_tree().current_scene.find_node("Game", true, false)
 		var hud = game.get_node_or_null("HUD") if game != null else null
-		if hud != null and bool(hud.get("spectating")):
+		if hud != null and hud.get("spectating") == true: # (null when the HUD has no such value: bool(null) is an error)
 			spectating_someone = true
 	var playing: bool = Rhythia.in_map and not Rhythia.replaying and not spectating_someone and Rhythia.selected_song != null
 	var p := {
@@ -1903,13 +1974,29 @@ func _stop_bar_text() -> String:
 func _update_stop_bar():
 	var text := _stop_bar_text()
 	if text == "":
-		if _stop_canvas != null:
+		if _stop_canvas != null and is_instance_valid(_stop_canvas):
 			_stop_canvas.visible = false
 		return
+	if _stop_canvas != null and not is_instance_valid(_stop_canvas):
+		_stop_canvas = null # (it was on a VR menu screen that's gone)
 	if _stop_canvas == null:
 		_build_stop_bar()
+	_place_stop_bar()
 	_stop_label.text = text
 	_stop_canvas.visible = true
+
+# VR: the bar goes on the menu's floating screen (the flat window isn't in
+# the headset), where the pointer can press Stop; elsewhere here, on top.
+func _place_stop_bar():
+	var want: Node = self
+	if Rhythia.vr:
+		var m = Rhythia.menu_node()
+		if m != null and m.get_viewport() != get_tree().root:
+			want = m.get_viewport()
+	if _stop_canvas.get_parent() != want:
+		if _stop_canvas.get_parent() != null:
+			_stop_canvas.get_parent().remove_child(_stop_canvas)
+		want.add_child(_stop_canvas)
 
 func _build_stop_bar():
 	_stop_canvas = CanvasLayer.new()
@@ -1952,6 +2039,13 @@ func _build_stop_bar():
 	stop.add_font_override("font", _announce_font("res://assets/font/Lato/Lato-Bold.ttf", 15))
 	stop.connect("pressed", self, "stop_watching")
 	h.add_child(stop)
+
+func _rewatch_after_restart(number: int):
+	yield(get_tree().create_timer(1.0), "timeout")
+	if follow_number != number or watch_mode or lobby_active:
+		return
+	_follow_tried_at = OS.get_ticks_msec()
+	spectate_player(number)
 
 # the server ended it (they finished, failed, left, turned spectators off)
 func end_watch(text: String):

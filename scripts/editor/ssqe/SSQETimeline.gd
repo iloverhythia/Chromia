@@ -116,7 +116,7 @@ func _draw():
 	var mx: float = max(ed.total_time(), 1.0)
 	var y := line.position.y + line.size.y / 2
 	draw_rect(line, SSQESettings.color(s, "color2"))
-	draw_rect(Rect2(line.position.x + ed.track_start_rel * line.size.x, line.position.y, (ed.track_end_rel - ed.track_start_rel) * line.size.x, line.size.y), SSQESettings.color(s, "color3"))
+	draw_rect(Rect2(line.position.x + ed.track_start_rel * line.size.x, line.position.y, (ed.track_end_rel - ed.track_start_rel) * line.size.x, line.size.y), SSQESettings.color(s, "color6"))
 	var c := Vector2(line.position.x + line.size.x * (ed.current_time() / mx), y)
 	var c1 := SSQESettings.color(s, "color1")
 	draw_circle(c, 4, c1)
@@ -130,7 +130,7 @@ func _draw():
 		draw_polyline(pts, c1, 2, true)
 	# bookmarks
 	for b in map.bookmarks:
-		var col := SSQESettings.color(s, "color2", 0.75) if hovering_bookmark == b else SSQESettings.color(s, "color3", 0.75)
+		var col := SSQESettings.color(s, "color2", 0.75) if hovering_bookmark == b else SSQESettings.color(s, "color6", 0.75)
 		draw_rect(_bookmark_rect(b, line, mx), col)
 	# ticks: worked out again only after an edit, a drag, or a size change
 	# (every object, every frame, was slow on big maps)

@@ -75,7 +75,7 @@ func search_matches(s: Song):
 		(not s.is_broken or show_broken_maps) and
 		(_st == "" or s.lname().find(_st) != -1) and
 		(_at == "" or s.creator.to_lower().find(_at) != -1) and
-		(not xp_only_maps or ranked_song_ids.has(s.id)) and
+		(not xp_only_maps or ranked_song_ids.has(_canon(s.id))) and
 		(folder_filter == null or folder_filter.has(s.id))
 	)
 
@@ -317,6 +317,32 @@ func build_list():
 		append_filtering_favorites(disp, logic)
 		append_filtering_favorites(disp, amogus)
 		append_filtering_favorites(disp, unknown)
+	_motd_first()
+
+# The Map of the Day (LobbyManager.motd_song_id) at the very top, whatever the
+# sort and filters (only a search for something else leaves it out)
+var _motd_song = null
+func _motd_first():
+	_motd_song = null
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm == null or String(lm.motd_song_id) == "":
+		return
+	var found = null
+	for s in songs:
+		if s != null and canon_key(String(s.id)) == lm.motd_song_id:
+			found = s
+			break
+	if found == null:
+		return
+	if (_st != "" or _at != "") and not search_matches(found):
+		return
+	disp.erase(found)
+	disp.push_front(found)
+	_motd_song = found
+
+func _on_motd_changed():
+	if is_inside_tree():
+		reload_to_current_page()
 
 func reload_to_current_page(_a = null):
 	scrolling_to = false
@@ -365,9 +391,36 @@ func update_search_xponly(show: bool):
 	xp_only_maps = show
 	if ready: reload_to_current_page()
 
+# The server keeps ranked maps by a cleaned-up key (savia_web src/util.js
+# canonSongKey): lowercase, anything but a-z 0-9 _ - made "_", "m" in front
+# of an empty key or one starting with "_". A map's own id can have capitals,
+# spaces or other signs, so comparing them as they were left those ranked
+# maps out of the Ranked filter. Both sides are compared as keys now.
+var _canon_cache := {}
+func _canon(id: String) -> String:
+	if _canon_cache.has(id):
+		return _canon_cache[id]
+	var k := canon_key(id)
+	_canon_cache[id] = k
+	return k
+
+static func canon_key(id: String) -> String:
+	var src := id.strip_edges().to_lower()
+	var out := ""
+	for i in src.length():
+		var c := src.ord_at(i)
+		if (c >= 97 and c <= 122) or (c >= 48 and c <= 57) or c == 95 or c == 45:
+			out += char(c)
+		else:
+			# (JavaScript counts a character outside the BMP as two)
+			out += "__" if c > 0xFFFF else "_"
+	if out == "" or out.begins_with("_"):
+		out = "m" + out
+	return out.left(200)
+
 func _on_ranked_maps_received(song_ids: Array):
 	ranked_song_ids = {}
-	for id in song_ids: ranked_song_ids[id] = true
+	for id in song_ids: ranked_song_ids[canon_key(String(id))] = true
 	if xp_only_maps and ready: reload_to_current_page()
 
 func update_search_flipped(flip: bool):
@@ -492,6 +545,8 @@ func make_song_button(id: int = -1):
 		strip.margin_bottom = -6
 		btn.add_child(strip)
 	btn.get_node("Cloud").visible = map.is_online
+	if map == _motd_song:
+		_mark_motd(btn)
 	rbtn.disabled = false
 	rbtn.connect("pressed", self, "on_pressed", [id, map])
 
@@ -502,6 +557,31 @@ func make_song_button(id: int = -1):
 	if map == Rhythia.selected_song:
 		btn.get_node("Select").pressed = true
 	return btn
+
+# the Map of the Day's button: a bright yellow outline (instead of its
+# difficulty's colour) and its name on it, with a tick once you've passed it
+const MOTD_YELLOW := Color(1, 0.9, 0.05)
+func _mark_motd(btn: Panel):
+	btn.self_modulate = MOTD_YELLOW
+	var lm = get_node_or_null("/root/LobbyManager")
+	var tag := Label.new()
+	tag.name = "MotdTag"
+	tag.text = "MAP OF THE DAY" + ("  -  DONE" if lm != null and lm.motd_completed else "")
+	tag.add_color_override("font_color", MOTD_YELLOW)
+	tag.add_color_override("font_color_shadow", Color(0, 0, 0, 0.8))
+	var nf = btn.get_node("Name").get_font("font")
+	if nf is DynamicFont:
+		var f: DynamicFont = nf.duplicate()
+		f.size = int(max(12, nf.size * 0.7))
+		tag.add_font_override("font", f)
+	tag.align = Label.ALIGN_RIGHT
+	tag.anchor_left = 1
+	tag.anchor_right = 1
+	tag.margin_left = -260
+	tag.margin_right = -12
+	tag.margin_top = 8
+	tag.mouse_filter = MOUSE_FILTER_IGNORE
+	btn.add_child(tag)
 
 func pg_up():
 	if cur_map < 0 or btns.empty(): return
@@ -708,7 +788,10 @@ func _ready():
 	if lobby_manager != null:
 		if not lobby_manager.is_connected("ranked_maps_received", self, "_on_ranked_maps_received"):
 			lobby_manager.connect("ranked_maps_received", self, "_on_ranked_maps_received")
+		if not lobby_manager.is_connected("motd_changed", self, "_on_motd_changed"):
+			lobby_manager.connect("motd_changed", self, "_on_motd_changed")
 		lobby_manager.list_ranked_maps()
+		lobby_manager.get_motd()
 
 	Engine.iterations_per_second = 60
 	call_deferred("firstload")

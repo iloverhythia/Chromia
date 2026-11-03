@@ -110,6 +110,20 @@ func song_end(end_type: int):
 var combo_ring_target: float = 0
 var combo_ring_value: float = 0
 
+# a mod's icon in the row with the speed ones (assets/images/modifiers/64)
+func _mod_icon(name: String):
+	var tex = load("res://assets/images/modifiers/64/%s_colored.png" % name)
+	if tex == null or modicons.has_node("Mod_" + name):
+		return
+	var r := TextureRect.new()
+	r.name = "Mod_" + name
+	r.texture = tex
+	r.rect_min_size = Vector2(64, 64)
+	r.expand = true
+	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modicons.add_child(r)
+
 func update_static_values():
 	var src_hits = _spectate_data.hits if spectating else Game.hits
 	var src_total = _spectate_data.total_notes if spectating else Game.total_notes
@@ -202,6 +216,9 @@ func _make_sp_label():
 		return
 	_sp_label = noteslabel.duplicate()
 	_sp_label.name = "SP"
+	# (the score's font: it sits right above the score, and Notes' regular
+	# weight looked out of place there; Settings > Fonts still applies)
+	_sp_label.add_font_override("font", scorelabel.get_font("font"))
 	_sp_label.visible = true
 	_sp_label.margin_top = -890.0
 	_sp_label.margin_bottom = -815.0
@@ -650,6 +667,8 @@ func exit_spectate_mode():
 		_spectate_ui = null
 		_spectate_banner = null
 		_spectate_view_button = null
+	if _spec_vr_sprite != null:
+		_spec_vr_sprite.visible = false
 	if _spec_page_layer != null:
 		_spec_page_layer.queue_free()
 		_spec_page_layer = null
@@ -907,6 +926,9 @@ func _spec_hand_look():
 	if kind == "paw":
 		var r = load("res://vr/PawHand.gd").build()
 		meshes = [VRP._mirrored(r), r]
+	elif kind == "ball":
+		var b = load("res://vr/BallHand.gd").build()
+		meshes = [b, b]
 	elif kind == "custom" and rpath != "":
 		var ObjParse = load("res://scripts/content/resources/ObjParse.gd")
 		var r = ObjParse.load_obj(rpath)
@@ -928,8 +950,9 @@ func _spec_hand_look():
 		var ray = hand.get_node_or_null("Ray")
 		if ray != null and "start_gap" in ray:
 			ray.start_gap = 0.0
-			if kind == "paw" and meshes != null:
-				ray.start_gap = max(0.0, ray.transform.origin.z + load("res://vr/PawHand.gd").TIP * VRP.UNITS_PER_M)
+			if (kind == "paw" or kind == "ball") and meshes != null:
+				var tip: float = load("res://vr/PawHand.gd").TIP if kind == "paw" else load("res://vr/BallHand.gd").TIP
+				ray.start_gap = max(0.0, ray.transform.origin.z + tip * VRP.UNITS_PER_M)
 		if meshes == null:
 			mi.mesh = d[0]
 			mi.transform = d[1]
@@ -981,6 +1004,7 @@ func _spec_cursor_at(ms: float) -> Vector3:
 	return Vector3(pos.x, pos.y, z)
 
 func _apply_spectate_stats(sample: Dictionary):
+	_spectate_hit_sounds(int(sample.hits) - int(_spectate_data.hits), int(sample.misses) - int(_spectate_data.misses))
 	_spectate_data.score = sample.score
 	_spectate_data.hits = sample.hits
 	_spectate_data.misses = sample.misses
@@ -989,6 +1013,29 @@ func _apply_spectate_stats(sample: Dictionary):
 	_spectate_data.combo_level = sample.combo_level
 	_spectate_data.energy_pct = sample.energy_pct
 	_spectate_data.lvl_progress_pct = sample.lvl_progress_pct
+
+# Watching someone: their hits and misses as sounds. The notes aren't judged
+# here while spectating (NoteManager skips its sounds then), so a spectator
+# heard nothing: the counts going up are the hits / misses. A big jump (the
+# first sample, joining late, switching player) isn't played.
+const SPEC_SOUND_JUMP := 6
+func _spectate_hit_sounds(dh: int, dm: int):
+	if not spectating or get_tree().paused:
+		return
+	if dh > 0 and dh <= SPEC_SOUND_JUMP and Rhythia.play_hit_snd:
+		var at: Transform = spectate_cursor.global_transform if is_instance_valid(spectate_cursor) else Transform()
+		for _k in range(min(dh, 3)):
+			SFXManager.play_hitsfx(at)
+	if dm > 0 and dm <= SPEC_SOUND_JUMP and Rhythia.play_miss_snd:
+		if Rhythia.sfx_2d:
+			var m2 = Spawn.get_node_or_null("Miss2D")
+			if m2 != null: m2.play()
+		else:
+			var m3 = Spawn.get_node_or_null("Miss")
+			if m3 != null:
+				if is_instance_valid(spectate_cursor):
+					m3.global_transform = spectate_cursor.global_transform
+				m3.play()
 
 # --- their settings or yours ----------------------------------------------------
 # Most settings are read when the song scene is built, so switching reloads it
@@ -1059,6 +1106,42 @@ func _input(event):
 		get_tree().set_input_as_handled()
 	elif Rhythia.vr and event.is_action_pressed("vr_click"):
 		toggle_spectate_view() # VR: the trigger switches (it does nothing else while watching)
+	elif Rhythia.vr and event is InputEventJoypadButton and event.pressed and event.button_index == JOY_VR_THIRD:
+		toggle_third_person() # VR: B / Y (Pause does nothing while watching)
+		get_tree().set_input_as_handled()
+	elif not Rhythia.vr and event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_3:
+		toggle_third_person()
+		get_tree().set_input_as_handled()
+
+# 3rd person while watching: you see the player's avatar (Settings > Player
+# Avatar: theirs, sent with their settings) playing, from behind and to the
+# side, like the alternate replay camera. VR: B / Y moves you there (VRPlayer
+# reads vr_third_person); desktop: 3 switches to the alternate camera.
+const JOY_VR_THIRD := 1 # B / Y
+var third_person := false
+
+func toggle_third_person():
+	if not spectating:
+		return
+	third_person = not third_person
+	var look = null
+	var lm = _get_lobby_manager()
+	if lm != null and lm.player_view_settings.has(spectate_peer_id):
+		look = lm.player_view_settings[spectate_peer_id].get("avatar")
+	var root = get_tree().current_scene
+	if Rhythia.vr:
+		Rhythia.set_meta("vr_third_person", third_person)
+		var av = root.get_node_or_null("Game/Avatar") if root else null
+		if av is Spatial:
+			av.visible = third_person
+			if third_person:
+				av.get_node("Animations").play("Idle")
+				av.get_node("Head/Blinking").play("Blink")
+				load("res://scripts/avatar/AvatarLook.gd").apply(av, look)
+		Globals.notify(Globals.NOTIFY_INFO, "3rd person view" if third_person else "Your own view")
+	elif root != null and root.has_method("set_third_person"):
+		root.set_third_person(third_person, look)
+	_update_spectate_target_name()
 
 var _spectate_ui: Control = null
 var _spec_page_layer: CanvasLayer = null # the Spectate window while watching
@@ -1172,6 +1255,67 @@ func _update_spectate_target_name():
 			if int(p.get("peer_id", -1)) == spectate_peer_id:
 				name_text = Globals.s(p.get("name", "Player"))
 	_spectate_banner.text = "👁 SPECTATING: %s" % name_text
+	_update_spectate_vr_panel(name_text)
+
+# VR, watching someone: the top-left banner and its Stop button are on the
+# flat screen, which the headset doesn't show. A panel above the right HUD
+# panel says who it is and how to switch view / stop (the trigger switches
+# view while watching, so the buttons can't be clicked: holding give up stops).
+var _spec_vr_vp: Viewport = null
+var _spec_vr_label: Label = null
+var _spec_vr_sprite: Sprite3D = null
+
+func _vr_button_names(action: String) -> String:
+	var names := PoolStringArray()
+	for b in Rhythia.vr_bind(action):
+		for nb in Rhythia.VR_BUTTONS:
+			if int(nb[1]) == int(b):
+				names.append(String(nb[0]))
+	return names.join(" or ") if names.size() > 0 else ""
+
+func _update_spectate_vr_panel(name_text: String):
+	if not Rhythia.vr:
+		return
+	if _spec_vr_sprite == null:
+		var right = get_node_or_null("RightHud")
+		if right == null:
+			return
+		_spec_vr_vp = Viewport.new()
+		_spec_vr_vp.size = Vector2(300, 220)
+		_spec_vr_vp.transparent_bg = true
+		_spec_vr_vp.hdr = false
+		_spec_vr_vp.usage = Viewport.USAGE_2D
+		_spec_vr_vp.msaa = Viewport.MSAA_DISABLED
+		_spec_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE
+		add_child(_spec_vr_vp)
+		_spec_vr_label = Label.new()
+		var f := DynamicFont.new()
+		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+		f.size = 24
+		_spec_vr_label.add_font_override("font", f)
+		_spec_vr_label.add_color_override("font_color", Color(1, 0.85, 0.2))
+		_spec_vr_label.anchor_right = 1.0
+		_spec_vr_label.anchor_bottom = 1.0
+		_spec_vr_label.margin_left = 8
+		_spec_vr_label.margin_right = -8
+		_spec_vr_label.autowrap = true
+		_spec_vr_label.valign = Label.VALIGN_BOTTOM # (grows upward from the panel)
+		_spec_vr_vp.add_child(_spec_vr_label)
+		_spec_vr_sprite = right.duplicate(0)
+		_spec_vr_sprite.name = "SpectateVR"
+		_spec_vr_sprite.texture = _spec_vr_vp.get_texture()
+		var h: float = _spec_vr_vp.size.y * _spec_vr_sprite.pixel_size
+		var panel_h: float = 900.0 * right.pixel_size
+		_spec_vr_sprite.transform.origin = right.transform.origin + Vector3(0, panel_h / 2.0 + h / 2.0 + 0.03, 0)
+		add_child(_spec_vr_sprite)
+	var stop_keys := _vr_button_names("give_up")
+	var lines := PoolStringArray(["Watching %s" % name_text, "Trigger: switch view", "B / Y: %s" % ("your own view" if third_person else "3rd person view")])
+	var lm = _get_lobby_manager()
+	if lm != null and lm.watch_mode:
+		lines.append("Hold %s: stop watching" % (stop_keys if stop_keys != "" else "give up"))
+	_spec_vr_label.text = lines.join("\n")
+	_spec_vr_sprite.visible = true
+	_spec_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE # (redrawn when it changes)
 
 var spectate_cursor: Spatial = null
 var _real_cursor: Spatial = null
@@ -1263,9 +1407,15 @@ func _put_cursor_picture(tex):
 		mat = SpatialMaterial.new()
 		mat.flags_transparent = true
 		mat.flags_unshaded = true
-	mat.albedo_color = Color(1, 1, 1, mat.albedo_color.a)
+	mat.albedo_color = Color(1, 1, 1, max(mat.albedo_color.a, 0.5))
 	mat.albedo_texture = tex
-	mesh.set_surface_material(0, mat)
+	mesh.set_surface_material(0, _on_top(mat))
+
+# drawn over the grid, notes and backgrounds, like the cursor you play with
+static func _on_top(mat: SpatialMaterial) -> SpatialMaterial:
+	mat.flags_no_depth_test = true
+	mat.render_priority = 100
+	return mat
 
 func _create_ghost_cursor():
 	if spectate_cursor != null:
@@ -1286,6 +1436,17 @@ func _create_ghost_cursor():
 	var dup_trail = spectate_cursor.get_node_or_null("Mesh2")
 	if dup_trail != null:
 		dup_trail.visible = false
+	# the one you watch is always shown: a copy of your cursor was hidden with
+	# Show cursor off, and could be drawn behind a grid background or panels
+	spectate_cursor.visible = true
+	var dm = spectate_cursor.get_node_or_null("Mesh")
+	if dm is MeshInstance:
+		dm.visible = true
+		var m0 = dm.get_surface_material(0)
+		if m0 == null and dm.mesh != null:
+			m0 = dm.mesh.surface_get_material(0)
+		if m0 is SpatialMaterial:
+			dm.set_surface_material(0, _on_top(m0.duplicate()))
 
 func _on_round_ended():
 	exit_spectate_mode()
@@ -1406,6 +1567,8 @@ static func _you_or(lm, peer_id: int, name: String) -> String:
 	return "%s (you)" % name if peer_id == int(lm.local_peer_id) else name
 
 func _exit_tree():
+	if Rhythia.has_meta("vr_third_person"):
+		Rhythia.remove_meta("vr_third_person") # (3rd person ends with the song)
 
 	if _spectate_banner != null:
 		_spectate_banner.queue_free()
@@ -1589,6 +1752,7 @@ func _ready():
 
 	songnametxt.text = Rhythia.selected_song.name
 	load("res://scripts/HudFont.gd").apply_hud(self) # Settings > Fonts
+	load("res://scripts/HudPanels.gd").apply(self) # Settings > Background Editor > HUD panels
 	load("res://scripts/game/SoundSpaceMode.gd").apply_hud(self) # Sound Space Mode (Experimental)
 
 	var ms = ""
@@ -1615,32 +1779,29 @@ func _ready():
 			Globals.SPEED_PP: modicons.get_node("SpeedPP").visible = true
 			Globals.SPEED_PPP: modicons.get_node("SpeedPPP").visible = true
 			Globals.SPEED_PPPP: modicons.get_node("SpeedPPPP").visible = true
-			Globals.SPEED_CUSTOM: mods.append("S%s" % [Globals.speed_multi[Globals.SPEED_CUSTOM] * 100])
-	if Rhythia.mod_sudden_death: mods.append("SuddenDeath")
-	if Rhythia.mod_extra_energy: mods.append("Energy+")
-	if Rhythia.mod_no_regen: mods.append("NoRegen")
-	if Rhythia.mod_mirror_x or Rhythia.mod_mirror_y:
-		var mirrorst = tr("Mirror")
-		if Rhythia.mod_mirror_x: mirrorst += "X"
-		if Rhythia.mod_mirror_y: mirrorst += "Y"
-		mods.append(mirrorst)
-	if Rhythia.mod_ghost: mods.append(tr("Ghost"))
-	if Rhythia.mod_nearsighted: mods.append("Nearsight")
-	if Rhythia.mod_chaos: mods.append(tr("Chaos"))
-	if Rhythia.mod_earthquake: mods.append(tr("Earthquake"))
+			Globals.SPEED_CUSTOM:
+				_mod_icon("speed_custom")
+				mods.append("S%s" % [Globals.speed_multi[Globals.SPEED_CUSTOM] * 100]) # (the icon doesn't say how fast)
+	# the other mods: their icons, like the speed ones (only here, in a map)
+	if Rhythia.mod_nofail: _mod_icon("nofail")
+	if Rhythia.mod_sudden_death: _mod_icon("sudden_death")
+	if Rhythia.mod_extra_energy: _mod_icon("extra_energy")
+	if Rhythia.mod_no_regen: _mod_icon("no_regen")
+	if Rhythia.mod_mirror_x: _mod_icon("mirror_x")
+	if Rhythia.mod_mirror_y: _mod_icon("mirror_y")
+	if Rhythia.mod_ghost: _mod_icon("ghost")
+	if Rhythia.mod_nearsighted: _mod_icon("nearsighted")
+	if Rhythia.mod_chaos: _mod_icon("chaos")
+	if Rhythia.mod_earthquake: _mod_icon("earthquake")
 	if Rhythia.mod_360:
+		_mod_icon("mod_360")
 		var speed = Rhythia.mod_360_speed
-		var prefix = "-360" if speed < 0 else "360"
-		var abs_speed = abs(speed)
-
-		if abs_speed == 1:
-			mods.append(prefix)
-		else:
-			mods.append("%sx%s" % [prefix, abs_speed])
-	if Rhythia.mod_strobe: mods.append(tr("Strobe"))
-	if Rhythia.mod_hardrock: mods.append(tr("Hard Rock"))
-	if Rhythia.mod_hard_mode: mods.append(tr("Hard Mode"))
-	if Rhythia.mod_flashlight: mods.append(tr("Flashlight"))
+		if speed < 0 or abs(speed) != 1: # (which way and how fast: not on the icon)
+			mods.append(("%sx%s" % ["-360" if speed < 0 else "360", abs(speed)]) if abs(speed) != 1 else "-360")
+	if Rhythia.mod_strobe: _mod_icon("strobe")
+	if Rhythia.mod_hardrock: _mod_icon("hardrock")
+	if Rhythia.mod_hard_mode: _mod_icon("hard_mode")
+	if Rhythia.mod_flashlight: _mod_icon("flashlight")
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
 		ms += tr(" Vulnus Judgement ")

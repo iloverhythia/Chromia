@@ -38,6 +38,33 @@ func _ready():
 
 	_list.add_child(_text("The font of the HUD while you play: the side panels, the timer, combo and score. People who spectate you see it too.", DIM, 15))
 
+	# the size of all of it
+	var size_row := HBoxContainer.new()
+	size_row.add_constant_override("separation", 10)
+	_list.add_child(size_row)
+	var sl := _text("Size", TEXT, 16)
+	sl.rect_min_size = Vector2(60, 0)
+	size_row.add_child(sl)
+	_size = HSlider.new()
+	_size.theme = _ui_theme
+	_size.min_value = 50
+	_size.max_value = 200
+	_size.step = 5
+	_size.value = float(Rhythia.hud_font_size)
+	_size.rect_min_size = Vector2(320, 28)
+	_size.size_flags_vertical = SIZE_SHRINK_CENTER
+	_size.connect("value_changed", self, "_on_size")
+	size_row.add_child(_size)
+	_size_l = _text("%d%%" % int(Rhythia.hud_font_size), TEXT, 16)
+	_size_l.rect_min_size = Vector2(60, 0)
+	size_row.add_child(_size_l)
+	var size_reset := Button.new()
+	size_reset.text = "Reset size"
+	size_reset.theme = _ui_theme
+	size_reset.rect_min_size = Vector2(110, 30)
+	size_reset.connect("pressed", self, "_on_size", [100.0])
+	size_row.add_child(size_reset)
+
 	for f in HudFont.FONTS:
 		_list.add_child(_font_row(f[0], f[1]))
 
@@ -141,6 +168,15 @@ func _on_row_input(ev, id: String):
 			_on_pick()
 			return
 		_choose(id)
+
+var _size: HSlider
+var _size_l: Label
+func _on_size(v: float):
+	Rhythia.hud_font_size = clamp(v, 50.0, 200.0)
+	_size_l.text = "%d%%" % int(Rhythia.hud_font_size)
+	if _size.value != Rhythia.hud_font_size:
+		_size.value = Rhythia.hud_font_size
+	Rhythia.save_settings()
 
 func _choose(id: String):
 	Rhythia.hud_font = id

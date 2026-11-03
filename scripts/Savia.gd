@@ -180,18 +180,65 @@ func switch_account(new_id: String):
 func _on_move_progress(text: String):
 	emit_signal("init_stage_reached", text)
 
+# Settings > Keybinds: the actions you can rebind, and turn off (one by one,
+# or all at once): an action that's off has no keys or buttons at all.
+const KEYBIND_ACTIONS = ["pause", "give_up", "retry", "fullscreen", "ui_quicksettings", "fps", "volumeslider", "toggle_profile", "quit_game"]
+
 func load_keybinds():
 	var config = ConfigFile.new()
-	if config.load("user://settings.cfg") != OK or not config.has_section("keybinds"):
+	var ok: bool = config.load("user://settings.cfg") == OK
+	if ok and config.has_section("keybinds"):
+		for action in config.get_section_keys("keybinds"):
+			if not InputMap.has_action(action):
+				continue
+			var scancode = int(config.get_value("keybinds", action))
+			InputMap.action_erase_events(action)
+			var event = InputEventKey.new()
+			event.scancode = scancode
+			InputMap.action_add_event(action, event)
+	if ok:
+		for action in KEYBIND_ACTIONS:
+			if not keybind_on(action, config):
+				InputMap.action_erase_events(action)
+
+# on unless you turned it (or all of them) off
+func keybind_on(action: String, config = null) -> bool:
+	if config == null:
+		config = ConfigFile.new()
+		if config.load("user://settings.cfg") != OK:
+			return true
+	if bool(config.get_value("keybinds_off", "_all", false)) and action in KEYBIND_ACTIONS:
+		return false
+	return not bool(config.get_value("keybinds_off", action, false))
+
+# turn one action (or "_all") on or off and put its keys back / take them away
+func set_keybind_on(action: String, on: bool):
+	var config = ConfigFile.new()
+	config.load("user://settings.cfg")
+	config.set_value("keybinds_off", action, not on)
+	config.save("user://settings.cfg")
+	for a in (KEYBIND_ACTIONS if action == "_all" else [action]):
+		_restore_keybind(a, config)
+		if not keybind_on(a, config):
+			InputMap.action_erase_events(a)
+
+# the action's keys as set up: the game's own, with your rebound key instead
+func _restore_keybind(action: String, config: ConfigFile):
+	if not InputMap.has_action(action):
 		return
-	for action in config.get_section_keys("keybinds"):
-		if not InputMap.has_action(action):
-			continue
-		var scancode = int(config.get_value("keybinds", action))
-		InputMap.action_erase_events(action)
-		var event = InputEventKey.new()
-		event.scancode = scancode
-		InputMap.action_add_event(action, event)
+	InputMap.action_erase_events(action)
+	var setting = ProjectSettings.get_setting("input/" + action)
+	if setting is Dictionary:
+		for ev in setting.get("events", []):
+			if ev is InputEvent:
+				InputMap.action_add_event(action, ev)
+	if config.has_section_key("keybinds", action):
+		var custom := InputEventKey.new()
+		custom.scancode = int(config.get_value("keybinds", action))
+		for ev in InputMap.get_action_list(action):
+			if ev is InputEventKey:
+				InputMap.action_erase_event(action, ev)
+		InputMap.action_add_event(action, custom)
 
 var jp: int = 0
 var sp: int = 0
@@ -959,11 +1006,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov2-2026-a": "- VR / phones: .rhm maps from rhythia.com (Content Browser) convert properly: they were converted without their music (and then wouldn't play) because the audio was looked for in the wrong folder\n- VR: pressing Start after Random starts the map (the Random button could stay held, so Start picked another map instead)\n- Spectating: you hear the hit and miss sounds of the player you watch (there were none)\n- VR: while you watch someone, a panel above the right side says who it is and how to stop (hold your give up button); the Following / Stop bar shows on the menu screen in the headset\n- Map editor is much faster: placing, deleting and moving notes on big maps no longer freezes for a moment (about 30 times quicker on a 20,000-note map, undo/redo too), and playing the song in the editor no longer slows every frame down\n- Your Online status shows you playing again while you're in a map (it errored and wasn't sent)\n- Map screen: a Leaderboard tab (next to Best and History) on ranked maps shows everyone's best pass, top first: their picture, SP, accuracy, misses and speed (click someone to open their profile)\n- VR: move the keyboard anywhere on the menu screen by dragging the bar along its top; it stays where you put it (Reset in the bar puts it back)\n- VR: a Height setting (Settings > VR > Height) raises or lowers you up to 1 m, in the menu and in songs\n- Fixed the in-game HUD failing to load in the last test builds (two features had a function with the same name)\n- VR: a new Ball hand (Settings > VR > Hands): a plain round white sphere for each hand (spectators see it too)\n- Settings: the grid's Borders moved to the Background Editor tab\n- Background Editor > HUD panels: pick how the side panels look while you play (Chromia, Sound Space, Outlined, Glass, No background, or your own picture) and how big they are (50% to 200%). Spectators see your style and size\n- Settings > Fonts: a Size slider for the HUD's text (50% to 200%), seen by spectators too\n- Settings > Video & Audio: Fullscreen is now called Exclusive Fullscreen (the true fullscreen, run by your graphics driver), and it and Borderless Windowed turn each other off; F11 / Alt+Enter leaves Borderless Windowed first\n- Spectate: right-click someone's card for View stats (their level, XP, SP and places, passes, bio and best plays), Spectate, or their profile on the website\n- Settings > Keybinds: turn any keybind off with its On box, or all of them with Turn all keybinds off (their keys and controller buttons do nothing); turning one back on restores your key\n- Player Avatar editor works again and is easier to use: tick items instead of typing their names, with new ones (top hat, cap, crown, cat ears, horns, halo, glasses, bow, scarf, tie, bow tie, cape), colours for the head, body and eyes, drag to turn your avatar, and it's saved. The Back button works again. Your avatar shows in replays with the alternate camera, and people watching you with your settings see it\n- Spectating: 3rd person view. In VR press B / Y while you watch someone: you move behind and beside them and see their avatar play (the avatar from their Player Avatar editor). On PC press 3. Replays: press 3 to switch to the avatar camera\n- VR: the intro cutscene never plays in VR (on the Quest it used to play every time the game opened); the Replay Intro button says so instead\n- Maps with WAV music (some rhythia.com downloads) play their music: they said the audio was broken. WAV files with extra sections (JUNK, LIST...) and 8, 24 and 32-bit ones work too\n- Spectating with their settings no longer shows bits of your own: colours, note shapes, effects or backgrounds you don't have fall back to the defaults instead of yours, and their HUD options (stats, config, avatar, panels) are used too\n- Spectating: following someone keeps watching them when they restart a map (it used to stop)\n- Background Editor: a Background brightness slider darkens the background behind the notes (notes and HUD stay bright)\n- VR: the Ball hand is white now in every scene (it looked grey in dark spaces and menus)\n- Background Editor: add .mp4, .mov, .mkv, .avi and other videos (the Chromia server turns them into .webm for you, no sound, up to 2 minutes; you can close the settings while it works). GIFs move, and .webm / .ogv are added as they are\n- Chromia skins (.cskin): Settings > Skins exports everything you have on into one file (your look settings, colorset, note mesh, border, hit and miss sounds, cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture, avatar, VR hands) for others to import. Putting one on keeps your old look as \"Before <skin>\" in My skins so you can go back. You can also drop a .cskin on the game window\n- Online page redone: a clear \"Play together\" section (Host a lobby, Public, join with a friend's code), public lobbies always listed with Refresh, and inside a lobby a big lobby code with Copy, the map, players as cards (ready / checking / downloading the map, HOST) and Start / Leave. Same look as the Spectate window\n- The Spectate window opens smoothly (it no longer stutters while it fills in)\n- Menu music is back: the seven menu songs play again. They're downloaded from the Chromia server the first time (about 15 MB, once) instead of making every download bigger, and then play from your game's cache, offline too\n- VR: Settings > VR > Controller grip > Calibrate: a dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second, and the grip's tilt and turn are set so the beam goes where your hand points (either hand; B / Y cancels)\n- Content Browser: a Hit Sounds tab. Play one to hear it, Use it to make it your hit sound, or share yours / upload a file (.ogg, .mp3, .wav)\n- Content Browser > Maps > Chromia players: every map on the Chromia server is listed too (ranked ones say Ranked), ready to download\n- Fixed the Ranked filter leaving out ranked maps whose id has capitals, spaces or signs like . ! ( ) (for example the Trrricksters!! map)\n- Online > Admin (staff only) in the same look as the rest of the Online page, and bigger Lobby / Admin tabs\n- Map editor: Legacy UI (editor Settings > Graphics > Look): the editor in Sound Space Quantum Editor Plus's own look, with its fonts, dark outlined buttons, round checkboxes, cyan / magenta colours and solid background. Turn it on or off any time\n- Online lobby: players show their profile picture instead of their initial\n- Map editor: import your SSQE+ settings (editor Settings > Other > Import SSQE+ settings, pick settings.txt from your Sound Space Quantum Editor Plus folder): colours, note colours, keybinds, grid keys, patterns, playtest settings and the rest\n- Map editor: Font scale (Settings > Graphics) makes every text in the editor bigger or smaller, and the grid keys (QWE / ASD / ZXC) can be your own keys\n- Map editor, Legacy UI: the editor's start screen, Create, Settings and Keybinds screens are SSQE+'s own (SOUND SPACE+ QUANTUM EDITOR PLUS menu with the changelog and your maps along the bottom, Create with Audio ID / Import Audio, every SSQE+ setting incl. VSync, FPS limit, font scale, playtest game, and the keybinds screen with grid keys, RESET buttons and CTRL / ALT / SHIFT Held)\n- Map editor: Import SSQE+ settings takes SSQE+'s setup files (.ssqes) as well as settings.txt\n- Editor settings: a long note no longer pushes the buttons and sliders off the right side of the window.\n- Mapping together: pausing during a playtest (or a long song load) no longer drops you out of the session.\n- Mapping together is much less laggy, especially on big maps.\n- Mapping together: Store Nodes keeps your bezier nodes on the right notes when the others add or move notes.\n- Editor Legacy UI: its Settings now also has Invites To Map Together, Adjust Notes With Timing and Use Note Colors.\n- Mapping together: your stored nodes (Store Nodes) are yours only. Nothing the others do (placing, moving or deleting notes, even the ones you stored) changes them.\n- Editor colours: Color 3 is now only the 1/2 beat ticks. The preview (timeline view and bookmarks) has its own Color 6, stored nodes their own Color 7, and the waveform uses Color 4 like its setting says.\n- In a map, every mod you have on now shows its icon next to the speed icon (not just the speed mods).\n- Spectating: the cursor of the person you watch always shows, also with Show cursor off, and is drawn over the grid, its background and panels.\n- Sound Space HUD (panels only): the health bar is right under the grid and the progress bar right over it again, with the mod icons under the health bar.\n- Map of the Day: one ranked map a day, picked by the admins, at the very top of your maps with a bright yellow outline. Pass it on its day to add to the Map of the Day badge on your profile.",
 	"nov1-2026-b": "- Fixed a crash when you start watching someone from the Spectate window (since nov1-2026-a)\n- Fixed a possible freeze in the menu on ranked maps (since nov1-2026-a), and the Spectate window shows pictures uploaded to Chromia again\n- Map screen: History uses the whole row, so your attempts aren't squished (the Modifiers box comes back when you switch to Best)\n- Downloading maps: when a map can't be saved, read or converted, you're told why (it failed without a word and the map stayed unconverted)\n- VR: maps no longer load to a black screen when the game wants to warn you about something (high cursor trail detail, broken audio, unusual approach rate or hit window): the warning was a flat-screen question the headset didn't show, so the game waited forever\n- Profile: the old name box is gone (your name is your Discord / website profile name, and lobbies use it too)\n- Fixed a crash right after a map finished downloading (most often in VR): the map was set up while the background star rating could be reading it",
 	"nov1-2026-a": "- Settings > UI > Show SP: the SP you'd get if you passed right now, at your accuracy so far and your speed, at the top of the right panel (a dash when the map isn't ranked or the play can't give SP, like with No Fail)\n- Chat: @mentions. Type @ and the start of a name to pick someone (Tab or click), and you get a notification when someone mentions you, even in the middle of a map\n- Chat: opening the Spectate window puts you straight in the chat box, ready to type\n- Chat: the text you type shows again when your message has an emoji in it (only the emoji showed)\n- Website Game view: smoother playback and cursor, Record video goes fullscreen so the video is your screen's size, and it never shows a crash notice\n- Replays: the cursor stays in time with the notes after a skip or a pause (it could end up ahead of them, by a lot on a slow computer or in the browser)",
 	"oct31-2026-f": "- aaaaa",
@@ -2152,10 +2200,13 @@ var vr_grid_distance: float = 2.25
 # VR aim: how far the cursor moves for how far you turn the controller (1 =
 # exactly where you point)
 var vr_sensitivity: float = 1.0
+# VR height: your view this many metres higher (+) or lower (-) than where the
+# game puts it (the menu screen and the grid stay where they are)
+var vr_height: float = 0.0
 # controller rumble on hits (0..1) and on misses
 var vr_haptics: float = 0.5
 var vr_haptic_miss: bool = true
-# the hands: "default" (box), "paw" (built-in furry paw), "custom" (vr_hand.obj)
+# the hands: "default" (box), "paw" (built-in furry paw), "ball" (a white sphere), "custom" (vr_hand.obj)
 var vr_hand: String = "default"
 # the VR menu's surroundings: "classic", a built-in one (vr/MenuEnvs.gd) or
 # "bg:<background id>" for a background from the background list
@@ -2226,30 +2277,37 @@ var def_fail_snd: AudioStream
 var def_pb_snd: AudioStream
 var def_menu_bgm: AudioStream
 
-# The menu music: no songs come with the game any more (seven songs were
-# about 15 MB of every download and install). A custom menu song
-# (user://menu.ogg / .mp3 / .wav) still plays and loops; without one the menu
-# is quiet. Songs listed here would play one after another in a random order
-# (scripts/ui/menu/buttons/PlaySong.gd).
-const MENU_PLAYLIST = []
+# The menu music: the songs come from the Chromia server the first time
+# (scripts/MenuMusic.gd keeps them in user://caches/menu_music; they were 15 MB
+# of every download and install) and play one after another in a random order
+# (scripts/ui/menu/buttons/PlaySong.gd). Every song plays once before any
+# repeats, and a new round never starts with the song that just played. The
+# order carries on when you come back to the menu after a song. A custom menu
+# song (user://menu.ogg / .mp3 / .wav) replaces them and loops, as before.
 var _menu_bag: Array = []
 var _menu_last: String = ""
 var _menu_seeded: bool = false
 
 func next_menu_track() -> AudioStream:
-	if MENU_PLAYLIST.empty():
-		return null # (no built-in menu songs)
+	var have: Array = load("res://scripts/MenuMusic.gd").get_or_start().ready_paths()
+	if have.empty():
+		return null # (none downloaded yet: PlaySong starts when one is)
+	for p in _menu_bag.duplicate():
+		if not have.has(p):
+			_menu_bag.erase(p)
 	if _menu_bag.empty():
 		if not _menu_seeded:
 			randomize()
 			_menu_seeded = true
-		_menu_bag = MENU_PLAYLIST.duplicate()
+		_menu_bag = have.duplicate()
 		_menu_bag.shuffle()
 		if _menu_bag.size() > 1 and _menu_bag[0] == _menu_last:
 			_menu_bag.push_back(_menu_bag.pop_front())
 	var path: String = _menu_bag.pop_front()
 	_menu_last = path
-	var s = load(path)
+	var s = Globals.audioLoader.load_file(path)
+	if s == Globals.error_sound or not (s is AudioStream):
+		return null
 	if s is AudioStreamOGGVorbis or s is AudioStreamMP3:
 		s.loop = false # the next song follows instead
 	return s
@@ -2497,6 +2555,9 @@ func _process(delta):
 	note_spin_t = fmod(note_spin_t + (delta * 0.5), 360)
 
 	if Input.is_action_just_pressed("fullscreen"):
+		# (Exclusive Fullscreen; Borderless Windowed goes off first)
+		if OS.window_borderless and not OS.window_fullscreen:
+			set_borderless_windowed(false)
 		OS.window_fullscreen = not OS.window_fullscreen
 	if Input.is_action_just_pressed("quit_game"):
 		quit_game()
@@ -3134,6 +3195,11 @@ func ss_menus_on() -> bool:
 	return sound_space_mode and not ss_gameplay_only
 var ss_score_popups: bool = true # Sound Space Mode: points pop up under the grid on each hit
 var hud_font: String = "default" # Settings > Fonts: the song HUD's font (scripts/HudFont.gd)
+var hud_font_size: float = 100.0 # Settings > Fonts: its size, % of normal
+var hud_panel_style: String = "chromia" # Settings > Background Editor > HUD panels (scripts/HudPanels.gd)
+var hud_panel_size: float = 100.0 # the side panels' size, % of normal
+var avatar: Dictionary = {} # your avatar's look (scripts/avatar/AvatarLook.gd)
+var bg_brightness: float = 100.0 # songs' background brightness, % (scripts/game/BgVeil.gd)
 var ss_hud: bool = false # Sound Space HUD: the side panels, time and health bar look like Sound Space (without the rest of Sound Space Mode)
 var ss_health_y: float = 0.0     # Sound Space Mode: health bar moved up (+) / down (-)
 var ss_health_w: float = 100.0   # Sound Space Mode: health bar width, %
@@ -4009,6 +4075,16 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			ss_hud = bool(data.ss_hud)
 		if data.has("hud_font"):
 			hud_font = String(data.hud_font)
+		if data.has("hud_font_size"):
+			hud_font_size = clamp(float(data.hud_font_size), 50.0, 200.0)
+		if data.has("hud_panel_style"):
+			hud_panel_style = String(data.hud_panel_style)
+		if data.has("hud_panel_size"):
+			hud_panel_size = clamp(float(data.hud_panel_size), 50.0, 200.0)
+		if data.has("avatar") and data.avatar is Dictionary:
+			avatar = data.avatar
+		if data.has("bg_brightness"):
+			bg_brightness = clamp(float(data.bg_brightness), 0.0, 100.0)
 		for k in ["ss_health_y", "ss_health_w", "ss_progress_y", "ss_progress_w"]:
 			if data.has(k):
 				set(k, float(data[k]))
@@ -4036,11 +4112,13 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_grid_distance = clamp(float(data.vr_grid_distance), 0.75, 5.0)
 		if data.has("vr_sensitivity"):
 			vr_sensitivity = clamp(float(data.vr_sensitivity), 0.25, 4.0)
+		if data.has("vr_height"):
+			vr_height = clamp(float(data.vr_height), -1.0, 1.0)
 		if data.has("vr_haptics"):
 			vr_haptics = clamp(float(data.vr_haptics), 0.0, 1.0)
 		if data.has("vr_haptic_miss"):
 			vr_haptic_miss = bool(data.vr_haptic_miss)
-		if data.has("vr_hand") and ["default", "paw", "custom"].has(str(data.vr_hand)):
+		if data.has("vr_hand") and ["default", "paw", "ball", "custom"].has(str(data.vr_hand)):
 			vr_hand = str(data.vr_hand)
 		if data.has("vr_menu_env") and load("res://vr/MenuEnvs.gd").is_valid(str(data.vr_menu_env)):
 			vr_menu_env = str(data.vr_menu_env)
@@ -4593,6 +4671,11 @@ func _write_settings_file(saveFile: String):
 			ss_score_popups = ss_score_popups,
 			ss_hud = ss_hud,
 			hud_font = hud_font,
+			hud_font_size = hud_font_size,
+			hud_panel_style = hud_panel_style,
+			hud_panel_size = hud_panel_size,
+			avatar = avatar,
+			bg_brightness = bg_brightness,
 			ss_health_y = ss_health_y,
 			ss_health_w = ss_health_w,
 			ss_progress_y = ss_progress_y,
@@ -4609,6 +4692,7 @@ func _write_settings_file(saveFile: String):
 			vr_menu_ui = vr_menu_ui,
 			vr_grid_distance = vr_grid_distance,
 			vr_sensitivity = vr_sensitivity,
+			vr_height = vr_height,
 			vr_haptics = vr_haptics,
 			vr_haptic_miss = vr_haptic_miss,
 			vr_hand = vr_hand,
@@ -6169,7 +6253,8 @@ func do_init(_ud = null):
 
 	emit_signal("init_stage_reached", "Init default assets 6/6")
 	if lp: yield(get_tree(), "idle_frame")
-	def_menu_bgm = load(MENU_PLAYLIST[0]) if not MENU_PLAYLIST.empty() else null
+	def_menu_bgm = null # (the menu songs are downloaded: MenuMusic.gd)
+	load("res://scripts/MenuMusic.gd").get_or_start() # (starts fetching them)
 
 	emit_signal("init_stage_reached", "Check Banned")
 	yield(get_tree(), "idle_frame")

@@ -141,7 +141,12 @@ jobs:
           # prints CHROMIA_BOOT_OK and quits), so a script error can't ship a build
           # that closes as soon as it opens.
           mkdir -p "$RUNNER_TEMP/boot-home"
+          # Offline: with an empty user folder, reaching the servers made a new
+          # player account every build (hundreds of them). The game also skips
+          # connecting when CHROMIA_BOOT_CHECK is set; this makes sure.
+          echo "127.0.0.1 savia.nysr.host $TEST_SERVER_HOST" | sudo tee -a /etc/hosts > /dev/null || true
           HOME="$RUNNER_TEMP/boot-home" CHROMIA_BOOT_CHECK=1 timeout 240 "$GODOT" --path . > boot.log 2>&1 || true
+          sudo sed -i '/savia\.nysr\.host/d' /etc/hosts || true
           grep "SCRIPT ERROR" -A1 boot.log | head -40 || true
           if ! grep -q CHROMIA_BOOT_OK boot.log; then
             echo "::error::The game did not reach the menu; not releasing."

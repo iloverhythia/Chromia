@@ -237,10 +237,14 @@ func _build():
 
 	# top (on the top bracket line): time, and a thin progress line under it
 	var top := _bar_root(hud.get_node("TimerVP/Control"), "SoundSpace")
-	time_label = _label(top, "0:00", 52, TIME_GREY, 127, 900)
+	# (panels only: the panel stays where Chromia's is, its progress bar at
+	# the bottom, right over the grid; Sound Space Mode moves it onto the
+	# top bracket line instead)
+	var tshift: float = 88.0 if hud_only else 0.0
+	time_label = _label(top, "0:00", 52, TIME_GREY, 127 + tshift, 900)
 	# height and width can be adjusted in Settings (Sound Space Mode: progress bar ...)
 	_pw = clamp(PROGRESS_W * float(Rhythia.get("ss_progress_w")) / 100.0, 60.0, 890.0)
-	var py: float = clamp(-float(Rhythia.get("ss_progress_y")), -165.0, 115.0)
+	var py: float = clamp(-float(Rhythia.get("ss_progress_y")) + tshift, -165.0, 115.0)
 	var line_bg := ColorRect.new()
 	line_bg.color = Color8(40, 40, 40) # the skin's progress_background
 	line_bg.rect_position = Vector2(450 - _pw / 2, 172 + py)
@@ -258,7 +262,10 @@ func _build():
 	# the skin's health_background: red behind the green line
 	# height and width can be adjusted in Settings (Sound Space Mode: health bar ...)
 	_hw = clamp(HEALTH_W * float(Rhythia.get("ss_health_w")) / 100.0, 60.0, 890.0)
-	var hy: float = clamp(192.0 - float(Rhythia.get("ss_health_y")), 2.0, 288.0)
+	# (panels only: where Chromia's health bar is, at the top of its panel,
+	# right under the grid; Sound Space Mode moves the panel onto the bottom
+	# bracket line instead)
+	var hy: float = clamp((18.0 if hud_only else 192.0) - float(Rhythia.get("ss_health_y")), 2.0, 288.0)
 	var health_bg := ColorRect.new()
 	health_bg.color = Color(1, 0, 0)
 	health_bg.rect_position = Vector2(450 - _hw / 2, hy)

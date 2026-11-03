@@ -159,6 +159,8 @@ static func defaults() -> Dictionary:
 		"color3": [214, 120, 196],
 		"color4": [90, 90, 90],
 		"color5": [255, 204, 0],
+		"color6": [214, 120, 196], # Chromia: the preview (timeline's view, bookmarks), once color3's
+		"color7": [120, 200, 255], # Chromia: stored bezier nodes (the curve's preview)
 		"keybinds": KEYBINDS.duplicate(true),
 		"patterns": ["", "", "", "", "", "", "", "", "", ""],
 		"lastLeftNav": "",
@@ -173,6 +175,23 @@ static func defaults() -> Dictionary:
 		"playtestSpeed": "Selected", # (Playtest panel: "Selected" is the speed picked in the game's mods)
 		"autosaveInterval": 0.5, # minutes
 		"lastSettingsTab": "COLORS",
+		"legacyUI": false, # SSQE+'s own look (SSQELegacy.gd)
+		"gridKeys": GRID_KEYS.duplicate(), # the 9 keys that place notes (rebindable, like SSQE's)
+		"fontScale": 1.0, # every text's size (SSQE's Font Scale: FontRenderer.cs)
+		# SSQE+'s Settings screen (SSQELegacyScreens.gd)
+		"useVSync": false,
+		"limitPlayerFPS": false,
+		"fpsLimit": 60.0, # (shown +60; 305 = unlimited)
+		"lowerBackgroundFPS": true,
+		"msaa": true,
+		"playtestGame": "Chromia", # Chromia (the game itself), Rhythia or Novastra (on a computer)
+		"rhythiaPath": "",
+		"novaPath": "",
+		"fullscreenPlayer": false,
+		"skipDownload": true,
+		"checkUpdates": true,
+		"createGame": "Sound Space",
+		"legacyClosedMaps": [], # maps taken off the open-maps bar
 	}
 
 static func load_settings() -> Dictionary:
@@ -203,7 +222,21 @@ static func load_settings() -> Dictionary:
 				s[key] = v
 	if not (s.patterns is Array) or s.patterns.size() != 10:
 		s.patterns = ["", "", "", "", "", "", "", "", "", ""]
+	if not (s.gridKeys is Array) or s.gridKeys.size() != 9:
+		s.gridKeys = GRID_KEYS.duplicate()
+	else:
+		var gk := []
+		for k in s.gridKeys:
+			gk.append(int(k))
+		s.gridKeys = gk
 	return s
+
+# the 9 keys that place notes: the numpad, or the grid keys (yours)
+static func grid_keys(s: Dictionary) -> Array:
+	if s.get("numpad", false):
+		return NUMPAD_KEYS
+	var gk = s.get("gridKeys", GRID_KEYS)
+	return gk if gk is Array and gk.size() == 9 else GRID_KEYS
 
 static func save_settings(s: Dictionary):
 	Directory.new().make_dir_recursive(Globals.p("user://editor"))
@@ -226,7 +259,7 @@ static func compare_keybind(s: Dictionary, code: int, ctrl: bool, alt: bool, shi
 		result.append("pattern%d" % pattern)
 	if ctrl or alt or shift:
 		return result
-	var keys: Array = NUMPAD_KEYS if s.numpad else GRID_KEYS
+	var keys: Array = grid_keys(s)
 	var i := keys.find(code)
 	if i >= 0:
 		result.append("gridKey%d|%d" % [i % 3, i / 3])
@@ -250,5 +283,6 @@ static func keybind_text(b: Array) -> String:
 	return PoolStringArray(parts).join("+")
 
 static func color(s: Dictionary, key: String, a := 1.0) -> Color:
-	var c: Array = s.get(key, [255, 255, 255])
+	# (Legacy UI: SSQE's own colours where they're still Chromia's defaults)
+	var c: Array = load("res://scripts/editor/ssqe/SSQELegacy.gd").color_value(s, key)
 	return Color(c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, a)

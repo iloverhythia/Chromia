@@ -106,6 +106,8 @@ func _ready():
 	dialogs.ed = self
 	add_child(dialogs)
 	panels.build()
+	panels.apply_look()
+	_legacy_shown = bool(s.get("legacyUI", false))
 	move_child(dialogs, get_child_count() - 1) # windows above everything
 	_layout()
 	set_process(true)
@@ -192,9 +194,18 @@ func open_map(m, stream: AudioStream):
 		panels.on_map_opened()
 	_layout()
 
+var _legacy_shown = null
 func settings_changed():
 	SSQESettings.save_settings(s)
 	update_volume()
+	# Legacy UI turned on / off: the controls change look now
+	if _legacy_shown != bool(s.get("legacyUI", false)):
+		_legacy_shown = bool(s.get("legacyUI", false))
+		if panels:
+			panels.apply_look()
+			_layout()
+		if page and page.has_method("legacy_ui_changed"):
+			page.legacy_ui_changed()
 	SSQESettings.show_gradients(get_tree(), bool(s.get("controlGradients", true)))
 	if page and page.audio and page.audio.has_method("remake_waveform"):
 		page.audio.remake_waveform()
@@ -239,11 +250,15 @@ func toast(text: String, kind := "info"):
 
 func font(px: int, bold := false) -> DynamicFont:
 	px = int(clamp(px, 6, 160))
-	var key := px * 2 + (1 if bold else 0)
+	var legacy: bool = bool(s.get("legacyUI", false)) if s is Dictionary else false
+	var key := px * 4 + (1 if bold else 0) + (2 if legacy else 0)
 	if _fonts.has(key):
 		return _fonts[key]
 	var f := DynamicFont.new()
-	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf" if bold else "res://assets/font/Lato/Lato-Regular.ttf")
+	if legacy:
+		f.font_data = load("res://assets/font/SSQE/main.ttf") # (SSQE: Source Sans Pro Bold for everything)
+	else:
+		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf" if bold else "res://assets/font/Lato/Lato-Regular.ttf")
 	f.size = px
 	f.use_filter = true
 	f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf"))
@@ -254,7 +269,8 @@ func font(px: int, bold := false) -> DynamicFont:
 func text_font(text_size: float, scale := -1.0, bold := false) -> DynamicFont:
 	if scale < 0:
 		scale = min(wd, hd)
-	return font(int(round(text_size * TEXT_K * scale)), bold)
+	var fs := clamp(float(s.get("fontScale", 1.0)), 0.5, 2.0) if s is Dictionary else 1.0
+	return font(int(round(text_size * TEXT_K * scale * fs)), bold)
 
 # Control.Resize: a stage rect -> editor pixels (stretch: "XY", "X", "Y" or "")
 func stage_rect(x: float, y: float, w: float, h: float, stretch := "XY") -> Rect2:
@@ -336,8 +352,24 @@ func set_tempo_slider(v: float):
 		set_current_time(t)
 		play_music()
 
+# Where the song is. The playback position only moves when the audio thread
+# mixes the next piece, so the time since then is added. That time is worked
+# out here (when the position was seen to move) instead of asking
+# AudioServer.get_time_since_last_mix(), which waits for the audio thread to
+# finish mixing: that wait was most of each frame while playing.
+var _pp_last := -1.0
+var _pp_seen := 0.0 # when it was seen to move (s)
+var _pp_checked := 0.0 # the time before that it was looked at
+
 func _real_pos() -> float:
-	var p := music.get_playback_position() + (AudioServer.get_time_since_last_mix() - AudioServer.get_output_latency()) * tempo()
+	var pp := music.get_playback_position()
+	var now := OS.get_ticks_usec() / 1000000.0
+	if pp != _pp_last or now - _pp_seen > 0.5:
+		# (it moved between the last look and now: halfway is the best guess)
+		_pp_seen = now if _pp_checked <= 0.0 or now - _pp_checked > 0.1 else (now + _pp_checked) / 2.0
+		_pp_last = pp
+	_pp_checked = now
+	var p := pp + (max(0.0, now - _pp_seen) - AudioServer.get_output_latency()) * tempo()
 	if abs(tempo() - 1.0) > 0.001:
 		p -= 2048.0 / AudioServer.get_mix_rate() * tempo() # the pitch shift's own delay
 	return p
@@ -851,14 +883,9 @@ func scale_notes(scale: float):
 	map.notes.edit("SCALE %s%%" % SSQEMap.fmt(scale), null, SSQEMap, "scale_note", [scale, bool(s.clampSR)])
 
 func store_nodes():
-	var notes = map.notes
-	var sel := {}
-	for n in notes.selected:
-		sel[n] = true
-	notes.bezier_nodes = []
-	for i in range(notes.items.size()):
-		if sel.has(notes.items[i]):
-			notes.bezier_nodes.append(i)
+	var nodes: Array = map.notes.selected.duplicate()
+	SSQEMap.ObjList._stable_sort(nodes)
+	map.notes.bezier_nodes = nodes
 
 func clear_nodes():
 	map.notes.bezier_nodes = []
@@ -866,13 +893,11 @@ func clear_nodes():
 # Patterns.RunBezier
 func run_bezier():
 	var divisor := int(float(s.bezierDivisor) + 0.5)
-	var idx: Array = map.notes.bezier_nodes
-	if divisor > 0 and (idx.size() > 1 or map.notes.selected.size() > 1):
+	var stored: Array = map.bezier_node_notes()
+	if divisor > 0 and (stored.size() > 1 or map.notes.selected.size() > 1):
 		var nodes := []
-		if idx.size() > 1:
-			for i in idx:
-				if i < map.notes.items.size():
-					nodes.append(map.notes.items[i])
+		if stored.size() > 1:
+			nodes = stored
 		else:
 			nodes = map.notes.selected.duplicate()
 			SSQEMap.ObjList._stable_sort(nodes)

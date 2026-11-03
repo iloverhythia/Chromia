@@ -69,6 +69,13 @@ func _menu_song_finished():
 	if Rhythia.play_menu_music and not $Song.playing:
 		$MenuSong.play()
 
+func _on_menu_track_ready(_path):
+	if not is_inside_tree() or $MenuSong.stream != null:
+		return
+	$MenuSong.stream = Rhythia.next_menu_track()
+	_menu_pos = 0.0
+	menu_resume()
+
 func upd_mm():
 	if Rhythia.play_menu_music: menu_resume()
 	else: menu_pause()
@@ -137,6 +144,10 @@ func _ready():
 	else:
 		$MenuSong.stream = Rhythia.next_menu_track()
 		$MenuSong.connect("finished", self, "_menu_song_finished")
+		# none downloaded yet (the first start): the first one to arrive plays
+		var mm = load("res://scripts/MenuMusic.gd").get_or_start()
+		if not mm.is_connected("track_ready", self, "_on_menu_track_ready"):
+			mm.connect("track_ready", self, "_on_menu_track_ready")
 	if Rhythia.play_menu_music:
 		yield(get_tree().create_timer(0.5),"timeout")
 		if is_inside_tree() and !$Song.playing and !$MenuSong.playing and Rhythia.play_menu_music:

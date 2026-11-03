@@ -10,12 +10,13 @@ extends ReferenceRect
 
 const SITE := "https://savia.nysr.host"
 const API := SITE + "/savia-content"
-const TABS := [["map", "Maps"], ["colorset", "Colorsets"], ["mesh", "Note Meshes"], ["profile", "Settings Profiles"], ["cursor", "Cursors"]]
-const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json", "cursor": "png"}
+const TABS := [["map", "Maps"], ["colorset", "Colorsets"], ["mesh", "Note Meshes"], ["profile", "Settings Profiles"], ["cursor", "Cursors"], ["hitsound", "Hit Sounds"]]
+const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json", "cursor": "png", "hitsound": "ogg"}
 const PICK := {"map": "*.sspm ; Maps (.sspm)", "colorset": "*.txt ; Colorsets (.txt)", "mesh": "*.obj ; Note meshes (.obj)",
-	"profile": "*.json ; Settings profiles (.json)", "cursor": "*.png, *.jpg, *.jpeg, *.webp ; Pictures"}
-const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "512 KB", "cursor": "2 MB"}
-const NOUN := {"map": "map", "colorset": "colorset", "mesh": "note mesh", "profile": "settings profile", "cursor": "cursor"}
+	"profile": "*.json ; Settings profiles (.json)", "cursor": "*.png, *.jpg, *.jpeg, *.webp ; Pictures",
+	"hitsound": "*.ogg, *.mp3, *.wav ; Sounds"}
+const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "512 KB", "cursor": "2 MB", "hitsound": "2 MB"}
+const NOUN := {"map": "map", "colorset": "colorset", "mesh": "note mesh", "profile": "settings profile", "cursor": "cursor", "hitsound": "hit sound"}
 const SORTS := [["new", "Newest"], ["popular", "Most downloaded"], ["name", "Name"]]
 const DOWNLOAD_DIR := "user://content_downloads"
 
@@ -359,15 +360,22 @@ func _card(it: Dictionary) -> Control:
 	by.clip_text = true
 	v.add_child(by)
 	var dl := int(it.get("downloads", 0))
-	v.add_child(_label("%s · %d download%s" % [_size_text(int(it.get("size", 0))), dl, "" if dl == 1 else "s"], f_small, DIM))
+	if bool(it.get("server", false)):
+		# (a map on the Chromia server: no download count)
+		var notes := int(it.get("note_count", 0))
+		v.add_child(_label("%s%s%s" % ["Ranked · " if bool(it.get("ranked", false)) else "On the server · ", ("%d notes · " % notes) if notes > 0 else "", _size_text(int(it.get("size", 0)))], f_small, ACCENT if bool(it.get("ranked", false)) else DIM))
+	else:
+		v.add_child(_label("%s · %d download%s" % [_size_text(int(it.get("size", 0))), dl, "" if dl == 1 else "s"], f_small, DIM))
 	var row := HBoxContainer.new()
 	row.add_constant_override("separation", 6)
 	v.add_child(row)
-	var verb: String = {"map": "Download", "colorset": "Add", "mesh": "Add", "profile": "Add", "cursor": "Use"}[String(it.get("kind", kind))]
+	var verb: String = {"map": "Download", "colorset": "Add", "mesh": "Add", "profile": "Add", "cursor": "Use", "hitsound": "Use"}.get(String(it.get("kind", kind)), "Download")
 	var get_btn := _button(verb, "_on_get", [it])
 	get_btn.size_flags_horizontal = SIZE_EXPAND_FILL
 	get_btn.name = "Get"
 	row.add_child(get_btn)
+	if String(it.get("kind", kind)) == "hitsound":
+		row.add_child(_button("Play", "_on_play", [it]))
 	if bool(it.get("mine", false)):
 		row.add_child(_button("Delete", "_on_delete", [it]))
 	return card
@@ -395,7 +403,7 @@ func _preview(it: Dictionary) -> Control:
 		box.add_child(t)
 		_show_pic(SITE + String(it.preview), t)
 	else:
-		var glyph: String = {"map": "♪", "mesh": "◆", "profile": "{ }"}.get(k, "?")
+		var glyph: String = {"map": "♪", "mesh": "◆", "profile": "{ }", "hitsound": "♫"}.get(k, "?")
 		var l := _label(glyph, f_big, LILAC)
 		l.align = Label.ALIGN_CENTER
 		l.valign = Label.VALIGN_CENTER
@@ -438,11 +446,59 @@ func _on_get(it: Dictionary):
 	r.use_threads = OS.can_use_threads()
 	add_child(r)
 	r.connect("request_completed", self, "_on_got", [r, it])
-	if r.request("%s/file/%s" % [API, id]) != OK:
+	if r.request(_file_url(it)) != OK:
 		r.queue_free()
 		_busy.erase(id)
 	else:
 		Globals.notify(Globals.NOTIFY_INFO, "Downloading %s..." % Globals.s(it.get("name", "")), "Content Browser")
+
+# where a list item's file comes from: a map on the server has its own link
+func _file_url(it: Dictionary) -> String:
+	var u := Globals.s(it.get("url", ""))
+	if u.begins_with("/savia-maps/"):
+		return SITE + u
+	return "%s/file/%s" % [API, String(it.get("id", ""))]
+
+# the file type: a hit sound keeps its own (.ogg / .mp3 / .wav)
+func _ext_of(it: Dictionary) -> String:
+	var e := Globals.s(it.get("ext", "")).to_lower()
+	if e in ["ogg", "mp3", "wav"]:
+		return e
+	return EXT.get(String(it.get("kind", kind)), "bin")
+
+# a hit sound heard before using it
+var _sounds := {} # item id -> AudioStream
+var _player: AudioStreamPlayer
+func _on_play(it: Dictionary):
+	var id := String(it.get("id", ""))
+	if _sounds.has(id):
+		_play(_sounds[id])
+		return
+	var r := HTTPRequest.new()
+	r.timeout = 30
+	add_child(r)
+	r.connect("request_completed", self, "_on_play_got", [r, id])
+	if r.request(_file_url(it)) != OK:
+		r.queue_free()
+
+func _on_play_got(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, id: String):
+	r.queue_free()
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.empty():
+		return
+	var st = Globals.audioLoader.load_buffer(body)
+	if st == null or st == Globals.error_sound or not (st is AudioStream):
+		Globals.notify(Globals.NOTIFY_WARN, "Couldn't play that sound.", "Content Browser")
+		return
+	_sounds[id] = st
+	_play(st)
+
+func _play(st: AudioStream):
+	if _player == null:
+		_player = AudioStreamPlayer.new()
+		_player.bus = "SFX" if AudioServer.get_bus_index("SFX") != -1 else "Master"
+		add_child(_player)
+	_player.stream = st
+	_player.play()
 
 static func _safe_name(n: String) -> String:
 	var out := ""
@@ -460,7 +516,7 @@ func _on_got(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, it
 		return
 	var d := Directory.new()
 	d.make_dir_recursive(Globals.p(DOWNLOAD_DIR))
-	var path: String = Globals.p(DOWNLOAD_DIR).plus_file("%s.%s" % [_safe_name(Globals.s(it.get("name", ""))), EXT[k]])
+	var path: String = Globals.p(DOWNLOAD_DIR).plus_file("%s.%s" % [_safe_name(Globals.s(it.get("name", ""))), _ext_of(it)])
 	var f := File.new()
 	if f.open(path, File.WRITE) != OK:
 		Globals.notify(Globals.NOTIFY_WARN, "Couldn't save the download.", "Content Browser")
@@ -482,6 +538,17 @@ func _install(k: String, path: String, title: String):
 				list.refresh_songs()
 			if song != null:
 				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is in your map list now." % title, "Map Downloaded")
+		"hitsound":
+			# (a new hit sound in Settings, picked now)
+			var snd = _same_hit_sound(path)
+			if snd == null:
+				snd = Rhythia.create_named_sound_from_file("hit", title if title != "" else "Downloaded", path)
+			if snd != null:
+				Rhythia.select_hit_sound(snd)
+				Rhythia.save_settings()
+				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is your hit sound now (Settings > Video & Audio to change it)." % title, "Hit Sound")
+			else:
+				Globals.notify(Globals.NOTIFY_WARN, "Couldn't add that hit sound.", "Content Browser")
 		"cursor":
 			for ext in ["png", "jpg", "jpeg", "webp", "bmp", "gif"]:
 				var old: String = Globals.p("user://cursor." + ext)
@@ -540,10 +607,43 @@ func _on_share():
 				Globals.notify(Globals.NOTIFY_WARN, "You use the default cursor. Set a cursor picture in Settings > World & Cursor to share it.", "Content Browser")
 				return
 			_ask_name(c, kind, "My cursor")
+		"hitsound":
+			var hs = Rhythia.selected_hit_sound
+			var hp := ""
+			if hs != null and String(hs.path) != "":
+				hp = _audio_file(String(hs.path))
+			else:
+				hp = _audio_file("user://hit")
+			if hp == "":
+				Globals.notify(Globals.NOTIFY_WARN, "You use the game's own hit sound. Add one of yours in Settings first to share it.", "Content Browser")
+				return
+			_ask_name(hp, kind, String(hs.name) if hs != null and String(hs.path) != "" else "My hit sound")
 		"profile":
 			var p2: String = Globals.p(DOWNLOAD_DIR).plus_file("share_settings.json")
 			Rhythia.save_settings(p2)
 			_ask_name(p2, kind, "My settings")
+
+# a hit sound you have already with this very file (used again, not copied)
+static func _same_hit_sound(path: String):
+	var sha: String = File.new().get_sha256(path)
+	for snd in Rhythia.registry_hit_sound.get_items():
+		if String(snd.path) == "":
+			continue
+		var p := _audio_file(String(snd.path))
+		if p != "" and File.new().get_sha256(p) == sha:
+			return snd
+	return null
+
+# a sound's real file (its path may leave out .ogg / .mp3 / .wav)
+static func _audio_file(base: String) -> String:
+	var p: String = Globals.p(base)
+	var f := File.new()
+	if f.file_exists(p) and p.get_extension().to_lower() in ["ogg", "mp3", "wav"]:
+		return p
+	for e in ["ogg", "mp3", "wav"]:
+		if f.file_exists(p + "." + e):
+			return p + "." + e
+	return ""
 
 func _build_name_dialog():
 	_name_dialog = ColorRect.new()

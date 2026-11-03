@@ -138,6 +138,8 @@ func _on_visibility():
 	if is_visible_in_tree():
 		_ensure_built()
 		_refresh_home()
+		if project == null:
+			_show_home()
 		_pause_menu_music(true)
 		_layout_home()
 	else:
@@ -248,6 +250,50 @@ func _layout_home():
 	col.rect_size = Vector2(w * 0.5 - 80 * s, min(7 * 64 * s + 60, h - 160 * s))
 	f_title.size = int(clamp(22 * s, 14, 48))
 	f_btn.size = int(clamp(15 * s, 11, 32))
+
+# Legacy UI (editor Settings): SSQE+'s own menu / create / settings / keybinds
+# screens (SSQELegacyScreens.gd) in place of this start page
+var legacy = null
+
+func _legacy_on() -> bool:
+	var s = ed.s if ed != null and ed.s is Dictionary else load("res://scripts/editor/ssqe/SSQESettings.gd").load_settings()
+	return bool(s.get("legacyUI", false))
+
+func _ensure_legacy():
+	if legacy == null:
+		legacy = load("res://scripts/editor/ssqe/SSQELegacyScreens.gd").new()
+		legacy.name = "LegacyScreens"
+		add_child(legacy)
+		legacy.setup(self)
+	move_child(legacy, get_child_count() - 1)
+	if ed != null and ed.s is Dictionary:
+		legacy.s = ed.s
+
+# the start page: Chromia's or SSQE+'s
+func _show_home():
+	if home == null:
+		return
+	if _legacy_on():
+		_close_home_settings()
+		home.visible = false
+		_ensure_legacy()
+		legacy.show_screen("menu")
+	else:
+		home.visible = true
+		if legacy != null:
+			legacy.visible = false
+
+# Legacy UI turned on or off (in either Settings)
+func legacy_ui_changed():
+	if project == null:
+		_show_home()
+	elif not _legacy_on() and legacy != null:
+		legacy.visible = false
+
+# the editor's SETTINGS button with Legacy UI: SSQE+'s Settings screen over the editor
+func open_legacy_settings():
+	_ensure_legacy()
+	legacy.open_settings(true)
 
 # mapping together (SSQECollab.gd): made with the page, so invites arrive
 # wherever you are in the menu
@@ -666,6 +712,8 @@ func _open(pr):
 	if ed.s != null and settings_host != null:
 		ed.s = settings_host.s if settings_host.s is Dictionary and not settings_host.s.empty() else ed.s
 	home.visible = false
+	if legacy != null:
+		legacy.visible = false
 	ed.visible = true
 	ed.open_map(map, stream)
 	ed.dirty = false
@@ -683,8 +731,8 @@ func close_project():
 		audio.cancel()
 	project = null
 	map = null
-	home.visible = true
 	_refresh_home()
+	_show_home()
 
 func on_map_edited():
 	pass

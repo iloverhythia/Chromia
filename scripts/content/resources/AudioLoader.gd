@@ -24,104 +24,91 @@ func report_errors(err, filepath):
 		print("Unknown error with file ", filepath, " error code: ", err)
 
 func get_format(bytes: PoolByteArray) -> String:
-	if bytes.size() < 10: return "unknown"
+	if bytes.size() < 12: return "unknown"
 
 	if bytes.subarray(0, 3) == PoolByteArray([79, 103, 103, 83]): return "ogg"
 
-	if (bytes.subarray(0, 1) == PoolByteArray([255, 251])
-	or bytes.subarray(0, 1) == PoolByteArray([255, 243])
-	or bytes.subarray(0, 1) == PoolByteArray([255, 250])
-	or bytes.subarray(0, 1) == PoolByteArray([255, 242])
-	or bytes.subarray(0, 2) == PoolByteArray([73, 68, 51])): return "mp3"
+	# RIFF .... WAVE (it was never recognised: WAV songs, like some rhythia.com
+	# maps', all came up as "broken audio")
+	if bytes.subarray(0, 3) == PoolByteArray([82, 73, 70, 70]) and bytes.subarray(8, 11) == PoolByteArray([87, 65, 86, 69]): return "wav"
+
+	if bytes.subarray(0, 2) == PoolByteArray([73, 68, 51]): return "mp3" # ID3 tag
+	# an MP3 frame: 11 sync bits set (FF Ex / FF Fx: MPEG 1, 2 and 2.5)
+	if bytes[0] == 255 and (bytes[1] & 224) == 224: return "mp3"
 
 	return "unknown"
+
+static func _u16(b: PoolByteArray, i: int) -> int:
+	return b[i] | (b[i + 1] << 8)
+
+static func _u32(b: PoolByteArray, i: int) -> int:
+	return b[i] | (b[i + 1] << 8) | (b[i + 2] << 16) | (b[i + 3] << 24)
+
+# A WAV file: its chunks one after another (fmt, data, and others to skip:
+# JUNK, LIST, bext...). PCM 8 / 16 / 24 / 32 bits and 32-bit float, mono or
+# stereo; anything else is Globals.error_sound.
+func _load_wav(bytes: PoolByteArray, loop: bool):
+	var n := bytes.size()
+	var pos := 12
+	var fmt_code := -1
+	var channels := 0
+	var rate := 0
+	var bits := 0
+	var data := PoolByteArray()
+	var have_data := false
+	while pos + 8 <= n:
+		var cid := bytes.subarray(pos, pos + 3).get_string_from_ascii()
+		var csize := _u32(bytes, pos + 4)
+		var body := pos + 8
+		if cid == "fmt " and body + 16 <= n:
+			fmt_code = _u16(bytes, body)
+			channels = _u16(bytes, body + 2)
+			rate = _u32(bytes, body + 4)
+			bits = _u16(bytes, body + 14)
+			if fmt_code == 65534 and csize >= 26 and body + 26 <= n:
+				fmt_code = _u16(bytes, body + 24) # WAVE_FORMAT_EXTENSIBLE: the real one
+		elif cid == "data":
+			# (a size past the end, or 0xFFFFFFFF from a recorder that never
+			# filled it in: up to the end)
+			var last: int = min(n, body + csize) - 1
+			if last >= body:
+				data = bytes.subarray(body, last)
+				have_data = true
+			break
+		if csize < 0:
+			break
+		pos = body + csize + (csize & 1)
+	if not have_data or channels < 1 or channels > 2 or rate <= 0:
+		print("ERROR: unsupported WAV (format %d, %d channels, %d Hz, %d bits)" % [fmt_code, channels, rate, bits])
+		return Globals.error_sound
+	var s := AudioStreamSample.new()
+	s.stereo = channels == 2
+	s.mix_rate = rate
+	if fmt_code == 1 and bits == 16:
+		s.format = AudioStreamSample.FORMAT_16_BITS
+		s.data = data
+	elif fmt_code == 1 and bits == 8:
+		# (WAV's 8-bit is unsigned, Godot's signed)
+		for i in range(data.size()):
+			data[i] = (data[i] + 128) & 255
+		s.format = AudioStreamSample.FORMAT_8_BITS
+		s.data = data
+	elif (fmt_code == 1 and (bits == 24 or bits == 32)) or (fmt_code == 3 and bits == 32):
+		s.format = AudioStreamSample.FORMAT_16_BITS
+		s.data = convert_to_16bit(data, bits, fmt_code == 3)
+	else:
+		print("ERROR: unsupported WAV (format %d, %d bits)" % [fmt_code, bits])
+		return Globals.error_sound
+	var frame: int = channels * (1 if s.format == AudioStreamSample.FORMAT_8_BITS else 2)
+	s.loop_end = s.data.size() / frame
+	s.loop_mode = AudioStreamSample.LOOP_FORWARD if loop else AudioStreamSample.LOOP_DISABLED
+	return s
 
 func load_buffer(bytes: PoolByteArray, loop: bool = false):
 	var format = get_format(bytes)
 
-
 	if format == "wav":
-		var newstream = AudioStreamSample.new()
-
-
-
-
-		var bits_per_sample = 0
-
-		for i in range(0, 100):
-			var those4bytes = str(char(bytes[i]) + char(bytes[i + 1]) + char(bytes[i + 2]) + char(bytes[i + 3]))
-
-			if those4bytes == "fmt ":
-
-
-
-				var _formatsubchunksize = bytes[i + 4] + (bytes[i + 5] << 8) + (bytes[i + 6] << 16) + (bytes[i + 7] << 24)
-
-
-
-				var fsc0 = i + 8
-
-
-				var format_code = bytes[fsc0] + (bytes[fsc0 + 1] << 8)
-				var _format_name
-				if format_code == 0: _format_name = "8_BITS"
-				elif format_code == 1: _format_name = "16_BITS"
-				elif format_code == 2: _format_name = "IMA_ADPCM"
-				else:
-					_format_name = "UNKNOWN (trying to interpret as 16_BITS)"
-					format_code = 1
-
-
-				newstream.format = format_code
-
-
-				var channel_num = bytes[fsc0 + 2] + (bytes[fsc0 + 3] << 8)
-
-
-				if channel_num == 2: newstream.stereo = true
-
-
-				var sample_rate = bytes[fsc0 + 4] + (bytes[fsc0 + 5] << 8) + (bytes[fsc0 + 6] << 16) + (bytes[fsc0 + 7] << 24)
-
-
-				newstream.mix_rate = sample_rate
-
-
-				var _byte_rate = bytes[fsc0 + 8] + (bytes[fsc0 + 9] << 8) + (bytes[fsc0 + 10] << 16) + (bytes[fsc0 + 11] << 24)
-
-
-
-				var _bits_sample_channel = bytes[fsc0 + 12] + (bytes[fsc0 + 13] << 8)
-
-
-
-				bits_per_sample = bytes[fsc0 + 14] + (bytes[fsc0 + 15] << 8)
-
-
-			if those4bytes == "data":
-				assert(bits_per_sample != 0)
-
-				var audio_data_size = bytes[i + 4] + (bytes[i + 5] << 8) + (bytes[i + 6] << 16) + (bytes[i + 7] << 24)
-
-
-				var data_entry_point = (i + 8)
-
-
-				var data = bytes.subarray(data_entry_point, data_entry_point + audio_data_size - 1)
-
-				if bits_per_sample in [24, 32]:
-					newstream.data = convert_to_16bit(data, bits_per_sample)
-				else:
-					newstream.data = data
-
-
-
-
-		var samplenum = newstream.data.size() / 4
-		newstream.loop_end = samplenum
-		newstream.loop_mode = int(loop)
-		return newstream
-
+		return _load_wav(bytes, loop)
 
 	elif format == "ogg":
 		var newstream = AudioStreamOGGVorbis.new()
@@ -153,7 +140,7 @@ func load_file(filepath: String, loop: bool = false):
 	file.close()
 	return load_buffer(bytes, loop)
 
-func convert_to_16bit(data: PoolByteArray, from: int) -> PoolByteArray:
+func convert_to_16bit(data: PoolByteArray, from: int, is_float: bool = true) -> PoolByteArray:
 	print("converting to 16-bit from %d" % from)
 	var time = OS.get_ticks_msec()
 
@@ -167,7 +154,16 @@ func convert_to_16bit(data: PoolByteArray, from: int) -> PoolByteArray:
 		data.resize(data.size() * 2 / 3)
 
 
-	if from == 32:
+	if from == 32 and not is_float:
+		# (whole numbers: their top two bytes)
+		var j = 0
+		for i in range(0, data.size(), 4):
+			data[j] = data[i + 2]
+			data[j + 1] = data[i + 3]
+			j += 2
+		data.resize(data.size() / 2)
+
+	if from == 32 and is_float:
 		var spb := StreamPeerBuffer.new()
 		var single_float: float
 		var value: int

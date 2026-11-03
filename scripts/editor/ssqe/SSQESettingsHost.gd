@@ -42,15 +42,21 @@ func settings_changed():
 	SSQESettings.show_gradients(get_tree(), bool(s.get("controlGradients", true)))
 	if page and page.ed:
 		page.ed.s = s
-		page.ed.update_volume()
+		page.ed.settings_changed()
+	elif page and page.has_method("legacy_ui_changed"):
+		page.legacy_ui_changed()
 
 func font(px: int, bold := false) -> DynamicFont:
 	px = int(clamp(px, 6, 160))
-	var key := px * 2 + (1 if bold else 0)
+	var legacy: bool = bool(s.get("legacyUI", false)) if s is Dictionary else false
+	var key := px * 4 + (1 if bold else 0) + (2 if legacy else 0)
 	if _fonts.has(key):
 		return _fonts[key]
 	var f := DynamicFont.new()
-	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf" if bold else "res://assets/font/Lato/Lato-Regular.ttf")
+	if legacy:
+		f.font_data = load("res://assets/font/SSQE/main.ttf") # (SSQE: Source Sans Pro Bold for everything)
+	else:
+		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf" if bold else "res://assets/font/Lato/Lato-Regular.ttf")
 	f.size = px
 	f.use_filter = true
 	f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf"))
