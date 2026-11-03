@@ -883,14 +883,9 @@ func scale_notes(scale: float):
 	map.notes.edit("SCALE %s%%" % SSQEMap.fmt(scale), null, SSQEMap, "scale_note", [scale, bool(s.clampSR)])
 
 func store_nodes():
-	var notes = map.notes
-	var sel := {}
-	for n in notes.selected:
-		sel[n] = true
-	notes.bezier_nodes = []
-	for i in range(notes.items.size()):
-		if sel.has(notes.items[i]):
-			notes.bezier_nodes.append(i)
+	var nodes: Array = map.notes.selected.duplicate()
+	SSQEMap.ObjList._stable_sort(nodes)
+	map.notes.bezier_nodes = nodes
 
 func clear_nodes():
 	map.notes.bezier_nodes = []
@@ -898,13 +893,11 @@ func clear_nodes():
 # Patterns.RunBezier
 func run_bezier():
 	var divisor := int(float(s.bezierDivisor) + 0.5)
-	var idx: Array = map.notes.bezier_nodes
-	if divisor > 0 and (idx.size() > 1 or map.notes.selected.size() > 1):
+	var stored: Array = map.bezier_node_notes()
+	if divisor > 0 and (stored.size() > 1 or map.notes.selected.size() > 1):
 		var nodes := []
-		if idx.size() > 1:
-			for i in idx:
-				if i < map.notes.items.size():
-					nodes.append(map.notes.items[i])
+		if stored.size() > 1:
+			nodes = stored
 		else:
 			nodes = map.notes.selected.duplicate()
 			SSQEMap.ObjList._stable_sort(nodes)

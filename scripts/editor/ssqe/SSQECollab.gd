@@ -631,29 +631,6 @@ func _full_check(items: Array):
 func _notes_hash() -> int:
 	return (s.known.size() + int(s.hsum)) & 0x7fffffff
 
-# Store Nodes keeps the nodes as places in the list of notes, and the others'
-# notes coming in move those places: the nodes are kept as the notes they are
-func _bez_objs() -> Array:
-	var out := []
-	var items: Array = s.map.notes.items
-	for i in s.map.notes.bezier_nodes:
-		if int(i) < items.size():
-			out.append(items[int(i)])
-	return out
-
-func _bez_put(objs: Array):
-	if objs.empty():
-		return
-	var at := {}
-	for o in objs:
-		at[o] = true
-	var idx := []
-	var items: Array = s.map.notes.items
-	for i in range(items.size()):
-		if at.has(items[i]):
-			idx.append(i)
-	s.map.notes.bezier_nodes = idx
-
 # of `free`, the note closest to n (taken out of free), or null
 static func _closest(free: Array, n):
 	var bi := -1
@@ -679,7 +656,6 @@ func _after_remote_change():
 func _apply_snapshot(parts: Array):
 	var map = s.map
 	var first: Dictionary = parts[0]
-	var bez := _bez_objs()
 	var sel := {}
 	for n in map.notes.selected:
 		sel[key_of(n)] = true
@@ -735,7 +711,6 @@ func _apply_snapshot(parts: Array):
 		if sel.has(key_of(n)):
 			keep.append(n)
 	map.notes.set_selected(keep)
-	_bez_put(bez)
 	_apply_extra(String(first.get("extra", "")))
 	s.synced = agreed
 	_index_all() # (and what was done here goes out next tick, on top of it)
@@ -749,7 +724,6 @@ func _apply_diff(adds: Array, removes: Array, peer: Dictionary):
 	var items: Array = map.notes.items
 	for n in map.notes.selected:
 		_retrack(n) # (where this side's own notes are now, before taking theirs)
-	var bez := _bez_objs()
 	var gone := {}
 	for k in removes:
 		if s.by_key.has(k):
@@ -797,19 +771,8 @@ func _apply_diff(adds: Array, removes: Array, peer: Dictionary):
 			if to != null:
 				sel.append(to)
 	map.notes.set_selected(sel)
-	# stored bezier nodes: the same notes, or where someone moved them
-	if not bez.empty():
-		var nodes := []
-		var free2 := added.duplicate()
-		for n in bez:
-			if not gone.has(n):
-				nodes.append(n)
-			else:
-				var to2 = _closest(free2, n)
-				if to2 != null:
-					to2.anchored = n.anchored
-					nodes.append(to2)
-		_bez_put(nodes)
+	# (stored bezier nodes are this side's own: the notes as you stored them,
+	# whatever the others do to the map: SSQEMap.ObjList.bezier_nodes)
 	# what all agree on now, so these don't go straight back
 	for k in removes:
 		var c := int(s.synced.get(k, 0))

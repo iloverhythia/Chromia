@@ -49,3 +49,5 @@ in scripts/Savia.gd and empties this list.
 - Mapping together is much less laggy, especially on big maps.
 - Mapping together: Store Nodes keeps your bezier nodes on the right notes when the others add or move notes.
 - Editor Legacy UI: its Settings now also has Invites To Map Together, Adjust Notes With Timing and Use Note Colors.
+- Mapping together: your stored nodes (Store Nodes) are yours only. Nothing the others do (placing, moving or deleting notes, even the ones you stored) changes them.
+- Editor colours: Color 3 is now only the 1/2 beat ticks. The preview (timeline view and bookmarks) has its own Color 6, stored nodes their own Color 7, and the waveform uses Color 4 like its setting says.

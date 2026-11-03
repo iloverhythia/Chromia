@@ -265,7 +265,7 @@ func _build():
 	var Y := 80
 	# COLORS
 	var t := "COLORS"
-	var names := ["Color 1 (1/X BPM + Primary):", "Color 2 (1/1 BPM + Secondary):", "Color 3 (1/2 BPM + Preview):", "Color 4 (Waveform):", "Color 5 (Special Objects):"]
+	var names := ["Color 1 (1/X BPM + Primary):", "Color 2 (1/1 BPM + Secondary):", "Color 3 (1/2 BPM):", "Color 4 (Waveform):", "Color 5 (Special Objects):"]
 	for i in 5:
 		var y: float = i * 100
 		_btn("settings", X, Y + y, 200, 50, "PICK COLOR", 30, "_pick_color", ["color%d" % (i + 1)], t)
@@ -281,6 +281,12 @@ func _build():
 	_note_strip.mouse_filter = MOUSE_FILTER_STOP
 	_add("settings", _note_strip, X + 210, Y + 500, 75, 50, 0, L.FONT_MAIN, t)
 	_check("settings", X + 310, Y + 502, 45, "Use Note Colors", 34, "customNoteColors", t)
+	# (Chromia: the preview and stored nodes have their own colours)
+	for it3 in [[300, "color6", "Color 6 (Preview):"], [400, "color7", "Color 7 (Stored Nodes):"]]:
+		_btn("settings", X + 650, Y + it3[0], 200, 50, "PICK COLOR", 30, "_pick_color", [it3[1]], t)
+		_lbl("settings", X + 650, Y + it3[0] - 30, 400, 26, it3[2], 30, L.FONT_MAIN, t)
+		var sw2 := _sq("settings", X + 860, Y + it3[0], 75, 50, Color.white, t)
+		sw2.set_meta("color_key", it3[1])
 	for it2 in [[0, "editorBGOpacity", "Editor Background Opacity:"], [100, "gridOpacity", "Grid Opacity:"], [200, "trackOpacity", "Track Opacity:"]]:
 		_num("settings", X + 650, Y + it2[0], 200, 50, it2[1], 5, 0, 255, false, 34, t)
 		_lbl("settings", X + 650, Y + it2[0] - 30, 400, 26, it2[2], 30, L.FONT_MAIN, t)

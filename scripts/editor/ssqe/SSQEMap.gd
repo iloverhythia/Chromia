@@ -410,7 +410,10 @@ class Sorter:
 class ObjList extends Reference:
 	var items: Array = []
 	var selected: Array = []
-	var bezier_nodes: Array = [] # indices into items
+	# Store Nodes: the notes themselves (not places in the list), so only what
+	# you do changes them: other people's notes coming in while mapping
+	# together, before them in the song, moved places in the list
+	var bezier_nodes: Array = []
 	var map_ref: WeakRef
 
 	func size() -> int:
@@ -585,9 +588,17 @@ class ObjList extends Reference:
 		label = label.replace("[S]", "S" if max(old_objects.size(), new_objects.size()) > 1 else "")
 		var old_bez := bezier_nodes.duplicate()
 		var new_bez := []
-		for n in bezier_nodes:
-			if n < items.size() + new_objects.size() - old_objects.size():
-				new_bez.append(n)
+		if not bezier_nodes.empty():
+			# an edit makes copies, one for each: a node that was edited is its copy
+			var same: bool = old_objects.size() == new_objects.size()
+			var at := {}
+			for i in range(old_objects.size()):
+				at[old_objects[i]] = i
+			for n in bezier_nodes:
+				if not at.has(n):
+					new_bez.append(n)
+				elif same:
+					new_bez.append(new_objects[at[n]])
 		m.undo.add({"label": label, "kind": "list", "list": self, "old": old_objects.duplicate(), "new": new_objects.duplicate(),
 			"old_bez": old_bez, "new_bez": new_bez})
 
@@ -746,6 +757,12 @@ func tempo() -> float:
 
 func bezier_nodes() -> Array:
 	return notes.bezier_nodes
+
+# the stored nodes in song order (Store Nodes' notes)
+func bezier_node_notes() -> Array:
+	var nodes: Array = notes.bezier_nodes.duplicate()
+	ObjList._stable_sort(nodes)
+	return nodes
 
 func active_list() -> ObjList:
 	match render_mode:

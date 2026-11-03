@@ -26,7 +26,8 @@ func _ready():
 	_wave.material = m
 	add_child(_wave)
 
-# palette: [color1, color2, color3, color4, white, green, blue, light grey, red, grey, color5]
+# palette: [color1, color2, color3, color4, white, green, blue, light grey, red, grey, color5,
+# color6 (preview), color7 (stored nodes)]
 func col(i: int, a := 1.0) -> Color:
 	var s: Dictionary = ed.s
 	match i:
@@ -41,6 +42,8 @@ func col(i: int, a := 1.0) -> Color:
 		8: return Color8(255, 0, 0, int(a * 255))
 		9: return Color8(128, 128, 128, int(a * 255))
 		10: return SSQESettings.color(s, "color5", a)
+		11: return SSQESettings.color(s, "color6", a)
+		12: return SSQESettings.color(s, "color7", a)
 	return Color(1, 1, 1, a)
 
 # the notes' colours: SSQE+'s own list (Settings > Colors) or the game's colour set
@@ -465,4 +468,4 @@ func _sync_wave(wave, base_x: float, ms_to_px: float, W: float, H: float):
 	m.set_shader_param("origin", base_x + offset * ms_to_px)
 	m.set_shader_param("step", step_ms * ms_to_px * pow(2, li))
 	m.set_shader_param("classic", 1.0 if ed.s.classicWaveform else 0.0)
-	m.set_shader_param("tint", col(2))
+	m.set_shader_param("tint", col(3)) # (Color 4: the waveform)

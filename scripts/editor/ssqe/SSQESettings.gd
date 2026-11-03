@@ -159,6 +159,8 @@ static func defaults() -> Dictionary:
 		"color3": [214, 120, 196],
 		"color4": [90, 90, 90],
 		"color5": [255, 204, 0],
+		"color6": [214, 120, 196], # Chromia: the preview (timeline's view, bookmarks), once color3's
+		"color7": [120, 200, 255], # Chromia: stored bezier nodes (the curve's preview)
 		"keybinds": KEYBINDS.duplicate(true),
 		"patterns": ["", "", "", "", "", "", "", "", "", ""],
 		"lastLeftNav": "",

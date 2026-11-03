@@ -23,11 +23,11 @@ const UNCOLORED := Color8(75, 75, 75)
 # SSQE's own colours, used in Legacy UI where a colour is still Chromia's default
 const SSQE_COLORS := {
 	"color1": [0, 255, 200], "color2": [255, 0, 255], "color3": [255, 0, 100],
-	"color4": [90, 90, 90], "color5": [255, 204, 0],
+	"color4": [90, 90, 90], "color5": [255, 204, 0], "color6": [255, 0, 100], "color7": [255, 0, 100],
 }
 const CHROMIA_COLORS := {
 	"color1": [195, 166, 204], "color2": [255, 193, 245], "color3": [214, 120, 196],
-	"color4": [90, 90, 90], "color5": [255, 204, 0],
+	"color4": [90, 90, 90], "color5": [255, 204, 0], "color6": [214, 120, 196], "color7": [120, 200, 255],
 }
 
 static func on(s: Dictionary) -> bool:

@@ -217,10 +217,7 @@ func _draw():
 		_squircle(Rect2(px, py, preview_size, preview_size), col(9, 0.125), col(9, 0.09375), 2)
 
 	# bezier preview
-	var nodes := []
-	for i in notes.bezier_nodes:
-		if i < notes.items.size():
-			nodes.append(notes.items[i])
+	var nodes: Array = map.bezier_node_notes()
 	if nodes.size() > 1:
 		var div := int(float(s.bezierDivisor) + 0.5)
 		var key := "%d|%s|%s" % [div, str(s.curveBezier), str(G)]
@@ -234,12 +231,12 @@ func _draw():
 					for n in segment:
 						_bez_pts.append(Vector2(G.position.x + (2 - n.x) * cell + preview_gap, G.position.y + (2 - n.y) * cell + preview_gap))
 		for p in _bez_pts:
-			_squircle(Rect2(p.x, p.y, preview_size, preview_size), col(2, 0.125), col(2, 0.09375), 2)
+			_squircle(Rect2(p.x, p.y, preview_size, preview_size), col(12, 0.125), col(12, 0.09375), 2)
 		if _bez_pts.size() > 1:
 			var line := PoolVector2Array()
 			for p in _bez_pts:
 				line.append(p + Vector2(preview_size, preview_size) / 2)
-			draw_polyline(line, Color(1, 1, 1), 1.0, true)
+			draw_polyline(line, col(12), 1.0, true)
 
 	# autoplay cursor
 	if s.autoplay:

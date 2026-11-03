@@ -1578,9 +1578,11 @@ func _st_tab(t: String):
 			_sr_section("Editor colors", "The track, grid and timeline")
 			_sr_color("Color 1", "1/X beat ticks, primary", "color1")
 			_sr_color("Color 2", "1/1 beat ticks, secondary", "color2")
-			_sr_color("Color 3", "1/2 beat ticks, preview", "color3")
+			_sr_color("Color 3", "1/2 beat ticks", "color3")
 			_sr_color("Color 4", "Waveform", "color4")
 			_sr_color("Color 5", "Special objects", "color5")
+			_sr_color("Color 6", "Preview: the part of the song on screen (timeline), bookmarks", "color6")
+			_sr_color("Color 7", "Stored nodes: the bezier curve's preview", "color7")
 			_st_note_colors()
 		"GRAPHICS":
 			_sr_section("Look", "")

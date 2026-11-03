@@ -192,6 +192,8 @@ static func import_text(text: String, s: Dictionary) -> Dictionary:
 		if c != null:
 			s[k] = c
 			count += 1
+			if k == "color3" and s.has("color6"):
+				s.color6 = c # (SSQE+'s Color 3 is the preview too)
 	if d.get("noteColors") is Array and not d.noteColors.empty():
 		var cols := []
 		for c in d.noteColors:
