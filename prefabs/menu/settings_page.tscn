@@ -3598,6 +3598,26 @@ flat = true
 script = ExtResource( 54 )
 target = "show_sp_hud"
 
+[node name="SettingsPreview" type="CheckBox" parent="TabContainer/UI/UI/Group/H"]
+margin_top = 600.0
+margin_right = 170.0
+margin_bottom = 628.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "shows a small window on the Settings page that plays a short map with your settings, so you can see what a change does. Drag it by its top bar, resize it from its bottom-right corner"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 59 )
+action_mode = 0
+text = "Settings Preview"
+flat = true
+script = ExtResource( 54 )
+target = "settings_preview"
+
 [node name="SEPARATOR_SS" type="HSeparator" parent="TabContainer/UI"]
 margin_right = 1280.0
 margin_bottom = 30.0

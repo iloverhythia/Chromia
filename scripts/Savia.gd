@@ -3106,6 +3106,8 @@ var attach_hp_to_grid: bool = false
 var attach_timer_to_grid: bool = false
 var simple_hud: bool = false
 var hide_spectators_list: bool = false # (Settings > UI: no Spectators list in the top left)
+var settings_preview: bool = true # (Settings > UI: the "Watching Auto play" preview window on the Settings page)
+var settings_preview_rect: Array = [] # (its place and size: [x, y, w, h]; empty: the default)
 var show_sp_hud: bool = false # (Settings > UI: the SP a pass would give right now, top of the right panel)
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
@@ -3939,6 +3941,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			simple_hud = data.simple_hud
 		if data.has("hide_spectators_list"):
 			hide_spectators_list = bool(data.hide_spectators_list)
+		if data.has("settings_preview"):
+			settings_preview = bool(data.settings_preview)
+		if data.has("settings_preview_rect") and data.settings_preview_rect is Array and data.settings_preview_rect.size() == 4:
+			settings_preview_rect = data.settings_preview_rect
 		if data.has("show_sp_hud"):
 			show_sp_hud = bool(data.show_sp_hud)
 		if data.has("faraway_hud"):
@@ -4640,6 +4646,8 @@ func _write_settings_file(saveFile: String):
 			show_fc_grade = show_fc_grade,
 			simple_hud = simple_hud,
 			hide_spectators_list = hide_spectators_list,
+			settings_preview = settings_preview,
+			settings_preview_rect = settings_preview_rect,
 			show_sp_hud = show_sp_hud,
 			faraway_hud = faraway_hud,
 			music_offset = music_offset,
