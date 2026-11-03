@@ -280,6 +280,7 @@ func _build():
 	_note_strip.connect("gui_input", self, "_on_note_strip", [_note_strip])
 	_note_strip.mouse_filter = MOUSE_FILTER_STOP
 	_add("settings", _note_strip, X + 210, Y + 500, 75, 50, 0, L.FONT_MAIN, t)
+	_check("settings", X + 310, Y + 502, 45, "Use Note Colors", 34, "customNoteColors", t)
 	for it2 in [[0, "editorBGOpacity", "Editor Background Opacity:"], [100, "gridOpacity", "Grid Opacity:"], [200, "trackOpacity", "Track Opacity:"]]:
 		_num("settings", X + 650, Y + it2[0], 200, 50, it2[1], 5, 0, 255, false, 34, t)
 		_lbl("settings", X + 650, Y + it2[0] - 30, 400, 26, it2[2], 30, L.FONT_MAIN, t)
@@ -324,6 +325,7 @@ func _build():
 	_lbl("settings", X, Y + 60, 400, 26, "Autosave Interval (min):", 30, L.FONT_MAIN, t)
 	_check("settings", X, Y + 215, 45, "Correct Errors on Copy", 34, "correctOnCopy", t)
 	_check("settings", X, Y + 275, 45, "Reverse Scroll Direction", 34, "reverseScroll", t)
+	_check("settings", X, Y + 335, 45, "Adjust Notes With Timing", 34, "adjustNotes", t)
 	# PLAYER
 	t = "PLAYER"
 	for i in GAMES_PLAYTEST.size():
@@ -341,9 +343,10 @@ func _build():
 	t = "OTHER"
 	_check("settings", X, Y + 0, 45, "Skip Download From Roblox", 34, "skipDownload", t)
 	_check("settings", X, Y + 60, 45, "Check For Updates", 34, "checkUpdates", t)
-	_check("settings", X, Y + 150, 45, "Legacy UI (SSQE+'s look)", 34, "legacyUI", t)
-	_btn("settings", X, Y + 230, 500, 50, "IMPORT SSQE+ SETTINGS", 30, "_import_settings", [], t)
-	_lbl("settings", X, Y + 290, 1100, 60, "Your SSQE+ setup (.ssqes, from SSQE+'s EXPORT SETUP in Settings) or settings.txt from its folder.", 24, L.FONT_SEMIBOLD, t)
+	_check("settings", X, Y + 120, 45, "Invites To Map Together", 34, "allowCollabInvites", t)
+	_check("settings", X, Y + 180, 45, "Legacy UI (SSQE+'s look)", 34, "legacyUI", t)
+	_btn("settings", X, Y + 260, 500, 50, "IMPORT SSQE+ SETTINGS", 30, "_import_settings", [], t)
+	_lbl("settings", X, Y + 320, 1100, 60, "Your SSQE+ setup (.ssqes, from SSQE+'s EXPORT SETUP in Settings) or settings.txt from its folder.", 24, L.FONT_SEMIBOLD, t)
 	# bottom
 	_btn("settings", 660, 930, 600, 100, "SAVE AND RETURN", 54, "_save_and_return")
 	_btn("settings", 700, 865, 500, 50, "RESET TO DEFAULT", 30, "_on_reset")

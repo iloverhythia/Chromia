@@ -48,3 +48,4 @@ in scripts/Savia.gd and empties this list.
 - Mapping together: pausing during a playtest (or a long song load) no longer drops you out of the session.
 - Mapping together is much less laggy, especially on big maps.
 - Mapping together: Store Nodes keeps your bezier nodes on the right notes when the others add or move notes.
+- Editor Legacy UI: its Settings now also has Invites To Map Together, Adjust Notes With Timing and Use Note Colors.
