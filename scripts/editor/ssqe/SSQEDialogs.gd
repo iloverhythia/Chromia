@@ -1653,7 +1653,7 @@ func _st_tab(t: String):
 			_st_keybinds()
 		"OTHER":
 			_sr_section("From SSQE+", "")
-			_sr_button("Import SSQE+ settings", "Your SSQE+ setup (.ssqes, from SSQE+'s EXPORT SETUP) or settings.txt from its folder: colours, keybinds, grid keys, patterns, playtest and the rest", "IMPORT", "_st_import_ssqe")
+			_sr_button("Import SSQE+ settings", "Your SSQE+ setup (.ssqes from EXPORT SETUP) or its settings.txt", "IMPORT", "_st_import_ssqe")
 			_sr_section("Saving", "")
 			_sr_toggle("Enable autosave", "", "autosave")
 			_sr_slider("Autosave interval", "minutes", "autosaveInterval", 0.5, 30, 0.5)
@@ -1715,6 +1715,9 @@ func _sr_row(label: String, hint: String) -> HBoxContainer:
 		hl.text = hint
 		hl.add_font_override("font", ed.font(int(12 * k)))
 		hl.add_color_override("font_color", ST_DIM)
+		# (wrapped: a long note would make the row wider than the window and
+		# push every row's button / slider off its right edge)
+		hl.autowrap = true
 		names.add_child(hl)
 	return h
 
