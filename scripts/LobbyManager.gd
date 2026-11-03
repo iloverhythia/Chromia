@@ -135,6 +135,14 @@ func _ready():
 	_client.connect("data_received", self, "_on_data")
 	Rhythia.connect("mods_changed", self, "_on_local_mods_changed")
 	set_process(true)
+	# the connection keeps answering the server's pings while the game is
+	# paused (a playtest's pause menu, a song loading): the server dropped a
+	# connection that went quiet for 30-60 s, which ended mapping together
+	var poller := Node.new()
+	poller.name = "PausedPoll"
+	poller.pause_mode = PAUSE_MODE_PROCESS
+	poller.set_script(_PausedPoll)
+	add_child(poller)
 
 	var config = ConfigFile.new()
 	if config.load(_SETTINGS_PATH) == OK:
@@ -146,6 +154,13 @@ func _save_player_name():
 	config.load(_SETTINGS_PATH)
 	config.set_value("multiplayer", "player_name", player_name)
 	config.save(_SETTINGS_PATH)
+
+const _PausedPoll = preload("res://scripts/LobbyPausedPoll.gd")
+
+# (while paused: LobbyPausedPoll.gd)
+func poll_while_paused():
+	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
+		_client.poll()
 
 func _process(_delta):
 	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
