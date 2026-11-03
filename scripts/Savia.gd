@@ -2514,7 +2514,6 @@ func _log_stage(name, _extra = null):
 func _ready():
 	detect_device()
 	_trail_start()
-	call_deferred("add_child", load("res://scripts/ui/menu/MenuExtras.gd").new())
 	# iOS: a downloaded update got this far; don't throw it away if this start is cut short
 	if PackUpdate.loaded_version != "":
 		load("res://scripts/PackGuard.gd").started(PackUpdate.loaded_version)
