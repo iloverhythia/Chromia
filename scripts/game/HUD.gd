@@ -1215,6 +1215,14 @@ func _create_spectate_banner():
 		stop.text = "Stop watching" if Rhythia.vr else "Stop watching (hold %s)" % _give_up_key_name()
 		stop.connect("pressed", get_parent(), "leave_watching")
 		box.add_child(stop)
+	elif lm != null and lm.lobby_active:
+		# out of a lobby match: leave the lobby (or hold the give up key)
+		var leave := Button.new()
+		leave.focus_mode = Control.FOCUS_NONE
+		leave.add_font_override("font", button_font)
+		leave.text = "Leave lobby" if Rhythia.vr else "Leave lobby (hold %s)" % _give_up_key_name()
+		leave.connect("pressed", get_parent(), "leave_lobby_match")
+		box.add_child(leave)
 	# a small Report button: skin, chat or other, with a screenshot (SpectateReport.gd)
 	if not Rhythia.vr:
 		var report := Button.new()
@@ -1340,6 +1348,8 @@ func _update_spectate_vr_panel(name_text: String):
 	var lm = _get_lobby_manager()
 	if lm != null and lm.watch_mode:
 		lines.append("Hold %s: stop watching" % (stop_keys if stop_keys != "" else "give up"))
+	elif lm != null and lm.lobby_active:
+		lines.append("Hold %s: leave the lobby" % (stop_keys if stop_keys != "" else "give up"))
 	_spec_vr_label.text = lines.join("\n")
 	_spec_vr_sprite.visible = true
 	_spec_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE # (redrawn when it changes)
