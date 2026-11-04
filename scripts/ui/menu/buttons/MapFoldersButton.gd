@@ -31,8 +31,13 @@ func open_panel():
 	if panel == null:
 		panel = MapFoldersPanel.new()
 		panel.name = "MapFoldersPanel"
-		# keep the popup outside the containers so it isn't laid out by them
-		var menu = get_tree().current_scene if get_tree().current_scene else get_parent()
+		# keep the popup outside the containers so it isn't laid out by them:
+		# on the menu this button is in (in VR the menu is inside the headset's
+		# menu screen, not the scene: on the scene the panel was out in the 3D
+		# world, where it couldn't be seen or clicked)
+		var menu: Node = self
+		while menu.get_parent() != null and not (menu.get_parent() is Viewport):
+			menu = menu.get_parent()
 		menu.add_child(panel)
 	panel.open()
 

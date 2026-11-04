@@ -521,11 +521,20 @@ func _build_profile_ui():
 	lobby_name_input.visible = false
 	pvbox.add_child(lobby_name_input)
 
+	var rp_head = HBoxContainer.new()
 	var rp_title = Label.new()
 	rp_title.theme = ui_theme
 	rp_title.text = "Top 10 RP plays"
 	rp_title.add_color_override("font_color", Color(1, 0.756863, 0.960784))
-	pvbox.add_child(rp_title)
+	rp_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rp_head.add_child(rp_title)
+	var rp_reset = Button.new()
+	rp_reset.theme = ui_theme
+	rp_reset.text = "Reset RP"
+	rp_reset.hint_tooltip = "Forget every offline RP play and start your RP from 0 (your XP, SP and level stay)"
+	rp_reset.connect("pressed", self, "_on_reset_rp")
+	rp_head.add_child(rp_reset)
+	pvbox.add_child(rp_head)
 	rp_top_box = VBoxContainer.new()
 	rp_top_box.add_constant_override("separation", 2)
 	pvbox.add_child(rp_top_box)
@@ -2463,6 +2472,27 @@ static func _fmt_duration(ms: int) -> String:
 	if m > 0:
 		return "%dm %02ds" % [m, sec % 60]
 	return "%ds" % sec
+
+func _on_reset_rp():
+	var store = preload("res://scripts/RhythiaPoints.gd").get_store()
+	if store.plays.empty():
+		Globals.notify(Globals.NOTIFY_INFO, "You have no RP yet.", "Reset RP")
+		return
+	Globals.confirm_prompt.open(
+		"Reset your RP to 0? All %d of your RP plays are forgotten (your XP, SP and level stay). This can't be undone." % store.plays.size(),
+		"Reset RP",
+		[{ text = "Cancel" }, { text = "Reset RP" }]
+	)
+	Globals.confirm_prompt.s_alert.play()
+	var response: int = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	if response == 1:
+		Globals.confirm_prompt.s_next.play()
+		store.reset()
+		_refresh_rp()
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Your RP is back to 0.", "Reset RP")
+	else:
+		Globals.confirm_prompt.s_back.play()
 
 func _refresh_rp():
 	if rp_total_label == null or not is_instance_valid(rp_total_label):
