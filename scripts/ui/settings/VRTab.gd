@@ -166,7 +166,7 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Controller grip", f_title, ACCENT)
 	_label("Changes the angle and position of the pointer on your hand, so it points where feels natural to you. Watch the beam move while you change it. This is for the right hand; the left hand gets the mirror image.", f_body, DIM, true)
-	_label("Easiest: Calibrate. A dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second. The tilt and turn are set so the beam goes where your hand points.", f_body, DIM, true)
+	_label("Easiest: Calibrate. The song grid shows in front of you; notes light up one at a time, and you move your hand to each one the way you would in a song (no careful aiming) and pull the trigger. The tilt and turn are fitted to how you hold it, then a dot follows your hand on the grid so you can check it (trigger keeps it, B / Y starts over).", f_body, DIM, true)
 	var grip_btns := HBoxContainer.new()
 	grip_btns.add_constant_override("separation", 10)
 	box.add_child(grip_btns)
@@ -619,7 +619,7 @@ func _on_bind(_idx: int, action: String):
 		Rhythia.apply_vr_binds()
 	_save_soon()
 
-# (vr/GripCalibrate.gd: the dot in front of you, then the sliders show the result)
+# (vr/GripCalibrate.gd: the grid in front of you, then the sliders show the result)
 func _calibrate_grip():
 	if not Rhythia.vr or Rhythia.vr_player == null or not is_instance_valid(Rhythia.vr_player):
 		return
