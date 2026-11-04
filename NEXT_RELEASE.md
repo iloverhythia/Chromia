@@ -30,3 +30,4 @@ in scripts/Savia.gd and empties this list.
 - Chat reactions: press + after a message to react (👍 ❤️ 😂 🔥 and more), press a reaction to add yours or take it back. An emoji button next to the chat boxes types emoji
 - Map list: the column is now called Difficulties, and a Filters button under it opens a page with what to show (broken, online, ranked), the order switches, map folders and the sorts
 - New map list sorts: shortest / longest, highest / lowest SP, played, unplayed, recently ranked, recently played, most / fewest notes
+- Content Browser: a Skins tab for Chromia skins (.cskin). Get one to keep it in My skins and put it on from Settings > Skins, or share your own look. In chat, /share skin posts your look as a link

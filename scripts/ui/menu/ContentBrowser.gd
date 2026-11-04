@@ -10,13 +10,13 @@ extends ReferenceRect
 
 const SITE := "https://savia.nysr.host"
 const API := SITE + "/savia-content"
-const TABS := [["map", "Maps"], ["colorset", "Colorsets"], ["mesh", "Note Meshes"], ["profile", "Settings Profiles"], ["cursor", "Cursors"], ["hitsound", "Hit Sounds"]]
-const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json", "cursor": "png", "hitsound": "ogg"}
+const TABS := [["map", "Maps"], ["colorset", "Colorsets"], ["mesh", "Note Meshes"], ["profile", "Settings Profiles"], ["cursor", "Cursors"], ["hitsound", "Hit Sounds"], ["skin", "Skins"]]
+const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json", "cursor": "png", "hitsound": "ogg", "skin": "cskin"}
 const PICK := {"map": "*.sspm ; Maps (.sspm)", "colorset": "*.txt ; Colorsets (.txt)", "mesh": "*.obj ; Note meshes (.obj)",
 	"profile": "*.json ; Settings profiles (.json)", "cursor": "*.png, *.jpg, *.jpeg, *.webp ; Pictures",
-	"hitsound": "*.ogg, *.mp3, *.wav ; Sounds"}
-const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "512 KB", "cursor": "2 MB", "hitsound": "2 MB"}
-const NOUN := {"map": "map", "colorset": "colorset", "mesh": "note mesh", "profile": "settings profile", "cursor": "cursor", "hitsound": "hit sound"}
+	"hitsound": "*.ogg, *.mp3, *.wav ; Sounds", "skin": "*.cskin ; Chromia skins (.cskin)"}
+const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "512 KB", "cursor": "2 MB", "hitsound": "2 MB", "skin": "30 MB"}
+const NOUN := {"map": "map", "colorset": "colorset", "mesh": "note mesh", "profile": "settings profile", "cursor": "cursor", "hitsound": "hit sound", "skin": "skin"}
 const SORTS := [["new", "Newest"], ["popular", "Most downloaded"], ["name", "Name"]]
 const DOWNLOAD_DIR := "user://content_downloads"
 
@@ -369,7 +369,7 @@ func _card(it: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.add_constant_override("separation", 6)
 	v.add_child(row)
-	var verb: String = {"map": "Download", "colorset": "Add", "mesh": "Add", "profile": "Add", "cursor": "Use", "hitsound": "Use"}.get(String(it.get("kind", kind)), "Download")
+	var verb: String = {"map": "Download", "colorset": "Add", "mesh": "Add", "profile": "Add", "cursor": "Use", "hitsound": "Use", "skin": "Get"}.get(String(it.get("kind", kind)), "Download")
 	var get_btn := _button(verb, "_on_get", [it])
 	get_btn.size_flags_horizontal = SIZE_EXPAND_FILL
 	get_btn.name = "Get"
@@ -403,7 +403,7 @@ func _preview(it: Dictionary) -> Control:
 		box.add_child(t)
 		_show_pic(SITE + String(it.preview), t)
 	else:
-		var glyph: String = {"map": "♪", "mesh": "◆", "profile": "{ }", "hitsound": "♫"}.get(k, "?")
+		var glyph: String = {"map": "♪", "mesh": "◆", "profile": "{ }", "hitsound": "♫", "skin": "✦"}.get(k, "?")
 		var l := _label(glyph, f_big, LILAC)
 		l.align = Label.ALIGN_CENTER
 		l.valign = Label.VALIGN_CENTER
@@ -561,6 +561,26 @@ static func install(tree: SceneTree, k: String, path: String, title: String):
 					Directory.new().remove(old)
 			if Directory.new().copy(path, Globals.p("user://cursor.png")) == OK:
 				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is your cursor now (Settings > World & Cursor to change it)." % title, "Cursor")
+		"skin":
+			# kept in My skins, and shown in Settings > Skins to put on (it says
+			# what it has and keeps your look first)
+			var Skin = load("res://scripts/Skin.gd")
+			var r: Dictionary = Skin.read_file(path)
+			if r.has("error"):
+				Globals.notify(Globals.NOTIFY_WARN, String(r.error), "Skin")
+				return
+			Directory.new().make_dir_recursive(Globals.p(Skin.SKINS_DIR))
+			var dst: String = Globals.p(Skin.SKINS_DIR).plus_file(Skin._clean_name((title if title != "" else String(r.data.name)) + "." + Skin.EXT, "skin." + Skin.EXT))
+			if Directory.new().copy(path, dst) != OK:
+				dst = path
+			var sb = Rhythia.menu_node("Sidebar")
+			var settings = Rhythia.menu_node("Main/Settings")
+			if sb != null and settings != null and sb.has_method("press_page"):
+				sb.press_page(settings)
+			if load("res://scripts/ui/settings/SkinsTab.gd").import_dropped(tree, dst):
+				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is in My skins. Press Put on in Settings > Skins to wear it." % title, "Skin")
+			else:
+				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is in My skins (Settings > Skins)." % title, "Skin")
 		_:
 			# colorsets, note meshes and settings profiles: added like Settings > Import Content
 			if not load("res://scripts/ui/settings/Profiles.gd").import_dropped(tree, PoolStringArray([path])):
@@ -632,6 +652,15 @@ static func prepare_share(k: String) -> Dictionary:
 			var p2: String = Globals.p(DOWNLOAD_DIR).plus_file("share_settings.json")
 			Rhythia.save_settings(p2)
 			return {"path": p2, "name": "My settings"}
+		"skin":
+			# everything you have on, as a Chromia skin (Settings > Skins)
+			var Skin = load("res://scripts/Skin.gd")
+			var sname: String = "%s's look" % Skin.author_name() if Skin.author_name() != "" else "My look"
+			var p3: String = Globals.p(DOWNLOAD_DIR).plus_file("share_skin.cskin")
+			var r: Dictionary = Skin.save_to(p3, sname)
+			if r.has("error"):
+				return {"error": String(r.error)}
+			return {"path": p3, "name": sname}
 		"map":
 			var song = Rhythia.selected_song
 			if song == null:

@@ -9,11 +9,11 @@ extends Node
 const CB := "res://scripts/ui/menu/ContentBrowser.gd"
 const KINDS := {"map": "map", "maps": "map", "song": "map", "settings": "profile", "setting": "profile", "profile": "profile",
 		"colorset": "colorset", "colors": "colorset", "colours": "colorset", "mesh": "mesh", "cursor": "cursor",
-		"hitsound": "hitsound", "sound": "hitsound"}
-const NOUN := {"map": "Map", "profile": "Settings", "colorset": "Colorset", "mesh": "Note mesh", "cursor": "Cursor", "hitsound": "Hit sound"}
+		"hitsound": "hitsound", "sound": "hitsound", "skin": "skin", "look": "skin"}
+const NOUN := {"map": "Map", "profile": "Settings", "colorset": "Colorset", "mesh": "Note mesh", "cursor": "Cursor", "hitsound": "Hit sound", "skin": "Skin"}
 const META := "chromia_share:"
 const LINK := Color(0.55, 0.85, 1.0)
-const HELP := "/share map | settings | colorset | mesh | cursor | hitsound: shares it as a link\n/profile <name or #number>: their stats\n/report <name or #number>: report a player"
+const HELP := "/share map | settings | colorset | skin | mesh | cursor | hitsound: shares it as a link\n/profile <name or #number>: their stats\n/report <name or #number>: report a player"
 
 var _send_target: Object
 var _send_method := ""
@@ -37,7 +37,7 @@ static func handle(host: Node, text: String, send_target: Object, send_method: S
 		"share":
 			var k: String = KINDS.get(arg.to_lower(), "")
 			if k == "":
-				_tell("Share what? /share map, /share settings, /share colorset (also mesh, cursor, hitsound).")
+				_tell("Share what? /share map, /share settings, /share colorset, /share skin (also mesh, cursor, hitsound).")
 				return true
 			var d: Dictionary = load(CB).prepare_share(k)
 			if d.has("error"):
