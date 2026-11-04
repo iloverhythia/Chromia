@@ -19,3 +19,5 @@ in scripts/Savia.gd and empties this list.
 - Chat: other people's messages show in your game's language (Settings > Language), with the language they wrote in after them, like [ES]. Turn it off in Settings > Online > Translate Chat.
 - VR: switching settings profiles no longer makes the headset judder (the profile's frame cap and vsync from the desktop were put on the headset). In VR the Max FPS and VSync settings are kept for when you play without VR.
 - Settings > Notes: Note Brightness (100% is your colorset as it is, less is darker, more goes towards white). Spectators watching with your settings see it too.
+- Spectate: every player card has a ••• button (bottom right) for View stats, Spectate and their profile, so you don't need to right-click.
+- Your badges (Map of the Day with its tier, Ranker, and the ones the admins give) show on your profile in the game and in Spectate > View stats.

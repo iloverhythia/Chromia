@@ -948,6 +948,22 @@ func _make_card() -> Dictionary:
 	heart.margin_top = -20 * _k
 	box.add_child(heart)
 
+	# bottom right, by the heart: "..." opens the menu (View stats, Spectate,
+	# their profile), like right-clicking the card; a label, the card takes the click
+	var dots := _label("•••", font_bold, DIM)
+	dots.anchor_left = 1.0
+	dots.anchor_top = 1.0
+	dots.anchor_right = 1.0
+	dots.anchor_bottom = 1.0
+	dots.margin_left = -52 * _k
+	dots.margin_right = -24 * _k
+	dots.margin_top = -22 * _k
+	dots.align = Label.ALIGN_CENTER
+	dots.valign = Label.VALIGN_CENTER
+	dots.mouse_filter = MOUSE_FILTER_IGNORE
+	dots.hint_tooltip = "View stats, spectate, profile"
+	box.add_child(dots)
+
 	# bottom left: how many are watching them (hidden at 0)
 	var watching := _label("", font_tiny, DIM)
 	watching.anchor_top = 1.0
@@ -971,7 +987,7 @@ func _make_card() -> Dictionary:
 	alt.visible = false
 	box.add_child(alt)
 
-	var c := {"alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+	var c := {"dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
@@ -990,6 +1006,7 @@ func _card_style(c: Dictionary):
 	c.heart.texture = _heart_on if fav else _heart_off
 	# the heart shows on a favourite, or while you point at the card
 	c.heart.visible = not c.is_you and (fav or c.hover)
+	c.dots.add_color_override("font_color", TEXT if c.hover else FAINT)
 	var tw := _cw - 22.0 * _k
 	c.name.text = _fit(c.name_full, font_name, tw)
 	c.status.text = _fit(c.status_full, font_small, tw)
@@ -1105,6 +1122,12 @@ func _on_card_input(ev, c: Dictionary):
 		c.card.accept_event()
 		return
 	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT):
+		return
+	# the "..." (bigger than it looks, so it's easy to hit): the card's menu
+	if c.dots.get_global_rect().grow(5 * _k).has_point(ev.global_position):
+		var r: Rect2 = c.dots.get_global_rect()
+		_card_menu(c, Vector2(r.position.x, r.end.y))
+		c.card.accept_event()
 		return
 	# the heart (a little bigger than it looks, so it's easy to hit)
 	if not c.is_you and c.heart.get_global_rect().grow(6 * _k).has_point(ev.global_position):
@@ -1450,6 +1473,10 @@ func _on_stats_profile(p, number: int):
 	elif p.get("last_seen") != null:
 		line2 += "  ·  last online " + _ago_text(int(float(p.get("last_seen")) / 1000.0))
 	names.add_child(_label(line2, font_small, DIM))
+	# their badges (Map of the Day, Ranker, the ones the admins gave)
+	var badges = load("res://scripts/ui/BadgeRow.gd").make(p, font_small, _k)
+	badges.rect_min_size = Vector2(516, 0) * _k
+	_stats_box.add_child(badges)
 
 	var grid := GridContainer.new()
 	grid.columns = 4
