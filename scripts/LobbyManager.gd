@@ -726,7 +726,7 @@ func _chat_in(m: Dictionary, others: bool):
 	m["orig"] = m.text
 	m["ready"] = true
 	m["waited"] = 0.0
-	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "":
+	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1:
 		m.id = _tr_next_id
 		_tr_next_id += 1
 		m.ready = false

@@ -371,6 +371,7 @@ func _notify_chat(client_id: String, name: String, text: String):
 		return
 	var max_w := 300.0 * _k
 	notice_name.text = _fit(name, font_bold, max_w * 0.4) + ":"
+	text = preload("res://scripts/ui/ChatCommands.gd").plain(text)
 	notice_text.text = _fit(text, font_regular, max_w - font_bold.get_string_size(notice_name.text).x)
 	notice.rect_size = Vector2()
 	notice.visible = true
@@ -553,7 +554,7 @@ func _build_window():
 	row.add_constant_override("separation", 8)
 	cv.add_child(row)
 	chat_input = LineEdit.new()
-	chat_input.placeholder_text = "Write a message..."
+	chat_input.placeholder_text = "Write a message... (/help for commands)"
 	chat_input.size_flags_horizontal = SIZE_EXPAND_FILL
 	chat_input.max_length = 300
 	_style_field(chat_input)
@@ -1240,7 +1241,7 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float):
 			chat.pop()
 			chat.pop()
 		else:
-			preload("res://scripts/ui/Emoji.gd").add_text(chat, part[0], 18) # (emoji as pictures)
+			preload("res://scripts/ui/ChatCommands.gd").add_text(chat, part[0], 18) # (emoji as pictures, share links)
 	_chat_lines += 1
 	if _chat_lines > CHAT_MAX_LINES:
 		chat.remove_line(0)
@@ -1254,6 +1255,11 @@ func _send_chat():
 		return
 	var text := chat_input.text.strip_edges()
 	if text == "":
+		return
+	# /share, /profile, /report, /help (ChatCommands.gd)
+	if preload("res://scripts/ui/ChatCommands.gd").handle(self, text, _lm, "send_global_chat_message"):
+		chat_input.text = ""
+		chat_input.grab_focus()
 		return
 	_lm.send_global_chat_message(text)
 	chat_input.text = ""

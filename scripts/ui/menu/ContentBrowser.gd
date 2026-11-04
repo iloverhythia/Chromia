@@ -529,6 +529,10 @@ func _on_got(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, it
 		_load()
 
 func _install(k: String, path: String, title: String):
+	install(get_tree(), k, path, title)
+
+# puts a downloaded file to use (the Content Browser and chat share links)
+static func install(tree: SceneTree, k: String, path: String, title: String):
 	match k:
 		"map":
 			var run = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/Run")
@@ -538,6 +542,7 @@ func _install(k: String, path: String, title: String):
 				list.refresh_songs()
 			if song != null:
 				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is in your map list now." % title, "Map Downloaded")
+			return song
 		"hitsound":
 			# (a new hit sound in Settings, picked now)
 			var snd = _same_hit_sound(path)
@@ -558,7 +563,7 @@ func _install(k: String, path: String, title: String):
 				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is your cursor now (Settings > World & Cursor to change it)." % title, "Cursor")
 		_:
 			# colorsets, note meshes and settings profiles: added like Settings > Import Content
-			if not load("res://scripts/ui/settings/Profiles.gd").import_dropped(get_tree(), PoolStringArray([path])):
+			if not load("res://scripts/ui/settings/Profiles.gd").import_dropped(tree, PoolStringArray([path])):
 				Globals.notify(Globals.NOTIFY_WARN, "Open Settings once, then press it again.", "Content Browser")
 
 # ------------------------------------------------------------------ uploading
@@ -574,15 +579,23 @@ func _on_upload_picked(files):
 
 # the colorset / mesh / cursor / settings you use now
 func _on_share():
+	var d: Dictionary = prepare_share(kind)
+	if d.has("error"):
+		Globals.notify(Globals.NOTIFY_WARN, String(d.error), "Content Browser")
+		return
+	_ask_name(String(d.path), kind, String(d.name))
+
+# the file to share for one kind of content, from your current settings:
+# {path, name} or {error} (the Share button and the chat's /share)
+static func prepare_share(k: String) -> Dictionary:
 	var spec = load("res://scripts/SpectateSettings.gd")
 	var d := Directory.new()
 	d.make_dir_recursive(Globals.p(DOWNLOAD_DIR))
-	match kind:
+	match k:
 		"colorset":
 			var cs = Rhythia.selected_colorset
 			if cs == null or cs.colors.empty():
-				Globals.notify(Globals.NOTIFY_WARN, "Pick a colorset in Settings first.", "Content Browser")
-				return
+				return {"error": "Pick a colorset in Settings first."}
 			var lines := PoolStringArray()
 			for c in cs.colors:
 				lines.append("#" + Color(c).to_html(false))
@@ -591,22 +604,20 @@ func _on_share():
 			var p: String = Globals.p(DOWNLOAD_DIR).plus_file("share_colorset.txt")
 			var f := File.new()
 			if f.open(p, File.WRITE) != OK:
-				return
+				return {"error": "Couldn't write the colorset file."}
 			f.store_string(lines.join("\n") + "\n")
 			f.close()
-			_ask_name(p, kind, String(cs.name))
+			return {"path": p, "name": String(cs.name)}
 		"mesh":
 			var m: String = spec.own_mesh_file()
 			if m == "":
-				Globals.notify(Globals.NOTIFY_WARN, "Your note mesh comes with the game, so everyone has it already. Pick one of your own meshes in Settings > Meshes to share it.", "Content Browser")
-				return
-			_ask_name(m, kind, m.get_file().get_basename())
+				return {"error": "Your note mesh comes with the game, so everyone has it already. Pick one of your own meshes in Settings > Meshes to share it."}
+			return {"path": m, "name": m.get_file().get_basename()}
 		"cursor":
 			var c: String = spec.own_cursor_file()
 			if c == "":
-				Globals.notify(Globals.NOTIFY_WARN, "You use the default cursor. Set a cursor picture in Settings > World & Cursor to share it.", "Content Browser")
-				return
-			_ask_name(c, kind, "My cursor")
+				return {"error": "You use the default cursor. Set a cursor picture in Settings > World & Cursor to share it."}
+			return {"path": c, "name": "My cursor"}
 		"hitsound":
 			var hs = Rhythia.selected_hit_sound
 			var hp := ""
@@ -615,13 +626,27 @@ func _on_share():
 			else:
 				hp = _audio_file("user://hit")
 			if hp == "":
-				Globals.notify(Globals.NOTIFY_WARN, "You use the game's own hit sound. Add one of yours in Settings first to share it.", "Content Browser")
-				return
-			_ask_name(hp, kind, String(hs.name) if hs != null and String(hs.path) != "" else "My hit sound")
+				return {"error": "You use the game's own hit sound. Add one of yours in Settings first to share it."}
+			return {"path": hp, "name": String(hs.name) if hs != null and String(hs.path) != "" else "My hit sound"}
 		"profile":
 			var p2: String = Globals.p(DOWNLOAD_DIR).plus_file("share_settings.json")
 			Rhythia.save_settings(p2)
-			_ask_name(p2, kind, "My settings")
+			return {"path": p2, "name": "My settings"}
+		"map":
+			var song = Rhythia.selected_song
+			if song == null:
+				return {"error": "Pick a map first."}
+			var mp := String(song.get("filePath")) if song.get("filePath") != null else ""
+			if not mp.to_lower().ends_with(".sspm") or not File.new().file_exists(mp):
+				var conv: String = Globals.p("user://maps/%s.sspm" % String(song.id))
+				mp = conv if File.new().file_exists(conv) else ""
+			if mp == "":
+				return {"error": "Only .sspm maps can be shared. Convert this map to .sspm first (in the map's menu)."}
+			var nm := String(song.name)
+			if String(song.creator) != "":
+				nm += " - " + String(song.creator)
+			return {"path": mp, "name": nm.left(60), "song_id": String(song.id)}
+	return {"error": "That can't be shared."}
 
 # a hit sound you have already with this very file (used again, not copied)
 static func _same_hit_sound(path: String):

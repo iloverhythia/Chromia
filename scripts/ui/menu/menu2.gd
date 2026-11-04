@@ -1798,7 +1798,10 @@ func _send_lobby_chat_from_input():
 		return
 	var text = lobby_chat_input.text
 	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
+	# /share, /profile, /report, /help (ChatCommands.gd)
+	if lobby_manager != null and preload("res://scripts/ui/ChatCommands.gd").handle(self, text, lobby_manager, "send_chat_message"):
+		pass
+	elif lobby_manager != null:
 		lobby_manager.send_chat_message(text)
 	lobby_chat_input.text = ""
 	lobby_chat_input.grab_focus()
@@ -1820,7 +1823,7 @@ func _on_chat_message_received(peer_id: int, name: String, text: String, _ts: fl
 	if lf != null:
 		line.add_font_override("normal_font", lf)
 	line.add_text(name + ": ")
-	preload("res://scripts/ui/Emoji.gd").add_text(line, text, int(lf.get_height()) if lf != null else 18)
+	preload("res://scripts/ui/ChatCommands.gd").add_text(line, text, int(lf.get_height()) if lf != null else 18) # (share links too)
 	lobby_chat_log_box.add_child(line)
 	while lobby_chat_log_box.get_child_count() > LOBBY_CHAT_MAX_LINES:
 		lobby_chat_log_box.get_child(0).queue_free()
@@ -1845,7 +1848,9 @@ func _send_global_chat_from_input():
 		return
 	var text = global_chat_input.text
 	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
+	if lobby_manager != null and preload("res://scripts/ui/ChatCommands.gd").handle(self, text, lobby_manager, "send_global_chat_message"):
+		pass
+	elif lobby_manager != null:
 		lobby_manager.send_global_chat_message(text)
 	global_chat_input.text = ""
 	global_chat_input.grab_focus()
@@ -1855,7 +1860,7 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 		return
 	var is_you = client_id != "" and client_id == Rhythia.cid
 	var line = Label.new()
-	line.text = "%s: %s" % [name, text]
+	line.text = "%s: %s" % [name, preload("res://scripts/ui/ChatCommands.gd").plain(text)]
 	line.autowrap = true
 	if global_chat_input != null and global_chat_input.has_font_override("font"):
 		line.add_font_override("font", global_chat_input.get_font("font"))
