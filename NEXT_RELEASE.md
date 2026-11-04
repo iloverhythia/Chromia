@@ -24,3 +24,4 @@ in scripts/Savia.gd and empties this list.
 - Discord: your status shows when you're mapping (and who you map together with), watching a replay or playing in a lobby, how long you've been at it, and whether you're on PC, in VR or on a phone.
 - Alt + scroll volume shows as a small square in the bottom right (a speaker, a fill that rises with the volume, and the percentage).
 - VR / phones: maps whose cover is stored in an older compressed format show their cover in the map list (they showed none on the Quest and phones).
+- Map covers can be GIFs: they move in the map list and on the map's screen. Pick a .gif as the cover when you make a map and it's kept as a GIF.

@@ -1953,6 +1953,7 @@ func touch_thumb(song):
 	while _thumb_lru.size() > THUMB_MEMORY_LIMIT:
 		var old = _thumb_lru.pop_front()
 		old._thumb = null
+		old._thumb_anim = null
 
 # Builds missing cover thumbnails after the menu is up, one map at a time,
 # paused while playing. Already-built ones are skipped instantly. Maps shown
@@ -2019,6 +2020,8 @@ func _thumb_builder_worker(list: Array):
 		if wanted != null:
 			if wanted.build_thumb_file(false) != null:
 				built += 1
+			if wanted.has_method("build_gif_frames") and wanted.cover_is_gif():
+				wanted.build_gif_frames() # (a GIF cover: its frames, to move)
 			call_deferred("emit_signal", "thumbs_ready")
 			continue
 		if not have.has(list[i]._thumb_path().get_file()):
