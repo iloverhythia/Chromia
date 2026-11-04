@@ -6,6 +6,7 @@ var active:bool = false
 var rainbow:bool = false
 var col:Color = Color(1,1,1,1)
 var t:float = 1
+var _pool = null # (NoteManager keeps finished popups to use again)
 
 func _ready():
 	$Label.billboard = Rhythia.billboard_score
@@ -18,7 +19,11 @@ func _process(delta):
 		$Label.outline_modulate = Color(0, 0, 0, 0.6*t)
 		if t <= 0:
 			active = false
-			queue_free()
+			if _pool is Array and _pool.size() < 32:
+				visible = false
+				_pool.append(self)
+			else:
+				queue_free()
 
 
 func spawn(parent:Node,pos:Vector3,color:Color,score:int):
@@ -28,6 +33,10 @@ func spawn(parent:Node,pos:Vector3,color:Color,score:int):
 	else: $Label.text = Globals.comma_sep(score)
 	
 	transform.origin = Vector3(pos.x,-0.8,pos.z)
-	parent.add_child(self)
+	if get_parent() != parent:
+		if get_parent() != null:
+			get_parent().remove_child(self)
+		parent.add_child(self)
+	t = 1
 	visible = true
 	active = true

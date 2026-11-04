@@ -151,6 +151,7 @@ func _speed_custom_icon():
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	r.add_child(l)
 
+var _grade_shine = null
 func update_static_values():
 	var src_hits = _spectate_data.hits if spectating else Game.hits
 	var src_total = _spectate_data.total_notes if spectating else Game.total_notes
@@ -223,7 +224,10 @@ func update_static_values():
 		grade = "F"; gcol = grade_f_color
 
 	lettergrade.text = grade
-	if shine != lettergrade.material.get_shader_param("amount"):
+	# (kept here: reading the material's value back waits for the renderer on
+	# PC, and this runs on every hit)
+	if shine != _grade_shine:
+		_grade_shine = shine
 		lettergrade.material.set_shader_param("amount", shine)
 
 	if not _tinted_hud():
