@@ -2586,7 +2586,7 @@ func _process(delta):
 			volume_label.modulate.a = lerp(volume_label.modulate.a, 0.0, 5 * delta)
 
 var volume_canvas: CanvasLayer
-var volume_label: Label
+var volume_label: Control # (the little square: scripts/ui/VolumeSquare.gd)
 var volume_percent: float = 1.0
 var volume_fade_timer: float = 0.0
 
@@ -2634,32 +2634,14 @@ func _change_volume(amount: float):
 
 	AudioServer.set_bus_volume_db(0, linear2db(volume_percent))
 
-	volume_label.text = "Volume: %d%%" % round(volume_percent * 100)
+	volume_label.set_value(volume_percent)
 	volume_fade_timer = 2.0
 
 func _spawn_volume_ui():
 	volume_canvas = CanvasLayer.new()
 	volume_canvas.layer = 100
 
-	volume_label = Label.new()
-	volume_label.text = "Volume: 100%"
-
-	volume_label.anchor_left = 1.0
-	volume_label.anchor_top = 1.0
-	volume_label.anchor_right = 1.0
-	volume_label.anchor_bottom = 1.0
-
-	volume_label.margin_left = -150
-	volume_label.margin_top = -50
-	volume_label.margin_right = -20
-	volume_label.margin_bottom = -20
-
-	volume_label.align = Label.ALIGN_RIGHT
-	volume_label.valign = Label.VALIGN_BOTTOM
-
-	volume_label.add_color_override("font_color_shadow", Color(0, 0, 0, 1))
-	volume_label.add_constant_override("shadow_offset_x", 2)
-	volume_label.add_constant_override("shadow_offset_y", 2)
+	volume_label = load("res://scripts/ui/VolumeSquare.gd").new()
 
 	volume_label.modulate.a = 0.0
 

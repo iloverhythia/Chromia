@@ -22,3 +22,4 @@ in scripts/Savia.gd and empties this list.
 - Spectate: every player card has a ••• button (bottom right) for View stats, Spectate and their profile, so you don't need to right-click.
 - Your badges (Map of the Day with its tier, Ranker, and the ones the admins give) show on your profile in the game and in Spectate > View stats.
 - Discord: your status shows when you're mapping (and who you map together with), watching a replay or playing in a lobby, how long you've been at it, and whether you're on PC, in VR or on a phone.
+- Alt + scroll volume shows as a small square in the bottom right (a speaker, a fill that rises with the volume, and the percentage).
