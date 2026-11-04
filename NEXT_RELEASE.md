@@ -26,3 +26,4 @@ in scripts/Savia.gd and empties this list.
 - VR / phones: maps whose cover is stored in an older compressed format show their cover in the map list (they showed none on the Quest and phones).
 - Map covers can be GIFs: they move in the map list and on the map's screen. Pick a .gif as the cover when you make a map and it's kept as a GIF.
 - Chat commands: /share map, /share settings, /share colorset (also mesh, cursor, hitsound) post a link anyone can click to get it; /profile <name> shows a player's stats, /report <name> reports them, /help lists them.
+- Spectating shows the player's Buffer Cursor, and with their Follow Buffer Cursor the camera parallax follows it like on their screen

@@ -797,7 +797,7 @@ func _clear_watch_spin():
 func watched_player_spins() -> bool:
 	return watch_mode and Rhythia.has_meta("watch_spin_theirs") and bool(Rhythia.get_meta("watch_spin_theirs"))
 
-func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false):
+func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false, drift = null):
 	if not broadcasting():
 		return
 	var msg := {
@@ -808,6 +808,9 @@ func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pc
 		msg["vr"] = vr_pose # in VR: head and hands, for spectators
 	if paused:
 		msg["paused"] = true # (paused or counting back in: spectators show Paused and wait)
+	if drift is Vector2 and drift != Vector2.ZERO:
+		msg["dx"] = clamp(drift.x, -10.0, 10.0) # the buffer cursor's offset (spectators see it, and parallax follows it)
+		msg["dy"] = clamp(drift.y, -10.0, 10.0)
 	_send(msg)
 func notify_passed():
 	if not broadcasting():

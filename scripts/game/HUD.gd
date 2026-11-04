@@ -780,13 +780,18 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 			return # late or repeated
 	var now: float = OS.get_ticks_usec() / 1000000.0
 	var vr_pose = null
+	var dx := 0.0
+	var dy := 0.0
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
-		var raw = lobby_manager._live_state_cache.get(peer_id, {}).get("vr", null)
+		var cached: Dictionary = lobby_manager._live_state_cache.get(peer_id, {})
+		var raw = cached.get("vr", null)
 		if raw is Array and raw.size() == 22:
 			vr_pose = raw
+		dx = float(cached.get("dx", 0.0))
+		dy = float(cached.get("dy", 0.0))
 	_spec_samples.append({
-		"vr": vr_pose,
+		"vr": vr_pose, "dx": dx, "dy": dy,
 		"t": now, "ms": chart_ms, "x": x, "y": y,
 		"combo": combo, "combo_level": combo_level, "score": score,
 		"hits": hits, "misses": misses, "total_notes": total_notes,
@@ -847,6 +852,7 @@ func _update_spectate_render(delta: float):
 	var newest: Dictionary = _spec_samples[_spec_samples.size() - 1]
 	_spec_ms = min(play, newest.ms) # no newer position yet: wait on the last one
 	spectate_cursor.transform.origin = _spec_cursor_at(_spec_ms)
+	_update_spectate_drift(_spec_ms)
 	_update_spectate_vr(_spec_ms)
 	_apply_spectate_stats(_spec_sample_before(_spec_ms))
 	update_static_values()
@@ -1013,6 +1019,27 @@ func _spec_sample_before(ms: float) -> Dictionary:
 	return _spec_samples[_spec_index_before(ms)]
 
 # A smooth curve through the positions (Catmull-Rom on their map times).
+# their buffer (drift) cursor: its offset comes with each position. Shown
+# with their settings on (Buffer Cursor), and camera parallax follows it with
+# their Follow Buffer Cursor (NoteManager.do_half_lock)
+var spectate_drift := Vector3.ZERO
+func _update_spectate_drift(ms: float):
+	var i: int = _spec_index_before(ms)
+	var p1: Dictionary = _spec_samples[i]
+	var d := Vector2(float(p1.get("dx", 0.0)), float(p1.get("dy", 0.0)))
+	if i + 1 < _spec_samples.size() and ms > p1.ms:
+		var p2: Dictionary = _spec_samples[i + 1]
+		var u: float = clamp((ms - p1.ms) / max(p2.ms - p1.ms, 0.001), 0.0, 1.0)
+		d = d.linear_interpolate(Vector2(float(p2.get("dx", 0.0)), float(p2.get("dy", 0.0))), u)
+	spectate_drift = Vector3(d.x, d.y, 0)
+	var m2 = spectate_cursor.get_node_or_null("Mesh2")
+	if m2 != null:
+		var on: bool = Rhythia.enable_drift_cursor and d.length() > 0.0005
+		m2.visible = on
+		if on:
+			m2.transform.origin.x = d.x
+			m2.transform.origin.y = d.y
+
 func _spec_cursor_at(ms: float) -> Vector3:
 	var n: int = _spec_samples.size()
 	var z: float = spectate_cursor.transform.origin.z

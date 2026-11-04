@@ -674,6 +674,8 @@ func do_half_lock():
 	var cursorpos
 	if Grid.spectating and Grid.spectate_cursor != null:
 		cursorpos = Grid.spectate_cursor.transform.origin
+		if Rhythia.follow_drift_cursor:
+			cursorpos += Grid.spectate_drift # (their buffer cursor, with their settings on)
 	else:
 		cursorpos = _n_cursor.transform.origin
 		if Rhythia.follow_drift_cursor:
@@ -958,7 +960,11 @@ func _process(delta: float):
 			var cursor_pos = _n_cursor.transform.origin
 			var energy_pct = (get_parent().energy / get_parent().max_energy) if get_parent().max_energy > 0 else 0.0
 			var lvl_progress_pct = get_parent().lvl_progress / 10.0
-			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0)
+			var drift := Vector2.ZERO
+			var m2 = _n_cursor.get_node_or_null("Mesh2")
+			if Rhythia.enable_drift_cursor and m2 != null and m2.visible:
+				drift = Vector2(m2.transform.origin.x, m2.transform.origin.y)
+			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0, drift)
 
 	if active and notes_loaded:
 		if not notes_loaded: return
