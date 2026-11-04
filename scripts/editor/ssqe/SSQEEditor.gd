@@ -164,9 +164,21 @@ static func _make_click() -> AudioStreamSample:
 	return smp
 
 # Opens a map: map (SSQEMap), the song's stream and the waveform (or null).
+# the map's name, for Discord: its song name, else its title, else its file
+func map_title() -> String:
+	if map == null:
+		return ""
+	for k in ["songName", "songTitle"]:
+		var v := String(map.props.get(k, "")).strip_edges()
+		if v != "":
+			return v
+	return String(map.file_name).get_file().get_basename()
+
 func open_map(m, stream: AudioStream):
 	pause_music()
 	map = m
+	Rhythia.clear_rpc_mapping()
+	Rhythia.update_rpc_mapping(map_title())
 	map.undo.editor_ref = weakref(self)
 	music.stream = stream
 	if stream and "loop" in stream:

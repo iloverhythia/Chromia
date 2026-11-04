@@ -46,11 +46,16 @@ func shutdown() -> void:
 func _do_set_activity(details: String, state: String, assets: Dictionary, buttons: Array) -> void:
 	if not _connected and not _try_connect():
 		return
+	var a2: Dictionary = assets.duplicate()
+	var start = a2.get("_start", 0)
+	a2.erase("_start")
 	var activity = {
 		"details": details,
 		"state": state,
-		"assets": assets
+		"assets": a2
 	}
+	if int(start) > 0:
+		activity["timestamps"] = {"start": int(start)}
 	if buttons.size() > 0:
 		activity["buttons"] = buttons
 	var nonce := "%d_%d" % [OS.get_unix_time(), randi()]

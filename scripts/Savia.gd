@@ -2712,16 +2712,49 @@ func console_cmd_error(body: String):
 	yield(Globals.confirm_prompt, "option_selected")
 	Globals.confirm_prompt.s_back.play()
 	Globals.confirm_prompt.close()
-# Discord while spectating: "Spectating <player>", and the song
-func update_rpc_spectating(who: String):
+# Discord: which device you play on (the icon's hover text), and a clock from
+# when what you're doing started
+func rpc_device_text() -> String:
+	if vr:
+		return "Playing in VR"
+	if device("mobile"):
+		return "Playing on a phone"
+	if OS.has_feature("JavaScript"):
+		return "Playing in the browser"
+	return "Playing on PC"
+
+func _rpc_send(details: String, state: String, started: int = 0):
+	if not ProjectSettings.get_setting("application/config/discord_rpc"):
+		return
 	var activity = Discord.Activity.new()
 	activity.set_type(Discord.ActivityType.Playing)
-	activity.set_details(("Spectating %s" % who) if who != "" else "Spectating")
-	if selected_song != null:
-		activity.set_state(String(selected_song.name))
+	activity.set_details(details.left(120))
+	activity.set_state(state.left(120))
+	if started > 0:
+		activity.set_start(started)
 	var assets = activity.get_assets()
 	assets.set_large_image(Globals.DISCORD_ICON)
+	assets.set_large_text(rpc_device_text())
 	Discord.activity_manager.update_activity(activity)
+
+# Discord while spectating: "Spectating <player>", and the song
+func update_rpc_spectating(who: String):
+	_rpc_send(("Spectating %s" % who) if who != "" else "Spectating", String(selected_song.name) if selected_song != null else "", OS.get_unix_time())
+
+# Discord in the map editor: "Mapping: <map>", or who you map it with
+var _rpc_map_sig := ""
+func update_rpc_mapping(title: String, with_names: Array = []):
+	var sig := title + "|" + PoolStringArray(with_names).join(",")
+	if sig == _rpc_map_sig:
+		return
+	_rpc_map_sig = sig
+	var state := "Making a map"
+	if not with_names.empty():
+		state = "Mapping together with %s" % PoolStringArray(with_names).join(", ")
+	_rpc_send("Mapping: %s" % (title if title != "" else "a new map"), state, OS.get_unix_time())
+
+func clear_rpc_mapping():
+	_rpc_map_sig = ""
 
 func update_rpc_song():
 	if not ProjectSettings.get_setting("application/config/discord_rpc") or selected_song == null: return
@@ -2762,15 +2795,13 @@ func update_rpc_song():
 			if i != 0: txt += ", "
 			txt += mods[i]
 
-	var activity = Discord.Activity.new()
-	activity.set_type(Discord.ActivityType.Playing)
-	activity.set_state(txt)
-	activity.set_details(selected_song.name)
-
-	var assets = activity.get_assets()
-	assets.set_large_image(Globals.DISCORD_ICON)
-
-	Discord.activity_manager.update_activity(activity)
+	var details: String = String(selected_song.name)
+	if replaying:
+		details = "Watching a replay: " + details
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null and lm.lobby_active and not lm.watch_mode:
+		txt += "  ·  in a lobby (%d players)" % max(1, lm.players.size())
+	_rpc_send(details, txt, OS.get_unix_time())
 
 func get_stream_with_default(path: String, default: AudioStream) -> AudioStream:
 	path = Globals.p(path)

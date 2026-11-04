@@ -1294,6 +1294,8 @@ func _refresh_ui():
 		for n in s.peers:
 			names.append(s.peers[n].name)
 		bar_label.text = ("MAPPING WITH " + PoolStringArray(names).join(", ").to_upper()) if not names.empty() else ("WAITING FOR THEM TO JOIN" if s.role == "host" else "CONNECTING...")
+		if ed != null and ed.map != null and s.phase == "mapping":
+			Rhythia.update_rpc_mapping(ed.map_title(), names) # (Discord: who you map with)
 		invite_btn.visible = s.role == "host"
 		match s.phase:
 			"wait":
