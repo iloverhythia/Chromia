@@ -2981,6 +2981,15 @@ var note_spin_z: float = 0
 
 
 var note_opacity: float = 1
+# Settings > Notes > Note Brightness: under 100% darker, over 100% towards white
+var note_brightness: float = 1.0
+func note_color(c: Color) -> Color:
+	var b: float = note_brightness
+	if b == 1.0:
+		return c
+	if b < 1.0:
+		return Color(c.r * b, c.g * b, c.b * b, c.a)
+	return c.linear_interpolate(Color(1, 1, 1, c.a), clamp(b - 1.0, 0.0, 1.0))
 var fade_length: float = 0.5 setget , get_fade_length
 func get_fade_length():
 	if replaying and replay.settings.has("fade_length"): return replay.settings.get("fade_length")
@@ -3780,6 +3789,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			note_spin_z = data.note_spin_z
 		if data.has("note_opacity"):
 			note_opacity = data.note_opacity
+		if data.has("note_brightness"):
+			note_brightness = clamp(float(data.note_brightness), 0.1, 2.0)
 		if data.has("edge_drift"):
 			edge_drift = dser_float(data.edge_drift)
 		if data.has("enable_drift_cursor"):
@@ -4605,6 +4616,7 @@ func _write_settings_file(saveFile: String):
 			cursor_spin = cursor_spin,
 			note_size = note_size,
 			note_opacity = note_opacity,
+			note_brightness = note_brightness,
 			note_spin_x = note_spin_x,
 			note_spin_y = note_spin_y,
 			note_spin_z = note_spin_z,

@@ -465,7 +465,7 @@ func spawn_notes(note_array: Array):
 
 				Globals.NSTATE_ACTIVE,
 
-				colorset[i % colorset.size()],
+				Rhythia.note_color(colorset[i % colorset.size()]),
 
 				Vector2(
 					chaos_rng.randf_range(-1, 1),

@@ -34,7 +34,7 @@ const CAMERA_KEYS := [
 const VR_LOOK_KEYS := ["vr_beam_color", "vr_beam_width", "vr_beam_rainbow", "vr_hide_beam"]
 # what the notes, cursor, grid and HUD look like
 const VIEW_KEYS := [
-	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity",
+	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity", "note_brightness",
 	"note_spin_x", "note_spin_y", "note_spin_z", "half_ghost", "half_ghost_strength",
 	"note_visual_approach", "visual_approach_follow", "do_note_pushback", "note_spawn_effect",
 	"hitwindow_ms", "note_hitbox_size", "speed_hitwindow",

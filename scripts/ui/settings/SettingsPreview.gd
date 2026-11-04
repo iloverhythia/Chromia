@@ -175,6 +175,12 @@ func _close():
 # --- drawing ----------------------------------------------------------------
 
 func _colors() -> Array:
+	var out := []
+	for c in _raw_colors():
+		out.append(Rhythia.note_color(c))
+	return out
+
+func _raw_colors() -> Array:
 	var cs = Rhythia.selected_colorset
 	var c: Array = cs.colors if cs != null else []
 	if c.empty():
