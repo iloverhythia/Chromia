@@ -2347,6 +2347,20 @@ func _finish_vr_check():
 	emit_signal("vr_status_checked")
 
 
+# VR: the headset paces the frames, so no vsync to the monitor and no frame
+# cap (a cap would only hold it back). Your desktop vsync / frame cap are kept
+# in _desk_vsync / _desk_fps: loading settings or a profile during VR (which
+# used to put vsync and a cap back, so the headset juddered) only stores them,
+# and saving during VR saves those, not VR's.
+var _desk_vsync: bool = true
+var _desk_fps: int = 0
+func apply_vr_pacing():
+	if not vr:
+		return
+	get_viewport().hdr = false
+	OS.vsync_enabled = false
+	Engine.target_fps = 0 if OS.has_feature("quest") else 720
+
 func start_vr():
 
 	if vr:
@@ -2395,10 +2409,9 @@ func start_vr():
 		setup_controller_bindings()
 	vr = true
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
-	viewport.hdr = false
-	OS.vsync_enabled = false
-	# the headset paces the frames (a cap would only hold it back)
-	Engine.target_fps = 0 if OS.has_feature("quest") else 720
+	_desk_vsync = OS.vsync_enabled
+	_desk_fps = Engine.target_fps
+	apply_vr_pacing()
 	var vr_av = load("res://vr/VRPlayer.tscn").instance()
 	rootg.add_child(vr_av)
 	vr_av.name = "VRPlayer"
@@ -3729,11 +3742,13 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
-			OS.vsync_enabled = data.vsync_enabled
+			_desk_vsync = bool(data.vsync_enabled)
+			if not vr:
+				OS.vsync_enabled = data.vsync_enabled
 
 
 		OS.vsync_via_compositor = false
-		if data.has("window_fullscreen"):
+		if data.has("window_fullscreen") and not vr:
 			OS.window_fullscreen = data.window_fullscreen
 		if data.has("selected_colorset"):
 			var cset = registry_colorset.get_item(data.selected_colorset)
@@ -3966,9 +3981,9 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("auto_maximize"):
 			auto_maximize = data.auto_maximize
 			if auto_maximize: OS.window_maximized = true
-		if data.has("window_fullscreen"):
+		if data.has("window_fullscreen") and not vr:
 			OS.window_fullscreen = data.window_fullscreen
-		if data.has("window_borderless"):
+		if data.has("window_borderless") and not vr:
 			set_borderless_windowed(data.window_borderless)
 		# (a test build had a second, non-exclusive "Fullscreen" for a day: it
 		# felt different, so it's the one Fullscreen again)
@@ -4023,7 +4038,9 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			cursor_color_type = Globals.CURSOR_RAINBOW
 
 		if data.has("target_fps"):
-			Engine.target_fps = data.target_fps
+			_desk_fps = int(data.target_fps)
+			if not vr:
+				Engine.target_fps = data.target_fps
 		if data.has("disable_intro"):
 			disable_intro = data.disable_intro
 		# The Wave Menu became the default (oct31-2026): turned on once for
@@ -4555,7 +4572,7 @@ func _write_settings_file(saveFile: String):
 			update_channel = update_channel,
 			tried_test_builds = tried_test_builds or update_channel == "test",
 			tester_channel = tester_channel,
-			vsync_enabled = OS.vsync_enabled,
+			vsync_enabled = _desk_vsync if vr else OS.vsync_enabled, # (in VR the headset paces frames: your desktop choice is kept)
 
 			window_fullscreen = OS.window_fullscreen,
 			window_borderless = OS.window_borderless,
@@ -4679,7 +4696,7 @@ func _write_settings_file(saveFile: String):
 			cursor_color_type = cursor_color_type,
 			half_ghost = half_ghost,
 			note_spawn_effect = note_spawn_effect,
-			target_fps = Engine.target_fps,
+			target_fps = _desk_fps if vr else Engine.target_fps,
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
 			wave_menu_colorset = wave_menu_colorset,
