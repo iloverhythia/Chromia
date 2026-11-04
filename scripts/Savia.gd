@@ -3021,6 +3021,12 @@ var hit_fov_amplifier: float = 2
 var hit_fov_decay: float = 20
 var camera_mode: int = Globals.CAMERA_HALF_LOCK
 var cam_unlock: bool = false setget , get_cam_unlock
+# Spin as the song plays it: yours, or, while you watch someone who plays with
+# Spin, theirs (LobbyManager._apply_watch_spin; your setting isn't touched)
+func spin_now() -> bool:
+	if has_meta("spec_spin"):
+		return bool(get_meta("spec_spin"))
+	return bool(get("cam_unlock"))
 func get_cam_unlock():
 	if replaying and replay.settings.has("cam_unlock"): return replay.settings.get("cam_unlock")
 	return cam_unlock

@@ -1293,7 +1293,8 @@ func _update_spectate_target_name():
 		for p in lobby_manager.players:
 			if int(p.get("peer_id", -1)) == spectate_peer_id:
 				name_text = Globals.s(p.get("name", "Player"))
-	_spectate_banner.text = "👁 SPECTATING: %s" % name_text
+	var spins: bool = lobby_manager != null and lobby_manager.has_method("watched_player_spins") and lobby_manager.watched_player_spins()
+	_spectate_banner.text = "👁 SPECTATING: %s%s" % [name_text, "  ·  SPIN" if spins else ""]
 	_update_spectate_vr_panel(name_text)
 
 # VR, watching someone: the top-left banner and its Stop button are on the
@@ -1348,7 +1349,9 @@ func _update_spectate_vr_panel(name_text: String):
 		_spec_vr_sprite.transform.origin = right.transform.origin + Vector3(0, panel_h / 2.0 + h / 2.0 + 0.03, 0)
 		add_child(_spec_vr_sprite)
 	var stop_keys := _vr_button_names("give_up")
-	var lines := PoolStringArray(["Watching %s" % name_text, "Trigger: switch view", "B / Y: %s" % ("your own view" if third_person else "3rd person view")])
+	var lm0 = _get_lobby_manager()
+	var on_spin: bool = lm0 != null and lm0.has_method("watched_player_spins") and lm0.watched_player_spins()
+	var lines := PoolStringArray(["Watching %s%s" % [name_text, " (on Spin)" if on_spin else ""], "Trigger: switch view", "B / Y: %s" % ("your own view" if third_person else "3rd person view")])
 	var lm = _get_lobby_manager()
 	if lm != null and lm.watch_mode:
 		lines.append("Hold %s: stop watching" % (stop_keys if stop_keys != "" else "give up"))

@@ -654,6 +654,7 @@ func _collect_current_mods() -> Dictionary:
 		"mod_360_speed": Rhythia.mod_360_speed,
 		"strobe": Rhythia.mod_strobe,
 		"start_offset": Rhythia.start_offset,
+		"spin": bool(Rhythia.cam_unlock), # (a setting, not a mod: only spectators use it, see _apply_watch_spin)
 	}
 
 func set_lobby_mods(mods: Dictionary):
@@ -704,6 +705,28 @@ func _apply_mods_locally(mods: Dictionary):
 
 	if Rhythia.has_signal("mods_changed"):
 		Rhythia.emit_signal("mods_changed")
+
+# Watching someone (Spectate tab) who plays with Spin: you see it their way, the
+# camera turning with their cursor, whatever your own Spin setting is (yours
+# stays as it is: Rhythia.spin_now() reads this). In VR your head is the camera,
+# so it only says they're on Spin there.
+func _apply_watch_spin(mods: Dictionary):
+	if not watch_mode:
+		return
+	var on := bool(mods.get("spin", false))
+	Rhythia.set_meta("watch_spin_theirs", on)
+	if on and not Rhythia.vr:
+		Rhythia.set_meta("spec_spin", true)
+	elif Rhythia.has_meta("spec_spin"):
+		Rhythia.remove_meta("spec_spin")
+
+func _clear_watch_spin():
+	for k in ["spec_spin", "watch_spin_theirs"]:
+		if Rhythia.has_meta(k):
+			Rhythia.remove_meta(k)
+
+func watched_player_spins() -> bool:
+	return watch_mode and Rhythia.has_meta("watch_spin_theirs") and bool(Rhythia.get_meta("watch_spin_theirs"))
 
 func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false):
 	if not broadcasting():
@@ -1441,6 +1464,7 @@ func _handle_message(msg: Dictionary):
 
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
+				_apply_watch_spin(lobby_state.get("mods", {}))
 			_check_map_readiness()
 			_try_scroll_map_list(String(lobby_state.get("song_id", "")))
 			emit_signal("lobby_state_changed")
@@ -1449,6 +1473,7 @@ func _handle_message(msg: Dictionary):
 			print("[furria] applying mods before transition: ", lobby_state.get("mods", {}))
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
+				_apply_watch_spin(lobby_state.get("mods", {}))
 			Rhythia.apply_lobby_lead_in()
 			print("[furria] Rhythia.mod_speed_level after apply: ", Rhythia.mod_speed_level)
 			var t = get_tree().create_timer(0.4)
@@ -2140,4 +2165,5 @@ func _finish_watch_locally():
 	if _watch_mods_backup is Dictionary:
 		_apply_mods_locally(_watch_mods_backup)
 	_watch_mods_backup = null
+	_clear_watch_spin()
 	emit_signal("lobby_state_changed")

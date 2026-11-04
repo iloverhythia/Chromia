@@ -946,7 +946,7 @@ func _process(delta: float):
 		transform.origin = Vector3(-1, 1, 0)
 		Grid.transform.origin = Vector3(0, 0, Grid.transform.origin.z)
 		Grid.apply_vr_view(cam)
-	elif Rhythia.get("cam_unlock"): do_spin()
+	elif Rhythia.spin_now(): do_spin()
 	else: do_half_lock()
 	_set_rec_interval(delta)
 

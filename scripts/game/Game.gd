@@ -511,7 +511,7 @@ func _layout_lobby_score_ui():
 	if lobby_score_panel == null:
 		return
 	var viewport_size = get_viewport().size
-	var target_width = LOBBY_SCORE_WIDTH_SPIN if Rhythia.get("cam_unlock") else LOBBY_SCORE_WIDTH_NORMAL
+	var target_width = LOBBY_SCORE_WIDTH_SPIN if Rhythia.spin_now() else LOBBY_SCORE_WIDTH_NORMAL
 	lobby_score_panel.rect_min_size.x = target_width
 	var panel_size = lobby_score_panel.get_combined_minimum_size()
 	panel_size.x = target_width

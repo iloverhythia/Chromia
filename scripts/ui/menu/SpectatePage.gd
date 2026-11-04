@@ -1051,7 +1051,7 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var playing := status == "playing"
 	var song := String(p.get("song_name", ""))
 	if playing:
-		c.status_full = "Playing " + (song if song != "" else "a map")
+		c.status_full = "Playing " + (song if song != "" else "a map") + ("  ·  Spin" if bool(p.get("spin", false)) else "")
 		c.status.add_color_override("font_color", PLAYING)
 	elif status == "afk" or status == "away":
 		c.status_full = "AFK"
@@ -1074,6 +1074,8 @@ func _fill_card(c: Dictionary, p: Dictionary):
 		var d := int(p.get("difficulty", -1))
 		if d >= 0 and d < DIFF_NAMES.size():
 			bits.append(DIFF_NAMES[d])
+		if bool(p.get("spin", false)):
+			bits.append("on Spin")
 		tip.append((song if song != "" else "a map") + "  (" + PoolStringArray(bits).join(", ") + ")")
 	if bool(p.get("in_lobby", false)):
 		tip.append("In a lobby (%d players)" % int(p.get("lobby_size", 1)))

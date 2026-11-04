@@ -162,7 +162,7 @@ func _input(event: InputEvent):
 				move_cursor_abs((relative + off) * -1)
 			else:
 				move_cursor_abs(relative + off)
-		elif not Rhythia.get("cam_unlock") and move_mode == C_MOUSE:
+		elif not Rhythia.spin_now() and move_mode == C_MOUSE:
 			visible = true
 			if (event is InputEventMouseMotion):
 				_face_accum += event.relative
