@@ -124,6 +124,8 @@ var _recent := []             # the last features found
 var _w := []                  # per source: how much it counts right now
 var _fv := []                 # per effect: what the found ones add up to right now
 var _saved_t := 0
+var _mini := {} # the Games (TreeMinigames.gd): their boards and bests
+var _games = null
 
 var _world: Control
 var _btn_layer: Control
@@ -414,6 +416,22 @@ func _ready():
 		zb.connect("button_down", self, "_zoom_down", [-1.0 if i == 0 else 1.0])
 		zb.connect("button_up", self, "_zoom_down", [0.0])
 		add_child(zb)
+
+	# the minigames (TreeMinigames.gd), next to the zoom buttons
+	var gb := Button.new()
+	gb.text = "Games"
+	gb.theme = preload("res://uitheme.tres")
+	gb.anchor_left = 1.0
+	gb.anchor_right = 1.0
+	gb.anchor_top = 1.0
+	gb.anchor_bottom = 1.0
+	gb.margin_left = -226
+	gb.margin_right = -124
+	gb.margin_top = -148
+	gb.margin_bottom = -110
+	gb.hint_tooltip = "Minigames, unlocked by buying upgrades"
+	gb.connect("pressed", self, "_toggle_games")
+	add_child(gb)
 
 	_pet_btn = TextureButton.new()
 	_pet_btn.texture_normal = preload("res://assets/images/branding/icon.png")
@@ -1028,10 +1046,10 @@ func _buy(id: int, quiet: bool = false):
 	if _buttons.has(id):
 		_buttons[id].set_meta("st", -1)
 	for c in n.children:
-		if not _buttons.has(c):
-			_make_button(nodes[c])
+		_add_candidate(nodes[c])
+	_sync_buttons(true)
 	_style_buttons()
-	_update_links()
+	_links_dirty = true
 	_refresh_ui()
 	if found >= 0 and not quiet:
 		_info_label.text = "New feature (#%d, %s): %s\n%s" % [found + 1, feat_rarity(found), feat_name(found), feat_text(found)]
@@ -1133,6 +1151,10 @@ func _process(delta):
 	if _ui_t >= 0.1:
 		_ui_t = 0.0
 		_refresh_ui()
+	_links_t += delta
+	if _links_dirty and _links_t >= 0.25:
+		_links_t = 0.0
+		_update_links()
 	if _lod:
 		_dots_t += delta
 		if _dots_t >= 0.5:
@@ -1166,16 +1188,60 @@ func _describe(n) -> String:
 			return "Finds one of the 10,000 features"
 	return ""
 
+# Every upgrade that's shown (bought, or ready to buy) is filed by area
+# (_cells, _cand), but only the ones on screen get a button (_sync_buttons):
+# a tree of tens of thousands of upgrades made a button (and two labels) for
+# each of them when it opened, which ran out of memory and closed the game.
+var _cand: Dictionary = {}
+const MAX_BUTTONS := 2500
+
 func _rebuild_buttons():
 	for b in _buttons.values():
 		b.queue_free()
 	_buttons.clear()
 	_cells.clear()
+	_cand.clear()
 	for n in nodes:
 		if n.bought or _can_buy(n):
-			_make_button(n)
+			_add_candidate(n)
+	_sync_buttons()
 	_style_buttons(true)
 	_update_links()
+
+func _add_candidate(n):
+	if _cand.has(n.id):
+		return
+	_cand[n.id] = true
+	var cell := _cell_of(_pos(n))
+	if not _cells.has(cell):
+		_cells[cell] = []
+	_cells[cell].append(n.id)
+
+# buttons for the upgrades on screen, none for the rest
+var _synced_view := Rect2()
+func _sync_buttons(force: bool = false):
+	if _lod:
+		return # (far out the upgrades are dots)
+	var view := Rect2(_world.rect_position, Vector2(_zoom, _zoom))
+	if not force and view == _synced_view:
+		return
+	_synced_view = view
+	var want := {}
+	for id in _ids_on_screen():
+		if want.size() >= MAX_BUTTONS:
+			break
+		want[id] = true
+	for id in _buttons.keys():
+		if not want.has(id):
+			_buttons[id].queue_free()
+			_buttons.erase(id)
+	var made := false
+	for id in want:
+		if not _buttons.has(id):
+			_make_button(nodes[id])
+			made = true
+	if made:
+		_style_buttons(true)
 
 func _make_button(n):
 	var b := Button.new()
@@ -1209,10 +1275,6 @@ func _make_button(n):
 	b.set_meta("st", -1)
 	_btn_layer.add_child(b)
 	_buttons[n.id] = b
-	var cell := _cell_of(_pos(n))
-	if not _cells.has(cell):
-		_cells[cell] = []
-	_cells[cell].append(n.id)
 
 # Buttons are filed by area of the tree, so the on-screen check only looks
 # at the areas that are actually on screen.
@@ -1255,6 +1317,8 @@ func _style_buttons(force: bool = false):
 		return # (the buttons are hidden; dots are drawn instead)
 	var ids = _buttons.keys() if force else _ids_on_screen()
 	for id in ids:
+		if not _buttons.has(id):
+			continue
 		var n = nodes[id]
 		var b: Button = _buttons[id]
 		var ok: bool = _affordable(n)
@@ -1309,22 +1373,29 @@ func _style_buttons(force: bool = false):
 var _owned_pts := PoolVector2Array()
 var _other_pts := PoolVector2Array()
 var _links_hooked := false
+var _links_dirty := false
+var _links_t := 0.0
 
 func _update_links():
 	if not _links_hooked:
 		_links_hooked = true
 		_world.connect("draw", self, "_draw_links")
+	_links_dirty = false
 	_owned_pts = PoolVector2Array()
 	_other_pts = PoolVector2Array()
 	for n in nodes:
-		if n.parent < 0 or not _buttons.has(n.id): continue
+		if n.parent < 0 or not _cand.has(n.id): continue
 		var a := _pos(nodes[n.parent])
 		var b := _pos(n)
-		var pts: PoolVector2Array = _owned_pts if n.bought else _other_pts
-		pts.append(a); pts.append(b)
-		pts.append(a + Vector2.ONE); pts.append(b + Vector2.ONE)
-		if n.bought: _owned_pts = pts
-		else: _other_pts = pts
+		# (appended to the member arrays themselves: a PoolVector2Array put in
+		# another variable is a copy, and copying the whole list for every
+		# link took minutes on a big tree)
+		if n.bought:
+			_owned_pts.append(a); _owned_pts.append(b)
+			_owned_pts.append(a + Vector2.ONE); _owned_pts.append(b + Vector2.ONE)
+		else:
+			_other_pts.append(a); _other_pts.append(b)
+			_other_pts.append(a + Vector2.ONE); _other_pts.append(b + Vector2.ONE)
 	_world.update()
 
 func _draw_links():
@@ -1337,7 +1408,7 @@ func _draw_links():
 	# far out: each upgrade as a dot, at least a few pixels big however far
 	var z: float = max(_zoom, 1e-30)
 	var size := Vector2(max(NODE_SIZE.x * 0.8, 4.0 / z), max(NODE_SIZE.y * 0.8, 4.0 / z))
-	for id in _buttons:
+	for id in _ids_on_screen():
 		var n = nodes[id]
 		var c: Color
 		if n.bought:
@@ -1382,6 +1453,7 @@ func _refresh_ui():
 			break
 	_prestige_btn.text = "Prestige!" if ready else "Prestige"
 	_prestige_btn.modulate = Color(1, 0.85, 1) if ready else Color(1, 1, 1)
+	_sync_buttons()
 	_style_buttons()
 	if _hover_id >= 0:
 		_show_info(_hover_id)
@@ -1410,7 +1482,7 @@ func _recenter():
 	var target := Vector2.ZERO
 	var count := 0
 	for n in nodes:
-		if _buttons.has(n.id) and not n.bought:
+		if _cand.has(n.id) and not n.bought:
 			target += _pos(n)
 			count += 1
 	if count > 0:
@@ -1497,6 +1569,22 @@ func _build_prestige_panel():
 	_panel_hint.add_font_override("font", _font(13))
 	_panel_hint.add_color_override("font_color", Color(1, 1, 1, 0.45))
 	v.add_child(_panel_hint)
+
+# the minigames, over the tree (TreeMinigames.gd)
+func _toggle_games():
+	_panel.visible = false
+	_feat_panel.visible = false
+	if _games == null or not is_instance_valid(_games):
+		_games = load("res://scripts/ui/menu/TreeMinigames.gd").new()
+		_games.tr = self
+		add_child(_games)
+		return
+	_games.visible = not _games.visible
+	if _games.visible and _games._game == null:
+		_games._show_menu() # (the unlocks as they are now)
+
+func _games_open() -> bool:
+	return _games != null and is_instance_valid(_games) and _games.visible
 
 func _toggle_prestige():
 	_panel.visible = not _panel.visible
@@ -1740,6 +1828,7 @@ func _apply_zoom(new_l: float, m: Vector2):
 	_world.rect_position = m - (m - _world.rect_position) * (new_s / old_s)
 	_world.rect_scale = Vector2(new_s, new_s)
 	_set_lod()
+	_sync_buttons()
 	if _lod:
 		_world.update()
 
@@ -1750,6 +1839,7 @@ func _set_lod():
 		_btn_layer.visible = not lod
 		_world.update()
 		if not lod:
+			_sync_buttons(true)
 			_style_buttons()
 
 var _touches := {}
@@ -1757,6 +1847,12 @@ var _pinch_d := 0.0
 
 func _input(ev):
 	if not visible:
+		return
+	if _games_open():
+		# a game is on top: the tree doesn't pan or zoom under it
+		if ev is InputEventKey and ev.pressed and ev.scancode == KEY_ESCAPE:
+			_games.back()
+			get_tree().set_input_as_handled()
 		return
 	if ev is InputEventKey and ev.pressed and ev.scancode == KEY_ESCAPE:
 		if _panel.visible:
@@ -1783,6 +1879,7 @@ func _input(ev):
 	elif ev is InputEventMouseMotion and _dragging:
 		_drag_moved += ev.relative.length()
 		_world.rect_position += ev.relative
+		_sync_buttons()
 	elif ev is InputEventMagnifyGesture:
 		_apply_zoom(_zoom_l + lg(max(ev.factor, 0.01)), ev.position)
 	elif ev is InputEventScreenTouch:
@@ -1816,7 +1913,7 @@ func _save():
 	if _found.size() != FEAT_COUNT:
 		_features_reset()
 	f.store_string(to_json({"v": 3, "coins_l": coins_l, "total_l": total_l, "run_l": run_l, "seed": seed_base,
-		"nodes": nodes, "layers": layers, "feats": _feat_hex(), "recent": _recent, "stats": stats, "t": OS.get_unix_time()}))
+		"nodes": nodes, "layers": layers, "feats": _feat_hex(), "recent": _recent, "stats": stats, "t": OS.get_unix_time(), "mini": _mini}))
 	f.close()
 
 # a log10 from the file: finite, or LZERO
@@ -1867,6 +1964,8 @@ func _load():
 								stats[k] = int(max(x, 0.0))
 			if _is_num(d.get("t", 0)):
 				_saved_t = int(d.get("t", 0))
+			var mi = d.get("mini")
+			_mini = mi if mi is Dictionary else {}
 			nodes = d.nodes
 			for n in nodes:
 				n.id = int(n.id)
