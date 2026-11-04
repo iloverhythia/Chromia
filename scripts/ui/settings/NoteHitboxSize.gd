@@ -5,6 +5,7 @@ func upd():
 	# spinbox 1.14 != float literal 1.14 for some reason
 
 func _process(_d):
+	if Rhythia.has_meta("spec_backup"): return # (watching with their settings: the box would put yours back)
 	if str(value) != str(Rhythia.note_hitbox_size): upd()
 	
 func _ready():

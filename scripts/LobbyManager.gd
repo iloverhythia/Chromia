@@ -608,11 +608,13 @@ func _on_connected(_proto = ""):
 			_send(msg)
 
 func _on_closed(was_clean: bool = false):
+	_solo_settings_sent = false # (a new connection: the server doesn't have them any more)
 	if lobby_active and not was_clean:
 		emit_signal("lobby_error", "Disconnected from the server — the lobby may no longer exist.")
 	close_lobby()
 
 func _on_conn_error():
+	_solo_settings_sent = false
 	var was_joining = _connecting_intent == "create" or _connecting_intent == "join"
 	if was_joining:
 		emit_signal("lobby_error", "Could not reach server")
@@ -1540,6 +1542,15 @@ func _handle_message(msg: Dictionary):
 			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
 			collab_supported = feats is Array and feats.has("collab")
 			replay_vr_supported = feats is Array and feats.has("replay_vr")
+			# reconnected in the middle of a song (a network blip, a server
+			# restart): the server lost your settings with the old connection,
+			# so whoever starts watching would see it their own way
+			if presence_supported == 1 and Rhythia.in_map and not lobby_active and not watch_mode and not _solo_settings_sent:
+				call_deferred("send_solo_view_settings")
+		"view_settings_wanted":
+			# (someone started watching and the server has no settings of yours)
+			if Rhythia.in_map and not lobby_active and not watch_mode:
+				send_solo_view_settings()
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []

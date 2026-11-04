@@ -7,3 +7,4 @@ in scripts/Savia.gd and empties this list.
 - In a map, the custom speed icon shows its speed (for example 137%).
 - Settings has a small preview window ("Watching Auto play") that plays a short map with your settings, so you can see what a change does. Drag it by its top bar, resize it from its corner, close it with the x, or turn it off in Settings > UI > Settings Preview.
 - Settings > Video & Audio: a normal Fullscreen option next to Exclusive Fullscreen and Borderless Windowed. It fills the screen the game is on and stays an ordinary window, so Alt-Tab is quick and overlays work.
+- Spectating: you always see the map with the other player's settings when you pick theirs (sometimes their approach rate, spawn distance, note size and other number settings were swapped back to yours), also after they lose their connection for a moment.
