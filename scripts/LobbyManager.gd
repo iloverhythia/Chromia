@@ -780,6 +780,7 @@ func _chat_show(m: Dictionary):
 # Each chat line has an id from the server ("" from an older server); a
 # reaction is toggled with send_chat_reaction and everyone gets the counts.
 signal chat_reactions_changed(mid)
+var ranked_map_info := {} # song id -> {xp, ranked_at} (the map list sorts)
 var last_chat_id := ""
 var chat_reactions := {} # line id -> {counts: {emoji: n}, mine: [emoji]}
 
@@ -1769,6 +1770,12 @@ func _handle_message(msg: Dictionary):
 		"client_id_rotated":
 			Rhythia.apply_rotated_client_id(Globals.s(msg.get("new_client_id", "")))
 		"ranked_maps":
+			# each ranked map's SP value and when it was ranked (newer servers)
+			if msg.get("maps") is Array:
+				ranked_map_info = {}
+				for m in msg.maps:
+					if m is Dictionary:
+						ranked_map_info[Globals.s(m.get("song_id", ""))] = {"xp": float(m.get("xp", 0)), "ranked_at": float(m.get("ranked_at", 0))}
 			emit_signal("ranked_maps_received", msg.get("song_ids", []))
 		"motd":
 			motd_song_id = Globals.s(msg.get("song_id", ""))

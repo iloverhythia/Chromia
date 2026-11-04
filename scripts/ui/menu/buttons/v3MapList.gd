@@ -279,6 +279,56 @@ func _sorted_by_plays(arr: Array, desc: bool) -> Array:
 	var out := _sorted_by_keys(arr, keys, not desc)
 	return out
 
+# The Filters page's sorts (Rhythia.map_sort). Maps without the value (not
+# ranked, never played, length unknown) go last, by name.
+const MAP_SORTS := ["length_short", "length_long", "sp_high", "sp_low", "played", "unplayed",
+		"recent_ranked", "recent_played", "notes_high", "notes_low"]
+func _sorted_by_mode(arr: Array, mode: String) -> Array:
+	var stats: Dictionary = Rhythia.get_lifetime_stats()
+	var plays: Dictionary = stats.get("map_plays", {})
+	var last = stats.get("map_last", {})
+	if not (last is Dictionary):
+		last = {}
+	var lm = get_node_or_null("/root/LobbyManager")
+	var ranked: Dictionary = {}
+	if lm != null and lm.get("ranked_map_info") is Dictionary:
+		for k in lm.ranked_map_info.keys():
+			ranked[canon_key(String(k))] = lm.ranked_map_info[k]
+	var have := []
+	var keys := []
+	var rest := []
+	var desc := false
+	for s in arr:
+		var v = null
+		match mode:
+			"length_short", "length_long":
+				if float(s.last_ms) > 0: v = float(s.last_ms)
+			"notes_high", "notes_low":
+				if int(s.note_count) > 0: v = float(s.note_count)
+			"sp_high", "sp_low":
+				var r = ranked.get(_canon(String(s.id)))
+				if r is Dictionary and float(r.xp) > 0: v = float(r.xp)
+			"recent_ranked":
+				var r2 = ranked.get(_canon(String(s.id)))
+				if r2 is Dictionary: v = float(r2.ranked_at)
+			"recent_played":
+				if last.has(String(s.id)): v = float(last[String(s.id)])
+			"played":
+				if int(plays.get(String(s.id), 0)) > 0: v = float(plays[String(s.id)])
+			"unplayed":
+				if int(plays.get(String(s.id), 0)) == 0: v = 0.0
+		if v == null:
+			rest.append(s)
+		else:
+			have.append(s)
+			keys.append("%016.3f\u0001%s" % [v, s.lname()])
+	desc = mode in ["length_long", "notes_high", "sp_high", "recent_ranked", "recent_played", "played"]
+	if flip_display:
+		desc = not desc # (the difficulty arrow flips it, like the other sorts)
+	var out := _sorted_by_keys(have, keys, desc)
+	out.append_array(_sorted_by_name(rest, false))
+	return out
+
 func build_list():
 	disp = []
 	favorite = []
@@ -293,7 +343,12 @@ func build_list():
 	favorite.sort_custom(self, "sortsong")
 	for s in favorite: _fav_set[s] = true
 	disp.append_array(favorite)
-	if Rhythia.sort_by_plays:
+	if String(Rhythia.map_sort) != "":
+		var all := []
+		for bucket in [easy, medium, hard, logic, amogus, unknown]:
+			append_filtering_favorites(all, bucket)
+		disp.append_array(_sorted_by_mode(all, String(Rhythia.map_sort)))
+	elif Rhythia.sort_by_plays:
 		var played := []
 		for bucket in [easy, medium, hard, logic, amogus, unknown]:
 			append_filtering_favorites(played, bucket)
@@ -421,7 +476,11 @@ static func canon_key(id: String) -> String:
 func _on_ranked_maps_received(song_ids: Array):
 	ranked_song_ids = {}
 	for id in song_ids: ranked_song_ids[canon_key(String(id))] = true
-	if xp_only_maps and ready: reload_to_current_page()
+	if (xp_only_maps or String(Rhythia.map_sort) in ["sp_high", "sp_low", "recent_ranked"]) and ready: reload_to_current_page()
+
+# the Filters page picked a sort
+func update_search_sort_mode():
+	if ready: reload_to_current_page()
 
 func update_search_flipped(flip: bool):
 	flip_display = flip

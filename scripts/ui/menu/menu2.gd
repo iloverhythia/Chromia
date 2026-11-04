@@ -2811,6 +2811,7 @@ func _ready():
 	_setup_furry_secret()
 	_setup_folder_filters()
 	load("res://scripts/ui/menu/FiltersCollapse.gd").attach(self) # click "Filters" to collapse
+	load("res://scripts/ui/menu/MapFiltersPage.gd").attach(self) # the Filters button and its side page
 	_add_new_mod_checkboxes()
 	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
 	_center_mods()

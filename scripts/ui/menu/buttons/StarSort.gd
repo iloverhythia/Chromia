@@ -4,7 +4,7 @@ extends CheckBox
 func _pressed():
 	Rhythia.sort_by_stars = pressed
 	Rhythia.save_settings()
-	get_parent().get_parent().get_node("MapRegistry/S/VBoxContainer").update_search_sort_stars(pressed)
+	preload("res://scripts/ui/menu/MapListOf.gd").find(self).update_search_sort_stars(pressed)
 
 func _ready():
 	pressed = Rhythia.sort_by_stars
@@ -14,4 +14,4 @@ func _ready():
 # Re-sort once background rating finishes.
 func _on_ratings_updated():
 	if pressed:
-		get_parent().get_parent().get_node("MapRegistry/S/VBoxContainer").update_search_sort_stars(true)
+		preload("res://scripts/ui/menu/MapListOf.gd").find(self).update_search_sort_stars(true)

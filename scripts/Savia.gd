@@ -1901,6 +1901,7 @@ func _save_star_cache(cache: Dictionary):
 
 var sort_by_stars: bool = false
 var sort_by_plays: bool = false # map list: most played first
+var map_sort: String = "" # map list: "" (by difficulty) or a sort from the Filters page (MapFiltersPage.gd)
 # Settings > Update channel: "stable" or "test" (Online.gd); a fresh install
 # keeps to the kind of build it is
 var update_channel: String = load("res://scripts/BuildChannel.gd").CHANNEL
@@ -3379,6 +3380,9 @@ func record_play_stats():
 	if not (st.get("map_time") is Dictionary):
 		st.map_time = {}
 	st.map_time[id] = int(st.map_time.get(id, 0)) + play_ms
+	if not (st.get("map_last") is Dictionary):
+		st.map_last = {}
+	st.map_last[id] = now # (the map list's "recently played" sort)
 	_save_lifetime_stats()
 	_award_level_exp(play_ms)
 
@@ -3973,6 +3977,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			sort_by_stars = bool(data.sort_by_stars)
 		if data.has("sort_by_plays"):
 			sort_by_plays = bool(data.sort_by_plays)
+		if data.has("map_sort"):
+			map_sort = String(data.map_sort)
 		if data.has("random_colorset"):
 			random_colorset = bool(data.random_colorset)
 		if data.has("show_xp_notifications"):
@@ -4698,6 +4704,7 @@ func _write_settings_file(saveFile: String):
 			hide_replay_ui = hide_replay_ui,
 			sort_by_stars = sort_by_stars,
 			sort_by_plays = sort_by_plays,
+			map_sort = map_sort,
 			random_colorset = random_colorset,
 			show_xp_notifications = show_xp_notifications,
 			half_ghost_strength = half_ghost_strength,

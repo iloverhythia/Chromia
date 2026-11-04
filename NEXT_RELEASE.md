@@ -28,3 +28,5 @@ in scripts/Savia.gd and empties this list.
 - Chat commands: /share map, /share settings, /share colorset (also mesh, cursor, hitsound) post a link anyone can click to get it; /profile <name> shows a player's stats, /report <name> reports them, /help lists them.
 - Spectating shows the player's Buffer Cursor, and with their Follow Buffer Cursor the camera parallax follows it like on their screen
 - Chat reactions: press + after a message to react (👍 ❤️ 😂 🔥 and more), press a reaction to add yours or take it back. An emoji button next to the chat boxes types emoji
+- Map list: the column is now called Difficulties, and a Filters button under it opens a page with what to show (broken, online, ranked), the order switches, map folders and the sorts
+- New map list sorts: shortest / longest, highest / lowest SP, played, unplayed, recently ranked, recently played, most / fewest notes
