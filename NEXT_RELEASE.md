@@ -16,3 +16,4 @@ in scripts/Savia.gd and empties this list.
 - Profile: a Reset RP button puts your offline RP back to 0 (it asks first; your XP, SP and level stay).
 - VR: type with both hands. While the keyboard is up, your other hand's beam shows too and its trigger presses the key it points at.
 - VR: grip calibration is easier (Settings > VR > Controller grip > Calibrate). The song grid shows in front of you and notes light up one at a time: move your hand to each the way you would in a song and pull the trigger, no careful aiming. Then a dot follows your hand on the grid with the new grip so you can check it (trigger keeps it, B / Y starts over).
+- Chat: other people's messages show in your game's language (Settings > Language), with the language they wrote in after them, like [ES]. Turn it off in Settings > Online > Translate Chat.

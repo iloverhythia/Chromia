@@ -2954,6 +2954,9 @@ var share_maps_with_spectators: bool = true
 var spectate_favorites: Array = []
 # Settings > Online > Chat Notifications: new global chat messages show next to the eye
 var spectate_chat_notify: bool = true
+# Settings > Online > Translate Chat: other people's chat lines in your game's
+# language (LobbyManager._chat_in, the server's translate.js)
+var translate_chat: bool = true
 var mute_lobby_chat: bool = false
 var do_note_pushback: bool = true
 var half_ghost: bool = false
@@ -3804,6 +3807,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			share_maps_with_spectators = bool(data.share_maps_with_spectators)
 		if data.has("spectate_chat_notify"):
 			spectate_chat_notify = bool(data.spectate_chat_notify)
+		if data.has("translate_chat"):
+			translate_chat = bool(data.translate_chat)
 		if data.has("spectate_favorites") and data.spectate_favorites is Array:
 			spectate_favorites = []
 			for n in data.spectate_favorites:
@@ -4595,6 +4600,7 @@ func _write_settings_file(saveFile: String):
 			share_maps_with_spectators = share_maps_with_spectators,
 			spectate_favorites = spectate_favorites,
 			spectate_chat_notify = spectate_chat_notify,
+			translate_chat = translate_chat,
 			mute_lobby_chat = mute_lobby_chat,
 			spawn_distance = spawn_distance,
 			custom_speed = custom_speed,

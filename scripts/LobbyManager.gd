@@ -170,6 +170,7 @@ func _process(_delta):
 	_process_map_upload_step()
 	_process_map_publish_step()
 	_presence_tick(_delta)
+	_chat_wait(_delta)
 
 	_update_stop_bar()
 	if _announcement_fade_timer > 0:
@@ -705,6 +706,74 @@ func _apply_mods_locally(mods: Dictionary):
 
 	if Rhythia.has_signal("mods_changed"):
 		Rhythia.emit_signal("mods_changed")
+
+# --- chat in your language (Settings > Online > Translate Chat) -------------------
+# Someone else's chat line goes to the server first (translate.js) and is shown
+# in your game's language, with the language it was in after it ([ES]); one
+# already in your language shows as it is. Lines keep their order: each waits
+# for its translation, at most TRANSLATE_WAIT_S, then shows as it was written.
+
+const TRANSLATE_WAIT_S := 1.5
+var translate_supported := false
+var _tr_queue := [] # [{kind, who, name, text, ts, id, ready, waited}]
+var _tr_next_id := 1
+
+func chat_language() -> String:
+	var l: int = int(Rhythia.language)
+	return Globals.locale[l] if l >= 0 and l < Globals.locale.size() else "en"
+
+func _chat_in(m: Dictionary, others: bool):
+	m["orig"] = m.text
+	m["ready"] = true
+	m["waited"] = 0.0
+	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "":
+		m.id = _tr_next_id
+		_tr_next_id += 1
+		m.ready = false
+		_send({"type": "translate", "id": m.id, "text": m.text.left(300), "to": chat_language()})
+	_tr_queue.append(m)
+	_chat_flush()
+
+func _chat_translated(msg: Dictionary):
+	var id := int(msg.get("id", -1))
+	for m in _tr_queue:
+		if not m.ready and int(m.get("id", -2)) == id:
+			var out := Globals.s(msg.get("text", ""))
+			var from := Globals.s(msg.get("from", ""))
+			if not bool(msg.get("same", true)) and out != "" and out != m.text:
+				m.text = "%s  [%s]" % [out, from.to_upper()]
+			m.ready = true
+			break
+	_chat_flush()
+
+# shows the lines that are ready, in order
+func _chat_flush():
+	while not _tr_queue.empty() and _tr_queue[0].ready:
+		_chat_show(_tr_queue.pop_front())
+
+func _chat_wait(delta: float):
+	if _tr_queue.empty():
+		return
+	var head: Dictionary = _tr_queue[0]
+	head.waited = float(head.waited) + delta
+	if head.waited >= TRANSLATE_WAIT_S:
+		head.ready = true # (no answer in time: as it was written)
+		_chat_flush()
+
+func _chat_show(m: Dictionary):
+	if m.kind == "lobby":
+		lobby_chat_history.append({peer_id = m.who, name = m.name, text = m.text, ts = m.ts})
+		if lobby_chat_history.size() > CHAT_HISTORY_MAX:
+			lobby_chat_history.pop_front()
+		emit_signal("chat_message_received", m.who, m.name, m.text, m.ts)
+	else:
+		global_chat_history.append({client_id = m.who, name = m.name, text = m.text, ts = m.ts})
+		if global_chat_history.size() > CHAT_HISTORY_MAX:
+			global_chat_history.pop_front()
+		emit_signal("global_chat_message_received", m.who, m.name, m.text, m.ts)
+		# someone wrote @you: a notification, wherever you are (even in a map)
+		if not Rhythia.mute_global_chat and m.who != Rhythia.cid and preload("res://scripts/ui/ChatMention.gd").mentions_me(m.orig, self):
+			Globals.notify(Globals.NOTIFY_INFO, m.text, "%s mentioned you" % m.name)
 
 # Watching someone (Spectate tab) who plays with Spin: you see it their way, the
 # camera turning with their cursor, whatever your own Spin setting is (yours
@@ -1567,6 +1636,7 @@ func _handle_message(msg: Dictionary):
 			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
 			collab_supported = feats is Array and feats.has("collab")
 			replay_vr_supported = feats is Array and feats.has("replay_vr")
+			translate_supported = feats is Array and feats.has("translate")
 			# reconnected in the middle of a song (a network blip, a server
 			# restart): the server lost your settings with the old connection,
 			# so whoever starts watching would see it their own way
@@ -1630,25 +1700,12 @@ func _handle_message(msg: Dictionary):
 			close_lobby()
 		"chat_message":
 			var lm_peer_id = int(msg.get("peer_id", -1))
-			var lm_name = Globals.s(msg.get("name", ""))
-			var lm_text = Globals.s(msg.get("text", ""))
-			var lm_ts = float(msg.get("ts", 0))
-			lobby_chat_history.append({peer_id = lm_peer_id, name = lm_name, text = lm_text, ts = lm_ts})
-			if lobby_chat_history.size() > CHAT_HISTORY_MAX:
-				lobby_chat_history.pop_front()
-			emit_signal("chat_message_received", lm_peer_id, lm_name, lm_text, lm_ts)
+			_chat_in({kind = "lobby", who = lm_peer_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0))}, lm_peer_id != local_peer_id)
 		"global_chat_message":
 			var gm_client_id = Globals.s(msg.get("client_id", ""))
-			var gm_name = Globals.s(msg.get("name", ""))
-			var gm_text = Globals.s(msg.get("text", ""))
-			var gm_ts = float(msg.get("ts", 0))
-			global_chat_history.append({client_id = gm_client_id, name = gm_name, text = gm_text, ts = gm_ts})
-			if global_chat_history.size() > CHAT_HISTORY_MAX:
-				global_chat_history.pop_front()
-			emit_signal("global_chat_message_received", gm_client_id, gm_name, gm_text, gm_ts)
-			# someone wrote @you: a notification, wherever you are (even in a map)
-			if not Rhythia.mute_global_chat and gm_client_id != Rhythia.cid and preload("res://scripts/ui/ChatMention.gd").mentions_me(gm_text, self):
-				Globals.notify(Globals.NOTIFY_INFO, gm_text, "%s mentioned you" % gm_name)
+			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0))}, gm_client_id != Rhythia.cid)
+		"translated":
+			_chat_translated(msg)
 		"announcement":
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))
