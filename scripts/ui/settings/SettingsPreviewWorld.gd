@@ -33,6 +33,7 @@ var _fx_pool: Array = []
 var _sig := ""
 var _check := 0.0
 var _spin_deg := 0.0
+var hud: Spatial # the song's HUD panels (SettingsPreviewHud.gd)
 
 static func _song_parts() -> Dictionary:
 	var root: Viewport = Engine.get_main_loop().root
@@ -68,6 +69,9 @@ func _ready():
 	spawn.transform.origin = Vector3(-1, 1, 0)
 	add_child(spawn)
 	_build()
+	hud = load("res://scripts/ui/settings/SettingsPreviewHud.gd").new()
+	hud.name = "PreviewHud"
+	add_child(hud)
 
 # settings that need the pieces made again
 func _signature() -> String:
@@ -154,6 +158,11 @@ func _build():
 			elif inst:
 				inst.free()
 
+# the HUD's numbers (SettingsPreview._step_view)
+func hud_frame(delta: float, t: float, loop_s: float, hits: int, total: int, combo: int, last_col: Color):
+	if hud != null:
+		hud.frame(delta, t, loop_s, hits, total, combo, last_col, spawn)
+
 # the note mesh as the song loads it (NoteManager._ready), with its materials
 func _note_mesh(parts: Dictionary) -> Mesh:
 	var nm = Rhythia.selected_mesh
@@ -213,6 +222,11 @@ func frame(delta: float, shown: Array, cell: Vector2, hits: Array, combo_col: Co
 	else:
 		cam.transform = Transform(Basis(), Vector3(co.x * hlpower * hlm, co.y * hlpower * hlm, 3.75))
 	spawn.transform.origin = Vector3(-(co.x * hlm * grm) - 1, -(co.y * hlm * grm) + 1, 0)
+	# the HUD moves with HUD parallax (NoteManager: the HUD node)
+	if hud != null and hud.hud != null and is_instance_valid(hud.hud):
+		var uim: float = float(Rhythia.get("ui_parallax")) * 0.1
+		hud.hud.transform.origin.x = -co.x * hlm * uim
+		hud.hud.transform.origin.y = -co.y * hlm * uim
 	# the notes
 	var ar: float = max(0.1, float(Rhythia.get("approach_rate")))
 	var sd: float = float(Rhythia.get("spawn_distance"))

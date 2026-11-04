@@ -288,32 +288,13 @@ func _step_view(delta: float):
 	_last_t = t
 	var cc: Color = colors[(combo - 1) % colors.size()] if combo > 0 else colors[-1]
 	_world.frame(delta, shown, _cursor_pos(t), hits, cc)
+	_world.hud_frame(delta, t, LOOP_S, combo, _notes.size(), combo, cc) # (the song's own HUD panels)
 	_ov.update()
 
 func _draw_overlay():
 	var w := _ov.rect_size.x
 	var h := _ov.rect_size.y
-	var colors := _colors()
-	var t := _t
-	# progress bar and time, on a dark band
-	_ov.draw_rect(Rect2(0, 0, w, 22), Color(0, 0, 0, 0.45))
-	var tstr := "%02d:%02d / %02d:%02d" % [int(t) / 60, int(t) % 60, int(LOOP_S) / 60, int(LOOP_S) % 60]
-	var ts := _f_small.get_string_size(tstr)
-	_ov.draw_string(_f_small, Vector2((w - ts.x) / 2, 3 + _f_small.get_ascent()), tstr, DIM)
-	var bar := Rect2(14, 16, w - 28, 3)
-	_ov.draw_rect(bar, Color(1, 1, 1, 0.12))
-	_ov.draw_rect(Rect2(bar.position, Vector2(bar.size.x * t / LOOP_S, bar.size.y)), colors[0])
-	# combo and the stats down the sides
-	var side: float = clamp(w * 0.2, 46, 90)
-	_ov.draw_string(_f_combo, Vector2(8, 28 + _f_combo.get_ascent()), str(_combo), Color(1, 1, 1, 0.8))
-	var score := 0
-	for i in _combo:
-		score += 25 * int(min(8, 1 + i / 10))
-	var sy: float = h * 0.36
-	_stat(Vector2(8, sy), side, "PAUSES", "0", false)
-	_stat(Vector2(8, sy + 44), side, "ACCURACY", "100%", false)
-	_stat(Vector2(w - side - 8, sy), side, "POINTS", _commas(score), true)
-	_stat(Vector2(w - side - 8, sy + 44), side, "MISSES", "0", true)
+	# (the HUD itself is the song's, in the 3D view: SettingsPreviewHud.gd)
 	# resize grip
 	var g := Vector2(w - 4, h - 4)
 	for i in 3:
