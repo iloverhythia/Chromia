@@ -131,8 +131,13 @@ static func _make_thumb_image(img: Image) -> Image:
 	if img == null or img.is_empty():
 		return null
 	if img.is_compressed():
-		if img.decompress() != OK:
-			return null
+		var raw: Image = img.duplicate()
+		if img.decompress() != OK or img.is_compressed():
+			# (the Quest and phones can't unpack DXT covers some older maps have)
+			img = load("res://scripts/content/DxtDecode.gd").decode(raw)
+			if img == null:
+				print("[covers] a cover in format %d couldn't be read" % raw.get_format())
+				return null
 	img.convert(Image.FORMAT_RGB8)
 	# Center crop to the strip's aspect ratio, then shrink.
 	var w := img.get_width()

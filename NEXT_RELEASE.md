@@ -23,3 +23,4 @@ in scripts/Savia.gd and empties this list.
 - Your badges (Map of the Day with its tier, Ranker, and the ones the admins give) show on your profile in the game and in Spectate > View stats.
 - Discord: your status shows when you're mapping (and who you map together with), watching a replay or playing in a lobby, how long you've been at it, and whether you're on PC, in VR or on a phone.
 - Alt + scroll volume shows as a small square in the bottom right (a speaker, a fill that rises with the volume, and the percentage).
+- VR / phones: maps whose cover is stored in an older compressed format show their cover in the map list (they showed none on the Quest and phones).
