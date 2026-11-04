@@ -314,6 +314,8 @@ func _ready():
 	if _lm != null:
 		_lm.connect("global_chat_message_received", self, "_on_chat_message")
 		_lm.connect("chat_ban_changed", self, "_on_chat_ban")
+		if _lm.has_signal("chat_reactions_changed"):
+			_lm.connect("chat_reactions_changed", self, "_on_chat_reactions")
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -562,6 +564,13 @@ func _build_window():
 	chat_input.connect("text_entered", self, "_on_chat_entered")
 	row.add_child(chat_input)
 	preload("res://scripts/ui/ChatMention.gd").attach(chat_input, _lm) # (@ + Tab: names)
+	var emo: Button = preload("res://scripts/ui/ChatReactions.gd").picker_button(chat_input, int(20 * _k))
+	_style_button(emo)
+	emo.add_stylebox_override("normal", _pad(_flat(BTN_BG, 3), 8, 5))
+	emo.add_stylebox_override("hover", _pad(_flat(BTN_HOVER, 3), 8, 5))
+	emo.add_stylebox_override("pressed", _pad(_flat(BTN_HOVER, 3), 8, 5))
+	emo.rect_min_size = Vector2(40, 34) * _k
+	row.add_child(emo)
 	chat_send = Button.new()
 	chat_send.text = "Send"
 	_style_button(chat_send, true)
@@ -1194,7 +1203,7 @@ func _fill_chat():
 		_chat_lines = -1 # (the hint goes when the first message comes)
 		return
 	for e in _lm.global_chat_history:
-		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)))
+		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), String(e.get("mid", "")))
 
 func _on_chat_ban(_banned):
 	if chat_input != null:
@@ -1209,7 +1218,31 @@ func _on_chat_message(client_id: String, name: String, text: String, ts: float):
 	if _chat_lines == -1:
 		chat.clear()
 		_chat_lines = 0
-	_add_chat_line(client_id, name, text, ts)
+	_add_chat_line(client_id, name, text, ts, String(_lm.get("last_chat_id")) if _lm != null and _lm.get("last_chat_id") != null else "")
+
+# someone reacted: the chat is drawn again (once a frame at most)
+var _react_redraw := false
+func _on_chat_reactions(mid: String):
+	if not _open or _lm == null or _react_redraw:
+		return
+	for e in _lm.global_chat_history:
+		if String(e.get("mid", "")) == mid:
+			_react_redraw = true
+			call_deferred("_redraw_for_reactions")
+			return
+
+func _redraw_for_reactions():
+	_react_redraw = false
+	if chat != null and _open:
+		var v := chat.get_v_scroll()
+		var at_end: bool = v.value >= v.max_value - v.page - 4
+		var keep: float = v.value
+		_fill_chat()
+		if not at_end:
+			chat.scroll_following = false
+			yield(get_tree(), "idle_frame")
+			v.value = keep
+			chat.scroll_following = true
 
 static func _clock(ts: float) -> String:
 	var t := int(ts / 1000.0) if ts > 100000000000.0 else int(ts)
@@ -1219,7 +1252,7 @@ static func _clock(ts: float) -> String:
 	var d := OS.get_datetime_from_unix_time(t)
 	return "%02d:%02d" % [int(d.hour), int(d.minute)]
 
-func _add_chat_line(client_id: String, name: String, text: String, ts: float):
+func _add_chat_line(client_id: String, name: String, text: String, ts: float, mid: String = ""):
 	if _chat_lines > 0:
 		chat.newline()
 	chat.push_color(FAINT)
@@ -1241,6 +1274,7 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float):
 			chat.pop()
 		else:
 			preload("res://scripts/ui/ChatCommands.gd").add_text(chat, part[0], 18) # (emoji as pictures, share links)
+	preload("res://scripts/ui/ChatReactions.gd").add(chat, mid, _lm, 16) # (reactions, and + to react)
 	_chat_lines += 1
 	if _chat_lines > CHAT_MAX_LINES:
 		chat.remove_line(0)

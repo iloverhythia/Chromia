@@ -761,19 +761,46 @@ func _chat_wait(delta: float):
 		_chat_flush()
 
 func _chat_show(m: Dictionary):
+	last_chat_id = String(m.get("mid", "")) # (the line's id, for reactions: read by the chat boxes)
 	if m.kind == "lobby":
-		lobby_chat_history.append({peer_id = m.who, name = m.name, text = m.text, ts = m.ts})
+		lobby_chat_history.append({peer_id = m.who, name = m.name, text = m.text, ts = m.ts, mid = last_chat_id})
 		if lobby_chat_history.size() > CHAT_HISTORY_MAX:
 			lobby_chat_history.pop_front()
 		emit_signal("chat_message_received", m.who, m.name, m.text, m.ts)
 	else:
-		global_chat_history.append({client_id = m.who, name = m.name, text = m.text, ts = m.ts})
+		global_chat_history.append({client_id = m.who, name = m.name, text = m.text, ts = m.ts, mid = last_chat_id})
 		if global_chat_history.size() > CHAT_HISTORY_MAX:
 			global_chat_history.pop_front()
 		emit_signal("global_chat_message_received", m.who, m.name, m.text, m.ts)
 		# someone wrote @you: a notification, wherever you are (even in a map)
 		if not Rhythia.mute_global_chat and m.who != Rhythia.cid and preload("res://scripts/ui/ChatMention.gd").mentions_me(m.orig, self):
 			Globals.notify(Globals.NOTIFY_INFO, m.text, "%s mentioned you" % m.name)
+
+# --- chat reactions (ChatReactions.gd draws them) ------------------------------
+# Each chat line has an id from the server ("" from an older server); a
+# reaction is toggled with send_chat_reaction and everyone gets the counts.
+signal chat_reactions_changed(mid)
+var last_chat_id := ""
+var chat_reactions := {} # line id -> {counts: {emoji: n}, mine: [emoji]}
+
+func send_chat_reaction(mid: String, emoji: String):
+	if mid == "" or not _connected():
+		return
+	_send({"type": "chat_react", "id": mid, "emoji": emoji})
+
+func _on_chat_reactions(msg: Dictionary):
+	var mid := Globals.s(msg.get("id", ""))
+	if mid == "":
+		return
+	var r: Dictionary = chat_reactions.get(mid, {"counts": {}, "mine": []})
+	var counts = msg.get("reactions", {})
+	r.counts = counts if counts is Dictionary else {}
+	if msg.get("mine") is Array:
+		r.mine = msg.mine
+	chat_reactions[mid] = r
+	while chat_reactions.size() > 400:
+		chat_reactions.erase(chat_reactions.keys()[0])
+	emit_signal("chat_reactions_changed", mid)
 
 # Watching someone (Spectate tab) who plays with Spin: you see it their way, the
 # camera turning with their cursor, whatever your own Spin setting is (yours
@@ -1703,12 +1730,14 @@ func _handle_message(msg: Dictionary):
 			close_lobby()
 		"chat_message":
 			var lm_peer_id = int(msg.get("peer_id", -1))
-			_chat_in({kind = "lobby", who = lm_peer_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0))}, lm_peer_id != local_peer_id)
+			_chat_in({kind = "lobby", who = lm_peer_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, lm_peer_id != local_peer_id)
 		"global_chat_message":
 			var gm_client_id = Globals.s(msg.get("client_id", ""))
-			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0))}, gm_client_id != Rhythia.cid)
+			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, gm_client_id != Rhythia.cid)
 		"translated":
 			_chat_translated(msg)
+		"chat_reactions":
+			_on_chat_reactions(msg)
 		"announcement":
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))

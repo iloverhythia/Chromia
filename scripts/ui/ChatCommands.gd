@@ -214,8 +214,10 @@ static func add_text(rtl: RichTextLabel, text: String, size_px: int = 18):
 		_hook(rtl)
 		rtl.push_meta(META + to_json(d))
 		rtl.push_color(LINK)
+		rtl.push_underline()
 		var label := "%s: %s" % [NOUN[d.kind], d.name if d.name != "" else "(no name)"]
 		rtl.add_text("[" + label + " - click to get]")
+		rtl.pop()
 		rtl.pop()
 		rtl.pop()
 		from = b + 2
@@ -245,6 +247,7 @@ static func _hook(rtl: RichTextLabel):
 	if rtl.has_meta("_share_links"):
 		return
 	rtl.set_meta("_share_links", true)
+	rtl.meta_underlined = false # (links underline themselves; reactions don't)
 	var h = load("res://scripts/ui/ChatCommands.gd").new()
 	h.name = "ShareLinks"
 	rtl.add_child(h)

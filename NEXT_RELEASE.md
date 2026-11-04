@@ -27,3 +27,4 @@ in scripts/Savia.gd and empties this list.
 - Map covers can be GIFs: they move in the map list and on the map's screen. Pick a .gif as the cover when you make a map and it's kept as a GIF.
 - Chat commands: /share map, /share settings, /share colorset (also mesh, cursor, hitsound) post a link anyone can click to get it; /profile <name> shows a player's stats, /report <name> reports them, /help lists them.
 - Spectating shows the player's Buffer Cursor, and with their Follow Buffer Cursor the camera parallax follows it like on their screen
+- Chat reactions: press + after a message to react (👍 ❤️ 😂 🔥 and more), press a reaction to add yours or take it back. An emoji button next to the chat boxes types emoji
