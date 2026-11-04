@@ -5,7 +5,7 @@ update log). Publishing to production turns them into the new version's notes
 in scripts/Savia.gd and empties this list.
 - No more little stutter when someone starts spectating you in the middle of a map.
 - In a map, the custom speed icon shows its speed (for example 137%).
-- Settings has a small preview window ("Watching Auto play") that plays a short map with your settings, so you can see what a change does. Drag it by its top bar, resize it from its corner, close it with the x, or turn it off in Settings > UI > Settings Preview.
+- Settings has a small preview window ("Watching Auto play") that plays a short map exactly the way your songs look: your note mesh, colorset, note size, opacity, fade, half ghost and spin, approach rate and spawn distance, border, cursor, FOV, parallax, Spin and hit effect. Drag it by its top bar, resize it from its corner, close it with the x, or turn it off in Settings > UI > Settings Preview.
 - Settings > Video & Audio: Exclusive Fullscreen is called Fullscreen again. It is the same fullscreen as always (the lowest input delay); Borderless Windowed is still there too.
 - Spectating: you always see the map with the other player's settings when you pick theirs (sometimes their approach rate, spawn distance, note size and other number settings were swapped back to yours), also after they lose their connection for a moment.
 - Lobbies: you can leave in the middle of a match. After giving up (or failing), hold the give up key again or press Leave lobby on the watching banner (in VR the panel shows which button): you go back to the menu and the round goes on for the others

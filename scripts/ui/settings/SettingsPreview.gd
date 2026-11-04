@@ -1,9 +1,9 @@
 extends Control
 
 # Settings > a small "Watching Auto play" window that plays a short made-up
-# map with your settings (approach rate, spawn distance, fade, half ghost,
-# note size and opacity, colorset, cursor colour and size, hit effect), so you
-# see what a change does straight away. Drag it by its title bar, resize it
+# map with your settings, drawn with the song's own notes, border, cursor,
+# camera and hit effect (SettingsPreviewWorld.gd), so it looks the way a song
+# does and you see what a change does straight away. Drag it by its title bar, resize it
 # from the bottom-right corner, close it with the x (Settings > UI > Settings
 # Preview turns it back on). Where it is and its size are saved.
 #
@@ -14,16 +14,12 @@ const GRIP := 16.0
 const MIN_SIZE := Vector2(230, 180)
 const DEFAULT_SIZE := Vector2(330, 270)
 const LOOP_S := 60.0
-const CAM_D := 3.5 # (the game's camera is 3.5 units behind the grid)
-const NOTE_FILL := 0.86 # a note's size next to a grid square
 
 const BG_COL := Color(0.055, 0.05, 0.075, 0.97)
 const TITLE_COL := Color(0.085, 0.078, 0.115, 1)
 const EDGE_COL := Color(1, 1, 1, 0.12)
 const DIM := Color(0.898, 0.949, 1, 0.5)
 const TEXT := Color(0.898, 0.949, 1, 1)
-const GRID_EDGE := Color(1, 1, 1, 0.55)
-const GRID_LINE := Color(1, 1, 1, 0.07)
 
 var _f_title: DynamicFont
 var _f_small: DynamicFont
@@ -48,6 +44,7 @@ func _init():
 	_f_value = _font(bold, 15)
 	_f_combo = _font(bold, 22)
 	_make_map()
+	_make_view()
 
 func _font(data, size: int) -> DynamicFont:
 	var f := DynamicFont.new()
@@ -122,7 +119,7 @@ func _process(delta):
 	if not on or not is_visible_in_tree():
 		return
 	_t = fmod(_t + delta, LOOP_S)
-	update()
+	_step_view(delta)
 
 # --- input ----------------------------------------------------------------
 
@@ -204,11 +201,9 @@ func _cursor_pos(t: float) -> Vector2:
 
 func _draw():
 	var w := rect_size.x
-	var h := rect_size.y
 	draw_rect(Rect2(Vector2(), rect_size), BG_COL)
 	draw_rect(Rect2(0, 0, w, TITLE_H), TITLE_COL)
 	draw_rect(Rect2(Vector2(), rect_size), EDGE_COL, false)
-
 	# title bar
 	var ty := (TITLE_H - _f_title.get_height()) / 2 + _f_title.get_ascent()
 	draw_string(_f_title, Vector2(9, ty), "Watching", DIM)
@@ -225,128 +220,107 @@ func _draw():
 	draw_line(cc + Vector2(-4, -4), cc + Vector2(4, 4), xc, 1.6, true)
 	draw_line(cc + Vector2(4, -4), cc + Vector2(-4, 4), xc, 1.6, true)
 
-	var colors := _colors()
+# --- the song, in 3D (SettingsPreviewWorld.gd), and the stats over it ----------
+
+var _vc: ViewportContainer
+var _vp: Viewport
+var _world: Spatial
+var _ov: Control
+var _combo := 0
+var _last_t := 0.0
+
+func _make_view():
+	_vc = ViewportContainer.new()
+	_vc.stretch = true
+	_vc.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_vc)
+	_vp = Viewport.new()
+	_vp.own_world = true
+	_vp.msaa = Viewport.MSAA_4X
+	_vp.render_target_update_mode = Viewport.UPDATE_WHEN_VISIBLE
+	_vp.size = Vector2(320, 240)
+	_vc.add_child(_vp)
+	_world = load("res://scripts/ui/settings/SettingsPreviewWorld.gd").new()
+	_vp.add_child(_world)
+	_ov = Control.new()
+	_ov.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(_ov)
+	_ov.connect("draw", self, "_draw_overlay")
+
+func _layout_view():
+	var r := Rect2(1, TITLE_H, rect_size.x - 2, rect_size.y - TITLE_H - 1)
+	if _vc.rect_position != r.position or _vc.rect_size != r.size:
+		_vc.rect_position = r.position
+		_vc.rect_size = r.size
+		_ov.rect_position = r.position
+		_ov.rect_size = r.size
+
+func _step_view(delta: float):
+	_layout_view()
 	var t := _t
-
-	# progress bar and time
-	var top := TITLE_H + 8
-	var tstr := "%02d:%02d / %02d:%02d" % [int(t) / 60, int(t) % 60, int(LOOP_S) / 60, int(LOOP_S) % 60]
-	var ts := _f_small.get_string_size(tstr)
-	draw_string(_f_small, Vector2((w - ts.x) / 2, top + _f_small.get_ascent()), tstr, DIM)
-	top += ts.y + 3
-	var bar := Rect2(14, top, w - 28, 3)
-	draw_rect(bar, Color(1, 1, 1, 0.12))
-	draw_rect(Rect2(bar.position, Vector2(bar.size.x * t / LOOP_S, bar.size.y)), colors[0])
-	top += 10
-
-	# the grid: square, between the side columns
-	var side: float = clamp(w * 0.2, 46, 90)
-	var avail_w := w - side * 2 - 8
-	var avail_h := h - top - 10
-	var gsz: float = max(30.0, min(avail_w, avail_h))
-	var gpos := Vector2((w - gsz) / 2, top + (avail_h - gsz) / 2)
-	var cell := gsz / 3.0
-	var center := gpos + Vector2(gsz, gsz) / 2
-	for i in range(1, 3):
-		draw_line(gpos + Vector2(cell * i, 0), gpos + Vector2(cell * i, gsz), GRID_LINE, 1)
-		draw_line(gpos + Vector2(0, cell * i), gpos + Vector2(gsz, cell * i), GRID_LINE, 1)
-	draw_rect(Rect2(gpos, Vector2(gsz, gsz)), GRID_EDGE, false, 1.2)
-
-	# notes: farthest first, so the near ones are drawn over them
+	if t < _last_t:
+		_last_t = -1.0 # (the map started over)
+	var colors := _colors()
 	var ar: float = max(0.1, float(Rhythia.get("approach_rate")))
 	var sd: float = max(0.1, float(Rhythia.get("spawn_distance")))
-	var fl: float = float(Rhythia.get("fade_length"))
-	var op: float = float(Rhythia.note_opacity)
-	var nsize: float = float(Rhythia.note_size)
-	var ghost: bool = bool(Rhythia.half_ghost)
-	var gbase: float = clamp(float(Rhythia.half_ghost_strength), 0.1, 1.0)
 	var combo := 0
 	var shown: Array = []
+	var hits: Array = []
 	for i in _notes.size():
 		var n: Array = _notes[i]
 		if n[0] <= t:
 			combo += 1
+			if n[0] > _last_t:
+				hits.append([n[1], colors[i % colors.size()]])
 			continue
 		var dist: float = ar * (n[0] - t)
 		if dist > sd:
 			break
-		shown.append([i, n, dist])
-	for j in range(shown.size() - 1, -1, -1):
-		var i: int = shown[j][0]
-		var n: Array = shown[j][1]
-		var dist: float = shown[j][2]
-		var alpha := op
-		var fin := 1.0
-		var fout := 1.0
-		if fl != 0:
-			fin = pow(_linstep(sd, sd * (1.0 - fl), dist), 1.3) * op
-		if ghost:
-			fout = ((1 - gbase) + pow(_linstep(3.0 / 50.0 * ar, 12.0 / 50.0 * ar, dist), 1.3) * gbase) * op
-		if fl != 0 or ghost:
-			alpha = min(fin, fout)
-		if alpha <= 0.01:
-			continue
-		var k := CAM_D / (CAM_D + dist)
-		var p: Vector2 = center + Vector2(n[1].x, -n[1].y) * cell * k
-		var s := cell * NOTE_FILL * nsize * k
-		var col: Color = colors[i % colors.size()]
-		col.a *= alpha
-		_draw_note(p, s, col)
+		shown.append([n[1], dist, colors[i % colors.size()], i])
+	shown.invert() # (far ones first)
+	_combo = combo
+	_last_t = t
+	var cc: Color = colors[(combo - 1) % colors.size()] if combo > 0 else colors[-1]
+	_world.frame(delta, shown, _cursor_pos(t), hits, cc)
+	_ov.update()
 
-	# hit effects: a ring that grows and fades where each note was hit
-	if Rhythia.show_hit_effect:
-		for i in range(max(0, combo - 6), combo):
-			var n: Array = _notes[i]
-			var age: float = t - n[0]
-			if age < 0 or age > 0.35:
-				continue
-			var q := age / 0.35
-			var hc: Color = colors[i % colors.size()]
-			hc.a = (1 - q) * 0.8
-			var hp: Vector2 = center + Vector2(n[1].x, -n[1].y) * cell
-			var hs := cell * NOTE_FILL * nsize * (1 + q * 0.5)
-			_draw_note(hp, hs, hc, 1.5)
-
-	# the cursor
-	var cp := _cursor_pos(t)
-	var cpos: Vector2 = center + Vector2(cp.x, -cp.y) * cell
-	var ccol := Color(1, 1, 1)
-	var ctype := int(Rhythia.cursor_color_type)
-	if ctype == Globals.CURSOR_CUSTOM_COLOR:
-		ccol = Rhythia.cursor_color
-	elif ctype == Globals.CURSOR_RAINBOW:
-		ccol = Color.from_hsv(fmod(t * 0.5, 1.0), 0.65, 1)
-	elif ctype == Globals.CURSOR_NOTE_COLOR:
-		ccol = colors[(combo - 1) % colors.size()] if combo > 0 else colors[-1]
-	if _cursor_tex != null:
-		var csz := cell * 0.32 * float(Rhythia.cursor_scale)
-		draw_texture_rect(_cursor_tex, Rect2(cpos - Vector2(csz, csz) / 2, Vector2(csz, csz)), false, ccol)
-
-	# combo over the grid, stats down the sides
-	var cstr := str(combo)
-	draw_string(_f_combo, Vector2(gpos.x + 6, gpos.y + 4 + _f_combo.get_ascent()), cstr, Color(1, 1, 1, 0.8))
+func _draw_overlay():
+	var w := _ov.rect_size.x
+	var h := _ov.rect_size.y
+	var colors := _colors()
+	var t := _t
+	# progress bar and time, on a dark band
+	_ov.draw_rect(Rect2(0, 0, w, 22), Color(0, 0, 0, 0.45))
+	var tstr := "%02d:%02d / %02d:%02d" % [int(t) / 60, int(t) % 60, int(LOOP_S) / 60, int(LOOP_S) % 60]
+	var ts := _f_small.get_string_size(tstr)
+	_ov.draw_string(_f_small, Vector2((w - ts.x) / 2, 3 + _f_small.get_ascent()), tstr, DIM)
+	var bar := Rect2(14, 16, w - 28, 3)
+	_ov.draw_rect(bar, Color(1, 1, 1, 0.12))
+	_ov.draw_rect(Rect2(bar.position, Vector2(bar.size.x * t / LOOP_S, bar.size.y)), colors[0])
+	# combo and the stats down the sides
+	var side: float = clamp(w * 0.2, 46, 90)
+	_ov.draw_string(_f_combo, Vector2(8, 28 + _f_combo.get_ascent()), str(_combo), Color(1, 1, 1, 0.8))
 	var score := 0
-	for i in combo:
+	for i in _combo:
 		score += 25 * int(min(8, 1 + i / 10))
-	var sy := gpos.y + gsz * 0.25
+	var sy: float = h * 0.36
 	_stat(Vector2(8, sy), side, "PAUSES", "0", false)
 	_stat(Vector2(8, sy + 44), side, "ACCURACY", "100%", false)
 	_stat(Vector2(w - side - 8, sy), side, "POINTS", _commas(score), true)
 	_stat(Vector2(w - side - 8, sy + 44), side, "MISSES", "0", true)
-
 	# resize grip
 	var g := Vector2(w - 4, h - 4)
 	for i in 3:
 		var o: float = 4.0 + i * 4.0
-		draw_line(g - Vector2(o, 0), g - Vector2(0, o), Color(1, 1, 1, 0.3), 1)
+		_ov.draw_line(g - Vector2(o, 0), g - Vector2(0, o), Color(1, 1, 1, 0.3), 1)
 
 func _stat(pos: Vector2, width: float, label: String, value: String, right: bool):
 	var ls := _f_small.get_string_size(label)
 	var vs := _f_value.get_string_size(value)
 	var lx := pos.x + (width - ls.x if right else 0.0)
 	var vx := pos.x + (width - vs.x if right else 0.0)
-	draw_string(_f_small, Vector2(lx, pos.y + _f_small.get_ascent()), label, DIM)
-	draw_string(_f_value, Vector2(vx, pos.y + ls.y + 2 + _f_value.get_ascent()), value, TEXT)
+	_ov.draw_string(_f_small, Vector2(lx, pos.y + _f_small.get_ascent()), label, DIM)
+	_ov.draw_string(_f_value, Vector2(vx, pos.y + ls.y + 2 + _f_value.get_ascent()), value, TEXT)
 
 func _commas(n: int) -> String:
 	var s := str(n)
@@ -355,20 +329,3 @@ func _commas(n: int) -> String:
 		out = "," + s.substr(s.length() - 3) + out
 		s = s.substr(0, s.length() - 3)
 	return s + out
-
-# a note: a rounded square outline, like the game's default note
-func _draw_note(p: Vector2, s: float, col: Color, width: float = -1.0):
-	if s < 1:
-		return
-	var r := s * 0.22
-	var half := s / 2
-	var lw: float = width if width > 0 else max(1.0, s * 0.1)
-	var pts := PoolVector2Array()
-	var corners := [Vector2(half - r, -half + r), Vector2(half - r, half - r), Vector2(-half + r, half - r), Vector2(-half + r, -half + r)]
-	var start_ang := [-PI / 2, 0.0, PI / 2, PI]
-	for ci in 4:
-		for st in 5:
-			var a: float = start_ang[ci] + (PI / 2) * st / 4.0
-			pts.append(p + corners[ci] + Vector2(cos(a), sin(a)) * r)
-	pts.append(pts[0])
-	draw_polyline(pts, col, lw, true)
