@@ -949,15 +949,13 @@ func _make_card() -> Dictionary:
 	heart.margin_top = -20 * _k
 	box.add_child(heart)
 
-	# bottom right, by the heart: "..." opens the menu (View stats, Spectate,
-	# their profile), like right-clicking the card; a label, the card takes the click
+	# bottom left: "..." opens the menu (View stats, Spectate, their profile),
+	# like right-clicking the card; a label, the card takes the click
 	var dots := _label("•••", font_bold, DIM)
-	dots.anchor_left = 1.0
 	dots.anchor_top = 1.0
-	dots.anchor_right = 1.0
 	dots.anchor_bottom = 1.0
-	dots.margin_left = -52 * _k
-	dots.margin_right = -24 * _k
+	dots.margin_left = 0
+	dots.margin_right = 28 * _k
 	dots.margin_top = -22 * _k
 	dots.align = Label.ALIGN_CENTER
 	dots.valign = Label.VALIGN_CENTER
@@ -970,6 +968,7 @@ func _make_card() -> Dictionary:
 	watching.anchor_top = 1.0
 	watching.anchor_bottom = 1.0
 	watching.grow_vertical = GROW_DIRECTION_BEGIN
+	watching.margin_left = 32 * _k # (right of the "...")
 	watching.mouse_filter = MOUSE_FILTER_IGNORE
 	watching.visible = false
 	box.add_child(watching)
