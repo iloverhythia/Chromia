@@ -201,6 +201,7 @@ var segt: float = 0
 var segl: float = 0.01
 
 var total_trail_segments = 0
+var _trail_mm = null # the smart trail (TrailMulti.gd)
 
 onready var trail_base = get_node("../../CursorTrail")
 
@@ -280,33 +281,16 @@ func _process(delta):
 		var diff = p_diff
 		if r_diff > p_diff: diff = r_diff
 		var amt = min(ceil(Rhythia.trail_detail * diff), 120)
-		var new = 0
-		var cached = 0
-		for i in range(amt):
-			var trail: Spatial
-			var v = float(i) / float(amt)
-			var pos = lerp(start_p, end_p, v)
-			var rot = lerp(start_r, end_r, v)
-			if trail_cache.size() != 0:
-				trail = trail_cache.pop_front()
-				cached += 1
-			else:
-				trail = trail_base.duplicate()
-				get_node("../..").add_child(trail)
-				trail.connect("cache_me", self, "cache_trail", [trail])
-				total_trail_segments += 1
-				new += 1
-
-			trail.start_smart(v * delta, pos, rot)
+		# (all the pieces are one MultiMesh: TrailMulti.gd)
+		if _trail_mm != null and is_instance_valid(_trail_mm):
+			var col: Color = $Mesh.get("material/0").albedo_color
+			col.a *= Rhythia.trail_opacity
+			var rot_now: Vector3 = $Mesh.rotation
+			for i in range(amt):
+				var v = float(i) / float(amt)
+				_trail_mm.add(lerp(start_p, end_p, v), rot_now, col, v * delta)
 		if $L.visible:
-			$L.text = "amount this frame: %s\nnewly spawned: %s\nfrom cache: %s\n\nwaiting: %s\nactive: %s\ntotal: %s" % [
-				amt,
-				new,
-				cached,
-				trail_cache.size(),
-				total_trail_segments - trail_cache.size(),
-				total_trail_segments
-			]
+			$L.text = "amount this frame: %s\nalive: %s" % [amt, _trail_mm.live() if _trail_mm != null else 0]
 		prev_pos = global_transform.origin
 		prev_rot = $Mesh.rotation_degrees.x
 
@@ -355,14 +339,9 @@ func _ready():
 
 	if Rhythia.cursor_trail:
 		if Rhythia.smart_trail:
-			yield(get_tree(), "idle_frame")
-			Rhythia.trail("song start: making the cursor trail")
-			for i in range(Rhythia.trail_detail * 3.5):
-				var trail = trail_base.duplicate()
-				get_node("../..").add_child(trail)
-				trail.connect("cache_me", self, "cache_trail", [trail])
-				trail_cache.append(trail)
-				trail.start_smart(1, Vector3(0, 0, -4), 0)
+			# one MultiMesh for the whole trail (TrailMulti.gd), next to the old pieces' place
+			_trail_mm = load("res://scripts/game/TrailMulti.gd").make(trail_base)
+			get_node("../..").call_deferred("add_child", _trail_mm)
 		else:
 			for i in range(Rhythia.trail_detail):
 				var trail: Spatial = trail_base

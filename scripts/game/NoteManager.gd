@@ -668,6 +668,7 @@ var music_started: bool = false
 const cursor_offset = Vector3(1, -1, 0)
 onready var cam: Camera = get_node("../..").get_node("Camera")
 var hlpower = (0.1 * Rhythia.get("parallax"))
+var _no_delay: bool = Rhythia.no_delay_active()
 onready var Grid = get_node("../HUD")
 
 func do_half_lock():
@@ -937,6 +938,10 @@ func _set_rec_interval(delta: float):
 	last_cursor_position = newpos
 
 func _process(delta: float):
+	# Experimental No Delay: mouse movement that came in while this frame was
+	# being started is taken in now, before the camera and hits use the cursor
+	if _no_delay:
+		Input.flush_buffered_events()
 	var u = OS.get_ticks_usec()
 	delta = float(u - last_usec) / 1000000.0
 	last_usec = u

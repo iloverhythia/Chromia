@@ -734,6 +734,7 @@ func miss(col):
 
 func _exit_tree():
 	Rhythia.in_map = false
+	Rhythia.no_delay_end() # (Experimental No Delay: your VSync and FPS cap back)
 	if _desync_to_restore != null:
 		# the death slowdown was cut short: don't leave desync correction off for the session
 		Rhythia.disable_desync = _desync_to_restore
@@ -742,6 +743,7 @@ func _exit_tree():
 func _ready():
 	Rhythia.start_log("game")
 	Rhythia.in_map = true
+	Rhythia.no_delay_begin() # (Experimental No Delay, PC)
 	_results_continue_button.connect("pressed", self, "_finish_round_results")
 	Rhythia.song_end_pause_count = 0
 	Rhythia.song_end_misses = 0

@@ -3103,6 +3103,7 @@ var trail_opacity: float = 1.0
 var trail_gradient_enabled: bool = false
 var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html = aarrggbb
 var max_fps_mode: bool = false
+var pc_no_delay: bool = false # Experimental: No Delay (PC mouse), no_delay_begin / no_delay_end
 # Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
 var realistic_autoplay: bool = false
 
@@ -3113,6 +3114,34 @@ func _web_replay_light():
 	if vp:
 		vp.msaa = Viewport.MSAA_DISABLED
 		vp.hdr = false
+
+# Experimental No Delay (PC, mouse): while a map plays, what you see follows
+# your newest mouse movement. Each movement is used as it comes (not saved up
+# for the next frame), the ones made while a frame is being made are taken in
+# just before it's drawn (NoteManager._process), and nothing holds the frame
+# back: VSync, the FPS cap and the Windows compositor's extra frame are off
+# for the song. Your VSync and FPS cap come back after it.
+func no_delay_active() -> bool:
+	return pc_no_delay and not vr and not device("mobile") and not OS.has_feature("JavaScript") and not replaying
+
+func no_delay_begin():
+	if not no_delay_active() or has_meta("no_delay_saved"):
+		return
+	set_meta("no_delay_saved", [OS.vsync_enabled, Engine.target_fps, OS.vsync_via_compositor, Input.use_accumulated_input])
+	Input.use_accumulated_input = false
+	OS.vsync_enabled = false
+	OS.vsync_via_compositor = false
+	Engine.target_fps = 0
+
+func no_delay_end():
+	if not has_meta("no_delay_saved"):
+		return
+	var s: Array = get_meta("no_delay_saved")
+	remove_meta("no_delay_saved")
+	OS.vsync_enabled = bool(s[0])
+	Engine.target_fps = int(s[1])
+	OS.vsync_via_compositor = bool(s[2])
+	Input.use_accumulated_input = bool(s[3])
 
 func apply_max_fps_mode():
 	var vp = get_viewport()
@@ -3948,6 +3977,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("max_fps_mode"):
 			max_fps_mode = bool(data.max_fps_mode)
 			if max_fps_mode: call_deferred("apply_max_fps_mode")
+		if data.has("pc_no_delay"):
+			pc_no_delay = bool(data.pc_no_delay)
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
@@ -4615,7 +4646,7 @@ func _write_settings_file(saveFile: String):
 			update_channel = update_channel,
 			tried_test_builds = tried_test_builds or update_channel == "test",
 			tester_channel = tester_channel,
-			vsync_enabled = _desk_vsync if vr else OS.vsync_enabled, # (in VR the headset paces frames: your desktop choice is kept)
+			vsync_enabled = _desk_vsync if vr else (bool(get_meta("no_delay_saved")[0]) if has_meta("no_delay_saved") else OS.vsync_enabled), # (in VR the headset paces frames: your desktop choice is kept)
 
 			window_fullscreen = OS.window_fullscreen,
 			window_borderless = OS.window_borderless,
@@ -4695,6 +4726,7 @@ func _write_settings_file(saveFile: String):
 			favorite_meshes = favorite_meshes,
 			custombg_color = custombg_color.to_html(false),
 			max_fps_mode = max_fps_mode,
+			pc_no_delay = pc_no_delay,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,
@@ -4741,7 +4773,7 @@ func _write_settings_file(saveFile: String):
 			cursor_color_type = cursor_color_type,
 			half_ghost = half_ghost,
 			note_spawn_effect = note_spawn_effect,
-			target_fps = _desk_fps if vr else Engine.target_fps,
+			target_fps = _desk_fps if vr else (int(get_meta("no_delay_saved")[1]) if has_meta("no_delay_saved") else Engine.target_fps),
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
 			wave_menu_colorset = wave_menu_colorset,
