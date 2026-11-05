@@ -14,7 +14,7 @@ extends Control
 const SITE := "https://savia.nysr.host"
 const MIcon = preload("res://scripts/ui/modern/MIcon.gd")
 const CoverSq = preload("res://scripts/ui/modern/CoverSq.gd")
-const ScoreHistory = preload("res://scripts/ScoreHistory.gd")
+const ScoreHistory = preload("res://scripts/ScoreHistory.gd") # (also used by ModernPanels.gd)
 
 const BG := Color("#0c0b10")
 const TEXT := Color("#f2f2f5")
@@ -1146,7 +1146,7 @@ func _noop():
 
 func _on_me_input(ev):
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT:
-		_open_classic_page("Profile")
+		panels.open_profile()
 
 # ------------------------------------------------------------------ the preview
 
@@ -1264,11 +1264,9 @@ func _watch_auto():
 func _on_tab(t: String):
 	match t:
 		"multiplayer":
-			_open_classic_page("Online")
+			panels.open_page("Multiplayer", "Browse, create, or join a multiplayer lobby", "Online")
 		"collections":
-			var b = _find_script(Rhythia.menu_node(), "MapFoldersButton.gd")
-			if b != null and b.has_method("open_panel"):
-				b.open_panel()
+			panels.open_collections()
 		"all":
 			search.text = ""
 			_on_search("")
@@ -1287,10 +1285,10 @@ func _open_settings():
 	panels.open_settings()
 
 func _open_workshop():
-	_open_classic_page("MapBrowser")
+	panels.open_page("Online Workshop", "Browse, download and install maps, skins and skin assets", "MapBrowser")
 
 func _open_leaderboard():
-	OS.shell_open(SITE + "/leaderboards")
+	panels.open_leaderboard()
 
 func _open_filters():
 	panels.open_filters()
