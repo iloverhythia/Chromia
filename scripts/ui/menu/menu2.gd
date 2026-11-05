@@ -2812,6 +2812,11 @@ func _ready():
 	_setup_folder_filters()
 	load("res://scripts/ui/menu/FiltersCollapse.gd").attach(self) # click "Filters" to collapse
 	load("res://scripts/ui/menu/MapFiltersPage.gd").attach(self) # the Filters button and its side page
+	# Experimental: the Modern UI over this menu (scripts/ui/modern/ModernUI.gd)
+	if not Rhythia.is_connected("modern_ui_changed", self, "_on_modern_ui"):
+		Rhythia.connect("modern_ui_changed", self, "_on_modern_ui")
+	if Rhythia.modern_ui:
+		call_deferred("_on_modern_ui")
 	_add_new_mod_checkboxes()
 	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
 	_center_mods()
@@ -3167,6 +3172,13 @@ func _union_visible(n, box):
 
 
 # Map folders also show up as filters under "stars" in the Filters column.
+func _on_modern_ui():
+	var M = load("res://scripts/ui/modern/ModernUI.gd")
+	if Rhythia.modern_ui and not Rhythia.vr:
+		M.attach(self)
+	else:
+		M.detach(self)
+
 func _setup_folder_filters():
 	var stars = get_node_or_null("Main/Maps/Filters/StarSort")
 	if stars == null:

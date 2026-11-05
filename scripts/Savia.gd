@@ -3103,6 +3103,11 @@ var trail_opacity: float = 1.0
 var trail_gradient_enabled: bool = false
 var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html = aarrggbb
 var max_fps_mode: bool = false
+var modern_ui: bool = false setget _set_modern_ui # Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
+signal modern_ui_changed
+func _set_modern_ui(v: bool):
+	modern_ui = v
+	emit_signal("modern_ui_changed")
 var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd: the first version's mouse code)
 var pc_no_delay: bool = false # Experimental: No Delay (PC mouse), no_delay_begin / no_delay_end
 # Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
@@ -3982,6 +3987,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			pc_no_delay = bool(data.pc_no_delay)
 		if data.has("legacy_mouse"):
 			legacy_mouse = bool(data.legacy_mouse)
+		if data.has("modern_ui"):
+			modern_ui = bool(data.modern_ui)
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
@@ -4731,6 +4738,7 @@ func _write_settings_file(saveFile: String):
 			max_fps_mode = max_fps_mode,
 			pc_no_delay = pc_no_delay,
 			legacy_mouse = legacy_mouse,
+			modern_ui = modern_ui,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,
