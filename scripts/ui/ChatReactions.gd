@@ -35,26 +35,43 @@ static func _tex(e: String) -> Texture:
 		return null
 	return E._texture(_key(e))
 
-static func add(rtl: RichTextLabel, mid: String, lm, px: int = 16):
+# Returns how many lines it added under the message (0 or 1).
+static func add(rtl: RichTextLabel, mid: String, lm, px: int = 16, indent: int = 1) -> int:
 	if mid == "" or lm == null or not ("chat_reactions" in lm):
-		return
+		return 0
 	_hook(rtl, lm)
 	var E = load("res://scripts/ui/Emoji.gd")
 	var r = lm.chat_reactions.get(mid)
+	var any := false
 	if r is Dictionary:
-		for e in REACTIONS: # (always in the same order)
-			var n := int(r.counts.get(e, 0))
-			if n <= 0:
-				continue
-			var mine: bool = e in r.mine
-			rtl.add_text("  ")
-			rtl.push_meta(META_R + mid + ":" + e)
-			rtl.push_color(MINE if mine else DIM)
-			E.add_text(rtl, e, px)
-			rtl.add_text(" %d" % n)
-			rtl.pop()
-			rtl.pop()
-	rtl.add_text("  ")
+		for e in REACTIONS:
+			if int(r.counts.get(e, 0)) > 0:
+				any = true
+	if not any:
+		# (no reactions yet: just a faint + at the end of the message)
+		rtl.add_text("  ")
+		_plus(rtl, mid)
+		return 0
+	# the reactions on their own line under the message
+	rtl.newline()
+	rtl.push_indent(indent)
+	for e in REACTIONS: # (always in the same order)
+		var n := int(r.counts.get(e, 0))
+		if n <= 0:
+			continue
+		var mine: bool = e in r.mine
+		rtl.push_meta(META_R + mid + ":" + e)
+		rtl.push_color(MINE if mine else DIM)
+		E.add_text(rtl, e, px)
+		rtl.add_text(" %d" % n)
+		rtl.pop()
+		rtl.pop()
+		rtl.add_text("   ")
+	_plus(rtl, mid)
+	rtl.pop()
+	return 1
+
+static func _plus(rtl: RichTextLabel, mid: String):
 	rtl.push_meta(META_P + mid)
 	rtl.push_color(Color(DIM.r, DIM.g, DIM.b, 0.55))
 	rtl.add_text("+")

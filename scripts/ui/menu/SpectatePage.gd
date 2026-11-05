@@ -1186,6 +1186,7 @@ func _on_denied(reason: String):
 func _fill_chat():
 	chat.clear()
 	_chat_lines = 0
+	_chat_sizes = []
 	var muted: bool = Rhythia.mute_global_chat
 	chat_muted.visible = muted
 	chat.visible = not muted
@@ -1252,6 +1253,7 @@ static func _clock(ts: float) -> String:
 	var d := OS.get_datetime_from_unix_time(t)
 	return "%02d:%02d" % [int(d.hour), int(d.minute)]
 
+var _chat_sizes := []
 func _add_chat_line(client_id: String, name: String, text: String, ts: float, mid: String = ""):
 	if _chat_lines > 0:
 		chat.newline()
@@ -1274,10 +1276,12 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float, mi
 			chat.pop()
 		else:
 			preload("res://scripts/ui/ChatCommands.gd").add_text(chat, part[0], 18) # (emoji as pictures, share links)
-	preload("res://scripts/ui/ChatReactions.gd").add(chat, mid, _lm, 16) # (reactions, and + to react)
+	var extra: int = preload("res://scripts/ui/ChatReactions.gd").add(chat, mid, _lm, 16, 3) # (reactions under it, and + to react)
+	_chat_sizes.append(1 + extra) # (the label's lines this message takes)
 	_chat_lines += 1
 	if _chat_lines > CHAT_MAX_LINES:
-		chat.remove_line(0)
+		for _i in int(_chat_sizes.pop_front()):
+			chat.remove_line(0)
 		_chat_lines -= 1
 
 func _on_chat_entered(_t: String):
