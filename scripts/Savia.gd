@@ -4640,7 +4640,7 @@ func _write_settings_file(saveFile: String):
 			cursor_scale = cursor_scale,
 			enable_drift_cursor = enable_drift_cursor,
 			follow_drift_cursor = follow_drift_cursor,
-			hitwindow_ms = hitwindow_ms,
+			hitwindow_ms = float(get_meta("mp_hitwindow_own")) if has_meta("mp_hitwindow_own") else hitwindow_ms, # (multiplayer's 55 ms isn't saved over yours)
 			speed_hitwindow = speed_hitwindow,
 			restart_on_death = restart_on_death,
 			death_slowdown_enabled = death_slowdown_enabled,

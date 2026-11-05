@@ -35,3 +35,4 @@ in scripts/Savia.gd and empties this list.
 - Badges on your in-game profile and in Spectate > View stats are the exact ones from your website profile (same pictures, colours and hover text)
 - Chat reactions show on their own line under the message
 - Settings > Background Editor > HUD panels: HUD brightness, and move the side panels left / right and up / down, and the timer and health bar closer to or away from the grid (spectators and skins carry them too)
+- Multiplayer: the hit window is 55 or 58 ms. Any other hit window is set to 55 ms while you're in a lobby, and yours comes back when you leave

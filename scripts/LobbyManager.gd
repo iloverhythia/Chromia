@@ -446,6 +446,31 @@ func is_motd(song_id: String) -> bool:
 func list_unpublished_ranked_maps():
 	_ensure_connected_then_send({"type": "list_unpublished_ranked_maps", "client_id": Rhythia.cid})
 
+# Multiplayer plays with a 55 or 58 ms hit window only. Any other is 55 ms
+# while you're in a lobby; yours comes back when you leave it (and the
+# settings file keeps yours meanwhile: Savia.save_settings).
+const MP_HITWINDOWS := [55.0, 58.0]
+func enforce_mp_hitwindow():
+	if watch_mode:
+		return # (watching someone from the Spectate tab isn't playing)
+	var hw := float(Rhythia.hitwindow_ms)
+	for ok in MP_HITWINDOWS:
+		if is_equal_approx(hw, ok):
+			return
+	if not Rhythia.has_meta("mp_hitwindow_own"):
+		Rhythia.set_meta("mp_hitwindow_own", hw)
+	Rhythia.hitwindow_ms = 55.0
+	Globals.notify(Globals.NOTIFY_INFO, "Multiplayer uses a 55 or 58 ms hit window, so yours (%d ms) is 55 ms in this lobby. It goes back when you leave." % int(round(hw)), "Hit window")
+
+func restore_mp_hitwindow():
+	if not Rhythia.has_meta("mp_hitwindow_own"):
+		return
+	var own := float(Rhythia.get_meta("mp_hitwindow_own"))
+	Rhythia.remove_meta("mp_hitwindow_own")
+	# (changed to 58 in the lobby: that's kept)
+	if is_equal_approx(float(Rhythia.hitwindow_ms), 55.0):
+		Rhythia.hitwindow_ms = own
+
 func close_lobby():
 	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 		if lobby_active:
@@ -469,6 +494,7 @@ func close_lobby():
 	lobby_chat_history = []
 	player_view_settings = {}
 	_spectate_load_target = -1
+	restore_mp_hitwindow()
 	if was_active:
 		emit_signal("lobby_closed")
 
@@ -1525,6 +1551,7 @@ func _handle_message(msg: Dictionary):
 			if Rhythia.selected_song != null:
 				set_lobby_song(Rhythia.selected_song)
 			push_current_mods()
+			enforce_mp_hitwindow()
 			emit_signal("lobby_created", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_joined":
@@ -1548,6 +1575,7 @@ func _handle_message(msg: Dictionary):
 					_send({"type": "stop_watching"})
 					_finish_watch_locally()
 					return
+			enforce_mp_hitwindow()
 			emit_signal("lobby_joined", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_state":
@@ -1574,6 +1602,7 @@ func _handle_message(msg: Dictionary):
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
 				_apply_watch_spin(lobby_state.get("mods", {}))
+			enforce_mp_hitwindow() # (55 or 58 ms in multiplayer)
 			Rhythia.apply_lobby_lead_in()
 			print("[furria] Rhythia.mod_speed_level after apply: ", Rhythia.mod_speed_level)
 			var t = get_tree().create_timer(0.4)
