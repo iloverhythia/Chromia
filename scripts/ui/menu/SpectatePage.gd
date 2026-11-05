@@ -321,6 +321,30 @@ func _ready():
 	set_process(true)
 	get_tree().create_timer(1.5).connect("timeout", self, "_prewarm")
 
+# an icon picture (assets/images/ui/modern), coloured
+static func _icon_tex(n: String, col: Color) -> Texture:
+	var src = load("res://assets/images/ui/modern/%s.png" % n)
+	if src == null:
+		return null
+	var img: Image = src.get_data()
+	img.convert(Image.FORMAT_RGBA8)
+	img.lock()
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(col.r, col.g, col.b, c.a * col.a))
+	img.unlock()
+	var t := ImageTexture.new()
+	t.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+	return t
+
+func _nunito(w: String, size: int) -> DynamicFont:
+	var f := DynamicFont.new()
+	f.font_data = load("res://assets/font/Nunito/Nunito-%s.ttf" % w)
+	f.size = size
+	f.use_filter = true
+	return f
+
 func _build_eye():
 	eye = EyeButton.new()
 	eye.name = "SpectateButton"
@@ -366,8 +390,13 @@ func _build_notice():
 func _notify_chat(client_id: String, name: String, text: String):
 	if not Rhythia.spectate_chat_notify or (client_id != "" and client_id == Rhythia.cid):
 		return
+	var m = _modern()
+	if m != null and m.online.is_open():
+		return
 	_unread += 1
 	badge.text = str(_unread) if _unread < 100 else "99+"
+	if _was_modern:
+		badge.text = "" # (a red dot, like the video)
 	_place_notice()
 	if not eye.visible:
 		return
@@ -602,7 +631,32 @@ func _resize():
 		# (the VR screen's resize handle is in that corner: the eye goes beside it)
 		eye.rect_position.x -= load("res://vr/MenuResize.gd").ICON + 12.0
 	var tpx := int(ceil(d * 2.0))
-	if tpx != _eye_px:
+	if _was_modern:
+		# (Modern UI: the people icon, no circle, like the video)
+		var md := 30.0 * _k
+		eye.rect_size = Vector2(md, md)
+		eye.rect_position = vp - Vector2(md + 24 * _k, md + 22 * _k)
+		if _eye_px != -1:
+			_eye_px = -1
+			eye.tex_normal = _icon_tex("users", Color(0.86, 0.86, 0.9))
+			eye.tex_hover = _icon_tex("users", Color(1, 1, 1))
+			eye.texture = eye.tex_normal
+		if _online_tip == null:
+			_online_tip = Label.new()
+			_online_tip.text = "Online"
+			_online_tip.mouse_filter = MOUSE_FILTER_IGNORE
+			add_child(_online_tip)
+		_online_tip.add_font_override("font", _nunito("ExtraBold", int(13 * _k)))
+		_online_tip.add_stylebox_override("normal", _pad(_flat(Color(0.06, 0.06, 0.07, 0.92), int(5 * _k)), 9 * _k, 4 * _k))
+		notice.add_stylebox_override("panel", _pad(_flat(Color(0.05, 0.05, 0.06, 0.82), int(5 * _k)), 10 * _k, 5 * _k))
+		badge.add_stylebox_override("normal", _flat(Color("#ff3b4a"), int(5 * _k)))
+		badge.rect_min_size = Vector2(9, 9) * _k
+	elif tpx != _eye_px:
+		if _eye_px == -1:
+			# (back from the Modern UI: the classic bubble and count)
+			notice.add_stylebox_override("panel", _pad(_flat(Color(0.07, 0.062, 0.095, 0.97), 3, Color(1, 1, 1, 0.12), 1), 12, 8))
+			badge.add_stylebox_override("normal", _pad(_flat(PINK, 2), 4, 1))
+			badge.rect_min_size = Vector2()
 		_eye_px = tpx
 		eye.tex_normal = eye_texture(tpx, LILAC)
 		eye.tex_hover = eye_texture(tpx, ACCENT)
@@ -626,9 +680,28 @@ func _resize():
 
 # the button hides where it would cover something (the map editor's own
 # controls sit in that corner) or while the window is open
+var _was_modern := false
+var _online_tip: Label
 func _process(delta):
+	var modern: bool = _modern() != null
+	if modern != _was_modern:
+		_was_modern = modern
+		_resize()
+	if modern:
+		var m = _modern()
+		if m.online.is_open() and eye.visible:
+			eye.visible = false
+			notice.visible = false
+			badge.visible = false
+			return
+	if _online_tip != null:
+		_online_tip.visible = modern and eye.visible and eye.get_global_rect().has_point(eye.get_global_mouse_position()) and not notice.visible
+		if _online_tip.visible:
+			var ts := _online_tip.get_combined_minimum_size()
+			_online_tip.rect_size = ts
+			_online_tip.rect_position = (eye.rect_position + Vector2(eye.rect_size.x - ts.x, -ts.y - 8 * _k)).floor()
 	var editor = get_node_or_null("../../../Main/MapEditor")
-	var show_eye: bool = not _open and not (editor != null and editor.visible and editor.get("ed") != null and editor.ed != null and editor.ed.is_visible_in_tree())
+	var show_eye: bool = not (modern and _modern().online.is_open()) and not _open and not (editor != null and editor.visible and editor.get("ed") != null and editor.ed != null and editor.ed.is_visible_in_tree())
 	if eye.visible != show_eye:
 		eye.visible = show_eye
 		if not show_eye:
@@ -724,8 +797,20 @@ func _prewarm():
 		window.modulate.a = 1.0
 		overlay.get_child(0).modulate.a = 1.0
 
+# the Modern UI (Settings > Experimental) has its own Online Players window
+func _modern():
+	if not Rhythia.get("modern_ui") == true or Rhythia.vr:
+		return null
+	var m = Rhythia.menu_node("ModernUI")
+	return m if m != null and m.get("online") != null else null
+
 func open():
 	if _open:
+		return
+	var m = _modern()
+	if m != null:
+		_clear_notice()
+		m.online.open()
 		return
 	_open = true
 	_animating = true

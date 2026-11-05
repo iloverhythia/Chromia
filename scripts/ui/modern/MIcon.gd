@@ -63,7 +63,40 @@ func _rrect(x: float, y: float, w: float, h: float, r: float):
 			pts.append([corner[0] + cos(a) * r, corner[1] + sin(a) * r])
 	_line(pts, true)
 
+# the icons are pictures (Lucide icons, assets/images/ui/modern, ISC licence:
+# LUCIDE_LICENSE.txt there), drawn smooth at any size; the line drawings below
+# are only for a name with no picture
+const DIR := "res://assets/images/ui/modern/"
+static func tex(name: String) -> Texture:
+	# (made once per icon, kept on the Engine: smooth when drawn small)
+	if not Engine.has_meta("micon_cache"):
+		Engine.set_meta("micon_cache", {})
+	var cache: Dictionary = Engine.get_meta("micon_cache")
+	if cache.has(name):
+		return cache[name]
+	var p: String = DIR + name + ".png"
+	var t: Texture = null
+	if ResourceLoader.exists(p):
+		var src = load(p) as Texture
+		if src != null:
+			var img: Image = src.get_data()
+			if img != null:
+				img.clear_mipmaps()
+				img.convert(Image.FORMAT_RGBA8)
+				var it := ImageTexture.new()
+				it.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+				t = it
+	cache[name] = t
+	return t
+
 func _draw():
+	var t = tex(icon + ("_fill" if filled else ""))
+	if t == null and filled:
+		t = tex(icon)
+	if t != null:
+		var side0: float = min(rect_size.x, rect_size.y)
+		draw_texture_rect(t, Rect2((rect_size - Vector2(side0, side0)) / 2.0, Vector2(side0, side0)), false, color)
+		return
 	var side: float = min(rect_size.x, rect_size.y)
 	_s = side / 24.0
 	_o = (rect_size - Vector2(side, side)) / 2.0

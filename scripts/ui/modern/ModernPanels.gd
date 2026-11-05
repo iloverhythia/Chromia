@@ -14,19 +14,26 @@ var panel: Control
 var body: Control
 var head_title: Label
 var head_sub: Label
+var head_pre: Label # ("Settings  >" before a part's name)
 var back_btn: Button
 var showing := ""
 var _classic_rect := Rect2()
 var _classic_on := false
 var _scroll_top := 0.0
 var _tween: Tween
+var _preview # SettingsPreview.gd (modern): beside the panel while Settings is open
 
-const GENERAL := [["System", "monitor", "Gameplay"], ["Online", "globe", "Online"], ["Interface", "layout", "UI"],
-	["Keybinds", "keyboard", "Keybinds"], ["Cursor", "mouse", "World & Cursor"], ["Audio", "volume", "Video & Audio"],
-	["Backgrounds", "image", "Background Editor"], ["Favorites", "heart", "Replays & Misc"], ["Streamer", "radio", "Transfer"]]
-const SKINNING := [["Notes", "square", "Notes"], ["Hit Effects", "sparkles", "Meshes"], ["Borders", "square", "Background Editor"],
-	["Color Sets", "palette", "Colorsets"], ["Fonts", "list", "Fonts"], ["Skins", "folder", "Skins"]]
-const MORE := [["Settings Generator", "sparkles", "Generator"], ["VR", "eye", "VR"]]
+const GENERAL := [["System", "gear", "Gameplay"], ["Online", "user", "Online"], ["Interface", "interface", "UI"],
+	["Keybinds", "key_f", "Keybinds"], ["Cursor", "mouse", "World & Cursor"], ["Audio", "volume", "Video & Audio"],
+	["Backgrounds", "image", "Background Editor"], ["Favorites", "heart", "Replays & Misc"], ["Streamer", "clapper", "Transfer"]]
+const SKINNING := [["Notes", "note", "Notes"], ["Hit Effects", "sparkles", "Meshes"], ["Borders", "square_dashed", "Background Editor"],
+	["Color Sets", "palette", "Colorsets"], ["Fonts", "type", "Fonts"], ["Skins", "paint", "Skins"]]
+const MORE := [["Settings Generator", "wand", "Generator"], ["VR", "vr", "VR"]]
+const CARD_BG := Color("#111111")
+const CARD_EDGE := Color(1, 1, 1, 0.09)
+const TILE_BG := Color("#171717")
+const ICON_BG := Color("#191a36")
+const ICON_COL := Color("#8584b8")
 
 func _init(owner_ui):
 	ui = owner_ui
@@ -58,9 +65,11 @@ func _ready():
 	back_btn.add_child(MIcon.make("chevron_left", 16 * ui.k, ui.TEXT, 2.0))
 	back_btn.connect("pressed", self, "_back")
 	panel.add_child(back_btn)
+	head_pre = ui._label("", ui._font("ExtraBold", 15), Color("#9d9ca5"))
+	panel.add_child(head_pre)
 	head_title = ui._label("", ui._font("ExtraBold", 15))
 	panel.add_child(head_title)
-	head_sub = ui._label("", ui._font("SemiBold", 10), ui.DIM)
+	head_sub = ui._label("", ui._font("Bold", 12), Color("#b4b3bb"))
 	panel.add_child(head_sub)
 	var sc := ScrollContainer.new()
 	sc.name = "Scroll"
@@ -72,6 +81,11 @@ func _ready():
 	sc.add_child(body)
 	_tween = Tween.new()
 	add_child(_tween)
+	if not Rhythia.vr:
+		_preview = load("res://scripts/ui/settings/SettingsPreview.gd").new()
+		_preview.modern = true
+		_preview.k = ui.k
+		add_child(_preview)
 
 func _pw() -> float:
 	# (the classic Workshop and Multiplayer pages need more room than settings)
@@ -79,35 +93,63 @@ func _pw() -> float:
 		return clamp(ui.rect_size.x * 0.66, 380 * ui.k, ui.rect_size.x - 40 * ui.k)
 	return clamp(ui.rect_size.x * 0.36, 380 * ui.k, 520 * ui.k)
 
+# the panel: a header card and a body card, floating over the menu (like the video)
+const M := 15.0 # (margin, x k)
+const HEAD_Y := 20.0
+const HEAD_H := 56.0
+const BODY_Y := 85.0
+
+func _body_rect() -> Rect2:
+	var k: float = ui.k
+	return Rect2(M * k, BODY_Y * k, _pw() - M * k, ui.rect_size.y - BODY_Y * k - 21 * k)
+
 func layout():
 	var k: float = ui.k
 	var w := _pw()
-	panel.rect_size = Vector2(w, ui.rect_size.y)
+	panel.rect_size = Vector2(w + 4 * k, ui.rect_size.y)
 	if not _tween.is_active():
-		panel.rect_position = Vector2(0, 0) if visible else Vector2(-w, 0)
+		panel.rect_position = Vector2(0, 0) if visible else Vector2(-w - 4 * k, 0)
+	var hr := Rect2(M * k, HEAD_Y * k, w - M * k, HEAD_H * k)
 	var x = panel.get_node("Close")
-	x.rect_position = Vector2(w - 40 * k, 12 * k)
-	x.rect_size = Vector2(28, 28) * k
-	x.get_child(0).rect_position = Vector2(6, 6) * k
-	x.get_child(0).rect_size = Vector2(16, 16) * k
-	back_btn.rect_position = Vector2(w - 72 * k, 12 * k)
-	back_btn.rect_size = Vector2(28, 28) * k
+	x.rect_size = Vector2(30, 30) * k
+	x.rect_position = Vector2(hr.end.x - 40 * k, hr.position.y + 13 * k)
+	x.get_child(0).rect_position = Vector2(5, 5) * k
+	x.get_child(0).rect_size = Vector2(20, 20) * k
+	back_btn.rect_size = Vector2(30, 30) * k
+	back_btn.rect_position = Vector2(hr.end.x - 72 * k, hr.position.y + 13 * k)
 	back_btn.get_child(0).rect_position = Vector2(6, 6) * k
-	back_btn.get_child(0).rect_size = Vector2(16, 16) * k
-	head_title.rect_position = Vector2(16 * k, 10 * k)
-	head_sub.rect_position = Vector2(16 * k, 30 * k)
+	back_btn.get_child(0).rect_size = Vector2(18, 18) * k
+	var tx := hr.position.x + 13 * k
+	head_pre.rect_position = Vector2(tx, hr.position.y + 7 * k)
+	head_pre.visible = head_pre.text != ""
+	if head_pre.visible:
+		tx += head_pre.get_font("font").get_string_size(head_pre.text).x
+	head_title.rect_position = Vector2(tx, hr.position.y + 7 * k)
+	head_sub.rect_position = Vector2(hr.position.x + 13 * k, hr.position.y + 29 * k)
+	var br := _body_rect()
 	var sc = panel.get_node("Scroll")
-	sc.rect_position = Vector2(16 * k, 56 * k)
-	sc.rect_size = Vector2(w - 32 * k, ui.rect_size.y - 66 * k)
-	body.rect_min_size = Vector2(w - 40 * k, 0)
+	sc.rect_position = br.position + Vector2(12 * k, 12 * k)
+	sc.rect_size = br.size - Vector2(18 * k, 22 * k)
+	body.rect_min_size = Vector2(br.size.x - 30 * k, 0)
 	if _classic_on:
 		_place_classic()
+	if _preview != null:
+		_place_preview()
+
+func _place_preview():
+	var k: float = ui.k
+	var x := _pw() + 27 * k
+	var w: float = ui.rect_size.x - x - 27 * k
+	var h: float = min(ui.rect_size.y * 0.585, w * 0.62)
+	_preview.rect_position = Vector2(x, max(85 * k, ui.rect_size.y * 0.47 - h / 2))
+	_preview.rect_size = Vector2(w, h)
 
 func _draw_panel():
-	var s := panel.rect_size
-	panel.draw_rect(Rect2(Vector2(), s), Color("#100f14"))
-	panel.draw_rect(Rect2(s.x - 1, 0, 1, s.y), Color(1, 1, 1, 0.08))
-	panel.draw_rect(Rect2(0, 48 * ui.k, s.x, 1), Color(1, 1, 1, 0.06))
+	var k: float = ui.k
+	var w := _pw()
+	var sb = ui._flat(CARD_BG, 8 * k, CARD_EDGE, 1)
+	panel.draw_style_box(sb, Rect2(M * k, HEAD_Y * k, w - M * k, HEAD_H * k))
+	panel.draw_style_box(sb, _body_rect())
 
 func _on_dim(ev):
 	if ev is InputEventMouseButton and ev.pressed:
@@ -140,12 +182,28 @@ func _back():
 		open_profile(false)
 
 func _clear():
+	head_pre.text = ""
 	for c in body.get_children():
 		c.queue_free()
 
+const SUBS := {"System": "Core gameplay settings", "Online": "Your account, chat and spectators", "Interface": "Arrange your HUD and menus",
+	"Keybinds": "Keyboard shortcuts and controls", "Cursor": "Cursor behavior and feel", "Audio": "Timing, devices and volume",
+	"Backgrounds": "Backgrounds, panels and borders", "Favorites": "Replays and everything else", "Streamer": "Move your settings with a code",
+	"Notes": "Choose a note skin", "Hit Effects": "Choose a hit effect", "Borders": "Choose a border skin", "Color Sets": "Choose a color set",
+	"Fonts": "The game's fonts", "Skins": "Whole skins", "Settings Generator": "Make settings from a few questions", "VR": "Virtual reality",
+	"Export settings": "Save your settings", "Import settings": "Settings from a code"}
+
+# a heading with a line under it
 func _section(t: String):
-	var l = ui._label(t, ui._font("ExtraBold", 13))
+	var k: float = ui.k
+	var l = ui._label(t, ui._font("ExtraBold", 14), Color("#e9e8ee"))
+	l.rect_min_size = Vector2(0, 30 * k)
+	l.valign = Label.VALIGN_CENTER
+	l.connect("draw", self, "_draw_rule", [l])
 	body.add_child(l)
+
+func _draw_rule(l: Label):
+	l.draw_rect(Rect2(0, l.rect_size.y - 1, l.rect_size.x, 1), Color(1, 1, 1, 0.14))
 
 # ------------------------------------------------------------------ Settings
 
@@ -157,26 +215,54 @@ func open_settings(slide := true):
 	back_btn.visible = false
 	_clear()
 	var k: float = ui.k
-	# profiles, and the quick buttons
+	# the settings profile: its name (click for the list), rename, new, delete
+	var prow := HBoxContainer.new()
+	prow.add_constant_override("separation", int(5 * k))
+	body.add_child(prow)
+	var pf = ui._button(Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.08), 5)
+	pf.text = _profile_name()
+	pf.align = Button.ALIGN_LEFT
+	pf.clip_text = true
+	pf.size_flags_horizontal = SIZE_EXPAND_FILL
+	pf.rect_min_size = Vector2(0, 24 * k)
+	pf.add_font_override("font", ui._font("Bold", 10))
+	pf.add_color_override("font_color", ui.TEXT)
+	pf.hint_tooltip = "Your settings profiles"
+	var psb = pf.get_stylebox("normal")
+	if psb is StyleBoxFlat:
+		psb.content_margin_left = 8 * k
+		pf.get_stylebox("hover").content_margin_left = 8 * k
+	pf.connect("pressed", self, "_profile_menu")
+	prow.add_child(pf)
+	for ib in [["pencil", "Save your settings into this profile", "_profile_save"], ["plus", "New profile from your settings", "_profile_new"], ["minus", "Delete this profile", "_profile_delete"]]:
+		var bb = ui._button(Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.09), 5)
+		bb.rect_min_size = Vector2(24, 24) * k
+		bb.hint_tooltip = ib[1]
+		var ic = MIcon.make(ib[0], 12 * k, Color("#d9d8de"), 2.0)
+		ic.rect_position = Vector2(6, 6) * k
+		ic.rect_size = Vector2(12, 12) * k
+		bb.add_child(ic)
+		bb.connect("pressed", self, ib[2])
+		prow.add_child(bb)
+	# the quick buttons
 	var row := HBoxContainer.new()
-	row.add_constant_override("separation", int(6 * k))
+	row.add_constant_override("separation", int(5 * k))
 	body.add_child(row)
-	for b in [["Export settings", "Skins"], ["Import settings", "Transfer"], ["Profiles", "Gameplay"]]:
-		var btn = ui._button(Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.09), 5)
-		btn.text = b[0]
-		btn.size_flags_horizontal = SIZE_EXPAND_FILL
-		btn.rect_min_size = Vector2(0, 26 * k)
-		btn.add_font_override("font", ui._font("Bold", 10))
-		btn.add_color_override("font_color", Color("#d3d2d9"))
-		btn.connect("pressed", self, "_open_tab", [b[0], b[1]])
-		row.add_child(btn)
+	for b in [["Export settings", "_export"], ["Import settings", "_import_code"], ["Settings code", "_import_code"]]:
+		row.add_child(_small_btn(b[0], b[1]))
+	var imp = _small_btn("Import files", "_import_files")
+	imp.hint_tooltip = "Profiles, color sets and meshes from files"
+	body.add_child(imp)
 	var search := LineEdit.new()
 	search.placeholder_text = "Search settings"
-	search.add_font_override("font", ui._font("SemiBold", 11))
-	var ssb = ui._flat(Color(1, 1, 1, 0.05), 5)
+	search.add_font_override("font", ui._font("Bold", 11))
+	search.add_color_override("font_color_placeholder", Color("#8d8c95"))
+	var ssb = ui._flat(Color(1, 1, 1, 0.045), 5)
 	ssb.content_margin_left = 9 * k
 	search.add_stylebox_override("normal", ssb)
-	search.add_stylebox_override("focus", ui._flat(Color(1, 1, 1, 0.08), 5))
+	var fsb = ui._flat(Color(1, 1, 1, 0.07), 5)
+	fsb.content_margin_left = 9 * k
+	search.add_stylebox_override("focus", fsb)
 	search.rect_min_size = Vector2(0, 28 * k)
 	search.connect("text_changed", self, "_filter_tiles")
 	body.add_child(search)
@@ -201,27 +287,125 @@ func _tiles(title: String, items: Array):
 	for it in items:
 		if tc != null and not tc.has_node(it[2]):
 			continue
-		var b = ui._button(Color(1, 1, 1, 0.04), Color(1, 1, 1, 0.08), 6)
+		var b = ui._button(TILE_BG, Color("#1e1e1e"), 6)
+		for st in ["normal", "hover", "pressed"]:
+			var sb = b.get_stylebox(st)
+			if sb is StyleBoxFlat:
+				sb.border_color = Color(1, 1, 1, 0.06 if st == "normal" else 0.12)
+				sb.set_border_width_all(1)
 		b.name = it[0]
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
-		b.rect_min_size = Vector2(0, 38 * k)
+		b.rect_min_size = Vector2(0, 52 * k)
 		b.connect("pressed", self, "_open_tab", [it[0], it[2]])
-		var ic = MIcon.make(it[1], 17 * k, Color("#8fa6ff"), 1.8)
-		ic.rect_position = Vector2(10, 10.5) * k
-		ic.rect_size = Vector2(17, 17) * k
-		b.add_child(ic)
-		var l = ui._label(it[0], ui._font("Bold", 12), Color("#e5e4ea"))
-		l.rect_position = Vector2(36 * k, 10 * k)
+		var sq := Control.new()
+		sq.mouse_filter = MOUSE_FILTER_IGNORE
+		sq.rect_position = Vector2(11, 11) * k
+		sq.rect_size = Vector2(30, 30) * k
+		sq.connect("draw", self, "_draw_icon_sq", [sq])
+		b.add_child(sq)
+		var ic = MIcon.make(it[1], 19 * k, ICON_COL, 2.0)
+		ic.rect_position = Vector2(5.5, 5.5) * k
+		ic.rect_size = Vector2(19, 19) * k
+		sq.add_child(ic)
+		var l = ui._label(it[0], ui._font("ExtraBold", 13), Color("#ecebf0"))
+		l.rect_position = Vector2(51 * k, 16 * k)
 		b.add_child(l)
-		var ch = MIcon.make("chevron_right", 12 * k, Color("#77767f"), 2.0)
+		var ch = MIcon.make("chevron_right", 13 * k, Color("#c9c8cf"), 2.0)
 		ch.anchor_left = 1
 		ch.anchor_right = 1
-		ch.margin_left = -24 * k
-		ch.margin_right = -12 * k
-		ch.margin_top = 13 * k
-		ch.margin_bottom = 25 * k
+		ch.margin_left = -28 * k
+		ch.margin_right = -15 * k
+		ch.margin_top = 19.5 * k
+		ch.margin_bottom = 32.5 * k
 		b.add_child(ch)
 		g.add_child(b)
+
+# the dark blue square behind a tile's icon, with a soft diagonal sheen
+func _draw_icon_sq(c: Control):
+	var k: float = ui.k
+	var r := Rect2(Vector2(), c.rect_size)
+	c.draw_style_box(ui._flat(ICON_BG, 3 * k, Color(0, 0, 0, 0.6), 1), r)
+	var s := c.rect_size
+	c.draw_colored_polygon(PoolVector2Array([Vector2(s.x * 0.45, s.y - 1), Vector2(s.x - 1, s.y * 0.45), Vector2(s.x - 1, s.y * 0.75), Vector2(s.x * 0.75, s.y - 1)]), Color(1, 1, 1, 0.035))
+
+func _small_btn(t: String, method: String) -> Button:
+	var k: float = ui.k
+	var btn = ui._button(Color(1, 1, 1, 0.045), Color(1, 1, 1, 0.09), 4)
+	btn.text = t
+	btn.size_flags_horizontal = SIZE_EXPAND_FILL
+	btn.rect_min_size = Vector2(0, 19 * k)
+	btn.add_font_override("font", ui._font("Bold", 8))
+	btn.add_color_override("font_color", Color("#e2e1e7"))
+	btn.connect("pressed", self, method)
+	return btn
+
+# --- settings profiles (the classic Presets button, Profiles.gd, does the work)
+
+func _presets():
+	var pr = Rhythia.menu_node("Main/Settings/Header/TopButtons/TopButtonsHBox/Presets")
+	if pr == null:
+		pr = Rhythia.menu_node("Main/Settings/S/F/TopButtons/TopButtonsHBox/Presets")
+	if pr == null:
+		var l = get_tree().get_nodes_in_group("settings_profiles")
+		pr = l[0] if l.size() > 0 else null
+	return pr
+
+func _profile_name() -> String:
+	var p := String(Rhythia.get_active_profile_path())
+	if p == "":
+		return "Default"
+	return p.get_file().replace(".settings.json", "")
+
+func _profile_menu():
+	var pr = _presets()
+	if pr is MenuButton:
+		pr.emit_signal("about_to_show")
+		var pop: PopupMenu = pr.get_popup()
+		pop.rect_size = Vector2()
+		pop.popup(Rect2(get_global_mouse_position(), Vector2(1, 1)))
+
+func _profile_save():
+	var p := String(Rhythia.get_active_profile_path())
+	if p == "" or not File.new().file_exists(p):
+		_profile_new()
+		return
+	Rhythia.save_settings(p)
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Saved your settings into %s." % _profile_name(), "Settings profile")
+
+func _profile_new():
+	var pr = _presets()
+	if pr != null and pr.get("profiles") != null:
+		pr.on_pressed(pr.profiles.size() + 1)
+
+func _profile_delete():
+	var pr = _presets()
+	var p := String(Rhythia.get_active_profile_path())
+	if pr == null or pr.get("profiles") == null or p == "":
+		Globals.notify(Globals.NOTIFY_INFO, "You're on the default settings: there's no profile to delete.", "Settings profile")
+		return
+	for i in pr.profiles.size():
+		if String(pr.profiles[i]).replace("\\", "/").get_file() == p.get_file():
+			Globals.confirm_prompt.open("Delete the profile %s?" % _profile_name(), "Delete profile", [{text = "Delete"}, {text = "Cancel", wait = 0}])
+			var r = yield(Globals.confirm_prompt, "option_selected")
+			Globals.confirm_prompt.close()
+			if r == 0:
+				pr.delete_profile(i)
+				Rhythia.set_active_profile_path("")
+				open_settings(false)
+			return
+
+func _export():
+	var pr = _presets()
+	if pr != null and pr.has_method("export_profile"):
+		pr.export_profile()
+
+func _import_files():
+	var pr = _presets()
+	if pr != null and pr.has_method("import_profile"):
+		pr.import_profile()
+
+func _import_code():
+	_open_tab("Streamer", "Transfer")
 
 func _filter_tiles(t: String):
 	t = t.to_lower().strip_edges()
@@ -244,16 +428,126 @@ func _open_tab(title: String, tab: String):
 	if tc == null or not tc.has_node(tab):
 		return
 	showing = "settings:" + tab
-	head_title.text = "Settings  >  " + title
-	head_sub.text = ""
+	head_title.text = title
+	head_sub.text = SUBS.get(title, "")
 	back_btn.visible = true
 	_clear()
+	head_pre.text = "Settings  >  "
 	tc.current_tab = tc.get_node(tab).get_index()
 	tc.tabs_visible = false
 	_show_classic()
 	layout()
 
 var _page_name := "Settings"
+var _main_min := Vector2(1220, 0)
+var _f_min = null # (Main/Settings/S/F's own minimum width, given back after)
+var _themed := [] # [node, its own theme]: given back after
+var _modern_theme: Theme
+
+# the settings controls in the Modern UI's look (dark rounded boxes, slim
+# sliders with a white knob, Nunito), for the controls that don't set their own
+func _theme() -> Theme:
+	if _modern_theme != null:
+		return _modern_theme
+	var k: float = ui.k
+	var th := Theme.new()
+	th.default_font = ui._font("Bold", 11)
+	var box = ui._flat(Color("#1b1b1b"), 5 * k)
+	box.content_margin_left = 8 * k
+	box.content_margin_right = 8 * k
+	box.content_margin_top = 4 * k
+	box.content_margin_bottom = 4 * k
+	var box_f = box.duplicate()
+	box_f.bg_color = Color("#222222")
+	box_f.border_color = Color(1, 1, 1, 0.18)
+	box_f.set_border_width_all(1)
+	for t in ["LineEdit", "TextEdit"]:
+		th.set_stylebox("normal", t, box)
+		th.set_stylebox("focus", t, box_f)
+		th.set_stylebox("read_only", t, box)
+		th.set_color("font_color", t, Color("#ecebf0"))
+		th.set_color("cursor_color", t, Color(1, 1, 1))
+	var btn = ui._flat(Color("#1d1d1d"), 5 * k, Color(1, 1, 1, 0.07), 1)
+	btn.content_margin_left = 10 * k
+	btn.content_margin_right = 10 * k
+	btn.content_margin_top = 4 * k
+	btn.content_margin_bottom = 4 * k
+	var btn_h = btn.duplicate()
+	btn_h.bg_color = Color("#262626")
+	var btn_p = btn.duplicate()
+	btn_p.bg_color = Color("#2e2e2e")
+	for t in ["Button", "OptionButton", "MenuButton", "ColorPickerButton"]:
+		th.set_stylebox("normal", t, btn)
+		th.set_stylebox("hover", t, btn_h)
+		th.set_stylebox("pressed", t, btn_p)
+		th.set_stylebox("focus", t, StyleBoxEmpty.new())
+		th.set_stylebox("disabled", t, btn)
+		th.set_color("font_color", t, Color("#ecebf0"))
+		th.set_color("font_color_hover", t, Color(1, 1, 1))
+	for t in ["CheckBox", "CheckButton"]:
+		for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+			th.set_stylebox(st, t, StyleBoxEmpty.new())
+		th.set_color("font_color", t, Color("#ecebf0"))
+		th.set_color("font_color_hover", t, Color(1, 1, 1))
+		th.set_color("font_color_pressed", t, Color(1, 1, 1))
+	th.set_color("font_color", "Label", Color("#ecebf0"))
+	# sliders: a thin grey track, white where it's filled, a round white knob
+	var track = ui._flat(Color("#3a3a3a"), 2 * k)
+	track.content_margin_top = 2 * k
+	track.content_margin_bottom = 2 * k
+	var fill = ui._flat(Color("#f2f2f2"), 2 * k)
+	fill.content_margin_top = 2 * k
+	fill.content_margin_bottom = 2 * k
+	th.set_stylebox("slider", "HSlider", track)
+	th.set_stylebox("grabber_area", "HSlider", fill)
+	th.set_stylebox("grabber_area_highlight", "HSlider", fill)
+	var knob := _knob(int(round(14 * k)))
+	th.set_icon("grabber", "HSlider", knob)
+	th.set_icon("grabber_highlight", "HSlider", knob)
+	var sep := StyleBoxLine.new()
+	sep.color = Color(1, 1, 1, 0.12)
+	sep.thickness = 1
+	th.set_stylebox("separator", "HSeparator", sep)
+	th.set_constant("separation", "HSeparator", int(18 * k))
+	# panels in the page: the video's dark rounded cards
+	th.set_stylebox("panel", "PanelContainer", ui._flat(Color("#161616"), 6 * k, Color(1, 1, 1, 0.06), 1))
+	var bar = ui._flat(Color(1, 1, 1, 0.22), 2)
+	for st in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		th.set_stylebox(st, "VScrollBar", bar)
+	var emp := StyleBoxEmpty.new()
+	emp.content_margin_left = 3 * k
+	emp.content_margin_right = 3 * k
+	th.set_stylebox("scroll", "VScrollBar", emp)
+	_modern_theme = th
+	return th
+
+# the page and every part of it that has a theme of its own get this one
+func _swap_themes(n: Node):
+	if n is Control and (n.theme != null or n.name == "Settings"):
+		_themed.append([n, n.theme])
+		n.theme = _theme()
+	# (dark text made for the classic light buttons: light here, on the dark ones)
+	if n is Button and n.has_color_override("font_color"):
+		var c: Color = n.get_color("font_color")
+		if c.v < 0.45:
+			_themed.append([n, "font_color", c])
+			n.add_color_override("font_color", Color("#ecebf0"))
+	for c in n.get_children():
+		_swap_themes(c)
+
+func _knob(px: int) -> ImageTexture:
+	var img := Image.new()
+	img.create(px, px, false, Image.FORMAT_RGBA8)
+	img.lock()
+	var c := (px - 1) / 2.0
+	for y in px:
+		for x in px:
+			var d := Vector2(x - c, y - c).length()
+			img.set_pixel(x, y, Color(1, 1, 1, clamp(px / 2.0 - d, 0.0, 1.0)))
+	img.unlock()
+	var t := ImageTexture.new()
+	t.create_from_image(img, Texture.FLAG_FILTER)
+	return t
 func _show_classic(page_name := "Settings"):
 	_page_name = page_name
 	var main = Rhythia.menu_node("Main")
@@ -263,7 +557,11 @@ func _show_classic(page_name := "Settings"):
 		return
 	if not _classic_on:
 		_classic_rect = Rect2(main.rect_position, main.rect_size)
+		_main_min = main.rect_min_size
 	_classic_on = true
+	main.rect_min_size = Vector2() # (the classic menu wants 1220 wide: here it's the panel's width)
+	if page_name == "Settings" and _themed.empty():
+		_swap_themes(page)
 	if sb != null and sb.has_method("press_page"):
 		sb.press_page(page)
 	ui._classic(false) # (press_page shows the version labels again)
@@ -280,8 +578,22 @@ func _show_classic(page_name := "Settings"):
 
 # (the classic page's header comes back on its own timer: kept away while in the panel)
 func _process(_d):
+	if _preview != null:
+		var on: bool = visible and showing.begins_with("settings") and ui.rect_size.x - _pw() > 360 * ui.k
+		if _preview.modern_on != on:
+			_preview.modern_on = on
+			if on:
+				_place_preview()
+		_preview.modulate.a = clamp(1.0 + (panel.rect_position.x / max(1.0, _pw())) * 1.5, 0.0, 1.0)
+	if _classic_on:
+		_place_classic() # (follows the panel as it slides)
 	if not _classic_on or _page_name != "Settings":
 		return
+	var f = Rhythia.menu_node("Main/Settings/S/F")
+	if f != null and f.rect_min_size.x > 0:
+		if _f_min == null:
+			_f_min = f.rect_min_size
+		f.rect_min_size = Vector2(0, f.rect_min_size.y)
 	var page = Rhythia.menu_node("Main/Settings")
 	if page == null:
 		return
@@ -299,8 +611,9 @@ func _place_classic():
 	var k: float = ui.k
 	main.anchor_right = 0
 	main.anchor_bottom = 0
-	main.rect_position = Vector2(8 * k, 52 * k)
-	main.rect_size = Vector2(_pw() - 14 * k, ui.rect_size.y - 58 * k)
+	var br := _body_rect()
+	main.rect_position = br.position + Vector2(4, 6) * k + Vector2(panel.rect_position.x, 0)
+	main.rect_size = br.size - Vector2(8, 12) * k
 
 func _hide_classic():
 	if not _classic_on:
@@ -319,7 +632,19 @@ func _hide_classic():
 			if sc != null:
 				sc.margin_top = _scroll_top
 	Rhythia.save_settings()
+	for e in _themed:
+		if is_instance_valid(e[0]):
+			if e[1] is String:
+				e[0].add_color_override(e[1], e[2]) # (a button's dark text, given back)
+			else:
+				e[0].theme = e[1]
+	_themed = []
+	var f = Rhythia.menu_node("Main/Settings/S/F")
+	if f != null and _f_min != null:
+		f.rect_min_size = _f_min
+		_f_min = null
 	if main != null:
+		main.rect_min_size = _main_min
 		main.anchor_right = 1
 		main.anchor_bottom = 1
 		main.margin_left = 0

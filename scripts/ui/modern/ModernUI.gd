@@ -73,6 +73,7 @@ var scroll := 0.0
 var scroll_to := 0.0
 var vbar: VScrollBar
 var panels # ModernPanels.gd
+var online # ModernOnline.gd (the Online Players window)
 
 # the classic menu's parts drawn over the page area, hidden while this is on
 const CLASSIC_HIDE := ["Quit", "SidebarClick", "Sidebar", "VersionNumber", "VersionNumberB"]
@@ -199,6 +200,8 @@ func _on_resize():
 		_on_song(Rhythia.selected_song)
 		_reload_maps()
 	_layout()
+	if online != null and is_instance_valid(online):
+		online.layout()
 
 func _build():
 	# the background: the selected cover, blurred and dark
@@ -227,8 +230,10 @@ func _build():
 	panels = load("res://scripts/ui/modern/ModernPanels.gd").new(self)
 	panels.name = "Panels"
 	add_child(panels)
+	online = load("res://scripts/ui/modern/ModernOnline.gd").new(self)
+	add_child(online)
 
-	# (bottom right: the Spectate button with the chat, from the classic menu: it stays on top)
+	# (bottom right: the people button (SpectatePage.gd, on its own layer) opens `online`)
 
 func _draw_shade():
 	var s := bg_shade.rect_size
@@ -1052,24 +1057,35 @@ func _on_pic(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, ur
 	var img := Image.new()
 	if img.load_png_from_buffer(body) != OK and img.load_jpg_from_buffer(body) != OK and img.load_webp_from_buffer(body) != OK:
 		return
-	# (a round picture)
-	img.resize(64, 64, Image.INTERPOLATE_BILINEAR)
-	img.convert(Image.FORMAT_RGBA8)
-	img.lock()
-	for y in 64:
-		for x in 64:
-			var d := Vector2(x - 31.5, y - 31.5).length()
-			if d > 31.5:
-				var cc := img.get_pixel(x, y)
-				cc.a = clamp(32.5 - d, 0.0, 1.0)
-				img.set_pixel(x, y, cc)
-	img.unlock()
-	var t := ImageTexture.new()
-	t.create_from_image(img)
+	var t := _round_tex(img, 128)
 	_pics[url] = t
 	if is_instance_valid(row):
 		row.set_meta("pic", t)
 		row.update()
+
+# a picture made round (smooth edge), sharp when drawn small or large
+static func _round_tex(img: Image, px: int) -> ImageTexture:
+	var im: Image = img.duplicate()
+	im.convert(Image.FORMAT_RGBA8)
+	# square, from the middle
+	var side: int = min(im.get_width(), im.get_height())
+	if im.get_width() != im.get_height():
+		im = im.get_rect(Rect2((im.get_width() - side) / 2, (im.get_height() - side) / 2, side, side))
+	im.resize(px, px, Image.INTERPOLATE_LANCZOS if side > px else Image.INTERPOLATE_CUBIC)
+	var c := (px - 1) / 2.0
+	var rad := px / 2.0
+	im.lock()
+	for y in px:
+		for x in px:
+			var d := Vector2(x - c, y - c).length()
+			if d > rad - 1.5:
+				var cc := im.get_pixel(x, y)
+				cc.a *= clamp((rad - d) / 1.5, 0.0, 1.0)
+				im.set_pixel(x, y, cc)
+	im.unlock()
+	var t := ImageTexture.new()
+	t.create_from_image(im, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+	return t
 
 func _load_pb(s):
 	for c in pb_row.get_children():
@@ -1106,8 +1122,9 @@ func _load_me():
 	var lm = get_node_or_null("/root/LobbyManager")
 	var nm: String = ScoreHistory.player_name()
 	name_l.text = nm if nm != "" else "You"
-	var rp: float = preload("res://scripts/RhythiaPoints.gd").get_store().total()
-	rp_l.text = "%d RP" % int(round(rp))
+	var rp: float = 0.0
+	if rp_l.text == "":
+		rp_l.text = "- SP"
 	var n: int = int(lm.my_player_number) if lm != null else -1
 	if n <= 0:
 		get_tree().create_timer(5.0).connect("timeout", self, "_load_me")
@@ -1126,8 +1143,9 @@ func _on_me(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, rp:
 	if not (p is Dictionary):
 		return
 	name_l.text = Globals.s(p.get("name", name_l.text))
-	var rank = p.get("sp_rank", p.get("xp_rank", null))
-	rp_l.text = "%d RP" % int(round(rp)) + (("  #%s" % String(rank)) if rank != null else "")
+	# (the server's SP and your place on the SP leaderboard)
+	var rank = p.get("sp_rank", null)
+	rp_l.text = "%d SP" % int(round(float(p.get("sp", 0)))) + (("  #%s" % String(rank)) if rank != null else "")
 	var av := Globals.s(p.get("avatar_url", ""))
 	if av != "":
 		var holder := Control.new()

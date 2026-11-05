@@ -175,6 +175,8 @@ func _apply_settings(spawn: Spatial):
 	var name_l = hud.get_node_or_null("TimerVP/Control/SongName")
 	if name_l != null:
 		name_l.text = String(Rhythia.selected_song.name) if Rhythia.selected_song != null else "Settings preview"
+		if Rhythia.get("modern_ui") == true:
+			name_l.text = "Watching Auto play Settings Preview" # (the Modern UI's preview, like the video)
 	var mods = hud.get_node_or_null("EnergyVP/Control/Modifiers/Text")
 	if mods != null:
 		mods.text = ""
