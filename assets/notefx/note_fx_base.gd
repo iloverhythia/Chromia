@@ -1,7 +1,10 @@
 extends Spatial
 # Shared logic for the SS+ particle note effects (ripple / shards / miss).
 # NoteManager keeps one hidden, set-up "template" instance of the selected effect
-# and duplicate()s it per hit/miss. Duplicates share the template's material, so
+# and duplicate()s it per hit/miss. A finished copy goes back to NoteManager's
+# pool (_pool) and is used again for a later hit instead of being freed: making
+# a copy per hit was most of the cost of a hit, which at high speeds (several
+# hits a frame) slowed the game down, in VR most. Duplicates share the template's material, so
 # rainbow colouring only has to be updated once per frame (by the template).
 # Every spawned copy frees itself when its one-shot particles finish (with a
 # time-based fallback, e.g. for renderers where GPU particles never finish).
@@ -17,6 +20,8 @@ var rainbow: bool = false
 var _life: float = 0.0
 var _max_life: float = 2.0
 var _free_in: int = 0 # frames left before a finished copy is freed
+var _pool = null # (NoteManager's Array of finished copies, when it keeps them)
+const POOL_MAX := 32
 
 func _ready():
 	if not active: set_process(rainbow)
@@ -31,6 +36,10 @@ func _process(delta):
 			# never deleted while the render thread may still be using them.
 			active = false
 			visible = false
+			if _pool is Array and _pool.size() < POOL_MAX:
+				set_process(false)
+				_pool.append(self)
+				return
 			_free_in = 4
 	elif _free_in > 0:
 		_free_in -= 1
@@ -85,11 +94,18 @@ func spawn(parent: Node, pos: Vector3, col: Color, id: String, miss: bool):
 	if color_id != "" and id == color_id:
 		$Particles.material_override = get_color_mat(parent, col, miss)
 	transform.origin = pos
-	parent.add_child(self)
+	if get_parent() != parent:
+		if get_parent() != null:
+			get_parent().remove_child(self)
+		parent.add_child(self)
 	visible = true
 	_life = 0.0
+	_free_in = 0
 	_max_life = $Particles.lifetime / max($Particles.speed_scale, 0.01) * 2.0 + 0.5
-	$Particles.emitting = true
+	if $Particles.has_method("restart"):
+		$Particles.restart() # (a reused copy starts over)
+	else:
+		$Particles.emitting = true
 	active = true
 	set_process(true)
 

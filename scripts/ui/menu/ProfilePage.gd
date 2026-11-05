@@ -13,6 +13,7 @@ var avatar_rect: TextureRect
 var name_label: Label
 var tag_label: Label
 var motd_badge: Label # Map of the Day: how many days' maps completed
+var _badges_holder: VBoxContainer # your badges (BadgeRow.gd), the Map of the Day one included
 var rank_label: Label
 var stats_label: Label
 var status_label: Label
@@ -100,6 +101,8 @@ func _ready():
 	motd_badge = _label("", 16, Color(1, 0.9, 0.05))
 	motd_badge.visible = false
 	names.add_child(motd_badge)
+	_badges_holder = VBoxContainer.new()
+	names.add_child(_badges_holder)
 	rank_label = _label("", 20, Color(1, 0.75, 0.85))
 	names.add_child(rank_label)
 
@@ -368,7 +371,15 @@ func _show_profile(p: Dictionary):
 	motd_badge.text = "MAP OF THE DAY  x%d" % motd
 	motd_badge.hint_tooltip = "Completed %d Map%s of the Day" % [motd, "" if motd == 1 else "s"]
 	motd_badge.mouse_filter = Control.MOUSE_FILTER_PASS
-	motd_badge.visible = motd > 0
+	motd_badge.visible = false # (it's a chip in the badge row now)
+	for ch in _badges_holder.get_children():
+		ch.queue_free()
+	var f := DynamicFont.new()
+	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	f.size = 15
+	_badges_holder.add_child(load("res://scripts/ui/BadgeRow.gd").make(p, f, 1.0))
+	if p.get("badge_list") is Array:
+		tag_label.visible = false # (the tag is one of the badges, as on the website)
 	rank_label.text = "#%s SP   •   #%s XP%s" % [Globals.s(p.get("sp_rank", "-")), Globals.s(p.get("xp_rank", "-")), "   •   ranker" if p.get("is_ranker", false) else ""]
 	stats_label.text = "%s SP     %s XP\n%s passes on %s maps%s" % [
 		_fmt(p.get("sp", 0)), _fmt(p.get("xp", 0)),

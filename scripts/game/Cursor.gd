@@ -147,11 +147,19 @@ func get_absolute_position():
 
 func _input(event: InputEvent):
 	if not Rhythia.replaying and not Rhythia.vr:
-		if can_switch_move_modes:
-			if event is InputEventJoypadMotion:
+		# A controller only takes over when it's allowed (Settings > Disable
+		# Controller off) and a stick is really pushed: a plugged-in pad's
+		# resting drift or a trigger used to switch to it at the song start,
+		# which put the cursor in the middle and kept the mouse from moving it.
+		if Rhythia.ignore_controller_detection:
+			move_mode = C_MOUSE
+		elif can_switch_move_modes:
+			if event is InputEventJoypadMotion and event.axis <= JOY_AXIS_3 and abs(event.axis_value) > 0.5:
 				move_mode = C_JOYSTICK
 			elif event is InputEventMouseMotion:
 				move_mode = C_MOUSE
+		elif move_mode == C_JOYSTICK and event is InputEventMouseMotion and event.relative.length() > 2.0:
+			move_mode = C_MOUSE # (the mouse moved: it's the mouse after all)
 
 		if move_mode == C_JOYSTICK:
 			var v_strength = (Input.get_action_strength("joy_up") + (Input.get_action_strength("joy_down") * -1)) * -1
@@ -162,7 +170,7 @@ func _input(event: InputEvent):
 				move_cursor_abs((relative + off) * -1)
 			else:
 				move_cursor_abs(relative + off)
-		elif not Rhythia.get("cam_unlock") and move_mode == C_MOUSE:
+		elif not Rhythia.spin_now() and move_mode == C_MOUSE:
 			visible = true
 			if (event is InputEventMouseMotion):
 				_face_accum += event.relative

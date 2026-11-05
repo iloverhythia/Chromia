@@ -9,6 +9,7 @@ func upd():
 		Rhythia.note_spin_z = value
 
 func _process(_d):
+	if Rhythia.has_meta("spec_backup"): return # (watching with their settings: the box would put yours back)
 	if name == "NoteSpinX":
 		if value != Rhythia.note_spin_x: upd()
 	elif name == "NoteSpinY":

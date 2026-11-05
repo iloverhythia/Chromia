@@ -417,6 +417,63 @@ func _process(delta):
 	else:
 		$Pointer.visible = false
 		$PointerTrail.emitting = false
+	_off_hand_typing()
+
+# Both hands type: while the keyboard is up, the other hand's beam is on too,
+# and its trigger presses the key it points at (the main hand still works the
+# menu as before, keyboard included).
+var _kb = null
+var _off_dot: MeshInstance = null
+var _off_was_down := false
+var _off_on := false
+const TRIGGER := 15 # (JOY_VR_TRIGGER)
+
+func _off_hand_typing():
+	var vp = Rhythia.vr_player
+	if vp == null:
+		return
+	if _kb == null or not is_instance_valid(_kb):
+		_kb = viewport.find_node("VRKeyboard", true, false)
+	var off_ray: RayCast = vp.right_ray if vp.primary_ray == vp.left_ray else vp.left_ray
+	var off_hand = vp.right_hand if off_ray == vp.right_ray else vp.left_hand
+	var up: bool = _kb != null and _kb.panel != null and _kb.panel.visible and off_ray != null
+	if up != _off_on:
+		_off_on = up
+		if off_ray != null:
+			off_ray.enabled = up
+		if not up:
+			if _off_dot != null:
+				_off_dot.visible = false
+			if _kb != null and is_instance_valid(_kb):
+				_kb.light_off_hand(null)
+	if not up:
+		return
+	if not off_ray.enabled:
+		off_ray.enabled = true # (hands swapped while typing)
+	off_ray.force_raycast_update()
+	if off_ray.has_method("update_beam"):
+		off_ray.update_beam()
+	var key = null
+	if off_ray.is_colliding() and off_ray.get_collider() == self:
+		var p: Vector3 = off_ray.get_collision_point()
+		var uv := _uv(global_transform.xform_inv(p))
+		key = _kb.key_at(Vector2(round(uv.x * LAYOUT.x), round(uv.y * LAYOUT.y)))
+		if _off_dot == null:
+			_off_dot = $Pointer.duplicate(0)
+			_off_dot.name = "OffHandPointer"
+			add_child(_off_dot)
+		var face: Basis = global_transform.basis * Basis(Vector3.UP, -uv.z)
+		_off_dot.global_transform = Transform(face.orthonormalized(), p + face.z.normalized() * 0.004)
+		_off_dot.scale = $Pointer.scale
+		_off_dot.visible = true
+		busy()
+	elif _off_dot != null:
+		_off_dot.visible = false
+	_kb.light_off_hand(key)
+	var down: bool = off_hand != null and off_hand.has_method("is_button_pressed") and off_hand.is_button_pressed(TRIGGER)
+	if down and not _off_was_down and key != null:
+		key.emit_signal("pressed")
+	_off_was_down = down
 
 func _ready():
 	# the menu screen keeps its own "input handled" state: with the main

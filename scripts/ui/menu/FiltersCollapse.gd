@@ -24,7 +24,7 @@ func _ready():
 		return
 	title.mouse_filter = Control.MOUSE_FILTER_STOP
 	title.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	title.hint_tooltip = "Click to hide / show the filters"
+	title.hint_tooltip = "Click to hide / show the difficulties"
 	title.connect("gui_input", self, "_on_title_input")
 	var cfg = ConfigFile.new()
 	if cfg.load(PREFS) == OK and bool(cfg.get_value("maps", "filters_collapsed", false)):
@@ -45,7 +45,7 @@ func _set_collapsed(on: bool):
 	if on:
 		_hidden.clear()
 		for c in filters.get_children():
-			if c is Control and c != title and c.name != "bump" and c.visible:
+			if c is Control and c != title and c.name != "bump" and c.visible and not c.is_set_as_toplevel():
 				c.visible = false
 				_hidden.append(c)
 	else:
@@ -60,4 +60,4 @@ func _set_collapsed(on: bool):
 	_update_title()
 
 func _update_title():
-	title.text = "Filters  +" if collapsed else "Filters  −"
+	title.text = "Difficulties  +" if collapsed else "Difficulties  −"

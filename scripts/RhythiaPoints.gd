@@ -51,6 +51,13 @@ func load_data():
 					plays[str(id)] = p
 	_sorted_cache = null
 
+# Every offline RP play forgotten: RP back to 0 (Profile > Reset RP)
+func reset():
+	plays = {}
+	_sorted_cache = null
+	save()
+	emit_signal("changed")
+
 func save():
 	var f := File.new()
 	if f.open(Globals.p(SAVE_PATH), File.WRITE) == OK:

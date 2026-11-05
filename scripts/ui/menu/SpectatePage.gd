@@ -314,6 +314,8 @@ func _ready():
 	if _lm != null:
 		_lm.connect("global_chat_message_received", self, "_on_chat_message")
 		_lm.connect("chat_ban_changed", self, "_on_chat_ban")
+		if _lm.has_signal("chat_reactions_changed"):
+			_lm.connect("chat_reactions_changed", self, "_on_chat_reactions")
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -371,6 +373,7 @@ func _notify_chat(client_id: String, name: String, text: String):
 		return
 	var max_w := 300.0 * _k
 	notice_name.text = _fit(name, font_bold, max_w * 0.4) + ":"
+	text = preload("res://scripts/ui/ChatCommands.gd").plain(text)
 	notice_text.text = _fit(text, font_regular, max_w - font_bold.get_string_size(notice_name.text).x)
 	notice.rect_size = Vector2()
 	notice.visible = true
@@ -553,7 +556,7 @@ func _build_window():
 	row.add_constant_override("separation", 8)
 	cv.add_child(row)
 	chat_input = LineEdit.new()
-	chat_input.placeholder_text = "Write a message..."
+	chat_input.placeholder_text = "Write a message... (/help for commands)"
 	chat_input.size_flags_horizontal = SIZE_EXPAND_FILL
 	chat_input.max_length = 300
 	_style_field(chat_input)
@@ -561,6 +564,13 @@ func _build_window():
 	chat_input.connect("text_entered", self, "_on_chat_entered")
 	row.add_child(chat_input)
 	preload("res://scripts/ui/ChatMention.gd").attach(chat_input, _lm) # (@ + Tab: names)
+	var emo: Button = preload("res://scripts/ui/ChatReactions.gd").picker_button(chat_input, int(20 * _k))
+	_style_button(emo)
+	emo.add_stylebox_override("normal", _pad(_flat(BTN_BG, 3), 8, 5))
+	emo.add_stylebox_override("hover", _pad(_flat(BTN_HOVER, 3), 8, 5))
+	emo.add_stylebox_override("pressed", _pad(_flat(BTN_HOVER, 3), 8, 5))
+	emo.rect_min_size = Vector2(40, 34) * _k
+	row.add_child(emo)
 	chat_send = Button.new()
 	chat_send.text = "Send"
 	_style_button(chat_send, true)
@@ -948,11 +958,26 @@ func _make_card() -> Dictionary:
 	heart.margin_top = -20 * _k
 	box.add_child(heart)
 
+	# bottom left: "..." opens the menu (View stats, Spectate, their profile),
+	# like right-clicking the card; a label, the card takes the click
+	var dots := _label("•••", font_bold, DIM)
+	dots.anchor_top = 1.0
+	dots.anchor_bottom = 1.0
+	dots.margin_left = 0
+	dots.margin_right = 28 * _k
+	dots.margin_top = -22 * _k
+	dots.align = Label.ALIGN_CENTER
+	dots.valign = Label.VALIGN_CENTER
+	dots.mouse_filter = MOUSE_FILTER_IGNORE
+	dots.hint_tooltip = "View stats, spectate, profile"
+	box.add_child(dots)
+
 	# bottom left: how many are watching them (hidden at 0)
 	var watching := _label("", font_tiny, DIM)
 	watching.anchor_top = 1.0
 	watching.anchor_bottom = 1.0
 	watching.grow_vertical = GROW_DIRECTION_BEGIN
+	watching.margin_left = 32 * _k # (right of the "...")
 	watching.mouse_filter = MOUSE_FILTER_IGNORE
 	watching.visible = false
 	box.add_child(watching)
@@ -971,7 +996,7 @@ func _make_card() -> Dictionary:
 	alt.visible = false
 	box.add_child(alt)
 
-	var c := {"alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+	var c := {"dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
@@ -990,6 +1015,7 @@ func _card_style(c: Dictionary):
 	c.heart.texture = _heart_on if fav else _heart_off
 	# the heart shows on a favourite, or while you point at the card
 	c.heart.visible = not c.is_you and (fav or c.hover)
+	c.dots.add_color_override("font_color", TEXT if c.hover else FAINT)
 	var tw := _cw - 22.0 * _k
 	c.name.text = _fit(c.name_full, font_name, tw)
 	c.status.text = _fit(c.status_full, font_small, tw)
@@ -1051,7 +1077,7 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var playing := status == "playing"
 	var song := String(p.get("song_name", ""))
 	if playing:
-		c.status_full = "Playing " + (song if song != "" else "a map")
+		c.status_full = "Playing " + (song if song != "" else "a map") + ("  ·  Spin" if bool(p.get("spin", false)) else "")
 		c.status.add_color_override("font_color", PLAYING)
 	elif status == "afk" or status == "away":
 		c.status_full = "AFK"
@@ -1074,6 +1100,8 @@ func _fill_card(c: Dictionary, p: Dictionary):
 		var d := int(p.get("difficulty", -1))
 		if d >= 0 and d < DIFF_NAMES.size():
 			bits.append(DIFF_NAMES[d])
+		if bool(p.get("spin", false)):
+			bits.append("on Spin")
 		tip.append((song if song != "" else "a map") + "  (" + PoolStringArray(bits).join(", ") + ")")
 	if bool(p.get("in_lobby", false)):
 		tip.append("In a lobby (%d players)" % int(p.get("lobby_size", 1)))
@@ -1103,6 +1131,12 @@ func _on_card_input(ev, c: Dictionary):
 		c.card.accept_event()
 		return
 	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT):
+		return
+	# the "..." (bigger than it looks, so it's easy to hit): the card's menu
+	if c.dots.get_global_rect().grow(5 * _k).has_point(ev.global_position):
+		var r: Rect2 = c.dots.get_global_rect()
+		_card_menu(c, Vector2(r.position.x, r.end.y))
+		c.card.accept_event()
 		return
 	# the heart (a little bigger than it looks, so it's easy to hit)
 	if not c.is_you and c.heart.get_global_rect().grow(6 * _k).has_point(ev.global_position):
@@ -1152,6 +1186,7 @@ func _on_denied(reason: String):
 func _fill_chat():
 	chat.clear()
 	_chat_lines = 0
+	_chat_sizes = []
 	var muted: bool = Rhythia.mute_global_chat
 	chat_muted.visible = muted
 	chat.visible = not muted
@@ -1169,7 +1204,7 @@ func _fill_chat():
 		_chat_lines = -1 # (the hint goes when the first message comes)
 		return
 	for e in _lm.global_chat_history:
-		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)))
+		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), String(e.get("mid", "")))
 
 func _on_chat_ban(_banned):
 	if chat_input != null:
@@ -1184,7 +1219,31 @@ func _on_chat_message(client_id: String, name: String, text: String, ts: float):
 	if _chat_lines == -1:
 		chat.clear()
 		_chat_lines = 0
-	_add_chat_line(client_id, name, text, ts)
+	_add_chat_line(client_id, name, text, ts, String(_lm.get("last_chat_id")) if _lm != null and _lm.get("last_chat_id") != null else "")
+
+# someone reacted: the chat is drawn again (once a frame at most)
+var _react_redraw := false
+func _on_chat_reactions(mid: String):
+	if not _open or _lm == null or _react_redraw:
+		return
+	for e in _lm.global_chat_history:
+		if String(e.get("mid", "")) == mid:
+			_react_redraw = true
+			call_deferred("_redraw_for_reactions")
+			return
+
+func _redraw_for_reactions():
+	_react_redraw = false
+	if chat != null and _open:
+		var v := chat.get_v_scroll()
+		var at_end: bool = v.value >= v.max_value - v.page - 4
+		var keep: float = v.value
+		_fill_chat()
+		if not at_end:
+			chat.scroll_following = false
+			yield(get_tree(), "idle_frame")
+			v.value = keep
+			chat.scroll_following = true
 
 static func _clock(ts: float) -> String:
 	var t := int(ts / 1000.0) if ts > 100000000000.0 else int(ts)
@@ -1194,7 +1253,8 @@ static func _clock(ts: float) -> String:
 	var d := OS.get_datetime_from_unix_time(t)
 	return "%02d:%02d" % [int(d.hour), int(d.minute)]
 
-func _add_chat_line(client_id: String, name: String, text: String, ts: float):
+var _chat_sizes := []
+func _add_chat_line(client_id: String, name: String, text: String, ts: float, mid: String = ""):
 	if _chat_lines > 0:
 		chat.newline()
 	chat.push_color(FAINT)
@@ -1215,10 +1275,13 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float):
 			chat.pop()
 			chat.pop()
 		else:
-			preload("res://scripts/ui/Emoji.gd").add_text(chat, part[0], 18) # (emoji as pictures)
+			preload("res://scripts/ui/ChatCommands.gd").add_text(chat, part[0], 18) # (emoji as pictures, share links)
+	var extra: int = preload("res://scripts/ui/ChatReactions.gd").add(chat, mid, _lm, 16, 3) # (reactions under it, and + to react)
+	_chat_sizes.append(1 + extra) # (the label's lines this message takes)
 	_chat_lines += 1
 	if _chat_lines > CHAT_MAX_LINES:
-		chat.remove_line(0)
+		for _i in int(_chat_sizes.pop_front()):
+			chat.remove_line(0)
 		_chat_lines -= 1
 
 func _on_chat_entered(_t: String):
@@ -1229,6 +1292,11 @@ func _send_chat():
 		return
 	var text := chat_input.text.strip_edges()
 	if text == "":
+		return
+	# /share, /profile, /report, /help (ChatCommands.gd)
+	if preload("res://scripts/ui/ChatCommands.gd").handle(self, text, _lm, "send_global_chat_message"):
+		chat_input.text = ""
+		chat_input.grab_focus()
 		return
 	_lm.send_global_chat_message(text)
 	chat_input.text = ""
@@ -1448,6 +1516,10 @@ func _on_stats_profile(p, number: int):
 	elif p.get("last_seen") != null:
 		line2 += "  ·  last online " + _ago_text(int(float(p.get("last_seen")) / 1000.0))
 	names.add_child(_label(line2, font_small, DIM))
+	# their badges (Map of the Day, Ranker, the ones the admins gave)
+	var badges = load("res://scripts/ui/BadgeRow.gd").make(p, font_small, _k)
+	badges.rect_min_size = Vector2(516, 0) * _k
+	_stats_box.add_child(badges)
 
 	var grid := GridContainer.new()
 	grid.columns = 4

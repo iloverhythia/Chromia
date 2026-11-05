@@ -21,7 +21,7 @@ func _is_spectating() -> bool:
 	return hud != null and hud.spectating and hud.spectate_cursor != null
 
 func _process(delta):
-	if Rhythia.get("cam_unlock"):
+	if Rhythia.spin_now():
 		var hlpower = (0.1 * Rhythia.get("parallax"))
 		var hlm = 0.25
 		var spectating = _is_spectating()
@@ -75,7 +75,7 @@ var yaw = 0
 var pitch = 0
 
 func _input(event):
-	if Rhythia.get("cam_unlock") and not Rhythia.replaying and not Rhythia.absolute_mode:
+	if Rhythia.spin_now() and not Rhythia.replaying and not Rhythia.absolute_mode:
 		if (event is InputEventMouseMotion) or (event is InputEventScreenDrag):
 			yaw = fmod(yaw - event.relative.x * Rhythia.sensitivity * 0.2, 360)
 			pitch = max(min(pitch - event.relative.y * Rhythia.sensitivity * 0.2, 89), -89)

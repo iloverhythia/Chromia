@@ -60,6 +60,62 @@ static func apply(hud: Node):
 			if bg is ColorRect:
 				_restyle(bg, style, accent, tex)
 	_resize(hud)
+	_place(hud)
+	_brighten(hud)
+
+# Settings > Background Editor > HUD panels: where the parts are, as moves
+# from where the song puts them (in grid units: the grid is 3 wide)
+static func offsets() -> Dictionary:
+	return {
+		"x": clamp(float(Rhythia.get("hud_panel_x")), -3.0, 3.0), # side panels: farther from the grid (+) or closer (-)
+		"y": clamp(float(Rhythia.get("hud_panel_y")), -3.0, 3.0), # side panels: up (+) or down (-)
+		"bars": clamp(float(Rhythia.get("hud_bars_y")), -3.0, 3.0), # timer up and health bar down (+), or in (-)
+	}
+
+# a part of the HUD, also when it was moved onto the grid (attach to grid)
+static func _part(hud: Node, n: String) -> Node:
+	var c = hud.get_node_or_null(n)
+	if c != null:
+		return c
+	var p = hud.get_parent()
+	for i in 2:
+		if p == null:
+			break
+		var g = p.get_node_or_null("Spawn/" + n)
+		if g != null:
+			return g
+		p = p.get_parent()
+	return null
+
+static func _place(hud: Node):
+	var o := offsets()
+	var l = hud.get_node_or_null("LeftHud")
+	var r = hud.get_node_or_null("RightHud")
+	if l is Spatial:
+		l.transform.origin += Vector3(-o.x, o.y, 0)
+	if r is Spatial:
+		r.transform.origin += Vector3(o.x, o.y, 0)
+	var t = _part(hud, "TimerHud")
+	if t is Spatial:
+		t.transform.origin.y += o.bars
+	var e = _part(hud, "EnergyHud")
+	if e is Spatial:
+		e.transform.origin.y -= o.bars
+
+# HUD brightness: every part's picture made darker or brighter
+static func brightness() -> float:
+	var v = Rhythia.get("hud_brightness")
+	return clamp(float(v) / 100.0, 0.1, 2.0) if v != null else 1.0
+
+static func _brighten(hud: Node):
+	var b := brightness()
+	if abs(b - 1.0) < 0.001:
+		return
+	for c in hud.get_children():
+		if c is Viewport:
+			for k in c.get_children():
+				if k is CanvasItem:
+					k.modulate = Color(b, b, b, k.modulate.a)
 
 static func _restyle(bg: ColorRect, style: String, accent: Color, tex: Texture):
 	var col: Color = bg.color

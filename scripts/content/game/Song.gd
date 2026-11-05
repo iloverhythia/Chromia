@@ -79,6 +79,95 @@ static func _safe_buf(f: File, length: int) -> PoolByteArray:
 		return PoolByteArray()
 	return f.get_buffer(length)
 
+# --- GIF covers: they move in the map list and on the map's screen ------------
+# A map's cover can be a GIF (the SSPM keeps the file as it is). Its frames are
+# made on the cover thumbnail builder's thread (Savia._thumb_builder_worker),
+# small ones for the map list and medium ones for the map's screen, and turned
+# into AnimatedTextures here when shown. A new map given a .gif cover
+# (cover_gif) writes the GIF itself instead of a still picture of it.
+const GIF_MAX_FRAMES := 48
+const GIF_COVER_W := 360
+var cover_gif := PoolByteArray()
+var _gif_state := 0 # 0 not looked at yet, 1 not a GIF, 2 a GIF
+var _gif_thumb_frames = null # [Images, fps] (from the builder thread)
+var _gif_cover_frames = null
+var _thumb_anim = null
+var _cover_anim = null
+
+func _raw_cover_bytes() -> PoolByteArray:
+	if not has_cover or is_online:
+		return PoolByteArray()
+	if cover_gif.size() > 0:
+		return cover_gif
+	var file = File.new()
+	if file.open(filePath, File.READ) != OK:
+		return PoolByteArray()
+	file.seek(cover_offset)
+	var out := PoolByteArray()
+	if songType == Globals.MAP_SSPM:
+		if file.get_8() == 2:
+			out = _safe_buf(file, file.get_64())
+	elif songType == Globals.MAP_SSPM2:
+		out = _safe_buf(file, cover_length)
+	file.close()
+	return out
+
+func cover_is_gif() -> bool:
+	if _gif_state == 0:
+		_gif_state = 1
+		if cover_gif.size() > 0:
+			_gif_state = 2
+		elif has_cover and not is_online and (songType == Globals.MAP_SSPM or songType == Globals.MAP_SSPM2):
+			var f = File.new()
+			if f.open(filePath, File.READ) == OK:
+				f.seek(cover_offset)
+				if songType == Globals.MAP_SSPM and f.get_8() == 2:
+					f.get_64()
+				if f.get_buffer(4) == PoolByteArray([71, 73, 70, 56]): # "GIF8"
+					_gif_state = 2
+				f.close()
+	return _gif_state == 2
+
+# (the builder's thread) the GIF's frames, small and medium
+func build_gif_frames():
+	if _gif_thumb_frames != null or not cover_is_gif():
+		return
+	var res: Dictionary = GifDecoder.decode(_raw_cover_bytes())
+	if res.empty():
+		_gif_state = 1
+		return
+	var n: int = int(min(res.frames.size(), GIF_MAX_FRAMES))
+	var total := 0.0
+	for i in range(n):
+		total += float(res.delays[i])
+	var fps: float = clamp(n / max(total, 0.01), 1.0, 30.0)
+	var small := []
+	var medium := []
+	for i in range(n):
+		var img := Image.new()
+		img.create_from_data(res.width, res.height, false, Image.FORMAT_RGBA8, res.frames[i])
+		var m: Image = img.duplicate()
+		if m.get_width() > GIF_COVER_W:
+			m.resize(GIF_COVER_W, int(max(1, round(float(m.get_height()) * GIF_COVER_W / m.get_width()))), Image.INTERPOLATE_BILINEAR)
+		medium.append(m)
+		var t = _make_thumb_image(img)
+		if t != null:
+			small.append(t)
+	_gif_cover_frames = [medium, fps]
+	_gif_thumb_frames = [small, fps]
+
+static func _anim_from(fr) -> Texture:
+	if not (fr is Array) or fr[0].empty():
+		return null
+	var a := AnimatedTexture.new()
+	a.frames = fr[0].size()
+	a.fps = fr[1]
+	for i in range(fr[0].size()):
+		var t := ImageTexture.new()
+		t.create_from_image(fr[0][i], Texture.FLAG_FILTER)
+		a.set_frame_texture(i, t)
+	return a
+
 func _decode_cover_pixels() -> Image:
 	if not has_cover:
 		return null
@@ -131,8 +220,13 @@ static func _make_thumb_image(img: Image) -> Image:
 	if img == null or img.is_empty():
 		return null
 	if img.is_compressed():
-		if img.decompress() != OK:
-			return null
+		var raw: Image = img.duplicate()
+		if img.decompress() != OK or img.is_compressed():
+			# (the Quest and phones can't unpack DXT covers some older maps have)
+			img = load("res://scripts/content/DxtDecode.gd").decode(raw)
+			if img == null:
+				print("[covers] a cover in format %d couldn't be read" % raw.get_format())
+				return null
 	img.convert(Image.FORMAT_RGB8)
 	# Center crop to the strip's aspect ratio, then shrink.
 	var w := img.get_width()
@@ -172,6 +266,17 @@ func build_thumb_file(load_existing: bool = false) -> Image:
 func get_cover_thumb() -> Texture:
 	if not has_cover:
 		return null
+	if cover_is_gif():
+		if _thumb_anim != null:
+			Rhythia.touch_thumb(self)
+			return _thumb_anim
+		if _gif_thumb_frames != null:
+			_thumb_anim = _anim_from(_gif_thumb_frames)
+			if _thumb_anim != null:
+				Rhythia.touch_thumb(self)
+				return _thumb_anim
+		else:
+			Rhythia.request_thumb(self) # (the frames get made; until then the still one)
 	if _thumb != null:
 		Rhythia.touch_thumb(self)
 		return _thumb
@@ -261,7 +366,14 @@ var _decoded_cover_image: Image = null
 func _get_cover():
 	if not has_cover:
 		return
+	if cover_is_gif() and _gif_cover_frames != null and not (cover is AnimatedTexture):
+		var a = _anim_from(_gif_cover_frames)
+		if a != null:
+			cover = a
+			return cover
 	if is_instance_valid(cover):
+		if cover_is_gif() and _gif_cover_frames == null:
+			Rhythia.request_thumb(self)
 		return cover
 	_cover_mutex.lock()
 	var img := _decoded_cover_image
@@ -1086,8 +1198,7 @@ func convert_to_sspm_v1():
 
 	if has_cover and cover and (cover.get_height() + cover.get_width()) >= 9:
 		file.store_8(2)
-		var img: Image = cover.get_data()
-		var data: PoolByteArray = img.save_png_to_buffer()
+		var data: PoolByteArray = cover_gif if cover_gif.size() > 0 else cover.get_data().save_png_to_buffer()
 		file.store_64(data.size())
 		file.store_buffer(data)
 	else: file.store_8(0)
@@ -1573,7 +1684,7 @@ func convert_to_sspm(upgrade: bool = false):
 	print(map_has_cover)
 	if map_has_cover:
 		start = file.get_position()
-		file.store_buffer(cover.get_data().save_png_to_buffer())
+		file.store_buffer(cover_gif if cover_gif.size() > 0 else cover.get_data().save_png_to_buffer()) # (a GIF as it is)
 		end = file.get_position()
 
 		file.seek(point_cb)

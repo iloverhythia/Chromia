@@ -1006,11 +1006,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov4-2026-a": "- No more little stutter when someone starts spectating you in the middle of a map.\n- In a map, the custom speed icon shows its speed (for example 137%).\n- Settings has a small preview window (\"Watching Auto play\") that plays a short map exactly the way your songs look: your note mesh, colorset, note size, opacity, fade, half ghost and spin, approach rate and spawn distance, border, cursor, FOV, parallax, Spin and hit effect. Drag it by its top bar, resize it from its corner, close it with the x, or turn it off in Settings > UI > Settings Preview.\n- Settings > Video & Audio: Exclusive Fullscreen is called Fullscreen again. It is the same fullscreen as always (the lowest input delay); Borderless Windowed is still there too.\n- Spectating: you always see the map with the other player's settings when you pick theirs (sometimes their approach rate, spawn distance, note size and other number settings were swapped back to yours), also after they lose their connection for a moment.\n- Lobbies: you can leave in the middle of a match. After giving up (or failing), hold the give up key again or press Leave lobby on the watching banner (in VR the panel shows which button): you go back to the menu and the round goes on for the others\n- VR: no more lag at high speeds (200% and up) on dense maps. The game waited on the graphics card for every note on screen every frame, and made a new hit effect for every hit; it does neither now. PC gets smoother too.\n- Spectating someone who plays with Spin shows it their way: the camera turns with their cursor like in their game (your own Spin setting stays as it is), the spectate banner says SPIN, and their card in the Spectate window says Spin.\n- A controller left plugged in no longer grabs the cursor at the start of a song (it could stick in the middle and not move) when Disable Controller is ticked, and a resting stick no longer takes over otherwise.\n- VR: the Map Folders window opens on the menu screen (it opened somewhere you couldn't see).\n- Profile: a Reset RP button puts your offline RP back to 0 (it asks first; your XP, SP and level stay).\n- VR: type with both hands. While the keyboard is up, your other hand's beam shows too and its trigger presses the key it points at.\n- VR: grip calibration is easier (Settings > VR > Controller grip > Calibrate). The song grid shows in front of you and notes light up one at a time: move your hand to each the way you would in a song and pull the trigger, no careful aiming. Then a dot follows your hand on the grid with the new grip so you can check it (trigger keeps it, B / Y starts over).\n- Chat: other people's messages show in your game's language (Settings > Language), with the language they wrote in after them, like [ES]. Turn it off in Settings > Online > Translate Chat.\n- VR: switching settings profiles no longer makes the headset judder (the profile's frame cap and vsync from the desktop were put on the headset). In VR the Max FPS and VSync settings are kept for when you play without VR.\n- Settings > Notes: Note Brightness (100% is your colorset as it is, less is darker, more goes towards white). Spectators watching with your settings see it too.\n- Spectate: every player card has a ••• button (bottom left) for View stats, Spectate and their profile, so you don't need to right-click.\n- Discord: your status shows when you're mapping (and who you map together with), watching a replay or playing in a lobby, how long you've been at it, and whether you're on PC, in VR or on a phone.\n- Alt + scroll volume shows as a small square in the bottom right (a speaker, a fill that rises with the volume, and the percentage).\n- VR / phones: maps whose cover is stored in an older compressed format show their cover in the map list (they showed none on the Quest and phones).\n- Map covers can be GIFs: they move in the map list and on the map's screen. Pick a .gif as the cover when you make a map and it's kept as a GIF.\n- Chat commands: /share map, /share settings, /share colorset (also mesh, cursor, hitsound) post a link anyone can click to get it; /profile <name> shows a player's stats, /report <name> reports them, /help lists them.\n- Spectating shows the player's Buffer Cursor, and with their Follow Buffer Cursor the camera parallax follows it like on their screen\n- Chat reactions: press + after a message to react (👍 ❤️ 😂 🔥 and more); reactions show on their own line under the message, press one to add yours or take it back. An emoji button next to the chat boxes types emoji\n- Map list: the column is now called Difficulties, and a Filters button under it opens a page with what to show (broken, online, ranked), the order switches, map folders and the sorts\n- New map list sorts: shortest / longest, highest / lowest SP, played, unplayed, recently ranked, recently played, most / fewest notes\n- Content Browser: a Skins tab for Chromia skins (.cskin). Get one to keep it in My skins and put it on from Settings > Skins, or share your own look. In chat, /share skin posts your look as a link\n- Settings preview shows the song's real HUD: the side panels (combo, accuracy, grade, pauses, score, misses, notes), timer and health bar, with your HUD colours, fonts, panel style and size, Simple / Faraway HUD and attach-to-grid\n- Badges on your in-game profile and in Spectate > View stats are the exact ones from your website profile (same pictures, colours and hover text)\n- Settings > Background Editor > HUD panels: HUD brightness, and move the side panels left / right and up / down, and the timer and health bar closer to or away from the grid (spectators and skins carry them too)\n- Multiplayer: the hit window is 55 or 58 ms. Any other hit window is set to 55 ms while you're in a lobby, and yours comes back when you leave",
 	"nov2-2026-a": "- VR / phones: .rhm maps from rhythia.com (Content Browser) convert properly: they were converted without their music (and then wouldn't play) because the audio was looked for in the wrong folder\n- VR: pressing Start after Random starts the map (the Random button could stay held, so Start picked another map instead)\n- Spectating: you hear the hit and miss sounds of the player you watch (there were none)\n- VR: while you watch someone, a panel above the right side says who it is and how to stop (hold your give up button); the Following / Stop bar shows on the menu screen in the headset\n- Map editor is much faster: placing, deleting and moving notes on big maps no longer freezes for a moment (about 30 times quicker on a 20,000-note map, undo/redo too), and playing the song in the editor no longer slows every frame down\n- Your Online status shows you playing again while you're in a map (it errored and wasn't sent)\n- Map screen: a Leaderboard tab (next to Best and History) on ranked maps shows everyone's best pass, top first: their picture, SP, accuracy, misses and speed (click someone to open their profile)\n- VR: move the keyboard anywhere on the menu screen by dragging the bar along its top; it stays where you put it (Reset in the bar puts it back)\n- VR: a Height setting (Settings > VR > Height) raises or lowers you up to 1 m, in the menu and in songs\n- Fixed the in-game HUD failing to load in the last test builds (two features had a function with the same name)\n- VR: a new Ball hand (Settings > VR > Hands): a plain round white sphere for each hand (spectators see it too)\n- Settings: the grid's Borders moved to the Background Editor tab\n- Background Editor > HUD panels: pick how the side panels look while you play (Chromia, Sound Space, Outlined, Glass, No background, or your own picture) and how big they are (50% to 200%). Spectators see your style and size\n- Settings > Fonts: a Size slider for the HUD's text (50% to 200%), seen by spectators too\n- Settings > Video & Audio: Fullscreen is now called Exclusive Fullscreen (the true fullscreen, run by your graphics driver), and it and Borderless Windowed turn each other off; F11 / Alt+Enter leaves Borderless Windowed first\n- Spectate: right-click someone's card for View stats (their level, XP, SP and places, passes, bio and best plays), Spectate, or their profile on the website\n- Settings > Keybinds: turn any keybind off with its On box, or all of them with Turn all keybinds off (their keys and controller buttons do nothing); turning one back on restores your key\n- Player Avatar editor works again and is easier to use: tick items instead of typing their names, with new ones (top hat, cap, crown, cat ears, horns, halo, glasses, bow, scarf, tie, bow tie, cape), colours for the head, body and eyes, drag to turn your avatar, and it's saved. The Back button works again. Your avatar shows in replays with the alternate camera, and people watching you with your settings see it\n- Spectating: 3rd person view. In VR press B / Y while you watch someone: you move behind and beside them and see their avatar play (the avatar from their Player Avatar editor). On PC press 3. Replays: press 3 to switch to the avatar camera\n- VR: the intro cutscene never plays in VR (on the Quest it used to play every time the game opened); the Replay Intro button says so instead\n- Maps with WAV music (some rhythia.com downloads) play their music: they said the audio was broken. WAV files with extra sections (JUNK, LIST...) and 8, 24 and 32-bit ones work too\n- Spectating with their settings no longer shows bits of your own: colours, note shapes, effects or backgrounds you don't have fall back to the defaults instead of yours, and their HUD options (stats, config, avatar, panels) are used too\n- Spectating: following someone keeps watching them when they restart a map (it used to stop)\n- Background Editor: a Background brightness slider darkens the background behind the notes (notes and HUD stay bright)\n- VR: the Ball hand is white now in every scene (it looked grey in dark spaces and menus)\n- Background Editor: add .mp4, .mov, .mkv, .avi and other videos (the Chromia server turns them into .webm for you, no sound, up to 2 minutes; you can close the settings while it works). GIFs move, and .webm / .ogv are added as they are\n- Chromia skins (.cskin): Settings > Skins exports everything you have on into one file (your look settings, colorset, note mesh, border, hit and miss sounds, cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture, avatar, VR hands) for others to import. Putting one on keeps your old look as \"Before <skin>\" in My skins so you can go back. You can also drop a .cskin on the game window\n- Online page redone: a clear \"Play together\" section (Host a lobby, Public, join with a friend's code), public lobbies always listed with Refresh, and inside a lobby a big lobby code with Copy, the map, players as cards (ready / checking / downloading the map, HOST) and Start / Leave. Same look as the Spectate window\n- The Spectate window opens smoothly (it no longer stutters while it fills in)\n- Menu music is back: the seven menu songs play again. They're downloaded from the Chromia server the first time (about 15 MB, once) instead of making every download bigger, and then play from your game's cache, offline too\n- VR: Settings > VR > Controller grip > Calibrate: a dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second, and the grip's tilt and turn are set so the beam goes where your hand points (either hand; B / Y cancels)\n- Content Browser: a Hit Sounds tab. Play one to hear it, Use it to make it your hit sound, or share yours / upload a file (.ogg, .mp3, .wav)\n- Content Browser > Maps > Chromia players: every map on the Chromia server is listed too (ranked ones say Ranked), ready to download\n- Fixed the Ranked filter leaving out ranked maps whose id has capitals, spaces or signs like . ! ( ) (for example the Trrricksters!! map)\n- Online > Admin (staff only) in the same look as the rest of the Online page, and bigger Lobby / Admin tabs\n- Map editor: Legacy UI (editor Settings > Graphics > Look): the editor in Sound Space Quantum Editor Plus's own look, with its fonts, dark outlined buttons, round checkboxes, cyan / magenta colours and solid background. Turn it on or off any time\n- Online lobby: players show their profile picture instead of their initial\n- Map editor: import your SSQE+ settings (editor Settings > Other > Import SSQE+ settings, pick settings.txt from your Sound Space Quantum Editor Plus folder): colours, note colours, keybinds, grid keys, patterns, playtest settings and the rest\n- Map editor: Font scale (Settings > Graphics) makes every text in the editor bigger or smaller, and the grid keys (QWE / ASD / ZXC) can be your own keys\n- Map editor, Legacy UI: the editor's start screen, Create, Settings and Keybinds screens are SSQE+'s own (SOUND SPACE+ QUANTUM EDITOR PLUS menu with the changelog and your maps along the bottom, Create with Audio ID / Import Audio, every SSQE+ setting incl. VSync, FPS limit, font scale, playtest game, and the keybinds screen with grid keys, RESET buttons and CTRL / ALT / SHIFT Held)\n- Map editor: Import SSQE+ settings takes SSQE+'s setup files (.ssqes) as well as settings.txt\n- Editor settings: a long note no longer pushes the buttons and sliders off the right side of the window.\n- Mapping together: pausing during a playtest (or a long song load) no longer drops you out of the session.\n- Mapping together is much less laggy, especially on big maps.\n- Mapping together: Store Nodes keeps your bezier nodes on the right notes when the others add or move notes.\n- Editor Legacy UI: its Settings now also has Invites To Map Together, Adjust Notes With Timing and Use Note Colors.\n- Mapping together: your stored nodes (Store Nodes) are yours only. Nothing the others do (placing, moving or deleting notes, even the ones you stored) changes them.\n- Editor colours: Color 3 is now only the 1/2 beat ticks. The preview (timeline view and bookmarks) has its own Color 6, stored nodes their own Color 7, and the waveform uses Color 4 like its setting says.\n- In a map, every mod you have on now shows its icon next to the speed icon (not just the speed mods).\n- Spectating: the cursor of the person you watch always shows, also with Show cursor off, and is drawn over the grid, its background and panels.\n- Sound Space HUD (panels only): the health bar is right under the grid and the progress bar right over it again, with the mod icons under the health bar.\n- Map of the Day: one ranked map a day, picked by the admins, at the very top of your maps with a bright yellow outline. Pass it on its day to add to the Map of the Day badge on your profile.",
 	"nov1-2026-b": "- Fixed a crash when you start watching someone from the Spectate window (since nov1-2026-a)\n- Fixed a possible freeze in the menu on ranked maps (since nov1-2026-a), and the Spectate window shows pictures uploaded to Chromia again\n- Map screen: History uses the whole row, so your attempts aren't squished (the Modifiers box comes back when you switch to Best)\n- Downloading maps: when a map can't be saved, read or converted, you're told why (it failed without a word and the map stayed unconverted)\n- VR: maps no longer load to a black screen when the game wants to warn you about something (high cursor trail detail, broken audio, unusual approach rate or hit window): the warning was a flat-screen question the headset didn't show, so the game waited forever\n- Profile: the old name box is gone (your name is your Discord / website profile name, and lobbies use it too)\n- Fixed a crash right after a map finished downloading (most often in VR): the map was set up while the background star rating could be reading it",
 	"nov1-2026-a": "- Settings > UI > Show SP: the SP you'd get if you passed right now, at your accuracy so far and your speed, at the top of the right panel (a dash when the map isn't ranked or the play can't give SP, like with No Fail)\n- Chat: @mentions. Type @ and the start of a name to pick someone (Tab or click), and you get a notification when someone mentions you, even in the middle of a map\n- Chat: opening the Spectate window puts you straight in the chat box, ready to type\n- Chat: the text you type shows again when your message has an emoji in it (only the emoji showed)\n- Website Game view: smoother playback and cursor, Record video goes fullscreen so the video is your screen's size, and it never shows a crash notice\n- Replays: the cursor stays in time with the notes after a skip or a pause (it could end up ahead of them, by a lot on a slow computer or in the browser)",
@@ -1901,6 +1902,7 @@ func _save_star_cache(cache: Dictionary):
 
 var sort_by_stars: bool = false
 var sort_by_plays: bool = false # map list: most played first
+var map_sort: String = "" # map list: "" (by difficulty) or a sort from the Filters page (MapFiltersPage.gd)
 # Settings > Update channel: "stable" or "test" (Online.gd); a fresh install
 # keeps to the kind of build it is
 var update_channel: String = load("res://scripts/BuildChannel.gd").CHANNEL
@@ -1953,6 +1955,7 @@ func touch_thumb(song):
 	while _thumb_lru.size() > THUMB_MEMORY_LIMIT:
 		var old = _thumb_lru.pop_front()
 		old._thumb = null
+		old._thumb_anim = null
 
 # Builds missing cover thumbnails after the menu is up, one map at a time,
 # paused while playing. Already-built ones are skipped instantly. Maps shown
@@ -2019,6 +2022,8 @@ func _thumb_builder_worker(list: Array):
 		if wanted != null:
 			if wanted.build_thumb_file(false) != null:
 				built += 1
+			if wanted.has_method("build_gif_frames") and wanted.cover_is_gif():
+				wanted.build_gif_frames() # (a GIF cover: its frames, to move)
 			call_deferred("emit_signal", "thumbs_ready")
 			continue
 		if not have.has(list[i]._thumb_path().get_file()):
@@ -2347,6 +2352,20 @@ func _finish_vr_check():
 	emit_signal("vr_status_checked")
 
 
+# VR: the headset paces the frames, so no vsync to the monitor and no frame
+# cap (a cap would only hold it back). Your desktop vsync / frame cap are kept
+# in _desk_vsync / _desk_fps: loading settings or a profile during VR (which
+# used to put vsync and a cap back, so the headset juddered) only stores them,
+# and saving during VR saves those, not VR's.
+var _desk_vsync: bool = true
+var _desk_fps: int = 0
+func apply_vr_pacing():
+	if not vr:
+		return
+	get_viewport().hdr = false
+	OS.vsync_enabled = false
+	Engine.target_fps = 0 if OS.has_feature("quest") else 720
+
 func start_vr():
 
 	if vr:
@@ -2395,10 +2414,9 @@ func start_vr():
 		setup_controller_bindings()
 	vr = true
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
-	viewport.hdr = false
-	OS.vsync_enabled = false
-	# the headset paces the frames (a cap would only hold it back)
-	Engine.target_fps = 0 if OS.has_feature("quest") else 720
+	_desk_vsync = OS.vsync_enabled
+	_desk_fps = Engine.target_fps
+	apply_vr_pacing()
 	var vr_av = load("res://vr/VRPlayer.tscn").instance()
 	rootg.add_child(vr_av)
 	vr_av.name = "VRPlayer"
@@ -2555,10 +2573,11 @@ func _process(delta):
 	note_spin_t = fmod(note_spin_t + (delta * 0.5), 360)
 
 	if Input.is_action_just_pressed("fullscreen"):
-		# (Exclusive Fullscreen; Borderless Windowed goes off first)
+		# (Fullscreen; Borderless Windowed just goes off)
 		if OS.window_borderless and not OS.window_fullscreen:
 			set_borderless_windowed(false)
-		OS.window_fullscreen = not OS.window_fullscreen
+		else:
+			OS.window_fullscreen = not OS.window_fullscreen
 	if Input.is_action_just_pressed("quit_game"):
 		quit_game()
 	if _post_death_retry_armed and Input.is_action_just_pressed("retry"):
@@ -2572,7 +2591,7 @@ func _process(delta):
 			volume_label.modulate.a = lerp(volume_label.modulate.a, 0.0, 5 * delta)
 
 var volume_canvas: CanvasLayer
-var volume_label: Label
+var volume_label: Control # (the little square: scripts/ui/VolumeSquare.gd)
 var volume_percent: float = 1.0
 var volume_fade_timer: float = 0.0
 
@@ -2620,32 +2639,14 @@ func _change_volume(amount: float):
 
 	AudioServer.set_bus_volume_db(0, linear2db(volume_percent))
 
-	volume_label.text = "Volume: %d%%" % round(volume_percent * 100)
+	volume_label.set_value(volume_percent)
 	volume_fade_timer = 2.0
 
 func _spawn_volume_ui():
 	volume_canvas = CanvasLayer.new()
 	volume_canvas.layer = 100
 
-	volume_label = Label.new()
-	volume_label.text = "Volume: 100%"
-
-	volume_label.anchor_left = 1.0
-	volume_label.anchor_top = 1.0
-	volume_label.anchor_right = 1.0
-	volume_label.anchor_bottom = 1.0
-
-	volume_label.margin_left = -150
-	volume_label.margin_top = -50
-	volume_label.margin_right = -20
-	volume_label.margin_bottom = -20
-
-	volume_label.align = Label.ALIGN_RIGHT
-	volume_label.valign = Label.VALIGN_BOTTOM
-
-	volume_label.add_color_override("font_color_shadow", Color(0, 0, 0, 1))
-	volume_label.add_constant_override("shadow_offset_x", 2)
-	volume_label.add_constant_override("shadow_offset_y", 2)
+	volume_label = load("res://scripts/ui/VolumeSquare.gd").new()
 
 	volume_label.modulate.a = 0.0
 
@@ -2698,16 +2699,49 @@ func console_cmd_error(body: String):
 	yield(Globals.confirm_prompt, "option_selected")
 	Globals.confirm_prompt.s_back.play()
 	Globals.confirm_prompt.close()
-# Discord while spectating: "Spectating <player>", and the song
-func update_rpc_spectating(who: String):
+# Discord: which device you play on (the icon's hover text), and a clock from
+# when what you're doing started
+func rpc_device_text() -> String:
+	if vr:
+		return "Playing in VR"
+	if device("mobile"):
+		return "Playing on a phone"
+	if OS.has_feature("JavaScript"):
+		return "Playing in the browser"
+	return "Playing on PC"
+
+func _rpc_send(details: String, state: String, started: int = 0):
+	if not ProjectSettings.get_setting("application/config/discord_rpc"):
+		return
 	var activity = Discord.Activity.new()
 	activity.set_type(Discord.ActivityType.Playing)
-	activity.set_details(("Spectating %s" % who) if who != "" else "Spectating")
-	if selected_song != null:
-		activity.set_state(String(selected_song.name))
+	activity.set_details(details.left(120))
+	activity.set_state(state.left(120))
+	if started > 0:
+		activity.set_start(started)
 	var assets = activity.get_assets()
 	assets.set_large_image(Globals.DISCORD_ICON)
+	assets.set_large_text(rpc_device_text())
 	Discord.activity_manager.update_activity(activity)
+
+# Discord while spectating: "Spectating <player>", and the song
+func update_rpc_spectating(who: String):
+	_rpc_send(("Spectating %s" % who) if who != "" else "Spectating", String(selected_song.name) if selected_song != null else "", OS.get_unix_time())
+
+# Discord in the map editor: "Mapping: <map>", or who you map it with
+var _rpc_map_sig := ""
+func update_rpc_mapping(title: String, with_names: Array = []):
+	var sig := title + "|" + PoolStringArray(with_names).join(",")
+	if sig == _rpc_map_sig:
+		return
+	_rpc_map_sig = sig
+	var state := "Making a map"
+	if not with_names.empty():
+		state = "Mapping together with %s" % PoolStringArray(with_names).join(", ")
+	_rpc_send("Mapping: %s" % (title if title != "" else "a new map"), state, OS.get_unix_time())
+
+func clear_rpc_mapping():
+	_rpc_map_sig = ""
 
 func update_rpc_song():
 	if not ProjectSettings.get_setting("application/config/discord_rpc") or selected_song == null: return
@@ -2748,15 +2782,13 @@ func update_rpc_song():
 			if i != 0: txt += ", "
 			txt += mods[i]
 
-	var activity = Discord.Activity.new()
-	activity.set_type(Discord.ActivityType.Playing)
-	activity.set_state(txt)
-	activity.set_details(selected_song.name)
-
-	var assets = activity.get_assets()
-	assets.set_large_image(Globals.DISCORD_ICON)
-
-	Discord.activity_manager.update_activity(activity)
+	var details: String = String(selected_song.name)
+	if replaying:
+		details = "Watching a replay: " + details
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null and lm.lobby_active and not lm.watch_mode:
+		txt += "  ·  in a lobby (%d players)" % max(1, lm.players.size())
+	_rpc_send(details, txt, OS.get_unix_time())
 
 func get_stream_with_default(path: String, default: AudioStream) -> AudioStream:
 	path = Globals.p(path)
@@ -2953,6 +2985,9 @@ var share_maps_with_spectators: bool = true
 var spectate_favorites: Array = []
 # Settings > Online > Chat Notifications: new global chat messages show next to the eye
 var spectate_chat_notify: bool = true
+# Settings > Online > Translate Chat: other people's chat lines in your game's
+# language (LobbyManager._chat_in, the server's translate.js)
+var translate_chat: bool = true
 var mute_lobby_chat: bool = false
 var do_note_pushback: bool = true
 var half_ghost: bool = false
@@ -2964,6 +2999,15 @@ var note_spin_z: float = 0
 
 
 var note_opacity: float = 1
+# Settings > Notes > Note Brightness: under 100% darker, over 100% towards white
+var note_brightness: float = 1.0
+func note_color(c: Color) -> Color:
+	var b: float = note_brightness
+	if b == 1.0:
+		return c
+	if b < 1.0:
+		return Color(c.r * b, c.g * b, c.b * b, c.a)
+	return c.linear_interpolate(Color(1, 1, 1, c.a), clamp(b - 1.0, 0.0, 1.0))
 var fade_length: float = 0.5 setget , get_fade_length
 func get_fade_length():
 	if replaying and replay.settings.has("fade_length"): return replay.settings.get("fade_length")
@@ -3001,6 +3045,12 @@ var hit_fov_amplifier: float = 2
 var hit_fov_decay: float = 20
 var camera_mode: int = Globals.CAMERA_HALF_LOCK
 var cam_unlock: bool = false setget , get_cam_unlock
+# Spin as the song plays it: yours, or, while you watch someone who plays with
+# Spin, theirs (LobbyManager._apply_watch_spin; your setting isn't touched)
+func spin_now() -> bool:
+	if has_meta("spec_spin"):
+		return bool(get_meta("spec_spin"))
+	return bool(get("cam_unlock"))
 func get_cam_unlock():
 	if replaying and replay.settings.has("cam_unlock"): return replay.settings.get("cam_unlock")
 	return cam_unlock
@@ -3106,6 +3156,8 @@ var attach_hp_to_grid: bool = false
 var attach_timer_to_grid: bool = false
 var simple_hud: bool = false
 var hide_spectators_list: bool = false # (Settings > UI: no Spectators list in the top left)
+var settings_preview: bool = true # (Settings > UI: the "Watching Auto play" preview window on the Settings page)
+var settings_preview_rect: Array = [] # (its place and size: [x, y, w, h]; empty: the default)
 var show_sp_hud: bool = false # (Settings > UI: the SP a pass would give right now, top of the right panel)
 var faraway_hud: bool = true
 var rainbow_grid: bool = false
@@ -3198,6 +3250,10 @@ var hud_font: String = "default" # Settings > Fonts: the song HUD's font (script
 var hud_font_size: float = 100.0 # Settings > Fonts: its size, % of normal
 var hud_panel_style: String = "chromia" # Settings > Background Editor > HUD panels (scripts/HudPanels.gd)
 var hud_panel_size: float = 100.0 # the side panels' size, % of normal
+var hud_brightness: float = 100.0 # the HUD's brightness, % (HudPanels.gd)
+var hud_panel_x: float = 0.0 # the side panels moved out (+) / in (-), grid units
+var hud_panel_y: float = 0.0 # the side panels moved up (+) / down (-)
+var hud_bars_y: float = 0.0 # the timer and health bar moved away from the grid (+) / closer (-)
 var avatar: Dictionary = {} # your avatar's look (scripts/avatar/AvatarLook.gd)
 var bg_brightness: float = 100.0 # songs' background brightness, % (scripts/game/BgVeil.gd)
 var ss_hud: bool = false # Sound Space HUD: the side panels, time and health bar look like Sound Space (without the rest of Sound Space Mode)
@@ -3329,6 +3385,9 @@ func record_play_stats():
 	if not (st.get("map_time") is Dictionary):
 		st.map_time = {}
 	st.map_time[id] = int(st.map_time.get(id, 0)) + play_ms
+	if not (st.get("map_last") is Dictionary):
+		st.map_last = {}
+	st.map_last[id] = now # (the map list's "recently played" sort)
 	_save_lifetime_stats()
 	_award_level_exp(play_ms)
 
@@ -3685,7 +3744,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 				data.erase(k)
 				continue
 			var is_num := vt == TYPE_BOOL or vt == TYPE_INT or vt == TYPE_REAL
-			var ct := typeof(get(k)) if not k in ["vsync_enabled", "window_fullscreen", "window_borderless", "target_fps"] else TYPE_BOOL
+			var ct := typeof(get(k)) if not k in ["vsync_enabled", "window_fullscreen", "window_borderless", "normal_fullscreen", "target_fps"] else TYPE_BOOL
 			if (ct == TYPE_BOOL or ct == TYPE_INT or ct == TYPE_REAL) and not is_num and not (k == "edge_drift" and vt == TYPE_STRING):
 				print("[settings] ignoring %s (unexpected value %s)" % [k, data[k]])
 				data.erase(k)
@@ -3717,11 +3776,13 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("disable_bg_effects"):
 			disable_bg_effects = data.disable_bg_effects
 		if data.has("vsync_enabled"):
-			OS.vsync_enabled = data.vsync_enabled
+			_desk_vsync = bool(data.vsync_enabled)
+			if not vr:
+				OS.vsync_enabled = data.vsync_enabled
 
 
 		OS.vsync_via_compositor = false
-		if data.has("window_fullscreen"):
+		if data.has("window_fullscreen") and not vr:
 			OS.window_fullscreen = data.window_fullscreen
 		if data.has("selected_colorset"):
 			var cset = registry_colorset.get_item(data.selected_colorset)
@@ -3753,6 +3814,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			note_spin_z = data.note_spin_z
 		if data.has("note_opacity"):
 			note_opacity = data.note_opacity
+		if data.has("note_brightness"):
+			note_brightness = clamp(float(data.note_brightness), 0.1, 2.0)
 		if data.has("edge_drift"):
 			edge_drift = dser_float(data.edge_drift)
 		if data.has("enable_drift_cursor"):
@@ -3795,6 +3858,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			share_maps_with_spectators = bool(data.share_maps_with_spectators)
 		if data.has("spectate_chat_notify"):
 			spectate_chat_notify = bool(data.spectate_chat_notify)
+		if data.has("translate_chat"):
+			translate_chat = bool(data.translate_chat)
 		if data.has("spectate_favorites") and data.spectate_favorites is Array:
 			spectate_favorites = []
 			for n in data.spectate_favorites:
@@ -3917,6 +3982,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			sort_by_stars = bool(data.sort_by_stars)
 		if data.has("sort_by_plays"):
 			sort_by_plays = bool(data.sort_by_plays)
+		if data.has("map_sort"):
+			map_sort = String(data.map_sort)
 		if data.has("random_colorset"):
 			random_colorset = bool(data.random_colorset)
 		if data.has("show_xp_notifications"):
@@ -3939,6 +4006,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			simple_hud = data.simple_hud
 		if data.has("hide_spectators_list"):
 			hide_spectators_list = bool(data.hide_spectators_list)
+		if data.has("settings_preview"):
+			settings_preview = bool(data.settings_preview)
+		if data.has("settings_preview_rect") and data.settings_preview_rect is Array and data.settings_preview_rect.size() == 4:
+			settings_preview_rect = data.settings_preview_rect
 		if data.has("show_sp_hud"):
 			show_sp_hud = bool(data.show_sp_hud)
 		if data.has("faraway_hud"):
@@ -3948,10 +4019,15 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("auto_maximize"):
 			auto_maximize = data.auto_maximize
 			if auto_maximize: OS.window_maximized = true
-		if data.has("window_fullscreen"):
+		if data.has("window_fullscreen") and not vr:
 			OS.window_fullscreen = data.window_fullscreen
-		if data.has("window_borderless"):
+		if data.has("window_borderless") and not vr:
 			set_borderless_windowed(data.window_borderless)
+		# (a test build had a second, non-exclusive "Fullscreen" for a day: it
+		# felt different, so it's the one Fullscreen again)
+		if data.has("normal_fullscreen") and bool(data.normal_fullscreen) and not OS.window_fullscreen:
+			OS.window_borderless = false
+			OS.window_fullscreen = true
 		if data.has("cursor_face_velocity"):
 			cursor_face_velocity = data.cursor_face_velocity
 		if data.has("seasonal_themes"):
@@ -4000,7 +4076,9 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			cursor_color_type = Globals.CURSOR_RAINBOW
 
 		if data.has("target_fps"):
-			Engine.target_fps = data.target_fps
+			_desk_fps = int(data.target_fps)
+			if not vr:
+				Engine.target_fps = data.target_fps
 		if data.has("disable_intro"):
 			disable_intro = data.disable_intro
 		# The Wave Menu became the default (oct31-2026): turned on once for
@@ -4081,6 +4159,11 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			hud_panel_style = String(data.hud_panel_style)
 		if data.has("hud_panel_size"):
 			hud_panel_size = clamp(float(data.hud_panel_size), 50.0, 200.0)
+		if data.has("hud_brightness"):
+			hud_brightness = clamp(float(data.hud_brightness), 10.0, 200.0)
+		for hk in ["hud_panel_x", "hud_panel_y", "hud_bars_y"]:
+			if data.has(hk):
+				set(hk, clamp(float(data[hk]), -3.0, 3.0))
 		if data.has("avatar") and data.avatar is Dictionary:
 			avatar = data.avatar
 		if data.has("bg_brightness"):
@@ -4532,7 +4615,7 @@ func _write_settings_file(saveFile: String):
 			update_channel = update_channel,
 			tried_test_builds = tried_test_builds or update_channel == "test",
 			tester_channel = tester_channel,
-			vsync_enabled = OS.vsync_enabled,
+			vsync_enabled = _desk_vsync if vr else OS.vsync_enabled, # (in VR the headset paces frames: your desktop choice is kept)
 
 			window_fullscreen = OS.window_fullscreen,
 			window_borderless = OS.window_borderless,
@@ -4558,13 +4641,14 @@ func _write_settings_file(saveFile: String):
 			cursor_scale = cursor_scale,
 			enable_drift_cursor = enable_drift_cursor,
 			follow_drift_cursor = follow_drift_cursor,
-			hitwindow_ms = hitwindow_ms,
+			hitwindow_ms = float(get_meta("mp_hitwindow_own")) if has_meta("mp_hitwindow_own") else hitwindow_ms, # (multiplayer's 55 ms isn't saved over yours)
 			speed_hitwindow = speed_hitwindow,
 			restart_on_death = restart_on_death,
 			death_slowdown_enabled = death_slowdown_enabled,
 			cursor_spin = cursor_spin,
 			note_size = note_size,
 			note_opacity = note_opacity,
+			note_brightness = note_brightness,
 			note_spin_x = note_spin_x,
 			note_spin_y = note_spin_y,
 			note_spin_z = note_spin_z,
@@ -4577,6 +4661,7 @@ func _write_settings_file(saveFile: String):
 			share_maps_with_spectators = share_maps_with_spectators,
 			spectate_favorites = spectate_favorites,
 			spectate_chat_notify = spectate_chat_notify,
+			translate_chat = translate_chat,
 			mute_lobby_chat = mute_lobby_chat,
 			spawn_distance = spawn_distance,
 			custom_speed = custom_speed,
@@ -4629,6 +4714,7 @@ func _write_settings_file(saveFile: String):
 			hide_replay_ui = hide_replay_ui,
 			sort_by_stars = sort_by_stars,
 			sort_by_plays = sort_by_plays,
+			map_sort = map_sort,
 			random_colorset = random_colorset,
 			show_xp_notifications = show_xp_notifications,
 			half_ghost_strength = half_ghost_strength,
@@ -4640,6 +4726,8 @@ func _write_settings_file(saveFile: String):
 			show_fc_grade = show_fc_grade,
 			simple_hud = simple_hud,
 			hide_spectators_list = hide_spectators_list,
+			settings_preview = settings_preview,
+			settings_preview_rect = settings_preview_rect,
 			show_sp_hud = show_sp_hud,
 			faraway_hud = faraway_hud,
 			music_offset = music_offset,
@@ -4653,7 +4741,7 @@ func _write_settings_file(saveFile: String):
 			cursor_color_type = cursor_color_type,
 			half_ghost = half_ghost,
 			note_spawn_effect = note_spawn_effect,
-			target_fps = Engine.target_fps,
+			target_fps = _desk_fps if vr else Engine.target_fps,
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
 			wave_menu_colorset = wave_menu_colorset,
@@ -4674,6 +4762,10 @@ func _write_settings_file(saveFile: String):
 			hud_font_size = hud_font_size,
 			hud_panel_style = hud_panel_style,
 			hud_panel_size = hud_panel_size,
+			hud_brightness = hud_brightness,
+			hud_panel_x = hud_panel_x,
+			hud_panel_y = hud_panel_y,
+			hud_bars_y = hud_bars_y,
 			avatar = avatar,
 			bg_brightness = bg_brightness,
 			ss_health_y = ss_health_y,

@@ -288,12 +288,15 @@ func _build_lobby_ui():
 	var chat_row = HBoxContainer.new()
 	chat_row.add_constant_override("separation", 8)
 	lobby_chat_input = LineEdit.new()
-	lobby_chat_input.placeholder_text = "Message..."
+	lobby_chat_input.placeholder_text = "Message... (/help for commands)"
 	lobby_chat_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lobby_chat_input.max_length = 300
 	preload("res://scripts/ui/Emoji.gd").field(lobby_chat_input) # (emoji show as you type)
 	lobby_chat_input.connect("text_entered", self, "_on_lobby_chat_submitted")
 	chat_row.add_child(lobby_chat_input)
+	var emoji_button = preload("res://scripts/ui/ChatReactions.gd").picker_button(lobby_chat_input, 20)
+	emoji_button.theme = ui_theme
+	chat_row.add_child(emoji_button)
 	var chat_send_button = _make_button("Send", ui_theme)
 	chat_send_button.connect("pressed", self, "_on_lobby_chat_send_pressed")
 	chat_row.add_child(chat_send_button)
@@ -367,8 +370,12 @@ func _replay_chat_history():
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager == null:
 		return
+	var newest: String = String(lobby_manager.get("last_chat_id")) if lobby_manager.get("last_chat_id") != null else ""
 	for entry in lobby_manager.lobby_chat_history:
+		lobby_manager.last_chat_id = String(entry.get("mid", "")) # (each line keeps its own id for reactions)
 		_on_chat_message_received(entry.peer_id, entry.name, entry.text, entry.ts)
+	if lobby_manager.get("last_chat_id") != null:
+		lobby_manager.last_chat_id = newest
 	for entry in lobby_manager.global_chat_history:
 		_on_global_chat_message_received(entry.client_id, entry.name, entry.text, entry.ts)
 	yield(get_tree(), "idle_frame")
@@ -521,11 +528,20 @@ func _build_profile_ui():
 	lobby_name_input.visible = false
 	pvbox.add_child(lobby_name_input)
 
+	var rp_head = HBoxContainer.new()
 	var rp_title = Label.new()
 	rp_title.theme = ui_theme
 	rp_title.text = "Top 10 RP plays"
 	rp_title.add_color_override("font_color", Color(1, 0.756863, 0.960784))
-	pvbox.add_child(rp_title)
+	rp_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rp_head.add_child(rp_title)
+	var rp_reset = Button.new()
+	rp_reset.theme = ui_theme
+	rp_reset.text = "Reset RP"
+	rp_reset.hint_tooltip = "Forget every offline RP play and start your RP from 0 (your XP, SP and level stay)"
+	rp_reset.connect("pressed", self, "_on_reset_rp")
+	rp_head.add_child(rp_reset)
+	pvbox.add_child(rp_head)
 	rp_top_box = VBoxContainer.new()
 	rp_top_box.add_constant_override("separation", 2)
 	pvbox.add_child(rp_top_box)
@@ -1789,7 +1805,10 @@ func _send_lobby_chat_from_input():
 		return
 	var text = lobby_chat_input.text
 	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
+	# /share, /profile, /report, /help (ChatCommands.gd)
+	if lobby_manager != null and preload("res://scripts/ui/ChatCommands.gd").handle(self, text, lobby_manager, "send_chat_message"):
+		pass
+	elif lobby_manager != null:
 		lobby_manager.send_chat_message(text)
 	lobby_chat_input.text = ""
 	lobby_chat_input.grab_focus()
@@ -1810,14 +1829,31 @@ func _on_chat_message_received(peer_id: int, name: String, text: String, _ts: fl
 	var lf = lobby_chat_input.get_font("font") if lobby_chat_input != null else null
 	if lf != null:
 		line.add_font_override("normal_font", lf)
-	line.add_text(name + ": ")
-	preload("res://scripts/ui/Emoji.gd").add_text(line, text, int(lf.get_height()) if lf != null else 18)
+	line.set_meta("chat", [name, text, String(lobby_manager.get("last_chat_id")) if lobby_manager != null and lobby_manager.get("last_chat_id") != null else ""])
+	_draw_lobby_line(line)
 	lobby_chat_log_box.add_child(line)
 	while lobby_chat_log_box.get_child_count() > LOBBY_CHAT_MAX_LINES:
 		lobby_chat_log_box.get_child(0).queue_free()
 	if lobby_chat_scroll != null:
 		yield(get_tree(), "idle_frame")
 		lobby_chat_scroll.scroll_vertical = int(lobby_chat_scroll.get_v_scrollbar().max_value)
+
+func _draw_lobby_line(line: RichTextLabel):
+	var d: Array = line.get_meta("chat")
+	var lf = lobby_chat_input.get_font("font") if lobby_chat_input != null else null
+	var px: int = int(lf.get_height()) if lf != null else 18
+	line.clear()
+	line.add_text(String(d[0]) + ": ")
+	preload("res://scripts/ui/ChatCommands.gd").add_text(line, String(d[1]), px) # (emoji, share links)
+	preload("res://scripts/ui/ChatReactions.gd").add(line, String(d[2]), _get_lobby_manager(), int(px * 0.85)) # (reactions)
+
+# someone reacted to a lobby chat line: that line is drawn again
+func _on_lobby_chat_reactions(mid: String):
+	if lobby_chat_log_box == null or mid == "":
+		return
+	for line in lobby_chat_log_box.get_children():
+		if line is RichTextLabel and line.has_meta("chat") and String(line.get_meta("chat")[2]) == mid:
+			_draw_lobby_line(line)
 
 func _clear_lobby_chat():
 	if lobby_chat_log_box == null:
@@ -1836,7 +1872,9 @@ func _send_global_chat_from_input():
 		return
 	var text = global_chat_input.text
 	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
+	if lobby_manager != null and preload("res://scripts/ui/ChatCommands.gd").handle(self, text, lobby_manager, "send_global_chat_message"):
+		pass
+	elif lobby_manager != null:
 		lobby_manager.send_global_chat_message(text)
 	global_chat_input.text = ""
 	global_chat_input.grab_focus()
@@ -1846,7 +1884,7 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 		return
 	var is_you = client_id != "" and client_id == Rhythia.cid
 	var line = Label.new()
-	line.text = "%s: %s" % [name, text]
+	line.text = "%s: %s" % [name, preload("res://scripts/ui/ChatCommands.gd").plain(text)]
 	line.autowrap = true
 	if global_chat_input != null and global_chat_input.has_font_override("font"):
 		line.add_font_override("font", global_chat_input.get_font("font"))
@@ -2464,6 +2502,27 @@ static func _fmt_duration(ms: int) -> String:
 		return "%dm %02ds" % [m, sec % 60]
 	return "%ds" % sec
 
+func _on_reset_rp():
+	var store = preload("res://scripts/RhythiaPoints.gd").get_store()
+	if store.plays.empty():
+		Globals.notify(Globals.NOTIFY_INFO, "You have no RP yet.", "Reset RP")
+		return
+	Globals.confirm_prompt.open(
+		"Reset your RP to 0? All %d of your RP plays are forgotten (your XP, SP and level stay). This can't be undone." % store.plays.size(),
+		"Reset RP",
+		[{ text = "Cancel" }, { text = "Reset RP" }]
+	)
+	Globals.confirm_prompt.s_alert.play()
+	var response: int = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	if response == 1:
+		Globals.confirm_prompt.s_next.play()
+		store.reset()
+		_refresh_rp()
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Your RP is back to 0.", "Reset RP")
+	else:
+		Globals.confirm_prompt.s_back.play()
+
 func _refresh_rp():
 	if rp_total_label == null or not is_instance_valid(rp_total_label):
 		return
@@ -2752,6 +2811,7 @@ func _ready():
 	_setup_furry_secret()
 	_setup_folder_filters()
 	load("res://scripts/ui/menu/FiltersCollapse.gd").attach(self) # click "Filters" to collapse
+	load("res://scripts/ui/menu/MapFiltersPage.gd").attach(self) # the Filters button and its side page
 	_add_new_mod_checkboxes()
 	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
 	_center_mods()
@@ -2764,6 +2824,8 @@ func _ready():
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
 		settings_tab_container.move_child(settings_tab_container.get_node("Online"), settings_tab_container.get_node("Keybinds").get_index() + 1)
 	load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings")) # buttons and tabs stay put; only the page scrolls
+	if has_node("Main/Settings") and not has_node("Main/Settings/SettingsPreview"):
+		get_node("Main/Settings").add_child(load("res://scripts/ui/settings/SettingsPreview.gd").new()) # the "Watching Auto play" preview window (Settings > UI > Settings Preview)
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		if lobby_manager.lobby_active and lobby_manager.lobby_state.get("started", false):
@@ -2791,6 +2853,8 @@ func _ready():
 		lobby_manager.connect("map_upload_progress", self, "_on_map_upload_progress")
 		lobby_manager.connect("public_lobbies_received", self, "_on_public_lobbies_received")
 		lobby_manager.connect("chat_message_received", self, "_on_chat_message_received")
+		if lobby_manager.has_signal("chat_reactions_changed") and not lobby_manager.is_connected("chat_reactions_changed", self, "_on_lobby_chat_reactions"):
+			lobby_manager.connect("chat_reactions_changed", self, "_on_lobby_chat_reactions")
 		lobby_manager.connect("global_chat_message_received", self, "_on_global_chat_message_received")
 		if lobby_manager.has_admin_key():
 			_build_admin_ui()

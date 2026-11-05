@@ -27,6 +27,6 @@ func _on_stars_pressed():
 		_refresh()
 
 func _refresh():
-	var list = get_parent().get_parent().get_node_or_null("MapRegistry/S/VBoxContainer")
+	var list = preload("res://scripts/ui/menu/MapListOf.gd").find(self)
 	if list != null:
 		list.update_search_sort_stars(pressed)

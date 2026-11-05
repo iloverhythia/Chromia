@@ -3598,6 +3598,26 @@ flat = true
 script = ExtResource( 54 )
 target = "show_sp_hud"
 
+[node name="SettingsPreview" type="CheckBox" parent="TabContainer/UI/UI/Group/H"]
+margin_top = 600.0
+margin_right = 170.0
+margin_bottom = 628.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "shows a small window on the Settings page that plays a short map with your settings, so you can see what a change does. Drag it by its top bar, resize it from its bottom-right corner"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 59 )
+action_mode = 0
+text = "Settings Preview"
+flat = true
+script = ExtResource( 54 )
+target = "settings_preview"
+
 [node name="SEPARATOR_SS" type="HSeparator" parent="TabContainer/UI"]
 margin_right = 1280.0
 margin_bottom = 30.0
@@ -5441,7 +5461,7 @@ margin_top = 32.0
 margin_right = 269.0
 margin_bottom = 60.0
 rect_min_size = Vector2( 0, 28 )
-hint_tooltip = "The true fullscreen: your graphics driver runs the game on its own (lowest input delay; Alt-Tab is slower). Borderless Windowed is the other kind. F11 or Alt+Enter switches it too."
+hint_tooltip = "The game fills the screen and your graphics driver runs it on its own (lowest input delay; Alt-Tab is slower). Borderless Windowed is the other kind. F11 or Alt+Enter switches it too."
 theme = ExtResource( 1 )
 custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
 custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
@@ -5451,7 +5471,7 @@ custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
 custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
 custom_fonts/font = SubResource( 4 )
 action_mode = 0
-text = "Exclusive Fullscreen"
+text = "Fullscreen"
 flat = true
 script = ExtResource( 27 )
 
@@ -6952,6 +6972,27 @@ text = "Chat Notifications"
 flat = true
 script = ExtResource( 54 )
 target = "spectate_chat_notify"
+
+[node name="TranslateChat" type="CheckBox" parent="TabContainer/Online/Account/Group/H"]
+margin_top = 178.0
+margin_right = 318.0
+margin_bottom = 206.0
+rect_min_size = Vector2( 0, 28 )
+hint_tooltip = "shows other people's chat messages in your game's language (Settings > Language), with the language they wrote in after them, like [ES]"
+theme = ExtResource( 1 )
+custom_colors/font_color_disabled = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_focus = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_hover = Color( 0.898039, 0.94902, 1, 1 )
+custom_colors/font_color_pressed = Color( 0.898039, 0.94902, 1, 1 )
+custom_fonts/font = SubResource( 4 )
+action_mode = 0
+pressed = true
+text = "Translate Chat"
+flat = true
+script = ExtResource( 54 )
+target = "translate_chat"
 
 [node name="Control" type="Control" parent="."]
 margin_top = 1117.0

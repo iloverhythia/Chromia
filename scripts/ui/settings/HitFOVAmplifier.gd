@@ -4,6 +4,7 @@ func upd():
 	Rhythia.hit_fov_amplifier = value
 
 func _process(_d):
+	if Rhythia.has_meta("spec_backup"): return # (watching with their settings: the box would put yours back)
 	if value != Rhythia.hit_fov_amplifier: upd()
 	
 func _ready():

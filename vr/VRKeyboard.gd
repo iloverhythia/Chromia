@@ -95,6 +95,26 @@ func _key(text: String, pos: Vector2, size: Vector2) -> Button:
 	panel.add_child(b)
 	return b
 
+# Typing with the other hand (MenuPointer.gd): the key under a point of the
+# screen (layout pixels), or null
+func key_at(p: Vector2):
+	if not panel.visible:
+		return null
+	for b in panel.get_children():
+		if b is Button and b.visible and b.get_global_rect().has_point(p):
+			return b
+	return null
+
+var _off_lit = null
+func light_off_hand(b):
+	if b == _off_lit:
+		return
+	if _off_lit != null and is_instance_valid(_off_lit):
+		_off_lit.self_modulate = Color(1, 1, 1)
+	_off_lit = b
+	if b != null:
+		b.self_modulate = Color(1, 0.8, 0.97) # (the key the other hand is on)
+
 func _is_text_box(c) -> bool:
 	if c is LineEdit:
 		return c.editable and c.is_visible_in_tree()

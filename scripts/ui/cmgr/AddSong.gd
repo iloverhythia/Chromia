@@ -528,6 +528,17 @@ func file_selected(files:PoolStringArray):
 		FO_COVER:
 			if !song: return
 			var cover = Globals.imageLoader.load_file(files[0])
+			song.cover_gif = PoolByteArray()
+			song._gif_state = 0
+			if files[0].get_extension().to_lower() == "gif":
+				# a GIF cover: kept as it is in the map (it moves in the map list)
+				var gf := File.new()
+				if gf.open(files[0], File.READ) == OK:
+					song.cover_gif = gf.get_buffer(gf.get_len())
+					gf.close()
+				var anim = GifDecoder.decode_to_animated_texture(song.cover_gif)
+				if anim != null:
+					cover = anim
 			if cover:
 				song.cover = cover
 				song.has_cover = true

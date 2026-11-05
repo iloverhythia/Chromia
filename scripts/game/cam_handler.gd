@@ -12,7 +12,7 @@ var debug: bool = OS.has_feature("debug")
 
 func _ready():
 	pause_mode = Node.PAUSE_MODE_PROCESS
-	PhysicsServer.set_active(not Rhythia.visual_mode and (Rhythia.get("cam_unlock") or Rhythia.vr))
+	PhysicsServer.set_active(not Rhythia.visual_mode and (Rhythia.spin_now() or Rhythia.vr))
 
 
 	if state:

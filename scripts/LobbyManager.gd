@@ -170,6 +170,7 @@ func _process(_delta):
 	_process_map_upload_step()
 	_process_map_publish_step()
 	_presence_tick(_delta)
+	_chat_wait(_delta)
 
 	_update_stop_bar()
 	if _announcement_fade_timer > 0:
@@ -445,6 +446,31 @@ func is_motd(song_id: String) -> bool:
 func list_unpublished_ranked_maps():
 	_ensure_connected_then_send({"type": "list_unpublished_ranked_maps", "client_id": Rhythia.cid})
 
+# Multiplayer plays with a 55 or 58 ms hit window only. Any other is 55 ms
+# while you're in a lobby; yours comes back when you leave it (and the
+# settings file keeps yours meanwhile: Savia.save_settings).
+const MP_HITWINDOWS := [55.0, 58.0]
+func enforce_mp_hitwindow():
+	if watch_mode:
+		return # (watching someone from the Spectate tab isn't playing)
+	var hw := float(Rhythia.hitwindow_ms)
+	for ok in MP_HITWINDOWS:
+		if is_equal_approx(hw, ok):
+			return
+	if not Rhythia.has_meta("mp_hitwindow_own"):
+		Rhythia.set_meta("mp_hitwindow_own", hw)
+	Rhythia.hitwindow_ms = 55.0
+	Globals.notify(Globals.NOTIFY_INFO, "Multiplayer uses a 55 or 58 ms hit window, so yours (%d ms) is 55 ms in this lobby. It goes back when you leave." % int(round(hw)), "Hit window")
+
+func restore_mp_hitwindow():
+	if not Rhythia.has_meta("mp_hitwindow_own"):
+		return
+	var own := float(Rhythia.get_meta("mp_hitwindow_own"))
+	Rhythia.remove_meta("mp_hitwindow_own")
+	# (changed to 58 in the lobby: that's kept)
+	if is_equal_approx(float(Rhythia.hitwindow_ms), 55.0):
+		Rhythia.hitwindow_ms = own
+
 func close_lobby():
 	if _client.get_connection_status() != NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 		if lobby_active:
@@ -468,6 +494,7 @@ func close_lobby():
 	lobby_chat_history = []
 	player_view_settings = {}
 	_spectate_load_target = -1
+	restore_mp_hitwindow()
 	if was_active:
 		emit_signal("lobby_closed")
 
@@ -608,11 +635,13 @@ func _on_connected(_proto = ""):
 			_send(msg)
 
 func _on_closed(was_clean: bool = false):
+	_solo_settings_sent = false # (a new connection: the server doesn't have them any more)
 	if lobby_active and not was_clean:
 		emit_signal("lobby_error", "Disconnected from the server — the lobby may no longer exist.")
 	close_lobby()
 
 func _on_conn_error():
+	_solo_settings_sent = false
 	var was_joining = _connecting_intent == "create" or _connecting_intent == "join"
 	if was_joining:
 		emit_signal("lobby_error", "Could not reach server")
@@ -652,6 +681,7 @@ func _collect_current_mods() -> Dictionary:
 		"mod_360_speed": Rhythia.mod_360_speed,
 		"strobe": Rhythia.mod_strobe,
 		"start_offset": Rhythia.start_offset,
+		"spin": bool(Rhythia.cam_unlock), # (a setting, not a mod: only spectators use it, see _apply_watch_spin)
 	}
 
 func set_lobby_mods(mods: Dictionary):
@@ -703,7 +733,125 @@ func _apply_mods_locally(mods: Dictionary):
 	if Rhythia.has_signal("mods_changed"):
 		Rhythia.emit_signal("mods_changed")
 
-func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false):
+# --- chat in your language (Settings > Online > Translate Chat) -------------------
+# Someone else's chat line goes to the server first (translate.js) and is shown
+# in your game's language, with the language it was in after it ([ES]); one
+# already in your language shows as it is. Lines keep their order: each waits
+# for its translation, at most TRANSLATE_WAIT_S, then shows as it was written.
+
+const TRANSLATE_WAIT_S := 1.5
+var translate_supported := false
+var _tr_queue := [] # [{kind, who, name, text, ts, id, ready, waited}]
+var _tr_next_id := 1
+
+func chat_language() -> String:
+	var l: int = int(Rhythia.language)
+	return Globals.locale[l] if l >= 0 and l < Globals.locale.size() else "en"
+
+func _chat_in(m: Dictionary, others: bool):
+	m["orig"] = m.text
+	m["ready"] = true
+	m["waited"] = 0.0
+	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1:
+		m.id = _tr_next_id
+		_tr_next_id += 1
+		m.ready = false
+		_send({"type": "translate", "id": m.id, "text": m.text.left(300), "to": chat_language()})
+	_tr_queue.append(m)
+	_chat_flush()
+
+func _chat_translated(msg: Dictionary):
+	var id := int(msg.get("id", -1))
+	for m in _tr_queue:
+		if not m.ready and int(m.get("id", -2)) == id:
+			var out := Globals.s(msg.get("text", ""))
+			var from := Globals.s(msg.get("from", ""))
+			if not bool(msg.get("same", true)) and out != "" and out != m.text:
+				m.text = "%s  [%s]" % [out, from.to_upper()]
+			m.ready = true
+			break
+	_chat_flush()
+
+# shows the lines that are ready, in order
+func _chat_flush():
+	while not _tr_queue.empty() and _tr_queue[0].ready:
+		_chat_show(_tr_queue.pop_front())
+
+func _chat_wait(delta: float):
+	if _tr_queue.empty():
+		return
+	var head: Dictionary = _tr_queue[0]
+	head.waited = float(head.waited) + delta
+	if head.waited >= TRANSLATE_WAIT_S:
+		head.ready = true # (no answer in time: as it was written)
+		_chat_flush()
+
+func _chat_show(m: Dictionary):
+	last_chat_id = String(m.get("mid", "")) # (the line's id, for reactions: read by the chat boxes)
+	if m.kind == "lobby":
+		lobby_chat_history.append({peer_id = m.who, name = m.name, text = m.text, ts = m.ts, mid = last_chat_id})
+		if lobby_chat_history.size() > CHAT_HISTORY_MAX:
+			lobby_chat_history.pop_front()
+		emit_signal("chat_message_received", m.who, m.name, m.text, m.ts)
+	else:
+		global_chat_history.append({client_id = m.who, name = m.name, text = m.text, ts = m.ts, mid = last_chat_id})
+		if global_chat_history.size() > CHAT_HISTORY_MAX:
+			global_chat_history.pop_front()
+		emit_signal("global_chat_message_received", m.who, m.name, m.text, m.ts)
+		# someone wrote @you: a notification, wherever you are (even in a map)
+		if not Rhythia.mute_global_chat and m.who != Rhythia.cid and preload("res://scripts/ui/ChatMention.gd").mentions_me(m.orig, self):
+			Globals.notify(Globals.NOTIFY_INFO, m.text, "%s mentioned you" % m.name)
+
+# --- chat reactions (ChatReactions.gd draws them) ------------------------------
+# Each chat line has an id from the server ("" from an older server); a
+# reaction is toggled with send_chat_reaction and everyone gets the counts.
+signal chat_reactions_changed(mid)
+var ranked_map_info := {} # song id -> {xp, ranked_at} (the map list sorts)
+var last_chat_id := ""
+var chat_reactions := {} # line id -> {counts: {emoji: n}, mine: [emoji]}
+
+func send_chat_reaction(mid: String, emoji: String):
+	if mid == "" or not _connected():
+		return
+	_send({"type": "chat_react", "id": mid, "emoji": emoji})
+
+func _on_chat_reactions(msg: Dictionary):
+	var mid := Globals.s(msg.get("id", ""))
+	if mid == "":
+		return
+	var r: Dictionary = chat_reactions.get(mid, {"counts": {}, "mine": []})
+	var counts = msg.get("reactions", {})
+	r.counts = counts if counts is Dictionary else {}
+	if msg.get("mine") is Array:
+		r.mine = msg.mine
+	chat_reactions[mid] = r
+	while chat_reactions.size() > 400:
+		chat_reactions.erase(chat_reactions.keys()[0])
+	emit_signal("chat_reactions_changed", mid)
+
+# Watching someone (Spectate tab) who plays with Spin: you see it their way, the
+# camera turning with their cursor, whatever your own Spin setting is (yours
+# stays as it is: Rhythia.spin_now() reads this). In VR your head is the camera,
+# so it only says they're on Spin there.
+func _apply_watch_spin(mods: Dictionary):
+	if not watch_mode:
+		return
+	var on := bool(mods.get("spin", false))
+	Rhythia.set_meta("watch_spin_theirs", on)
+	if on and not Rhythia.vr:
+		Rhythia.set_meta("spec_spin", true)
+	elif Rhythia.has_meta("spec_spin"):
+		Rhythia.remove_meta("spec_spin")
+
+func _clear_watch_spin():
+	for k in ["spec_spin", "watch_spin_theirs"]:
+		if Rhythia.has_meta(k):
+			Rhythia.remove_meta(k)
+
+func watched_player_spins() -> bool:
+	return watch_mode and Rhythia.has_meta("watch_spin_theirs") and bool(Rhythia.get_meta("watch_spin_theirs"))
+
+func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false, drift = null):
 	if not broadcasting():
 		return
 	var msg := {
@@ -714,6 +862,9 @@ func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pc
 		msg["vr"] = vr_pose # in VR: head and hands, for spectators
 	if paused:
 		msg["paused"] = true # (paused or counting back in: spectators show Paused and wait)
+	if drift is Vector2 and drift != Vector2.ZERO:
+		msg["dx"] = clamp(drift.x, -10.0, 10.0) # the buffer cursor's offset (spectators see it, and parallax follows it)
+		msg["dy"] = clamp(drift.y, -10.0, 10.0)
 	_send(msg)
 func notify_passed():
 	if not broadcasting():
@@ -779,7 +930,7 @@ func upload_spectate_assets():
 		if file == "":
 			continue
 		var f := File.new()
-		var sha: String = f.get_sha256(file)
+		var sha: String = load("res://scripts/SpectateSettings.gd").sha_of(file)
 		if sha == "" or _assets_sent.get(key, "") == sha or f.open(file, File.READ) != OK:
 			continue
 		var data: PoolByteArray = f.get_buffer(f.get_len())
@@ -943,7 +1094,7 @@ func upload_cursor_picture():
 	if pic == "":
 		return
 	var f := File.new()
-	var sha: String = f.get_sha256(pic)
+	var sha: String = load("res://scripts/SpectateSettings.gd").sha_of(pic)
 	if sha == "" or sha == _cursor_sent or f.open(pic, File.READ) != OK:
 		return
 	var data: PoolByteArray = f.get_buffer(f.get_len())
@@ -968,12 +1119,15 @@ func _on_cursor_uploaded(result, code, _headers, _body, http):
 # Playing alone: your display settings go to the server at the start of the
 # song, so whoever starts watching from the Spectate tab sees it your way
 # right away (servers with the Spectate tab only; a lobby uses the above).
+var _solo_settings_sent := false # (this song's settings are on the server already)
 func send_solo_view_settings():
+	_solo_settings_sent = false
 	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
 	upload_cursor_picture()
 	upload_spectate_assets()
 	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+	_solo_settings_sent = true
 
 # a song starts (not in a lobby): while you're watched, the server takes it as
 # a restart and moves your watchers to this play (Retry used to leave them on
@@ -1397,6 +1551,7 @@ func _handle_message(msg: Dictionary):
 			if Rhythia.selected_song != null:
 				set_lobby_song(Rhythia.selected_song)
 			push_current_mods()
+			enforce_mp_hitwindow()
 			emit_signal("lobby_created", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_joined":
@@ -1420,6 +1575,7 @@ func _handle_message(msg: Dictionary):
 					_send({"type": "stop_watching"})
 					_finish_watch_locally()
 					return
+			enforce_mp_hitwindow()
 			emit_signal("lobby_joined", lobby_code)
 			emit_signal("lobby_state_changed")
 		"lobby_state":
@@ -1436,6 +1592,7 @@ func _handle_message(msg: Dictionary):
 
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
+				_apply_watch_spin(lobby_state.get("mods", {}))
 			_check_map_readiness()
 			_try_scroll_map_list(String(lobby_state.get("song_id", "")))
 			emit_signal("lobby_state_changed")
@@ -1444,6 +1601,8 @@ func _handle_message(msg: Dictionary):
 			print("[furria] applying mods before transition: ", lobby_state.get("mods", {}))
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
+				_apply_watch_spin(lobby_state.get("mods", {}))
+			enforce_mp_hitwindow() # (55 or 58 ms in multiplayer)
 			Rhythia.apply_lobby_lead_in()
 			print("[furria] Rhythia.mod_speed_level after apply: ", Rhythia.mod_speed_level)
 			var t = get_tree().create_timer(0.4)
@@ -1537,6 +1696,16 @@ func _handle_message(msg: Dictionary):
 			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
 			collab_supported = feats is Array and feats.has("collab")
 			replay_vr_supported = feats is Array and feats.has("replay_vr")
+			translate_supported = feats is Array and feats.has("translate")
+			# reconnected in the middle of a song (a network blip, a server
+			# restart): the server lost your settings with the old connection,
+			# so whoever starts watching would see it their own way
+			if presence_supported == 1 and Rhythia.in_map and not lobby_active and not watch_mode and not _solo_settings_sent:
+				call_deferred("send_solo_view_settings")
+		"view_settings_wanted":
+			# (someone started watching and the server has no settings of yours)
+			if Rhythia.in_map and not lobby_active and not watch_mode:
+				send_solo_view_settings()
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
@@ -1566,7 +1735,11 @@ func _handle_message(msg: Dictionary):
 			var nm = msg.get("names", [])
 			watcher_names = nm if nm is Array else []
 			if watchers_count > 0 and was == 0 and Rhythia.in_map:
-				send_view_settings() # so they see it your way
+				# so they see it your way (playing alone, the server has had them
+				# since the song started and gives them to whoever watches: sending
+				# them again mid-song only made the game stutter)
+				if lobby_active or not _solo_settings_sent:
+					send_view_settings()
 				var game = get_tree().current_scene.find_node("Game", true, false) if get_tree().current_scene else null
 				if game != null and game.has_method("_sync_lobby_stats"):
 					game._sync_lobby_stats()
@@ -1587,25 +1760,14 @@ func _handle_message(msg: Dictionary):
 			close_lobby()
 		"chat_message":
 			var lm_peer_id = int(msg.get("peer_id", -1))
-			var lm_name = Globals.s(msg.get("name", ""))
-			var lm_text = Globals.s(msg.get("text", ""))
-			var lm_ts = float(msg.get("ts", 0))
-			lobby_chat_history.append({peer_id = lm_peer_id, name = lm_name, text = lm_text, ts = lm_ts})
-			if lobby_chat_history.size() > CHAT_HISTORY_MAX:
-				lobby_chat_history.pop_front()
-			emit_signal("chat_message_received", lm_peer_id, lm_name, lm_text, lm_ts)
+			_chat_in({kind = "lobby", who = lm_peer_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, lm_peer_id != local_peer_id)
 		"global_chat_message":
 			var gm_client_id = Globals.s(msg.get("client_id", ""))
-			var gm_name = Globals.s(msg.get("name", ""))
-			var gm_text = Globals.s(msg.get("text", ""))
-			var gm_ts = float(msg.get("ts", 0))
-			global_chat_history.append({client_id = gm_client_id, name = gm_name, text = gm_text, ts = gm_ts})
-			if global_chat_history.size() > CHAT_HISTORY_MAX:
-				global_chat_history.pop_front()
-			emit_signal("global_chat_message_received", gm_client_id, gm_name, gm_text, gm_ts)
-			# someone wrote @you: a notification, wherever you are (even in a map)
-			if not Rhythia.mute_global_chat and gm_client_id != Rhythia.cid and preload("res://scripts/ui/ChatMention.gd").mentions_me(gm_text, self):
-				Globals.notify(Globals.NOTIFY_INFO, gm_text, "%s mentioned you" % gm_name)
+			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, gm_client_id != Rhythia.cid)
+		"translated":
+			_chat_translated(msg)
+		"chat_reactions":
+			_on_chat_reactions(msg)
 		"announcement":
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))
@@ -1637,6 +1799,12 @@ func _handle_message(msg: Dictionary):
 		"client_id_rotated":
 			Rhythia.apply_rotated_client_id(Globals.s(msg.get("new_client_id", "")))
 		"ranked_maps":
+			# each ranked map's SP value and when it was ranked (newer servers)
+			if msg.get("maps") is Array:
+				ranked_map_info = {}
+				for m in msg.maps:
+					if m is Dictionary:
+						ranked_map_info[Globals.s(m.get("song_id", ""))] = {"xp": float(m.get("xp", 0)), "ranked_at": float(m.get("ranked_at", 0))}
 			emit_signal("ranked_maps_received", msg.get("song_ids", []))
 		"motd":
 			motd_song_id = Globals.s(msg.get("song_id", ""))
@@ -2122,4 +2290,5 @@ func _finish_watch_locally():
 	if _watch_mods_backup is Dictionary:
 		_apply_mods_locally(_watch_mods_backup)
 	_watch_mods_backup = null
+	_clear_watch_spin()
 	emit_signal("lobby_state_changed")

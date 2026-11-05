@@ -390,6 +390,34 @@ func leave_watching():
 	black_fade_target = true
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+# in a lobby's match, out of the song (gave up, failed or passed: watching the
+# others or the results)
+func _in_lobby_match() -> bool:
+	var lm = _get_lobby_manager()
+	return lm != null and lm.lobby_active and not lm.watch_mode
+
+# leaves the lobby mid-match and goes back to the menu: the round goes on for
+# the others (the server takes you off its scoreboard)
+var _leaving_lobby := false
+var _leave_armed := false # (the give up key let go of after the hold that ended the song)
+func leave_lobby_match():
+	if _leaving_lobby:
+		return
+	_leaving_lobby = true
+	var hud = get_node_or_null("HUD")
+	# (watching stops first: otherwise the lobby closing looks like the round
+	# ending, and the results would show)
+	if hud != null and hud.spectating:
+		hud.exit_spectate_mode()
+	showing_round_results = false
+	var lm = _get_lobby_manager()
+	if lm != null and lm.lobby_active:
+		lm.close_lobby()
+	Globals.notify(Globals.NOTIFY_INFO, "The round goes on without you.", "You left the lobby")
+	get_tree().paused = false
+	black_fade_target = true
+	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
 func _update_lobby_score_ui():
 	var lobby_manager = _get_lobby_manager()
 	if lobby_score_canvas == null or lobby_manager == null:
@@ -483,7 +511,7 @@ func _layout_lobby_score_ui():
 	if lobby_score_panel == null:
 		return
 	var viewport_size = get_viewport().size
-	var target_width = LOBBY_SCORE_WIDTH_SPIN if Rhythia.get("cam_unlock") else LOBBY_SCORE_WIDTH_NORMAL
+	var target_width = LOBBY_SCORE_WIDTH_SPIN if Rhythia.spin_now() else LOBBY_SCORE_WIDTH_NORMAL
 	lobby_score_panel.rect_min_size.x = target_width
 	var panel_size = lobby_score_panel.get_combined_minimum_size()
 	panel_size.x = target_width
@@ -565,6 +593,17 @@ func _process(delta):
 				leave_watching()
 		else:
 			giving_up = 0
+	elif _in_lobby_match():
+		# out of a lobby match: hold give up again to leave the lobby (once the
+		# hold that gave up has been let go)
+		if not Input.is_action_pressed("give_up"):
+			_leave_armed = true
+			giving_up = 0
+		elif _leave_armed:
+			giving_up += delta / 0.6
+			if giving_up >= 1:
+				giving_up = 0
+				leave_lobby_match()
 
 	# Replays with the scrub bar pause through NoteManager.set_viewer_paused on the
 	# same key; toggling the tree too made space need 4 presses to pause and resume.

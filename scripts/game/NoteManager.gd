@@ -28,6 +28,19 @@ var colors: Array = Rhythia.selected_colorset.colors
 var scoreEffect: Spatial = load("res://assets/notefx/score/score.tscn").instance()
 # hit/miss particle effects (SS+): hidden template instances, duplicated per note (see _setup_note_effects)
 var hitEffect: Spatial = null
+# finished copies of the hit / miss effect, used again (assets/notefx/note_fx_base.gd)
+var _hit_fx_pool: Array = []
+var _miss_fx_pool: Array = []
+var _score_fx_pool: Array = []
+func _fx_copy(tpl: Spatial, pool: Array) -> Spatial:
+	while not pool.empty():
+		var c = pool.pop_back()
+		if is_instance_valid(c):
+			return c
+	var d = tpl.duplicate()
+	if "_pool" in d:
+		d._pool = pool
+	return d
 var missEffect: Spatial = null
 var hit_id: String = ""
 var miss_id: String = ""
@@ -58,6 +71,13 @@ var fade_out_base: float = 1
 
 
 var notes: Array = []
+# The notes multimesh's slot count and drawn count, kept here: reading them back
+# from the MultiMesh asks the renderer, which on PC (rendering on its own
+# thread) waits for the frame being drawn. It was read for every note on screen
+# every frame, so in VR (slower frames) and at high speeds (more notes on
+# screen) the game spent most of each frame waiting.
+var _mm_count: int = 0
+var _mm_visible: int = 0
 var current_note: int = 0
 var note_transform_scale: Vector3
 
@@ -285,7 +305,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 	if current_note == notes.size():
 
-		_n_notes.multimesh.visible_instance_count = 0
+		_mm_visible = 0; _n_notes.multimesh.visible_instance_count = _mm_visible
 		if asq: _n_asq.multimesh.visible_instance_count = 0
 		if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = 0
 		out_of_notes = true
@@ -318,7 +338,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 		else:
 			if note_reposition(i) == false:
 
-				_n_notes.multimesh.visible_instance_count = i - current_note + 1
+				_mm_visible = i - current_note + 1; _n_notes.multimesh.visible_instance_count = _mm_visible
 				if asq: _n_asq.multimesh.visible_instance_count = i - current_note + 1
 				if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = i - current_note
 				if ms < notems:
@@ -326,11 +346,12 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					if notes[i][2] == Globals.NSTATE_ACTIVE:
 						return note_passed
 
-		if (i - current_note + 2) > _n_notes.multimesh.instance_count:
+		if (i - current_note + 2) > _mm_count:
 			rerun_required = true
-			_n_notes.multimesh.instance_count = min(_n_notes.multimesh.instance_count + 10, notes.size())
-			if asq: _n_asq.multimesh.instance_count = _n_notes.multimesh.instance_count
-			if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = _n_notes.multimesh.instance_count
+			_mm_count = int(min(_mm_count + 10, notes.size()))
+			_n_notes.multimesh.instance_count = _mm_count
+			if asq: _n_asq.multimesh.instance_count = _mm_count
+			if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = _mm_count
 			break
 
 		if ms < notems and is_first:
@@ -354,7 +375,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				if missEffect != null and Rhythia.show_miss_effect and not spectating_now:
 					var np: Vector3 = _note_fx_pos(i)
 					var pos: Vector3 = Vector3(np.x, np.y, 0.002)
-					missEffect.duplicate().spawn(self, pos, notes[i][3], miss_id, true)
+					_fx_copy(missEffect, _miss_fx_pool).spawn(self, pos, notes[i][3], miss_id, true)
 
 				if not spectating_now:
 					emit_signal("miss", notes[i][3])
@@ -382,7 +403,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 						var note_origin: Vector3 = global_transform.xform(_note_fx_pos(i))
 						fx_pos.x = note_origin.x
 						fx_pos.y = note_origin.y
-					hitEffect.duplicate().spawn(get_parent(), fx_pos, notes[i][3], hit_id, false)
+					_fx_copy(hitEffect, _hit_fx_pool).spawn(get_parent(), fx_pos, notes[i][3], hit_id, false)
 
 				if not spectating_now:
 					if _tracker != null:
@@ -394,7 +415,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 						if ssm != null:
 							ssm.score_popup(global_transform.xform(_note_fx_pos(i)), score)
 					if Rhythia.score_popup:
-						scoreEffect.duplicate().spawn(get_parent(), pos, notes[i][3], score)
+						_fx_copy(scoreEffect, _score_fx_pool).spawn(get_parent(), pos, notes[i][3], score)
 
 				prev_ms = notems
 		elif ms > (notems + hit_window) + 100:
@@ -402,7 +423,7 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 			current_note = i + 1
 
-	_n_notes.multimesh.visible_instance_count = notes.size() - current_note
+	_mm_visible = notes.size() - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
 	if asq: _n_asq.multimesh.visible_instance_count = notes.size() - current_note
 	if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = notes.size() - current_note
 
@@ -444,7 +465,7 @@ func spawn_notes(note_array: Array):
 
 				Globals.NSTATE_ACTIVE,
 
-				colorset[i % colorset.size()],
+				Rhythia.note_color(colorset[i % colorset.size()]),
 
 				Vector2(
 					chaos_rng.randf_range(-1, 1),
@@ -465,7 +486,8 @@ func spawn_notes(note_array: Array):
 
 	var last_ms = note_array[-1][2]
 	var inst_count = max(35, ceil(10000 * (float(notes.size()) / float(last_ms))))
-	_n_notes.multimesh.instance_count = inst_count
+	_mm_count = int(inst_count)
+	_n_notes.multimesh.instance_count = _mm_count
 	if asq:
 		_n_asq.multimesh.instance_count = inst_count
 	if Rhythia.note_spawn_effect:
@@ -566,6 +588,7 @@ func _ready():
 	_n_notes.multimesh = MultiMesh.new()
 	_n_notes.multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	_n_notes.multimesh.color_format = MultiMesh.COLOR_FLOAT
+	_mm_count = 1
 	_n_notes.multimesh.instance_count = 1
 	if asq:
 		_n_asq.multimesh = MultiMesh.new()
@@ -651,6 +674,8 @@ func do_half_lock():
 	var cursorpos
 	if Grid.spectating and Grid.spectate_cursor != null:
 		cursorpos = Grid.spectate_cursor.transform.origin
+		if Rhythia.follow_drift_cursor:
+			cursorpos += Grid.spectate_drift # (their buffer cursor, with their settings on)
 	else:
 		cursorpos = _n_cursor.transform.origin
 		if Rhythia.follow_drift_cursor:
@@ -923,7 +948,7 @@ func _process(delta: float):
 		transform.origin = Vector3(-1, 1, 0)
 		Grid.transform.origin = Vector3(0, 0, Grid.transform.origin.z)
 		Grid.apply_vr_view(cam)
-	elif Rhythia.get("cam_unlock"): do_spin()
+	elif Rhythia.spin_now(): do_spin()
 	else: do_half_lock()
 	_set_rec_interval(delta)
 
@@ -935,11 +960,15 @@ func _process(delta: float):
 			var cursor_pos = _n_cursor.transform.origin
 			var energy_pct = (get_parent().energy / get_parent().max_energy) if get_parent().max_energy > 0 else 0.0
 			var lvl_progress_pct = get_parent().lvl_progress / 10.0
-			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0)
+			var drift := Vector2.ZERO
+			var m2 = _n_cursor.get_node_or_null("Mesh2")
+			if Rhythia.enable_drift_cursor and m2 != null and m2.visible:
+				drift = Vector2(m2.transform.origin.x, m2.transform.origin.y)
+			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0, drift)
 
 	if active and notes_loaded:
 		if not notes_loaded: return
-		can_skip = ((next_ms - prev_ms) > 5000) and (next_ms >= max(ms + (3000 * speed_multi), 1100 * speed_multi)) and (_n_notes.multimesh.visible_instance_count <= 1)
+		can_skip = ((next_ms - prev_ms) > 5000) and (next_ms >= max(ms + (3000 * speed_multi), 1100 * speed_multi)) and (_mm_visible <= 1)
 
 		_n_cursor.can_switch_move_modes = (ms < Rhythia.music_offset)
 

@@ -25,11 +25,13 @@ class Activity:
 	var details := ""
 	var state := ""
 	var name := ""
+	var start := 0 # unix time: Discord shows "xx:xx elapsed" from it (0: none)
 	var assets := ActivityAssets.new()
 	func set_type(v) -> void: type = int(v)
 	func set_details(v: String) -> void: details = v
 	func set_state(v: String) -> void: state = v
 	func set_name(v: String) -> void: name = v
+	func set_start(v: int) -> void: start = v
 	func get_assets() -> ActivityAssets: return assets
 
 # What update_activity returns: callers may `yield(..., "result")` and read `.result`.
@@ -58,8 +60,11 @@ func _update_activity(activity) -> Request:
 		var assets: Dictionary = {}
 		if activity.assets.large_image != "": assets["large_image"] = activity.assets.large_image
 		if activity.assets.large_text != "": assets["large_text"] = activity.assets.large_text
+		elif Rhythia.has_method("rpc_device_text"): assets["large_text"] = Rhythia.rpc_device_text() # (PC, VR, phone)
 		if activity.assets.small_image != "": assets["small_image"] = activity.assets.small_image
 		if activity.assets.small_text != "": assets["small_text"] = activity.assets.small_text
+		if activity.start > 0:
+			assets["_start"] = activity.start # (DiscordIPC.gd puts it in the timestamps)
 		_ipc.request_activity(activity.details, activity.state, assets, [])
 	# Emit next frame so `yield(update_activity(...), "result")` works.
 	_pending.append(req)

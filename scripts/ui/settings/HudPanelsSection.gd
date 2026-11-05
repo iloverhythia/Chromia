@@ -107,7 +107,56 @@ func _ready():
 	reset.rect_min_size = Vector2(110, 32)
 	reset.connect("pressed", self, "_on_size", [100.0])
 	row2.add_child(reset)
+	# brightness and where the parts are (HudPanels.gd _place / _brighten)
+	var sp2 := Control.new()
+	sp2.rect_min_size = Vector2(0, 6)
+	v.add_child(sp2)
+	v.add_child(_text("Brightness and position of the HUD in songs. Left / right moves the side panels away from the grid or closer, up / down moves them up or down, and Timer & health bar moves those away from the grid or closer. Spectators see it too.", 14, DIM))
+	_slider_row(v, "Brightness", "hud_brightness", 10, 200, 5, 100.0, "%d%%")
+	_slider_row(v, "Left / right", "hud_panel_x", -2.0, 2.0, 0.05, 0.0, "%+.2f")
+	_slider_row(v, "Up / down", "hud_panel_y", -2.0, 2.0, 0.05, 0.0, "%+.2f")
+	_slider_row(v, "Timer & health bar", "hud_bars_y", -2.0, 2.0, 0.05, 0.0, "%+.2f")
 	connect("visibility_changed", self, "_refresh")
+	_refresh()
+
+var _rows := {} # setting -> [slider, value label, format]
+func _slider_row(v: Control, label: String, key: String, lo: float, hi: float, step: float, def: float, fmt: String):
+	var row := HBoxContainer.new()
+	row.add_constant_override("separation", 10)
+	v.add_child(row)
+	var l := _text(label, 16, TEXT)
+	l.rect_min_size = Vector2(90, 0) # (a long name wraps, so the sliders line up)
+	row.add_child(l)
+	var sl := HSlider.new()
+	sl.theme = _theme
+	sl.min_value = lo
+	sl.max_value = hi
+	sl.step = step
+	sl.rect_min_size = Vector2(320, 28)
+	sl.size_flags_vertical = SIZE_SHRINK_CENTER
+	sl.connect("value_changed", self, "_on_row", [key])
+	row.add_child(sl)
+	var val := _text("", 16, TEXT)
+	val.rect_min_size = Vector2(60, 0)
+	row.add_child(val)
+	var b := Button.new()
+	b.theme = _theme
+	b.text = "Reset"
+	b.rect_min_size = Vector2(80, 32)
+	b.connect("pressed", self, "_reset_row", [key, def])
+	row.add_child(b)
+	_rows[key] = [sl, val, fmt]
+
+func _on_row(x: float, key: String):
+	if _refreshing:
+		return
+	Rhythia.set(key, x)
+	Rhythia.save_settings()
+	_refresh()
+
+func _reset_row(key: String, def: float):
+	Rhythia.set(key, def)
+	Rhythia.save_settings()
 	_refresh()
 
 func _text(t: String, size: int, col: Color, font_path := "res://assets/font/Lato/Lato-Regular.ttf") -> Label:
@@ -130,6 +179,11 @@ func _refresh():
 	_bright.value = float(Rhythia.bg_brightness)
 	_bright_l.text = "%d%%" % int(Rhythia.bg_brightness)
 	_size_l.text = "%d%%" % int(Rhythia.hud_panel_size)
+	for key in _rows:
+		var r: Array = _rows[key]
+		var x := float(Rhythia.get(key))
+		r[0].value = x
+		r[1].text = (r[2] % int(x)) if r[2] == "%d%%" else (r[2] % x)
 	var img := HudPanels.image_file()
 	_img_btn.visible = HudPanels.current() == "image"
 	_status.text = (img.get_file() if img != "" else "No picture yet") if _img_btn.visible else ""
