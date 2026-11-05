@@ -72,6 +72,10 @@ var cards := []
 var scroll := 0.0
 var scroll_to := 0.0
 var vbar: VScrollBar
+var panels # ModernPanels.gd
+
+# the classic menu's parts drawn over the page area, hidden while this is on
+const CLASSIC_HIDE := ["Quit", "SidebarClick", "Sidebar", "VersionNumber", "VersionNumberB"]
 
 static func attach(menu: Node):
 	if menu == null or menu.has_node("ModernUI"):
@@ -79,16 +83,33 @@ static func attach(menu: Node):
 	var m = load("res://scripts/ui/modern/ModernUI.gd").new()
 	m.name = "ModernUI"
 	menu.add_child(m)
+	# under the classic page area (Main), so a classic page can show inside the
+	# Modern UI's panel (ModernPanels.gd) and work as it always did
+	var main = menu.get_node_or_null("Main")
+	if main != null:
+		menu.move_child(m, main.get_index())
+	m._classic(false)
 
 static func detach(menu: Node):
 	if menu == null:
 		return
 	var m = menu.get_node_or_null("ModernUI")
 	if m != null:
+		m._classic(true)
 		m.queue_free()
 	var b = menu.get_node_or_null("ModernBack")
 	if b != null:
 		b.queue_free()
+
+# the classic menu shown (true) or hidden behind this (false)
+func _classic(on: bool):
+	var menu = get_parent()
+	if menu == null:
+		return
+	for n in CLASSIC_HIDE + ["Main"]:
+		var c = menu.get_node_or_null(n)
+		if c is CanvasItem:
+			c.visible = on
 
 func _font(file: String, size: int) -> DynamicFont:
 	var df := DynamicFont.new()
@@ -203,6 +224,9 @@ func _build():
 	_build_grid()
 	_build_left()
 	_build_top()
+	panels = load("res://scripts/ui/modern/ModernPanels.gd").new(self)
+	panels.name = "Panels"
+	add_child(panels)
 
 	# (bottom right: the Spectate button with the chat, from the classic menu: it stays on top)
 
@@ -729,6 +753,8 @@ func _layout():
 	bg_cover.rect_position = Vector2(-40 * k, -40 * k)
 	bg_cover.rect_size = Vector2(lw + 160 * k, vs.y + 80 * k)
 	bg_shade.update()
+	if panels != null and panels.panel != null:
+		panels.layout()
 
 # ------------------------------------------------------------------ the grid's maps
 
@@ -812,7 +838,17 @@ func _on_grid_input(ev):
 		elif ev.button_index == BUTTON_WHEEL_UP and ev.pressed:
 			scroll_to = clamp(scroll_to - _cell() * 0.75, 0.0, _max_scroll())
 
+var _hide_t := 0.0
 func _process(delta: float):
+	# (the classic menu shows its version labels again a frame after a page change)
+	_hide_t += delta
+	if visible and _hide_t > 0.2:
+		_hide_t = 0.0
+		var menu = get_parent()
+		for n in CLASSIC_HIDE:
+			var c = menu.get_node_or_null(n) if menu != null else null
+			if c is CanvasItem and c.visible:
+				c.visible = false
 	if abs(scroll_to - scroll) > 0.5:
 		scroll = lerp(scroll, scroll_to, min(1.0, delta * 14.0))
 		_place_cards()
@@ -1248,7 +1284,7 @@ func _toggle_favs():
 	_reload_maps()
 
 func _open_settings():
-	_open_classic_page("Settings")
+	panels.open_settings()
 
 func _open_workshop():
 	_open_classic_page("MapBrowser")
@@ -1257,10 +1293,7 @@ func _open_leaderboard():
 	OS.shell_open(SITE + "/leaderboards")
 
 func _open_filters():
-	var p = Rhythia.menu_node("Main/Maps/Filters/MapFiltersPage")
-	_open_classic_maps()
-	if p != null and p.has_method("_open"):
-		p.call_deferred("_open")
+	panels.open_filters()
 
 func _open_collection_add():
 	var b = _find_script(Rhythia.menu_node(), "MapFolderAdd.gd")
@@ -1286,6 +1319,7 @@ func _open_classic_page(page: String):
 	if p == null and page == "MapBrowser":
 		p = _find_named(Rhythia.menu_node("Main"), "MapBrowser")
 	visible = false
+	_classic(true)
 	if sb != null and p != null and sb.has_method("press_page"):
 		sb.press_page(p)
 	if menu != null and not menu.has_node("ModernBack"):
@@ -1323,5 +1357,6 @@ func _back_from_classic():
 	if sb != null and sb.has_method("press"):
 		sb.press(0, true)
 	visible = true
+	_classic(false)
 	_reload_maps()
 	_on_song(Rhythia.selected_song)

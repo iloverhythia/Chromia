@@ -68,8 +68,28 @@ func is_fav(s: Song): return _fav_set.has(s)
 var _st: String = ""
 var _at: String = ""
 
+# Modern UI > Sort & Filter: ranges and show / hide (ModernPanels.gd); all off by default
+var mf := {"min_stars": 0.0, "max_stars": 0.0, "min_len": 0, "max_len": 0, "hide_ranked": false, "hide_unranked": false, "played": 0}
+func _mf_ok(s: Song) -> bool:
+	if mf.min_stars > 0 or mf.max_stars > 0:
+		var r: float = s.star_rating_cached()
+		if mf.min_stars > 0 and r < mf.min_stars: return false
+		if mf.max_stars > 0 and r > mf.max_stars: return false
+	if mf.min_len > 0 and s.last_ms < mf.min_len * 1000: return false
+	if mf.max_len > 0 and s.last_ms > mf.max_len * 1000: return false
+	if mf.hide_ranked or mf.hide_unranked:
+		var rk: bool = ranked_song_ids.has(_canon(s.id))
+		if rk and mf.hide_ranked: return false
+		if not rk and mf.hide_unranked: return false
+	if int(mf.played) != 0:
+		var n := int(Rhythia.get_lifetime_stats().get("map_plays", {}).get(String(s.id), 0))
+		if int(mf.played) == 1 and n == 0: return false # only played
+		if int(mf.played) == 2 and n > 0: return false # only not played
+	return true
+
 func search_matches(s: Song):
 	return (
+		_mf_ok(s) and
 		difficulty_filter.has(s.difficulty) and
 		(not s.is_online or show_online_maps) and
 		(not s.is_broken or show_broken_maps) and
