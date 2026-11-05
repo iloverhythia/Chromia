@@ -19,20 +19,18 @@ in scripts/Savia.gd and empties this list.
 - Chat: other people's messages show in your game's language (Settings > Language), with the language they wrote in after them, like [ES]. Turn it off in Settings > Online > Translate Chat.
 - VR: switching settings profiles no longer makes the headset judder (the profile's frame cap and vsync from the desktop were put on the headset). In VR the Max FPS and VSync settings are kept for when you play without VR.
 - Settings > Notes: Note Brightness (100% is your colorset as it is, less is darker, more goes towards white). Spectators watching with your settings see it too.
-- Spectate: every player card has a ••• button (bottom right) for View stats, Spectate and their profile, so you don't need to right-click.
-- Your badges (Map of the Day with its tier, Ranker, and the ones the admins give) show on your profile in the game and in Spectate > View stats.
+- Spectate: every player card has a ••• button (bottom left) for View stats, Spectate and their profile, so you don't need to right-click.
 - Discord: your status shows when you're mapping (and who you map together with), watching a replay or playing in a lobby, how long you've been at it, and whether you're on PC, in VR or on a phone.
 - Alt + scroll volume shows as a small square in the bottom right (a speaker, a fill that rises with the volume, and the percentage).
 - VR / phones: maps whose cover is stored in an older compressed format show their cover in the map list (they showed none on the Quest and phones).
 - Map covers can be GIFs: they move in the map list and on the map's screen. Pick a .gif as the cover when you make a map and it's kept as a GIF.
 - Chat commands: /share map, /share settings, /share colorset (also mesh, cursor, hitsound) post a link anyone can click to get it; /profile <name> shows a player's stats, /report <name> reports them, /help lists them.
 - Spectating shows the player's Buffer Cursor, and with their Follow Buffer Cursor the camera parallax follows it like on their screen
-- Chat reactions: press + after a message to react (👍 ❤️ 😂 🔥 and more), press a reaction to add yours or take it back. An emoji button next to the chat boxes types emoji
+- Chat reactions: press + after a message to react (👍 ❤️ 😂 🔥 and more); reactions show on their own line under the message, press one to add yours or take it back. An emoji button next to the chat boxes types emoji
 - Map list: the column is now called Difficulties, and a Filters button under it opens a page with what to show (broken, online, ranked), the order switches, map folders and the sorts
 - New map list sorts: shortest / longest, highest / lowest SP, played, unplayed, recently ranked, recently played, most / fewest notes
 - Content Browser: a Skins tab for Chromia skins (.cskin). Get one to keep it in My skins and put it on from Settings > Skins, or share your own look. In chat, /share skin posts your look as a link
 - Settings preview shows the song's real HUD: the side panels (combo, accuracy, grade, pauses, score, misses, notes), timer and health bar, with your HUD colours, fonts, panel style and size, Simple / Faraway HUD and attach-to-grid
 - Badges on your in-game profile and in Spectate > View stats are the exact ones from your website profile (same pictures, colours and hover text)
-- Chat reactions show on their own line under the message
 - Settings > Background Editor > HUD panels: HUD brightness, and move the side panels left / right and up / down, and the timer and health bar closer to or away from the grid (spectators and skins carry them too)
 - Multiplayer: the hit window is 55 or 58 ms. Any other hit window is set to 55 ms while you're in a lobby, and yours comes back when you leave
