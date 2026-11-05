@@ -3103,6 +3103,7 @@ var trail_opacity: float = 1.0
 var trail_gradient_enabled: bool = false
 var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html = aarrggbb
 var max_fps_mode: bool = false
+var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd: the first version's mouse code)
 var pc_no_delay: bool = false # Experimental: No Delay (PC mouse), no_delay_begin / no_delay_end
 # Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
 var realistic_autoplay: bool = false
@@ -3122,7 +3123,7 @@ func _web_replay_light():
 # back: VSync, the FPS cap and the Windows compositor's extra frame are off
 # for the song. Your VSync and FPS cap come back after it.
 func no_delay_active() -> bool:
-	return pc_no_delay and not vr and not device("mobile") and not OS.has_feature("JavaScript") and not replaying
+	return pc_no_delay and not legacy_mouse and not vr and not device("mobile") and not OS.has_feature("JavaScript") and not replaying
 
 func no_delay_begin():
 	if not no_delay_active() or has_meta("no_delay_saved"):
@@ -3979,6 +3980,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			if max_fps_mode: call_deferred("apply_max_fps_mode")
 		if data.has("pc_no_delay"):
 			pc_no_delay = bool(data.pc_no_delay)
+		if data.has("legacy_mouse"):
+			legacy_mouse = bool(data.legacy_mouse)
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
@@ -4727,6 +4730,7 @@ func _write_settings_file(saveFile: String):
 			custombg_color = custombg_color.to_html(false),
 			max_fps_mode = max_fps_mode,
 			pc_no_delay = pc_no_delay,
+			legacy_mouse = legacy_mouse,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,

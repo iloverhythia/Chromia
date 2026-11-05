@@ -21,8 +21,23 @@ func _ready():
 		call_deferred("_add_touch_toggle")
 	if target == "wave_menu":
 		call_deferred("_add_xp_boost_toggle")
+	if target == "realistic_autoplay":
+		call_deferred("_add_legacy_mouse")
 	if target == "xp_boost":
 		Rhythia.connect("discord_login_changed", self, "upd") # (Discord can sign in after the settings were built)
+
+# Experimental: Legacy Mouse Movement (Cursor.gd), under Realistic Autoplay
+func _add_legacy_mouse():
+	var parent = get_parent()
+	if parent == null or parent.has_node("LegacyMouse") or Rhythia.device("mobile"):
+		return
+	var cb = duplicate()
+	cb.name = "LegacyMouse"
+	cb.target = "legacy_mouse"
+	cb.text = "Legacy Mouse Movement"
+	cb.hint_tooltip = "The cursor moves with the mouse exactly the way it did in Chromia's very first update (its original mouse code, with your sensitivity). Turns No Delay off while it's on."
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)
 
 # Experimental: "10x EXP" (your level), only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
 func _add_xp_boost_toggle():

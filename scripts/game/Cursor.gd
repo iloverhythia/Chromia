@@ -12,6 +12,8 @@ var edgec: float = 0.13125
 var edger: float = 0.13125 - max(0, Rhythia.get("edge_drift"))
 var _face_spin_deg: float = 0.0
 var _face_accum: Vector2 = Vector2.ZERO
+var face: Vector2 # (Legacy Mouse Movement: the last movement, as the first version kept it)
+var _legacy: bool = bool(Rhythia.get("legacy_mouse")) and not Rhythia.device("mobile")
 
 var move_mode: int = C_MOUSE
 var can_switch_move_modes: bool = true
@@ -170,6 +172,22 @@ func _input(event: InputEvent):
 				move_cursor_abs((relative + off) * -1)
 			else:
 				move_cursor_abs(relative + off)
+		elif not Rhythia.spin_now() and move_mode == C_MOUSE and _legacy:
+			# Experimental Legacy Mouse Movement: the first version's mouse code,
+			# line for line (its render scale was always 1)
+			visible = true
+			if (event is InputEventMouseMotion):
+				face = event.relative
+				if Rhythia.invert_mouse:
+					if Rhythia.absolute_mode:
+						move_cursor_abs(get_absolute_position() * -1)
+					else:
+						move_cursor((event.relative * 0.018 * Rhythia.sensitivity) * -1)
+				else:
+					if Rhythia.absolute_mode:
+						move_cursor_abs(get_absolute_position())
+					else:
+						move_cursor(event.relative * 0.018 * Rhythia.sensitivity)
 		elif not Rhythia.spin_now() and move_mode == C_MOUSE:
 			visible = true
 			if (event is InputEventMouseMotion):
@@ -246,7 +264,10 @@ func _process(delta):
 	if Rhythia.cursor_spin != 0 and not Rhythia.cursor_face_velocity:
 		$Mesh.rotate_z(deg2rad(-delta * Rhythia.cursor_spin))
 		$Mesh2.rotate_z(deg2rad(-delta * Rhythia.cursor_spin))
-	if Rhythia.cursor_face_velocity:
+	if Rhythia.cursor_face_velocity and _legacy:
+		# (the first version's turn towards where the cursor last moved)
+		$Mesh.rotation_degrees.x += ((rad2deg(face.angle()) + 180) - $Mesh.rotation_degrees.x) * 0.025
+	elif Rhythia.cursor_face_velocity:
 		var frame_face = _face_accum
 		_face_accum = Vector2.ZERO
 		if frame_face.length() > 0.05:
@@ -297,6 +318,8 @@ func _process(delta):
 func _ready():
 	if not Rhythia.show_cursor: visible = false
 	_pred = Rhythia.device("mobile") and bool(Rhythia.get("mobile_no_delay")) and Rhythia.absolute_mode and not Rhythia.replaying
+	if _legacy and not Rhythia.replaying:
+		Input.use_accumulated_input = true # (as it was then)
 
 	if not Rhythia.replaying:
 		if not Rhythia.absolute_mode:
