@@ -378,6 +378,8 @@ func _show_profile(p: Dictionary):
 	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	f.size = 15
 	_badges_holder.add_child(load("res://scripts/ui/BadgeRow.gd").make(p, f, 1.0))
+	if p.get("badge_list") is Array:
+		tag_label.visible = false # (the tag is one of the badges, as on the website)
 	rank_label.text = "#%s SP   •   #%s XP%s" % [Globals.s(p.get("sp_rank", "-")), Globals.s(p.get("xp_rank", "-")), "   •   ranker" if p.get("is_ranker", false) else ""]
 	stats_label.text = "%s SP     %s XP\n%s passes on %s maps%s" % [
 		_fmt(p.get("sp", 0)), _fmt(p.get("xp", 0)),

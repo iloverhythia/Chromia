@@ -32,3 +32,4 @@ in scripts/Savia.gd and empties this list.
 - New map list sorts: shortest / longest, highest / lowest SP, played, unplayed, recently ranked, recently played, most / fewest notes
 - Content Browser: a Skins tab for Chromia skins (.cskin). Get one to keep it in My skins and put it on from Settings > Skins, or share your own look. In chat, /share skin posts your look as a link
 - Settings preview shows the song's real HUD: the side panels (combo, accuracy, grade, pauses, score, misses, notes), timer and health bar, with your HUD colours, fonts, panel style and size, Simple / Faraway HUD and attach-to-grid
+- Badges on your in-game profile and in Spectate > View stats are the exact ones from your website profile (same pictures, colours and hover text)
