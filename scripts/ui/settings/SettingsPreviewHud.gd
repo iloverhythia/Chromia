@@ -30,7 +30,7 @@ static func signature() -> String:
 		"panel_bg", "panel_text", "score_text_color", "pause_text_color", "miss_text_color",
 		"combo_fill_color", "combo_empty_color", "acc_fill_color", "acc_empty_color",
 		"energy_fill_color", "energy_empty_color", "timer_fg", "timer_bg", "timer_text",
-		"hud_font", "hud_font_size", "hud_panel_style", "hud_panel_size", "ss_hud", "sound_space_mode",
+		"hud_font", "hud_font_size", "hud_panel_style", "hud_panel_size", "hud_brightness", "hud_panel_x", "hud_panel_y", "hud_bars_y", "ss_hud", "sound_space_mode",
 		"show_sp_hud"]
 	var parts := PoolStringArray()
 	for k in keys:

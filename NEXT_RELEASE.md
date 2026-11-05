@@ -34,3 +34,4 @@ in scripts/Savia.gd and empties this list.
 - Settings preview shows the song's real HUD: the side panels (combo, accuracy, grade, pauses, score, misses, notes), timer and health bar, with your HUD colours, fonts, panel style and size, Simple / Faraway HUD and attach-to-grid
 - Badges on your in-game profile and in Spectate > View stats are the exact ones from your website profile (same pictures, colours and hover text)
 - Chat reactions show on their own line under the message
+- Settings > Background Editor > HUD panels: HUD brightness, and move the side panels left / right and up / down, and the timer and health bar closer to or away from the grid (spectators and skins carry them too)

@@ -3249,6 +3249,10 @@ var hud_font: String = "default" # Settings > Fonts: the song HUD's font (script
 var hud_font_size: float = 100.0 # Settings > Fonts: its size, % of normal
 var hud_panel_style: String = "chromia" # Settings > Background Editor > HUD panels (scripts/HudPanels.gd)
 var hud_panel_size: float = 100.0 # the side panels' size, % of normal
+var hud_brightness: float = 100.0 # the HUD's brightness, % (HudPanels.gd)
+var hud_panel_x: float = 0.0 # the side panels moved out (+) / in (-), grid units
+var hud_panel_y: float = 0.0 # the side panels moved up (+) / down (-)
+var hud_bars_y: float = 0.0 # the timer and health bar moved away from the grid (+) / closer (-)
 var avatar: Dictionary = {} # your avatar's look (scripts/avatar/AvatarLook.gd)
 var bg_brightness: float = 100.0 # songs' background brightness, % (scripts/game/BgVeil.gd)
 var ss_hud: bool = false # Sound Space HUD: the side panels, time and health bar look like Sound Space (without the rest of Sound Space Mode)
@@ -4154,6 +4158,11 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			hud_panel_style = String(data.hud_panel_style)
 		if data.has("hud_panel_size"):
 			hud_panel_size = clamp(float(data.hud_panel_size), 50.0, 200.0)
+		if data.has("hud_brightness"):
+			hud_brightness = clamp(float(data.hud_brightness), 10.0, 200.0)
+		for hk in ["hud_panel_x", "hud_panel_y", "hud_bars_y"]:
+			if data.has(hk):
+				set(hk, clamp(float(data[hk]), -3.0, 3.0))
 		if data.has("avatar") and data.avatar is Dictionary:
 			avatar = data.avatar
 		if data.has("bg_brightness"):
@@ -4752,6 +4761,10 @@ func _write_settings_file(saveFile: String):
 			hud_font_size = hud_font_size,
 			hud_panel_style = hud_panel_style,
 			hud_panel_size = hud_panel_size,
+			hud_brightness = hud_brightness,
+			hud_panel_x = hud_panel_x,
+			hud_panel_y = hud_panel_y,
+			hud_bars_y = hud_bars_y,
 			avatar = avatar,
 			bg_brightness = bg_brightness,
 			ss_health_y = ss_health_y,
