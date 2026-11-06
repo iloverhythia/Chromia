@@ -316,6 +316,15 @@ var _star_rating: float = -1.0
 func star_rating_cached() -> float:
 	return _star_rating if _star_rating >= 0.0 else -1.0
 
+# the stars as shown: the rating at your speed mod (10 stars at 0.74x shows
+# 7.40); -1 when not rated yet. (RP works from the rating and the speed itself.)
+func star_rating_shown() -> float:
+	var r := star_rating_cached()
+	if r < 0.0:
+		return r
+	var sp: float = Rhythia.current_speed_multiplier() if Rhythia.has_method("current_speed_multiplier") else 1.0
+	return r * sp
+
 func star_rating_known() -> bool:
 	return _star_rating >= 0.0 or _star_rating <= -1.5
 

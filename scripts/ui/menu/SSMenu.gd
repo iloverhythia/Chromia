@@ -878,7 +878,7 @@ class Tile extends Clickable:
 					size -= 1
 					af = ui.font(ui.BOLD, size, 2, Color8(235, 228, 215))
 				ui.label(self, artist, af, Color(0.06, 0.05, 0.05), Vector2(10, 70), Vector2(aw, 46), Label.ALIGN_CENTER, true)
-			var stars: float = song.star_rating_cached()
+			var stars: float = song.star_rating_shown() # (at your speed)
 			if stars >= 0:
 				ui.label(self, str(int(round(stars))), ui.font(ui.BOLD, 18, 2, Color(0.3, 0.15, 0)), Color8(255, 210, 60), Vector2(30, rect_size.y - 36), Vector2(60, 26))
 			if song.is_online:
@@ -1031,7 +1031,7 @@ class Cover extends Control:
 		mouse_filter = MOUSE_FILTER_IGNORE
 		if not song.has_cover or song.is_online:
 			ui.label(self, song.name, ui.font(ui.BOLD, 18, 2, Color(0.95, 0.95, 0.95)), Color(0.1, 0.1, 0.1), Vector2(10, 10), rect_size - Vector2(20, 20), Label.ALIGN_CENTER, true)
-		var stars: float = song.star_rating_cached()
+		var stars: float = song.star_rating_shown() # (at your speed)
 		if stars >= 0:
 			ui.label(self, "★%d" % int(round(stars)), ui.font(ui.BOLD, 20, 2, Color(0.3, 0.15, 0)), Color8(255, 200, 40), Vector2(-8, rect_size.y - 22), Vector2(80, 28))
 	func _draw():

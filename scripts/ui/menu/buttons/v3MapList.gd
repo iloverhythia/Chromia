@@ -72,7 +72,7 @@ var _at: String = ""
 var mf := {"min_stars": 0.0, "max_stars": 0.0, "min_len": 0, "max_len": 0, "hide_ranked": false, "hide_unranked": false, "played": 0}
 func _mf_ok(s: Song) -> bool:
 	if mf.min_stars > 0 or mf.max_stars > 0:
-		var r: float = s.star_rating_cached()
+		var r: float = s.star_rating_shown() # (the stars as shown: at your speed)
 		if mf.min_stars > 0 and r < mf.min_stars: return false
 		if mf.max_stars > 0 and r > mf.max_stars: return false
 	if mf.min_len > 0 and s.last_ms < mf.min_len * 1000: return false

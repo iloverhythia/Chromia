@@ -105,15 +105,38 @@ func key_at(p: Vector2):
 			return b
 	return null
 
-var _off_lit = null
-func light_off_hand(b):
-	if b == _off_lit:
+# the key each hand points at (MenuPointer.gd: both hands type), tinted; a key
+# flashes when it's pressed
+var _lit := [null, null]
+func light_hand(hand: int, b):
+	if b == _lit[hand]:
 		return
-	if _off_lit != null and is_instance_valid(_off_lit):
-		_off_lit.self_modulate = Color(1, 1, 1)
-	_off_lit = b
-	if b != null:
-		b.self_modulate = Color(1, 0.8, 0.97) # (the key the other hand is on)
+	var old = _lit[hand]
+	_lit[hand] = b
+	_tint(old)
+	_tint(b)
+
+func _tint(b):
+	if b == null or not is_instance_valid(b):
+		return
+	if b.has_meta("flash"):
+		return
+	var n := 0
+	for h in _lit:
+		if h == b:
+			n += 1
+	b.self_modulate = Color(1, 1, 1) if n == 0 else (Color(1, 0.8, 0.97) if n == 1 else Color(1, 0.65, 0.93))
+
+func press_key(b):
+	if b == null or not is_instance_valid(b):
+		return
+	b.emit_signal("pressed")
+	b.set_meta("flash", true)
+	b.self_modulate = Color(0.75, 1, 0.85)
+	yield(get_tree().create_timer(0.09), "timeout")
+	if is_instance_valid(b):
+		b.remove_meta("flash")
+		_tint(b)
 
 func _is_text_box(c) -> bool:
 	if c is LineEdit:

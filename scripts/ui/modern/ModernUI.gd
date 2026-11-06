@@ -579,7 +579,7 @@ class Card extends Control:
 		var pr := Rect2(6 * k, 6 * k, pw, 13 * k)
 		over.draw_style_box(ui._flat(ui.RANKED if ranked else Color(0.09, 0.09, 0.11, 0.86), 3), pr)
 		over.draw_string(f.pill, Vector2(pr.position.x + 5 * k, pr.position.y + 9.6 * k), pt, Color(1, 1, 1))
-		var stars: float = song.star_rating_cached()
+		var stars: float = song.star_rating_shown() # (at your speed)
 		if stars > 0:
 			var st := "%.2f" % stars
 			var sw: float = f.pill.get_string_size(st).x + 20 * k
@@ -900,7 +900,7 @@ func _on_song(s = null):
 	mapper_l.text = "Mapped by " + String(s.creator)
 	var ranked := _is_ranked(s)
 	stats.status[1].text = "Ranked" if ranked else "Unranked"
-	var stars: float = s.star_rating_cached()
+	var stars: float = s.star_rating_shown() # (at your speed)
 	stats.stars[1].text = ("%.2f stars" % stars) if stars > 0 else "- stars"
 	stats.notes[1].text = "%d notes" % int(s.note_count)
 	stats.length[1].text = _len(s)
@@ -1237,6 +1237,17 @@ func _on_mod(m: String, b: Button):
 	_refresh_play()
 
 func _refresh_mods(_a = null):
+	# (the stars are at your speed: shown again)
+	var sel = Rhythia.selected_song
+	if sel != null and stats.has("stars"):
+		var st: float = sel.star_rating_shown()
+		stats.stars[1].text = ("%.2f stars" % st) if st > 0 else "- stars"
+	for c in cards:
+		if is_instance_valid(c):
+			c.update()
+			for ch in c.get_children():
+				if ch is Control:
+					ch.update()
 	for m in mod_btns:
 		var b: Button = mod_btns[m]
 		var tint: Color = b.get_meta("tint")

@@ -44,7 +44,7 @@ func _rebuild_data_label(map: Song):
 	# and this label is rebuilt when it's done (_on_star_rating_ready).
 	var stars: float = map.star_rating_cached()
 	if stars >= 0.0:
-		data_text += " - %.2f stars" % stars
+		data_text += " - %.2f stars" % map.star_rating_shown() # (at your speed)
 	elif not map.star_rating_known():
 		data_text += " - ... stars"
 		Rhythia.request_star_rating(map)

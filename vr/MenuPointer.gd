@@ -319,6 +319,8 @@ func _input(event: InputEvent):
 		elif event is InputEventJoypadButton and (event as InputEventJoypadButton):
 			var e: InputEventJoypadButton = event
 			if Rhythia.vr_bind("vr_click").has(e.button_index):
+				if _keyboard_press(e):
+					return # (typing: _hand_typing presses the key, for either hand)
 				if e.pressed:
 					Rhythia.trail("VR trigger at %s" % last_screen_pos)
 				_left(event.is_pressed())
@@ -417,63 +419,102 @@ func _process(delta):
 	else:
 		$Pointer.visible = false
 		$PointerTrail.emitting = false
-	_off_hand_typing()
+	_hand_typing()
 
-# Both hands type: while the keyboard is up, the other hand's beam is on too,
-# and its trigger presses the key it points at (the main hand still works the
-# menu as before, keyboard included).
+# Both hands type: while the keyboard is up, both beams are on and each hand
+# types on its own: its trigger presses the key it points at, straight away (a
+# press, like Quest's keyboard), so one hand can hold its trigger while the
+# other one types. Neither goes through the menu's one mouse click for keys
+# (_input leaves keyboard presses to this); the rest of the menu (the
+# keyboard's bar, Reset, the text box) still works with the main hand's click.
 var _kb = null
-var _off_dot: MeshInstance = null
-var _off_was_down := false
-var _off_on := false
+var _dots := [null, null] # (the other hand's dot; the main hand uses $Pointer)
+var _was_down := [false, false]
+var _typing_on := false
 const TRIGGER := 15 # (JOY_VR_TRIGGER)
 
-func _off_hand_typing():
+func _keyboard_up() -> bool:
+	if _kb == null or not is_instance_valid(_kb):
+		_kb = viewport.find_node("VRKeyboard", true, false)
+	return _kb != null and _kb.panel != null and _kb.panel.visible
+
+func _hand_trigger(hand) -> bool:
+	if not (hand is ARVRController):
+		return false
+	for b in Rhythia.vr_bind("vr_click") + [TRIGGER]:
+		if hand.is_button_pressed(int(b)):
+			return true
+	return false
+
+func _hand_typing():
 	var vp = Rhythia.vr_player
 	if vp == null:
 		return
-	if _kb == null or not is_instance_valid(_kb):
-		_kb = viewport.find_node("VRKeyboard", true, false)
-	var off_ray: RayCast = vp.right_ray if vp.primary_ray == vp.left_ray else vp.left_ray
-	var off_hand = vp.right_hand if off_ray == vp.right_ray else vp.left_hand
-	var up: bool = _kb != null and _kb.panel != null and _kb.panel.visible and off_ray != null
-	if up != _off_on:
-		_off_on = up
-		if off_ray != null:
-			off_ray.enabled = up
+	var up: bool = _keyboard_up()
+	var rays: Array = [vp.left_ray, vp.right_ray]
+	var hands: Array = [vp.left_hand, vp.right_hand]
+	if up != _typing_on:
+		_typing_on = up
 		if not up:
-			if _off_dot != null:
-				_off_dot.visible = false
+			# (the other hand's beam goes off again, as before the keyboard)
+			for i in 2:
+				if rays[i] != null and rays[i] != vp.primary_ray:
+					rays[i].enabled = false
+				if _dots[i] != null:
+					_dots[i].visible = false
+				_was_down[i] = false
 			if _kb != null and is_instance_valid(_kb):
-				_kb.light_off_hand(null)
+				_kb.light_hand(0, null)
+				_kb.light_hand(1, null)
 	if not up:
 		return
-	if not off_ray.enabled:
-		off_ray.enabled = true # (hands swapped while typing)
-	off_ray.force_raycast_update()
-	if off_ray.has_method("update_beam"):
-		off_ray.update_beam()
-	var key = null
-	if off_ray.is_colliding() and off_ray.get_collider() == self:
-		var p: Vector3 = off_ray.get_collision_point()
-		var uv := _uv(global_transform.xform_inv(p))
-		key = _kb.key_at(Vector2(round(uv.x * LAYOUT.x), round(uv.y * LAYOUT.y)))
-		if _off_dot == null:
-			_off_dot = $Pointer.duplicate(0)
-			_off_dot.name = "OffHandPointer"
-			add_child(_off_dot)
-		var face: Basis = global_transform.basis * Basis(Vector3.UP, -uv.z)
-		_off_dot.global_transform = Transform(face.orthonormalized(), p + face.z.normalized() * 0.004)
-		_off_dot.scale = $Pointer.scale
-		_off_dot.visible = true
-		busy()
-	elif _off_dot != null:
-		_off_dot.visible = false
-	_kb.light_off_hand(key)
-	var down: bool = off_hand != null and off_hand.has_method("is_button_pressed") and off_hand.is_button_pressed(TRIGGER)
-	if down and not _off_was_down and key != null:
-		key.emit_signal("pressed")
-	_off_was_down = down
+	for i in 2:
+		var ray: RayCast = rays[i]
+		if ray == null:
+			continue
+		var main: bool = ray == vp.primary_ray
+		if not main:
+			if not ray.enabled:
+				ray.enabled = true
+			ray.force_raycast_update()
+			if ray.has_method("update_beam"):
+				ray.update_beam()
+		var key = null
+		if ray.is_colliding() and ray.get_collider() == self:
+			var p: Vector3 = ray.get_collision_point()
+			var uv := _uv(global_transform.xform_inv(p))
+			key = _kb.key_at(Vector2(round(uv.x * LAYOUT.x), round(uv.y * LAYOUT.y)))
+			if not main:
+				if _dots[i] == null:
+					_dots[i] = $Pointer.duplicate(0)
+					_dots[i].name = "HandPointer%d" % i
+					add_child(_dots[i])
+				var face: Basis = global_transform.basis * Basis(Vector3.UP, -uv.z)
+				_dots[i].global_transform = Transform(face.orthonormalized(), p + face.z.normalized() * 0.004)
+				_dots[i].scale = $Pointer.scale
+				_dots[i].visible = true
+				busy()
+		elif not main and _dots[i] != null:
+			_dots[i].visible = false
+		if main and _dots[i] != null:
+			_dots[i].visible = false
+		_kb.light_hand(i, key)
+		var down: bool = _hand_trigger(hands[i])
+		if down and not _was_down[i] and key != null:
+			_kb.press_key(key)
+		_was_down[i] = down
+
+# a trigger on the keyboard: typed by _hand_typing, not clicked (true = leave it)
+func _keyboard_press(e: InputEventJoypadButton) -> bool:
+	if not _keyboard_up():
+		return false
+	var vp = Rhythia.vr_player
+	if vp == null:
+		return false
+	var main_hand = vp.left_hand if vp.primary_ray == vp.left_ray else vp.right_hand
+	if main_hand is ARVRController and e.device != main_hand.get_joystick_id():
+		return true # (the other hand: only ever types)
+	return e.pressed and _kb.key_at(last_screen_pos) != null
 
 func _ready():
 	# the menu screen keeps its own "input handled" state: with the main
