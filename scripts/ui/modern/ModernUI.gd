@@ -50,6 +50,7 @@ var left: Control
 var cover: TextureRect
 var board: VBoxContainer
 var board_msg: Label
+var board_dev: OptionButton
 var pb_label: Label
 var pb_row: Control
 var local_btn: Button
@@ -357,6 +358,11 @@ func _build_left():
 	board.add_constant_override("separation", int(2 * k))
 	board.mouse_filter = MOUSE_FILTER_PASS
 	left.add_child(board)
+	# (the board's device dropdown: LbModes.gd)
+	board_dev = load("res://scripts/ui/LbModes.gd").make(self, "_on_board_device", f.small)
+	board_dev.flat = true
+	board_dev.add_color_override("font_color", Color("#c9c8cf"))
+	left.add_child(board_dev)
 	board_msg = _label("", f.local, DIM)
 	board_msg.align = Label.ALIGN_CENTER
 	board_msg.autowrap = true
@@ -709,6 +715,8 @@ func _layout():
 	sh.rect_rotation = cover.rect_rotation
 	var rx: float = bx + cs + 14 * k
 	board.rect_position = Vector2(rx, 85 * k)
+	board_dev.rect_position = Vector2(rx + row_w - 110 * k, 62 * k)
+	board_dev.rect_size = Vector2(110 * k, 20 * k)
 	board.rect_size = Vector2(row_w, 4 * 42 * k)
 	board_msg.rect_position = Vector2(rx, 140 * k)
 	board_msg.rect_size = Vector2(row_w, 40 * k)
@@ -966,7 +974,7 @@ func _load_board(s):
 	_board_req.timeout = 12
 	add_child(_board_req)
 	_board_req.connect("request_completed", self, "_on_board", [_board_req, String(s.id)])
-	if _board_req.request(SITE + "/savia-public/api/map/" + String(s.id).http_escape()) != OK:
+	if _board_req.request(SITE + "/savia-public/api/map/" + String(s.id).http_escape() + load("res://scripts/ui/LbModes.gd").query(true)) != OK:
 		board_msg.text = "Couldn't load the leaderboard."
 
 func _on_board(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, id: String):
@@ -988,12 +996,17 @@ func _on_board(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, 
 		board_msg.text = "This map isn't ranked: no leaderboard."
 		return
 	if rows.empty():
-		board_msg.text = "No passes yet. Be the first!"
+		var dev := String(Rhythia.lb_device)
+		board_msg.text = ("No %s passes yet." % load("res://scripts/ui/LbModes.gd").name_of(dev)) if dev != "" else "No passes yet. Be the first!"
 		return
 	board_msg.visible = false
 	for i in min(4, rows.size()):
 		if rows[i] is Dictionary:
 			board.add_child(_score_row(rows[i]))
+
+func _on_board_device():
+	if Rhythia.selected_song != null:
+		_load_board(Rhythia.selected_song)
 
 func _score_row(e: Dictionary) -> Control:
 	var row := Control.new()
@@ -1025,7 +1038,7 @@ func _draw_row(row: Control):
 	var acc := float(e.get("accuracy", 0.0))
 	if acc <= 1.0:
 		acc *= 100.0
-	var rp := float(e.get("sp", e.get("rp", 0)))
+	var rp := float(e.get("sp_weighted", e.get("sp", e.get("rp", 0))))
 	var sub := "%drp  •  %.2f%%  •  %sx" % [int(round(rp)), acc, String(stepify(float(e.get("speed", 1.0)), 0.01))]
 	row.draw_string(f.rowsub, Vector2(ax + 28 * k, s.y / 2 + 11 * k), sub, Color("#b9b8c0"))
 	var g: Array = ScoreHistory.grade_for(acc / 100.0, false)

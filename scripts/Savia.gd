@@ -290,6 +290,7 @@ const PASS_ENV_URL = "https://savia.nysr.host/savia-pass-env" # (ProcessScan.gd:
 const PLAYER_XP_URL = "https://savia.nysr.host/savia-player-xp"
 const LEADERBOARD_URL = "https://savia.nysr.host/savia-leaderboard"
 const LEADERBOARD_SP_URL = "https://savia.nysr.host/savia-leaderboard-sp"
+const PUBLIC_LB_URL = "https://savia.nysr.host/savia-public/api/leaderboard/"
 const UPLOAD_REPLAY_URL = "https://savia.nysr.host/savia-upload-replay"
 
 func upload_replay_for_pass(song_id: String, replay_id: String):
@@ -318,7 +319,8 @@ func fetch_leaderboard():
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.connect("request_completed", self, "_on_leaderboard_received", [http_request])
-	var error = http_request.request(LEADERBOARD_URL)
+	# (the website's leaderboard, by device: LbModes.gd)
+	var error = http_request.request(PUBLIC_LB_URL + "xp?limit=100" + load("res://scripts/ui/LbModes.gd").query())
 	if error != OK:
 		http_request.queue_free()
 
@@ -331,13 +333,13 @@ func _on_leaderboard_received(result, response_code, headers, body, http_request
 	if json_result.error != OK or typeof(json_result.result) != TYPE_DICTIONARY:
 		emit_signal("leaderboard_received", [])
 		return
-	emit_signal("leaderboard_received", json_result.result.get("entries", []))
+	emit_signal("leaderboard_received", _lb_rows(json_result.result.get("entries", []), "xp"))
 
 func fetch_leaderboard_sp():
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.connect("request_completed", self, "_on_leaderboard_sp_received", [http_request])
-	var error = http_request.request(LEADERBOARD_SP_URL)
+	var error = http_request.request(PUBLIC_LB_URL + "sp?limit=100" + load("res://scripts/ui/LbModes.gd").query())
 	if error != OK:
 		http_request.queue_free()
 
@@ -350,7 +352,19 @@ func _on_leaderboard_sp_received(result, response_code, headers, body, http_requ
 	if json_result.error != OK or typeof(json_result.result) != TYPE_DICTIONARY:
 		emit_signal("leaderboard_sp_received", [])
 		return
-	emit_signal("leaderboard_sp_received", json_result.result.get("entries", []))
+	emit_signal("leaderboard_sp_received", _lb_rows(json_result.result.get("entries", []), "sp"))
+
+# (the public API gives each row's number as "value")
+static func _lb_rows(entries, key: String) -> Array:
+	var out := []
+	if entries is Array:
+		for e in entries:
+			if e is Dictionary:
+				var r: Dictionary = e.duplicate()
+				if not r.has(key):
+					r[key] = r.get("value", 0)
+				out.append(r)
+	return out
 
 func check_player_xp():
 	if cid == "":
@@ -385,6 +399,7 @@ func _get_active_mods_dict() -> Dictionary:
 	return {
 		"vr": vr, # how it was played (the website shows VR / Mobile / Spin badges)
 		"mobile": device("mobile"),
+		"quest": vr and OS.has_feature("quest"), # (the Quest leaderboards)
 		"nofail": mod_nofail,
 		"extra_energy": mod_extra_energy,
 		"no_regen": mod_no_regen,
@@ -2837,6 +2852,7 @@ var mod_reverse: bool = false setget set_mod_reverse
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
 var reverse_length_ms: float = 0.0
 var reverse_song_id: String = ""
+var lb_device: String = "" # the leaderboards' device dropdown (scripts/ui/LbModes.gd): "" all, pc, vr, quest, spin, mobile
 
 var start_offset: float = 0 setget _set_start_offset
 var note_hitbox_size: float = 1.14 setget _set_hitbox_size
@@ -4014,6 +4030,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			modern_ui = bool(data.modern_ui)
 		if data.has("is_staff"):
 			is_staff = bool(data.is_staff)
+		if data.has("lb_device"):
+			lb_device = String(data.lb_device)
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
@@ -4765,6 +4783,7 @@ func _write_settings_file(saveFile: String):
 			legacy_mouse = legacy_mouse,
 			modern_ui = modern_ui,
 			is_staff = is_staff,
+			lb_device = lb_device,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,

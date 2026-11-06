@@ -563,6 +563,10 @@ func _build_profile_ui():
 	leaderboard_mode_additive_btn = _make_button("Additive", ui_theme)
 	leaderboard_mode_additive_btn.connect("pressed", self, "_on_leaderboard_mode_pressed", [0])
 	mode_hbox.add_child(leaderboard_mode_additive_btn)
+	# (the plays on one kind of device: LbModes.gd)
+	leaderboard_device = load("res://scripts/ui/LbModes.gd").make(self, "_on_leaderboard_device")
+	leaderboard_device.theme = ui_theme
+	mode_hbox.add_child(leaderboard_device)
 	lvbox.add_child(mode_hbox)
 	_update_leaderboard_mode_buttons()
 
@@ -601,6 +605,15 @@ func _on_profile_tab_changed(tab_index: int):
 		if not _leaderboard_weighted_loaded:
 			_leaderboard_weighted_loaded = true
 			Rhythia.fetch_leaderboard_sp()
+
+var leaderboard_device: OptionButton
+func _on_leaderboard_device():
+	_leaderboard_entries_additive = []
+	_leaderboard_entries_weighted = []
+	_leaderboard_weighted_loaded = true
+	_build_leaderboard_rows(leaderboard_list_box, [], "sp", "SP")
+	Rhythia.fetch_leaderboard()
+	Rhythia.fetch_leaderboard_sp()
 
 func _on_refresh_leaderboard_pressed():
 	if _leaderboard_mode == 1:

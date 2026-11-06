@@ -848,7 +848,6 @@ func open_page(title: String, sub: String, page_name: String):
 # ------------------------------------------------------------------ Leaderboard
 
 var _lb_req: HTTPRequest
-var _lb_spin := false
 func open_leaderboard():
 	_hide_classic()
 	showing = "leaderboard"
@@ -857,18 +856,10 @@ func open_leaderboard():
 	back_btn.visible = false
 	_clear()
 	var k: float = ui.k
-	var top := HBoxContainer.new()
-	top.add_constant_override("separation", int(6 * k))
-	body.add_child(top)
-	for t in [["Players", false], ["Spin", true]]:
-		var b = ui._button(Color(1, 1, 1, 0.1 if t[1] == _lb_spin else 0.04), Color(1, 1, 1, 0.12), 5)
-		b.text = t[0]
-		b.size_flags_horizontal = SIZE_EXPAND_FILL
-		b.rect_min_size = Vector2(0, 26 * k)
-		b.add_font_override("font", ui._font("Bold", 11))
-		b.add_color_override("font_color", ui.TEXT)
-		b.connect("pressed", self, "_lb_mode", [t[1]])
-		top.add_child(b)
+	# (the plays on one kind of device, or all: LbModes.gd)
+	var dev = load("res://scripts/ui/LbModes.gd").make(self, "open_leaderboard", ui._font("Bold", 11))
+	dev.rect_min_size = Vector2(0, 26 * k)
+	body.add_child(dev)
 	var msg = ui._label("Loading...", ui._font("SemiBold", 11), ui.DIM)
 	msg.name = "Msg"
 	body.add_child(msg)
@@ -878,13 +869,9 @@ func open_leaderboard():
 	_lb_req.timeout = 15
 	add_child(_lb_req)
 	_lb_req.connect("request_completed", self, "_on_lb", [_lb_req])
-	_lb_req.request(ui.SITE + "/savia-public/api/leaderboard/sp?limit=100" + ("&device=spin" if _lb_spin else ""))
+	_lb_req.request(ui.SITE + "/savia-public/api/leaderboard/sp?limit=100" + load("res://scripts/ui/LbModes.gd").query())
 	if not visible:
 		_slide_in()
-
-func _lb_mode(spin: bool):
-	_lb_spin = spin
-	open_leaderboard()
 
 func _on_lb(result: int, code: int, _h, b: PoolByteArray, r: HTTPRequest):
 	r.queue_free()
