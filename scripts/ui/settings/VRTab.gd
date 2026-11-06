@@ -149,7 +149,7 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
-	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
+	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Cartoon glove", "glove"], ["Robot", "robot"], ["Skeleton", "skeleton"], ["Crystal", "crystal"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
 	box.add_child(HSeparator.new())
 	_label("Graphics", f_title, ACCENT)
 	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)

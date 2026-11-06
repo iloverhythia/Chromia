@@ -14,3 +14,5 @@ in scripts/Savia.gd and empties this list.
 - Each map's leaderboard shows the SP of every pass again (it showed 0)
 - Background Editor: right-click a layer > Move to Space puts the picture in the song's world, behind the grid (it moves with the camera), with a Distance slider for how far away it stands
 - The cursor trail is smooth on phones (iOS especially): it fades evenly instead of in steps, curves with your swipe instead of in straight pieces, and doesn't get cut short on fast swipes
+- Spectate: "N watching" sits in the very bottom-left corner of a player's card and the ••• button is smaller, so they no longer overlap
+- VR: four new hands in Settings > VR > Hands: Cartoon glove, Robot, Skeleton and Crystal (spectators see them too)

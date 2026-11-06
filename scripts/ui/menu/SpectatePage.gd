@@ -1045,24 +1045,26 @@ func _make_card() -> Dictionary:
 
 	# bottom left: "..." opens the menu (View stats, Spectate, their profile),
 	# like right-clicking the card; a label, the card takes the click
-	var dots := _label("•••", font_bold, DIM)
+	var dots := _label("•••", font_tiny, DIM) # (small: the "watching" line sits under it)
 	dots.anchor_top = 1.0
 	dots.anchor_bottom = 1.0
 	dots.margin_left = 0
-	dots.margin_right = 28 * _k
-	dots.margin_top = -22 * _k
+	dots.margin_right = 22 * _k
+	dots.margin_top = -16 * _k
 	dots.align = Label.ALIGN_CENTER
 	dots.valign = Label.VALIGN_CENTER
 	dots.mouse_filter = MOUSE_FILTER_IGNORE
 	dots.hint_tooltip = "View stats, spectate, profile"
 	box.add_child(dots)
 
-	# bottom left: how many are watching them (hidden at 0)
+	# the very bottom left: how many are watching them (hidden at 0); the
+	# "..." moves up above it while it shows (_fill_card)
 	var watching := _label("", font_tiny, DIM)
 	watching.anchor_top = 1.0
 	watching.anchor_bottom = 1.0
 	watching.grow_vertical = GROW_DIRECTION_BEGIN
-	watching.margin_left = 32 * _k # (right of the "...")
+	watching.margin_left = 2 * _k
+	watching.margin_bottom = 1 * _k
 	watching.mouse_filter = MOUSE_FILTER_IGNORE
 	watching.visible = false
 	box.add_child(watching)
@@ -1173,6 +1175,9 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var n_watch := int(p.get("watchers", 0))
 	c.watching.visible = n_watch > 0
 	c.watching.text = "%d watching" % n_watch
+	# (the "..." just above the watching line, so they never overlap)
+	c.dots.margin_bottom = -15 * _k if n_watch > 0 else 0.0
+	c.dots.margin_top = c.dots.margin_bottom - 16 * _k
 	c.device.text = DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")
 	# the rest in a tooltip
 	var tip := [nm]
