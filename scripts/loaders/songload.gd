@@ -162,6 +162,10 @@ func finish():
 	var _read = Rhythia.selected_song.read_notes()
 	Rhythia.unlock_song_notes(Rhythia.selected_song) # (unlocked before anything that could fail on a broken map)
 	var _n_notes: int = _read.size() if _read is Array else 0
+	# (its fingerprint now, on the loading screen: the ranked check uses it
+	# right after the song starts)
+	if _n_notes > 0 and not Rhythia.replaying:
+		Rhythia.selected_song.compute_chart_hash()
 	# (VR: these questions are a flat-screen prompt the headset doesn't show, so
 	# the load waited for an answer nobody could give: a black screen. VR takes
 	# the answer that keeps going, or goes back to the menu.)

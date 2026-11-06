@@ -1716,10 +1716,13 @@ func trail(msg: String):
 		_trail_file.open(Globals.p(TRAIL_FILE), File.WRITE)
 		_trail_lines = 0
 	_trail_lines += 1
-	_trail_file.store_line("[%7.1fs | objs %d | vram %d MB] %s" % [
+	# (the video memory reading waits for the render thread: not during a
+	# song, where it made the next frame late too, worst in VR)
+	var vram: String = "-" if in_map else str(int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576))
+	_trail_file.store_line("[%7.1fs | objs %d | vram %s MB] %s" % [
 		OS.get_ticks_msec() / 1000.0,
 		Performance.get_monitor(Performance.OBJECT_COUNT),
-		int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576),
+		vram,
 		msg])
 	_trail_file.flush()
 	_trail_mutex.unlock()

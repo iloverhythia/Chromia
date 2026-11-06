@@ -31,7 +31,7 @@ func _process(delta):
 		int(delta * 1000.0),
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
-		int(Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)),
+		-1 if Rhythia.vr else int(Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)), # (VR: the reading waits for the render thread)
 		int(Performance.get_monitor(Performance.OBJECT_COUNT)),
 		http,
 		int(Performance.get_monitor(Performance.TIME_FPS)),

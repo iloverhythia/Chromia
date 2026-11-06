@@ -32,6 +32,8 @@ var hitEffect: Spatial = null
 var _hit_fx_pool: Array = []
 var _miss_fx_pool: Array = []
 var _score_fx_pool: Array = []
+var _music_settle := 0.6 # (seconds the music sync leaves the music alone after it starts)
+var _music_off_t := 0.0 # (how long it's been off)
 func _fx_copy(tpl: Spatial, pool: Array) -> Spatial:
 	while not pool.empty():
 		var c = pool.pop_back()
@@ -1148,9 +1150,24 @@ func _process(delta: float):
 
 			emit_signal("timer_update", ms, can_skip)
 
-			if _n_music.playing and not Rhythia.disable_desync:
+			# music sync: put right only when it has really drifted. The playback
+			# position only moves when the sound is mixed (in bursts on a busy
+			# Quest at the start of a song), so one late reading restarted the
+			# song (an audible hitch) over and over in the first seconds. Now:
+			# not just after it started, and only when it's off for a while.
+			if _music_settle > 0.0:
+				_music_settle -= delta
+			if _n_music.playing and not Rhythia.disable_desync and _music_settle <= 0.0:
 				var playback_pos: float = _n_music.get_playback_position() * 1000.0
-				if abs(playback_pos - (ms + Rhythia.music_offset)) > (100 * max(speed_multi * view_mult, 1.0)):
+				var limit: float = (150.0 if Rhythia.vr else 100.0) * max(speed_multi * view_mult, 1.0)
+				if abs(playback_pos - (ms + Rhythia.music_offset)) > limit:
+					_music_off_t += delta
+				else:
+					_music_off_t = 0.0
+				if _music_off_t >= 0.12:
+					_music_off_t = 0.0
+					_music_settle = 0.5
+					Rhythia.trail("music re-synced (%d ms off)" % int(playback_pos - (ms + Rhythia.music_offset)))
 					if Rhythia.desync_alerts:
 						Globals.notify(
 							Globals.NOTIFY_WARN,
@@ -1275,14 +1292,37 @@ func _setup_note_effects():
 		if missEffect: miss_id = Rhythia.selected_miss_effect.id
 
 func _warm_note_effects():
-	# spawn one copy far off-screen so shaders/particles are compiled before the first note
+	# spawn one copy where the camera draws it (far, behind the grid) so its
+	# shaders / particles are made before the first note. (It was 400 away:
+	# past the VR camera's 100, so in VR it was never drawn and the first hits
+	# stalled while the headset made them.)
+	var at := Vector3(0, 0, -60)
 	if hitEffect != null and is_instance_valid(hitEffect):
-		hitEffect.duplicate().spawn(get_parent(), Vector3(0, 0, -400), Color(1, 1, 1), hit_id, false)
+		hitEffect.duplicate().spawn(get_parent(), at, Color(1, 1, 1), hit_id, false)
 	if missEffect != null and is_instance_valid(missEffect):
-		missEffect.duplicate().spawn(self, Vector3(0, 0, -400), Color(1, 1, 1), miss_id, true)
+		missEffect.duplicate().spawn(self, at, Color(1, 1, 1), miss_id, true)
+	# copies made now, so the first hits don't copy the effect (VR most)
+	call_deferred("_fill_fx_pools")
+
+const FX_PREFILL := 8
+func _fill_fx_pools():
+	for pair in [[hitEffect, _hit_fx_pool], [missEffect, _miss_fx_pool]]:
+		var tpl = pair[0]
+		var pool: Array = pair[1]
+		if tpl == null or not is_instance_valid(tpl):
+			continue
+		for _i in range(FX_PREFILL - pool.size()):
+			var d = tpl.duplicate()
+			if "_pool" in d:
+				d._pool = pool
+			pool.append(d)
 
 func _exit_tree():
-
+	# (copies made ahead for the pools that never went into the song)
+	for pool in [_hit_fx_pool, _miss_fx_pool]:
+		for c in pool:
+			if is_instance_valid(c) and not c.is_inside_tree():
+				c.free()
 	scoreEffect.queue_free()
 	for n in noteCache:
 		n.queue_free()

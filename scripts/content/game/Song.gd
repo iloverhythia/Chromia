@@ -1006,12 +1006,25 @@ func read_notes() -> Array:
 	markers.ssp_note = notes
 	return notes
 
+# the chart's fingerprint (ranked maps: the server checks it). Worked out once
+# per song (on the loading screen) and kept: it was built note by note on the
+# main thread up to three times in a song's first seconds, a stall on Quest.
+# Same text as before: every note, each followed by ";".
+var _chart_hash := ""
+var _chart_hash_notes = null
 func compute_chart_hash() -> String:
 	var notes_arr = read_notes()
-	var s = ""
+	if _chart_hash != "" and _chart_hash_notes == notes_arr:
+		return _chart_hash
+	var parts := PoolStringArray()
 	for n in notes_arr:
-		s += String(n) + ";"
-	return s.sha256_text()
+		parts.append(String(n))
+	var s := ""
+	if parts.size() > 0:
+		s = parts.join(";") + ";"
+	_chart_hash = s.sha256_text()
+	_chart_hash_notes = notes_arr
+	return _chart_hash
 
 func read_markers() -> Dictionary:
 	if songType == Globals.MAP_SSPM2:
