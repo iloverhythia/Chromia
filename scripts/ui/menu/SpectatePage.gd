@@ -799,7 +799,7 @@ func _prewarm():
 
 # the Modern UI (Settings > Experimental) has its own Online Players window
 func _modern():
-	if not Rhythia.get("modern_ui") == true or Rhythia.vr:
+	if not Rhythia.modern_ui_on():
 		return null
 	var m = Rhythia.menu_node("ModernUI")
 	return m if m != null and m.get("online") != null else null

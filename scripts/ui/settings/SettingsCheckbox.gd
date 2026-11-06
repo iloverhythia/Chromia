@@ -47,6 +47,13 @@ func _add_legacy_mouse():
 		mu.hint_tooltip = "A new look for the main screen: your maps as a grid of covers, the picked map with its leaderboard on the left, and a top bar with the pages. Turn it off to go back to the classic menu."
 		parent.add_child(mu)
 		parent.move_child(mu, cb.get_index() + 1)
+		# (only staff, an Owner / Administrator tag, see it)
+		mu.visible = Rhythia.is_staff
+		Rhythia.connect("modern_ui_changed", self, "_staff_shown", [mu])
+
+func _staff_shown(mu):
+	if is_instance_valid(mu):
+		mu.visible = Rhythia.is_staff
 
 # Experimental: "10x EXP" (your level), only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
 func _add_xp_boost_toggle():

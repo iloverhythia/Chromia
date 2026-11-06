@@ -125,7 +125,7 @@ func _process(delta):
 	var on: bool = bool(Rhythia.get("settings_preview"))
 	if modern:
 		on = on and modern_on
-	elif Rhythia.get("modern_ui") == true and not Rhythia.vr:
+	elif Rhythia.modern_ui_on():
 		on = false # (the Modern UI shows its own)
 	if visible != on:
 		visible = on

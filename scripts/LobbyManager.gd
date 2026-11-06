@@ -677,6 +677,7 @@ func _collect_current_mods() -> Dictionary:
 		"hardrock": Rhythia.mod_hardrock,
 		"hard_mode": Rhythia.mod_hard_mode,
 		"flashlight": Rhythia.mod_flashlight,
+		"reverse": Rhythia.mod_reverse,
 		"mod_360": Rhythia.mod_360,
 		"mod_360_speed": Rhythia.mod_360_speed,
 		"strobe": Rhythia.mod_strobe,
@@ -725,6 +726,7 @@ func _apply_mods_locally(mods: Dictionary):
 	Rhythia.mod_hardrock = mods.get("hardrock", Rhythia.mod_hardrock)
 	Rhythia.mod_hard_mode = mods.get("hard_mode", Rhythia.mod_hard_mode)
 	Rhythia.mod_flashlight = mods.get("flashlight", Rhythia.mod_flashlight)
+	Rhythia.mod_reverse = mods.get("reverse", Rhythia.mod_reverse)
 	Rhythia.mod_360 = mods.get("mod_360", Rhythia.mod_360)
 	Rhythia.mod_360_speed = mods.get("mod_360_speed", Rhythia.mod_360_speed)
 	Rhythia.mod_strobe = mods.get("strobe", Rhythia.mod_strobe)
@@ -1532,6 +1534,9 @@ func _handle_message(msg: Dictionary):
 		return
 	match Globals.s(msg.get("type", "")):
 		"auth_ok", "display_name_changed":
+			if msg.has("staff"):
+				i_am_staff = bool(msg.get("staff"))
+				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
@@ -1711,6 +1716,7 @@ func _handle_message(msg: Dictionary):
 			online_players = lst if lst is Array else []
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
 			i_am_staff = bool(msg.get("you_staff", false))
+			Rhythia.is_staff = i_am_staff
 			emit_signal("online_players_received", online_players, my_player_number)
 			_check_follow(online_players)
 		"spectate_denied":
@@ -1791,6 +1797,9 @@ func _handle_message(msg: Dictionary):
 		"admin_map_ranks":
 			emit_signal("admin_map_ranks_received", msg.get("ranks", []))
 		"ranker_status":
+			if msg.has("staff"):
+				i_am_staff = bool(msg.get("staff"))
+				Rhythia.is_staff = i_am_staff
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
 		"map_rank_info":
 			emit_signal("map_rank_info_received", Globals.s(msg.get("song_id", "")), bool(msg.get("ranked", false)), int(msg.get("xp", 0)), Globals.s(msg.get("content_hash", "")))
