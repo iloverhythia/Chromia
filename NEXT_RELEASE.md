@@ -22,3 +22,5 @@ in scripts/Savia.gd and empties this list.
 - VR: the first seconds of a map no longer lag. The hit and miss effects are ready before the first note (in VR they were made on the first hits, a stall every map), the music isn't restarted over small timing blips while the headset is busy loading, ranked maps no longer work out their fingerprint during the first seconds, and on PC VR the cheat scan waits until the song has settled
 - Cards: a Cards button under your name on your profile picks your card, the background and border colour of your player card in the Spectate grid (and the border of your website profile). Everyone has Default; special cards unlock in secret ways (Admin, Developer and DJ go to who they're named for). Got a secret code? Type it in the Cards menu
 - New Grid Map List option (Settings, or Filters > View > grid): your maps as a grid of square covers, fast even with thousands of maps, switches on and off right away
+- Multiplayer: the leaderboard while playing is much smaller (top left corner), no longer glitches, and Tab hides or shows it
+- Multiplayer: less lag during matches (the leaderboard no longer rebuilds itself on every note)

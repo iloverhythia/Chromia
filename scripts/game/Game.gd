@@ -458,6 +458,12 @@ func _update_lobby_score_ui():
 				hud0.update_leaderboard_vr([], "", "", false)
 		return
 	_board_vr_shown = true
+	# the rows a few times a second, not every frame (with the board's in-place
+	# updates this keeps multiplayer smooth)
+	var now := OS.get_ticks_msec()
+	if now - _board_built_at < BOARD_EVERY_MS and _board != null and is_instance_valid(_board):
+		return
+	_board_built_at = now
 	lobby_score_title.text = "RESULTS" if showing_round_results else "LEADERBOARD"
 
 	var rows = []
@@ -499,6 +505,17 @@ func _update_lobby_score_ui():
 		hud.update_leaderboard_vr(rows, title, footer, true)
 
 var _board = null # LobbyBoard.gd (on the screen)
+const BOARD_EVERY_MS := 150
+var _board_built_at := -100000
+# Tab hides / shows the board while playing (when not watching someone: then
+# Tab switches the view, HUD.gd)
+var board_hidden := false
+func _unhandled_input(event):
+	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_TAB \
+			and _board != null and is_instance_valid(_board) and lobby_score_canvas != null and lobby_score_canvas.visible:
+		board_hidden = not board_hidden
+		_layout_lobby_score_ui()
+		get_tree().set_input_as_handled()
 var _board_vr_shown := false
 func _ensure_board():
 	if _board != null and is_instance_valid(_board):
@@ -516,8 +533,8 @@ func _on_board_row(peer_id: int):
 	if hud != null and hud.spectating and peer_id != -1:
 		hud.spectate_specific_player(peer_id)
 
-const LOBBY_SCORE_WIDTH_NORMAL: float = 340.0
-const LOBBY_SCORE_WIDTH_SPIN: float = 260.0
+const LOBBY_SCORE_WIDTH_NORMAL: float = 220.0
+const LOBBY_SCORE_WIDTH_SPIN: float = 190.0
 
 func _layout_lobby_score_ui():
 	if _board == null or not is_instance_valid(_board):
@@ -528,7 +545,13 @@ func _layout_lobby_score_ui():
 	var panel_size = _board.get_combined_minimum_size()
 	panel_size.x = target_width
 	_board.rect_size = panel_size
-	_board.rect_position = Vector2(16, (viewport_size.y - panel_size.y) / 2.0)
+	# small, in the top left corner, out of the way of the HUD panels (the
+	# results stay in the middle of the left side)
+	_board.visible = showing_round_results or not board_hidden
+	if showing_round_results:
+		_board.rect_position = Vector2(16, (viewport_size.y - panel_size.y) / 2.0)
+	else:
+		_board.rect_position = Vector2(10, 10)
 
 func _accuracy_color(acc: float) -> Color:
 	if acc >= 0.95: return Color(0.4, 0.9, 0.6)
