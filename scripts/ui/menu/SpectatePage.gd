@@ -1478,6 +1478,9 @@ func _card_menu(c: Dictionary, at: Vector2):
 	if c.can and not c.is_you:
 		_ctx.add_item("Spectate", 1)
 	_ctx.add_item("Open their profile on the website", 2)
+	# (you're in a lobby: bring them in)
+	if _lm != null and _lm.lobby_active and not _lm.watch_mode and not c.is_you:
+		_ctx.add_item("Invite to your lobby", 3)
 	_ctx_card = c
 	_ctx.popup(Rect2(at, Vector2(1, 1)))
 
@@ -1492,6 +1495,9 @@ func _on_card_menu(id: int):
 			_spectate(c)
 		2:
 			OS.shell_open(STATS_SITE + "/profile?id=%d" % int(c.number))
+		3:
+			if _lm != null:
+				_lm.invite_player(int(c.number))
 
 func _show_stats(number: int, nm: String):
 	if number <= 0:

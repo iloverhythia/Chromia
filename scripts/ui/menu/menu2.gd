@@ -2353,10 +2353,26 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	S.button(lobby_leave_button)
 	lobby_leave_button.rect_min_size = Vector2(140, 44)
 	actions.add_child(lobby_leave_button)
+	# Invite players: the Spectate window, where anyone online can be invited
+	# (their card's menu > Invite to your lobby)
+	var invite_btn := Button.new()
+	invite_btn.text = "Invite players"
+	invite_btn.hint_tooltip = "Pick someone online and invite them in (their card's ••• menu > Invite to your lobby)"
+	S.button(invite_btn)
+	invite_btn.rect_min_size = Vector2(150, 44)
+	invite_btn.connect("pressed", self, "_open_invite_list")
+	actions.add_child(invite_btn)
+	actions.move_child(invite_btn, 1)
 	# (Back to Maps: the sidebar does that)
 	footer.get_parent().remove_child(footer)
 	footer.queue_free()
 	lobby_close_button = null
+
+func _open_invite_list():
+	var sb = get_node_or_null("Sidebar")
+	if sb != null and sb.get("spectate") != null:
+		sb.spectate.open()
+		Globals.notify(Globals.NOTIFY_INFO, "Open someone's ••• menu (or right-click their card) > Invite to your lobby.", "Invite players")
 
 func _style_chat_box(S, box: VBoxContainer, sc: ScrollContainer, input: LineEdit, send: Button, title_text: String):
 	box.add_constant_override("separation", 8)
@@ -2789,6 +2805,10 @@ func idle_status():
 func _ready():
 	# the browser version opened as the website's game view of a replay
 	load("res://scripts/WebReplay.gd").menu_opened(get_tree())
+	# a lobby invite that came during the song: asked about now
+	var _lmi = get_node_or_null("/root/LobbyManager")
+	if _lmi != null and _lmi.has_method("ask_pending_invite"):
+		_lmi.call_deferred("ask_pending_invite")
 	# menu music lyric volume (Settings > Video & Audio)
 	var vocals = preload("res://scripts/ui/menu/MenuVocals.gd").new()
 	vocals.name = "MenuVocals"

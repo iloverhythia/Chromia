@@ -398,6 +398,50 @@ func admin_remove_map_rank(song_id: String):
 		return
 	_ensure_connected_then_send({"type": "admin_remove_map_rank", "admin_key": _admin_key, "song_id": song_id})
 
+# --- lobby invites ---------------------------------------------------------------
+# Invite someone online into your lobby (the Spectate window's player menu, or
+# the lobby's Invite players button); they're asked if they want to join.
+# Settings > Online > Allow Lobby Invites turns getting them off.
+var pending_invite = null # (one that came during a song: asked about back in the menu)
+
+func invite_player(number: int):
+	if not lobby_active or watch_mode:
+		Globals.notify(Globals.NOTIFY_WARN, "Make or join a lobby first (Online).", "Lobby invite")
+		return
+	_ensure_connected_then_send({"type": "invite_to_lobby", "number": number, "client_id": Rhythia.cid})
+
+func _on_lobby_invite(msg: Dictionary):
+	if Rhythia.get("allow_lobby_invites") == false:
+		return
+	var code := Globals.s(msg.get("code", ""))
+	if code == "" or (lobby_active and lobby_code == code):
+		return
+	pending_invite = msg
+	if Rhythia.in_map:
+		Globals.notify(Globals.NOTIFY_INFO, "%s invited you to their lobby (you'll be asked after this song)." % Globals.s(msg.get("from_name", "Someone")), "Lobby invite")
+		return
+	ask_pending_invite()
+
+# (also from the menu when it opens after a song)
+func ask_pending_invite():
+	if pending_invite == null or Rhythia.in_map or Globals.confirm_prompt == null:
+		return
+	var msg: Dictionary = pending_invite
+	pending_invite = null
+	var who := Globals.s(msg.get("from_name", "Someone"))
+	var size := int(msg.get("lobby_size", 1))
+	var song := Globals.s(msg.get("song_name", ""))
+	var text := "%s invited you to their lobby (%d player%s)." % [who, size, "" if size == 1 else "s"]
+	if song != "":
+		text += "\nMap: %s" % song
+	if lobby_active:
+		text += "\nJoining leaves the lobby you're in."
+	Globals.confirm_prompt.open(text, "Lobby invite", [{text = "Join"}, {text = "Not now", wait = 0}])
+	var r = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	if r == 0:
+		join_lobby(Globals.s(msg.get("code", "")), _presence_name())
+
 func check_ranker_status():
 	if Rhythia.cid == "":
 		return
@@ -1826,6 +1870,13 @@ func _handle_message(msg: Dictionary):
 			emit_signal("admin_rankers_received", msg.get("rankers", []))
 		"admin_map_ranks":
 			emit_signal("admin_map_ranks_received", msg.get("ranks", []))
+		"lobby_invite":
+			_on_lobby_invite(msg)
+		"invite_result":
+			if bool(msg.get("ok", false)):
+				Globals.notify(Globals.NOTIFY_SUCCEED, "Invited %s to your lobby." % Globals.s(msg.get("name", "them")), "Lobby invite")
+			else:
+				Globals.notify(Globals.NOTIFY_WARN, Globals.s(msg.get("reason", "Couldn't invite them.")), "Lobby invite")
 		"ranker_status":
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
@@ -2030,6 +2081,7 @@ func _presence_now() -> Dictionary:
 		"type": "presence", "client_id": Rhythia.cid, "name": _presence_name(),
 		"status": "playing" if playing else "menu",
 		"allow_spectate": bool(Rhythia.allow_spectators),
+		"allow_invites": bool(Rhythia.get("allow_lobby_invites") != false), # (Settings > Online)
 		# Settings > Online > Share My Maps With Spectators: the server sends
 		# nobody watching you your map (not even a copy it already has)
 		"share_maps": bool(Rhythia.get("share_maps_with_spectators")),

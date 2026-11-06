@@ -3004,6 +3004,7 @@ var mute_global_chat: bool = false
 # Settings > Online: others can watch you from their Spectate tab (the server
 # refuses anyone when this is off; LobbyManager sends it with your presence)
 var allow_spectators: bool = true
+var allow_lobby_invites: bool = true # Settings > Online: others can invite you into their lobby (LobbyManager.invite_player)
 # Settings > Online > Share My Maps With Spectators: off, a spectator without
 # the map isn't sent it (unreleased maps); they can still watch on maps they have
 var share_maps_with_spectators: bool = true
@@ -3927,6 +3928,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			lead_in_ms = data.lead_in_ms
 		if data.has("mute_global_chat"):
 			mute_global_chat = data.mute_global_chat
+		if data.has("allow_lobby_invites"):
+			allow_lobby_invites = bool(data.allow_lobby_invites)
 		if data.has("allow_spectators"):
 			allow_spectators = bool(data.allow_spectators)
 		if data.has("share_maps_with_spectators"):
@@ -4785,6 +4788,7 @@ func _write_settings_file(saveFile: String):
 			modern_ui = modern_ui,
 			is_staff = is_staff,
 			lb_device = lb_device,
+			allow_lobby_invites = allow_lobby_invites,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,

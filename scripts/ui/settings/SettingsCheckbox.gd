@@ -23,8 +23,23 @@ func _ready():
 		call_deferred("_add_xp_boost_toggle")
 	if target == "realistic_autoplay":
 		call_deferred("_add_legacy_mouse")
+	if target == "allow_spectators":
+		call_deferred("_add_lobby_invites")
 	if target == "xp_boost":
 		Rhythia.connect("discord_login_changed", self, "upd") # (Discord can sign in after the settings were built)
+
+# Settings > Online: Allow Lobby Invites, under Allow Spectators
+func _add_lobby_invites():
+	var parent = get_parent()
+	if parent == null or parent.has_node("AllowLobbyInvites"):
+		return
+	var cb = duplicate()
+	cb.name = "AllowLobbyInvites"
+	cb.target = "allow_lobby_invites"
+	cb.text = "Allow Lobby Invites"
+	cb.hint_tooltip = "On: people can invite you into their multiplayer lobby (you choose to join or not). Off: nobody can invite you"
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)
 
 # Experimental: Legacy Mouse Movement (Cursor.gd), under Realistic Autoplay
 func _add_legacy_mouse():
