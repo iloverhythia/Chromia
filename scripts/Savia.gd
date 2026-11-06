@@ -3133,6 +3133,15 @@ var trail_opacity: float = 1.0
 var trail_gradient_enabled: bool = false
 var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html = aarrggbb
 var max_fps_mode: bool = false
+# Settings > Grid Map List (or the map list's Filters page): the maps as a grid
+# of square tiles (MapGrid.gd), switched while the game runs
+signal map_grid_changed
+var map_grid: bool = false setget _set_map_grid
+func _set_map_grid(v: bool):
+	if v == map_grid:
+		return
+	map_grid = v
+	emit_signal("map_grid_changed")
 var modern_ui: bool = false setget _set_modern_ui # Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
 signal modern_ui_changed
 # the Modern UI is for staff (an Owner / Administrator tag): the server says
@@ -4035,6 +4044,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			legacy_mouse = bool(data.legacy_mouse)
 		if data.has("modern_ui"):
 			modern_ui = bool(data.modern_ui)
+		if data.has("map_grid"):
+			map_grid = bool(data.map_grid)
 		if data.has("is_staff"):
 			is_staff = bool(data.is_staff)
 		if data.has("lb_device"):
@@ -4789,6 +4800,7 @@ func _write_settings_file(saveFile: String):
 			pc_no_delay = pc_no_delay,
 			legacy_mouse = legacy_mouse,
 			modern_ui = modern_ui,
+			map_grid = map_grid,
 			is_staff = is_staff,
 			lb_device = lb_device,
 			allow_lobby_invites = allow_lobby_invites,

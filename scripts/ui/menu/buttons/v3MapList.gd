@@ -1,6 +1,10 @@
 extends VBoxContainer
 
 const MapFolders = preload("res://scripts/MapFolders.gd")
+const MapGrid = preload("res://scripts/ui/menu/MapGrid.gd")
+
+# the grid view (MapGrid.gd) while Rhythia.map_grid is on, else null
+var grid = null
 
 signal search_updated
 signal reset_filters
@@ -227,6 +231,12 @@ func load_pg(select_cur: bool = false):
 	for n in btns: n.queue_free()
 	btns.clear()
 
+	if grid != null:
+		cur_map = int(clamp(cur_map, 0, max(disp.size() - 1, 0)))
+		if select_cur and cur_map < disp.size() and disp[cur_map] != Rhythia.selected_song:
+			Rhythia.select_song(disp[cur_map])
+		grid.refresh(select_cur)
+		return
 	if disp.size() == 0: return
 	page_size = ((get_parent().rect_size.y) / 90) * 1.5
 	if page_size % 2 != 0:
@@ -663,6 +673,7 @@ func _mark_motd(btn: Panel):
 	btn.add_child(tag)
 
 func pg_up():
+	if grid != null: return
 	if cur_map < 0 or btns.empty(): return
 	cur_map -= 1
 
@@ -678,6 +689,7 @@ func pg_up():
 	tween_in(btn)
 
 func pg_down():
+	if grid != null or btns.empty(): return
 	if cur_map >= disp.size() - 1: return
 	cur_map += 1
 
@@ -715,7 +727,7 @@ func tween_length():
 
 
 func _input(ev: InputEvent):
-	if is_visible_in_tree() and ev is InputEventMouseButton and ev.is_pressed():
+	if grid == null and is_visible_in_tree() and ev is InputEventMouseButton and ev.is_pressed():
 		if (ev.button_index == BUTTON_WHEEL_UP or ev.button_index == BUTTON_WHEEL_DOWN) \
 			and (Rhythia.alt_held(ev) or not get_global_rect().has_point(Rhythia.menu_mouse(self))):
 			return
@@ -745,6 +757,9 @@ func firstload():
 	_make_top_button(get_parent().get_parent().get_parent().get_node("ScrollControl"))
 
 	get_parent().get_parent().get_node("T/Random").connect("pressed", self, "select_random")
+	_apply_grid()
+	if not Rhythia.is_connected("map_grid_changed", self, "_apply_grid"):
+		Rhythia.connect("map_grid_changed", self, "_apply_grid")
 	prepare_songs()
 	reload_to_current_page()
 	ready = true
@@ -756,6 +771,8 @@ func firstload():
 	Rhythia.emit_signal("map_list_ready")
 
 func update_clouds():
+	if grid != null:
+		grid.refresh_tiles()
 	for btn in btns:
 		if is_instance_valid(btn) and btn.get("song"):
 			var map: Song = btn.song
@@ -800,6 +817,9 @@ func _make_top_button(sc: Node):
 func go_to_top():
 	if disp.size() == 0:
 		return
+	if grid != null:
+		grid.to_top()
+		return
 	scroll_up = false
 	scroll_down = false
 	momentum = 0
@@ -808,17 +828,68 @@ func go_to_top():
 
 func pg_up_cont():
 	scrolling_to = false
+	if grid != null:
+		grid.hold_scroll(-1)
+		return
 	scroll_up = true
 
 func pg_up_stop():
 	scroll_up = false
+	if grid != null:
+		grid.hold_scroll(0)
 
 func pg_down_cont():
 	scrolling_to = false
+	if grid != null:
+		grid.hold_scroll(1)
+		return
 	scroll_down = true
 
 func pg_down_stop():
 	scroll_down = false
+	if grid != null:
+		grid.hold_scroll(0)
+
+# A tile of the grid view was clicked: pick that map, or play it on a quick
+# second click (like the list's buttons)
+func grid_pressed(i: int):
+	if i < 0 or i >= disp.size(): return
+	$Press.play()
+	cur_map = i
+	var s: Song = disp[i]
+	if s != Rhythia.selected_song:
+		Rhythia.select_song(s)
+	elif pt < 0.25:
+		play_song()
+	pt = 0
+	get_viewport().get_node("Menu/Main/Maps/Results").visible = true
+
+# Grid view on / off while the game runs (Settings > Grid Map List or the
+# Filters page): swap the list's buttons for the grid or back, keeping the
+# picked map in view
+func _apply_grid(_v = null):
+	var want: bool = bool(Rhythia.get("map_grid"))
+	if want and grid == null:
+		grid = MapGrid.new(self)
+		get_parent().add_child(grid)
+	elif not want and grid != null:
+		grid.queue_free()
+		grid = null
+	else:
+		return
+	scroll_up = false
+	scroll_down = false
+	scrolling_to = false
+	momentum = 0
+	if not ready:
+		return
+	if Rhythia.selected_song != null:
+		var i = disp.find(Rhythia.selected_song)
+		if i != -1:
+			cur_map = i
+	load_pg()
+	if grid != null:
+		grid.call_deferred("show_index", cur_map, true)
 
 func scroll_to(i: int):
 	if i < 0 or i >= disp.size(): return
@@ -829,6 +900,8 @@ func refresh_songs():
 	songs = Rhythia.registry_song.get_items()
 	prepare_songs()
 	build_list()
+	if grid != null:
+		grid.refresh()
 
 func scroll_to_song(id) -> bool:
 	var song = Rhythia.registry_song.get_item(id) if Rhythia.registry_song else false

@@ -21,6 +21,9 @@ func _ready():
 		call_deferred("_add_touch_toggle")
 	if target == "wave_menu":
 		call_deferred("_add_xp_boost_toggle")
+		call_deferred("_add_map_grid")
+	if target == "map_grid":
+		Rhythia.connect("map_grid_changed", self, "upd")
 	if target == "realistic_autoplay":
 		call_deferred("_add_legacy_mouse")
 	if target == "allow_spectators":
@@ -69,6 +72,20 @@ func _add_legacy_mouse():
 func _staff_shown(mu):
 	if is_instance_valid(mu):
 		mu.visible = Rhythia.is_staff
+
+# "Grid Map List" under Wave Menu: the maps as a grid of tiles (MapGrid.gd),
+# switched right away
+func _add_map_grid():
+	var parent = get_parent()
+	if parent == null or parent.has_node("MapGrid"):
+		return
+	var cb = duplicate()
+	cb.name = "MapGrid"
+	cb.target = "map_grid"
+	cb.text = "Grid Map List"
+	cb.hint_tooltip = "Shows your maps as a grid of square covers (like Sound Space Plus's grid menu) instead of a list. Works right away, no restart."
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)
 
 # Experimental: "10x EXP" (your level), only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
 func _add_xp_boost_toggle():
