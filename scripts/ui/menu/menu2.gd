@@ -1694,6 +1694,8 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	lobby_map_label.text = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
 	lobby_selected_map_label.text = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
 	lobby_map_button.disabled = not is_host
+	if lobby_pick_button != null and is_instance_valid(lobby_pick_button):
+		lobby_pick_button.visible = is_host
 
 	_rebuild_player_list(lobby_manager.players, lobby_manager.local_peer_id)
 
@@ -2293,6 +2295,10 @@ func _build_online_setup(S):
 	_lobby_public_scroll.rect_min_size = Vector2(0, 120)
 	lobby_public_list_box.add_constant_override("separation", 8)
 
+var lobby_pick_button: Button = null
+func _open_lobby_map_picker():
+	load("res://scripts/ui/LobbyMapPicker.gd").open_on(self)
+
 var _invites_box: VBoxContainer = null
 func _fill_invites():
 	if _invites_box == null or not is_instance_valid(_invites_box):
@@ -2377,7 +2383,16 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	map_texts.add_child(lobby_selected_map_label)
 	lobby_selected_map_label.add_font_override("font", S.f_small)
 	lobby_selected_map_label.add_color_override("font_color", S.DIM)
+	# Pick map: the lobby's own map picker (LobbyMapPicker.gd)
+	lobby_pick_button = Button.new()
+	lobby_pick_button.text = "Pick map"
+	lobby_pick_button.hint_tooltip = "Choose the lobby's map from a list of all your maps"
+	S.button(lobby_pick_button, true)
+	lobby_pick_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lobby_pick_button.connect("pressed", self, "_open_lobby_map_picker")
+	map_card.add_child(lobby_pick_button)
 	lobby_map_button.text = "Use selected"
+	lobby_map_button.hint_tooltip = "Use the map selected on the Maps page"
 	S.button(lobby_map_button)
 	lobby_map_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	map_card.add_child(lobby_map_button)

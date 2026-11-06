@@ -26,3 +26,4 @@ in scripts/Savia.gd and empties this list.
 - Multiplayer: less lag during matches (the leaderboard no longer rebuilds itself on every note)
 - Lobby invites: no more big popup. A small notice in the bottom right says who invited you (Join or Later), the Online tab gets a dot, and the Online page lists your invites
 - Invite players in a lobby opens its own list of everyone online with an Invite button each (no longer the Spectate window)
+- Multiplayer: the host has a new Pick map button in the lobby that opens its own map list (search, difficulty buttons, covers, stars) to choose the lobby's map

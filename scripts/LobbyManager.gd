@@ -477,6 +477,13 @@ func _drop_invite(code: String, tell := true):
 func ask_pending_invite():
 	current_invites()
 
+# (the lobby map picker, LobbyMapPicker.gd: an online map was downloaded and
+# selected, now it's the lobby's map)
+func _lobby_song_from_picker(selected, wanted):
+	if selected == wanted and lobby_active and is_host:
+		set_lobby_song(wanted)
+		push_current_mods()
+
 func check_ranker_status():
 	if Rhythia.cid == "":
 		return
