@@ -24,3 +24,5 @@ in scripts/Savia.gd and empties this list.
 - New Grid Map List option (Settings, or Filters > View > grid): your maps as a grid of square covers, fast even with thousands of maps, switches on and off right away
 - Multiplayer: the leaderboard while playing is much smaller (top left corner), no longer glitches, and Tab hides or shows it
 - Multiplayer: less lag during matches (the leaderboard no longer rebuilds itself on every note)
+- Lobby invites: no more big popup. A small notice in the bottom right says who invited you (Join or Later), the Online tab gets a dot, and the Online page lists your invites
+- Invite players in a lobby opens its own list of everyone online with an Invite button each (no longer the Spectate window)

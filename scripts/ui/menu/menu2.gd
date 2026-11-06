@@ -2240,6 +2240,14 @@ func _build_online_setup(S):
 		box.remove_child(c)
 	box.add_child(S.heading("Play together"))
 	box.add_child(S.label("Host a lobby and send your friends its code, or join theirs. Everyone plays the same map at the same time.", S.f_small, S.DIM, true))
+	# invites people sent you (LobbyManager.invites): Join / Decline
+	_invites_box = VBoxContainer.new()
+	_invites_box.add_constant_override("separation", 6)
+	box.add_child(_invites_box)
+	var lmi = _get_lobby_manager()
+	if lmi != null and not lmi.is_connected("invites_changed", self, "_fill_invites"):
+		lmi.connect("invites_changed", self, "_fill_invites")
+	_fill_invites()
 	var host_row := HBoxContainer.new()
 	host_row.add_constant_override("separation", 10)
 	box.add_child(host_row)
@@ -2284,6 +2292,48 @@ func _build_online_setup(S):
 	_lobby_public_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_lobby_public_scroll.rect_min_size = Vector2(0, 120)
 	lobby_public_list_box.add_constant_override("separation", 8)
+
+var _invites_box: VBoxContainer = null
+func _fill_invites():
+	if _invites_box == null or not is_instance_valid(_invites_box):
+		return
+	for c in _invites_box.get_children():
+		_invites_box.remove_child(c)
+		c.queue_free()
+	var lmi = _get_lobby_manager()
+	var list: Array = lmi.current_invites() if lmi != null else []
+	_invites_box.visible = not list.empty()
+	if list.empty():
+		return
+	var S = _online_style()
+	_invites_box.add_child(S.label("Invites", S.f_bold, S.PINK))
+	for inv in list:
+		var h: HBoxContainer = S.card(_invites_box)
+		h.add_constant_override("separation", 10)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_constant_override("separation", 0)
+		h.add_child(v)
+		v.add_child(S.label("%s invited you" % String(inv.from_name), S.f_bold, S.TEXT))
+		var n := int(inv.lobby_size)
+		var info := "%d player%s" % [n, "" if n == 1 else "s"]
+		if String(inv.song_name) != "":
+			info = String(inv.song_name) + "  ·  " + info
+		var il: Label = S.label(info, S.f_small, S.DIM)
+		il.clip_text = true
+		v.add_child(il)
+		var no := Button.new()
+		no.text = "Decline"
+		S.button(no, false, true)
+		no.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		no.connect("pressed", lmi, "_drop_invite", [String(inv.code)])
+		h.add_child(no)
+		var yes := Button.new()
+		yes.text = "Join"
+		S.button(yes, true, true)
+		yes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		yes.connect("pressed", lmi, "accept_invite", [String(inv.code)])
+		h.add_child(yes)
 
 # in a lobby: its code, map, players, then Start / Leave
 func _build_online_active(S, players_caption, player_scroll, footer):
@@ -2353,11 +2403,10 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	S.button(lobby_leave_button)
 	lobby_leave_button.rect_min_size = Vector2(140, 44)
 	actions.add_child(lobby_leave_button)
-	# Invite players: the Spectate window, where anyone online can be invited
-	# (their card's menu > Invite to your lobby)
+	# Invite players: a window listing everyone online, an Invite button each
 	var invite_btn := Button.new()
 	invite_btn.text = "Invite players"
-	invite_btn.hint_tooltip = "Pick someone online and invite them in (their card's ••• menu > Invite to your lobby)"
+	invite_btn.hint_tooltip = "Pick someone online and invite them in"
 	S.button(invite_btn)
 	invite_btn.rect_min_size = Vector2(150, 44)
 	invite_btn.connect("pressed", self, "_open_invite_list")
@@ -2368,11 +2417,9 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	footer.queue_free()
 	lobby_close_button = null
 
+# Invite players: its own window (InvitePlayers.gd), a list of everyone online
 func _open_invite_list():
-	var sb = get_node_or_null("Sidebar")
-	if sb != null and sb.get("spectate") != null:
-		sb.spectate.open()
-		Globals.notify(Globals.NOTIFY_INFO, "Open someone's ••• menu (or right-click their card) > Invite to your lobby.", "Invite players")
+	load("res://scripts/ui/InvitePlayers.gd").open_on(self)
 
 func _style_chat_box(S, box: VBoxContainer, sc: ScrollContainer, input: LineEdit, send: Button, title_text: String):
 	box.add_constant_override("separation", 8)
@@ -2402,6 +2449,7 @@ func _on_online_page_shown():
 	if page == null or lobby_manager == null:
 		return
 	if page.is_visible_in_tree():
+		_fill_invites()
 		_refresh_public_lobbies()
 	elif _browsing_public:
 		_browsing_public = false

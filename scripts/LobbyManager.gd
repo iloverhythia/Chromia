@@ -414,7 +414,12 @@ func redeem_card_code(code: String):
 # Invite someone online into your lobby (the Spectate window's player menu, or
 # the lobby's Invite players button); they're asked if they want to join.
 # Settings > Online > Allow Lobby Invites turns getting them off.
-var pending_invite = null # (one that came during a song: asked about back in the menu)
+# Invites you got wait in `invites` (newest first, a few minutes each): a small
+# notice in the bottom right says who invited you (InviteToast.gd), the
+# Online tab gets a dot and its page lists them with Join / Decline.
+signal invites_changed
+const INVITE_KEEP_MS := 5 * 60 * 1000
+var invites := [] # {code, from_name, lobby_size, song_name, at}
 
 func invite_player(number: int):
 	if not lobby_active or watch_mode:
@@ -428,31 +433,49 @@ func _on_lobby_invite(msg: Dictionary):
 	var code := Globals.s(msg.get("code", ""))
 	if code == "" or (lobby_active and lobby_code == code):
 		return
-	pending_invite = msg
-	if Rhythia.in_map:
-		Globals.notify(Globals.NOTIFY_INFO, "%s invited you to their lobby (you'll be asked after this song)." % Globals.s(msg.get("from_name", "Someone")), "Lobby invite")
-		return
-	ask_pending_invite()
+	var inv := {
+		"code": code,
+		"from_name": Globals.s(msg.get("from_name", "Someone")),
+		"lobby_size": int(msg.get("lobby_size", 1)),
+		"song_name": Globals.s(msg.get("song_name", "")),
+		"at": OS.get_ticks_msec(),
+	}
+	_drop_invite(code, false)
+	invites.push_front(inv)
+	if invites.size() > 5:
+		invites.resize(5)
+	emit_signal("invites_changed")
+	load("res://scripts/ui/InviteToast.gd").show_invite(inv)
 
-# (also from the menu when it opens after a song)
-func ask_pending_invite():
-	if pending_invite == null or Rhythia.in_map or Globals.confirm_prompt == null:
+# the invites still worth showing (old ones go)
+func current_invites() -> Array:
+	var now := OS.get_ticks_msec()
+	var keep := []
+	for inv in invites:
+		if now - int(inv.at) < INVITE_KEEP_MS and not (lobby_active and lobby_code == String(inv.code)):
+			keep.append(inv)
+	if keep.size() != invites.size():
+		invites = keep
+		call_deferred("emit_signal", "invites_changed")
+	return invites
+
+func accept_invite(code: String):
+	_drop_invite(code)
+	if Rhythia.in_map:
 		return
-	var msg: Dictionary = pending_invite
-	pending_invite = null
-	var who := Globals.s(msg.get("from_name", "Someone"))
-	var size := int(msg.get("lobby_size", 1))
-	var song := Globals.s(msg.get("song_name", ""))
-	var text := "%s invited you to their lobby (%d player%s)." % [who, size, "" if size == 1 else "s"]
-	if song != "":
-		text += "\nMap: %s" % song
-	if lobby_active:
-		text += "\nJoining leaves the lobby you're in."
-	Globals.confirm_prompt.open(text, "Lobby invite", [{text = "Join"}, {text = "Not now", wait = 0}])
-	var r = yield(Globals.confirm_prompt, "option_selected")
-	Globals.confirm_prompt.close()
-	if r == 0:
-		join_lobby(Globals.s(msg.get("code", "")), _presence_name())
+	join_lobby(code, _presence_name())
+
+func _drop_invite(code: String, tell := true):
+	for i in range(invites.size() - 1, -1, -1):
+		if String(invites[i].code) == code:
+			invites.remove(i)
+	if tell:
+		emit_signal("invites_changed")
+
+# (the menu calls this when it opens after a song: the invites are waiting on
+# the Online tab now, nothing to ask)
+func ask_pending_invite():
+	current_invites()
 
 func check_ranker_status():
 	if Rhythia.cid == "":
