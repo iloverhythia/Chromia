@@ -403,6 +403,7 @@ func _get_active_mods_dict() -> Dictionary:
 		"hardrock": mod_hardrock,
 		"hard_mode": mod_hard_mode,
 		"flashlight": mod_flashlight,
+		"reverse": mod_reverse,
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
 		"retain_pitch": retain_song_pitch,
@@ -551,7 +552,7 @@ func sp_for_accuracy(accuracy: float) -> int:
 	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
 
 func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
-	if mod_nofail or mod_extra_energy or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
+	if mod_nofail or mod_extra_energy or mod_reverse or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
 	if replay != null and replay.autoplayer:
 		return false
@@ -2772,6 +2773,7 @@ func update_rpc_song():
 	if mod_hardrock: mods.append("Hard Rock")
 	if mod_hard_mode: mods.append("Hard Mode")
 	if mod_flashlight: mods.append("Flashlight")
+	if mod_reverse: mods.append("Reverse")
 	if mod_360: mods.append(("360x%s" % Rhythia.mod_360_speed))
 	if mod_strobe: mods.append(("Strobe!!!"))
 	if replay.autoplayer: mods.append("Auto")
@@ -2830,6 +2832,11 @@ const HARD_MODE_SCALE = 0.75
 var mod_hard_mode: bool = false setget set_mod_hard_mode
 # Flashlight: everything is dark except a circle around the cursor.
 var mod_flashlight: bool = false setget set_mod_flashlight
+# Reverse: the map played backwards, the song too (scripts/game/ReverseSong.gd); never ranked
+var mod_reverse: bool = false setget set_mod_reverse
+var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
+var reverse_length_ms: float = 0.0
+var reverse_song_id: String = ""
 
 var start_offset: float = 0 setget _set_start_offset
 var note_hitbox_size: float = 1.14 setget _set_hitbox_size
@@ -2906,6 +2913,8 @@ func set_mod_hard_mode(v: bool):
 	mod_hard_mode = v; emit_signal("mods_changed")
 func set_mod_flashlight(v: bool):
 	mod_flashlight = v; emit_signal("mods_changed")
+func set_mod_reverse(v: bool):
+	mod_reverse = v; emit_signal("mods_changed")
 
 func _set_start_offset(v: float):
 	start_offset = v; emit_signal("mods_changed")
@@ -3105,6 +3114,17 @@ var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html 
 var max_fps_mode: bool = false
 var modern_ui: bool = false setget _set_modern_ui # Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
 signal modern_ui_changed
+# the Modern UI is for staff (an Owner / Administrator tag): the server says
+# so at sign-in (LobbyManager); remembered for a start before it answers
+var is_staff: bool = false setget _set_is_staff
+func _set_is_staff(v: bool):
+	if v == is_staff:
+		return
+	is_staff = v
+	save_settings()
+	emit_signal("modern_ui_changed")
+func modern_ui_on() -> bool:
+	return modern_ui and is_staff and not vr
 func _set_modern_ui(v: bool):
 	modern_ui = v
 	emit_signal("modern_ui_changed")
@@ -3596,6 +3616,7 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_hardrock: pts.append("m_hardrock")
 	if mod_hard_mode: pts.append("m_hardmode")
 	if mod_flashlight: pts.append("m_flashlight")
+	if mod_reverse: pts.append("m_reverse")
 	if mod_nofail: pts.append("m_nofail")
 
 	pts.sort()
@@ -3627,6 +3648,7 @@ func parse_pb_str(txt: String):
 	data.mod_hardrock = false
 	data.mod_hard_mode = false
 	data.mod_flashlight = false
+	data.mod_reverse = false
 	data.mod_nofail = false
 
 	for s in pts:
@@ -3665,6 +3687,7 @@ func parse_pb_str(txt: String):
 				"m_hardrock": data.mod_hardrock = true
 				"m_hardmode": data.mod_hard_mode = true
 				"m_flashlight": data.mod_flashlight = true
+				"m_reverse": data.mod_reverse = true
 				"m_nofail": data.mod_nofail = true
 	return data
 var prev_state: Dictionary = {}
@@ -3989,6 +4012,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			legacy_mouse = bool(data.legacy_mouse)
 		if data.has("modern_ui"):
 			modern_ui = bool(data.modern_ui)
+		if data.has("is_staff"):
+			is_staff = bool(data.is_staff)
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
@@ -4739,6 +4764,7 @@ func _write_settings_file(saveFile: String):
 			pc_no_delay = pc_no_delay,
 			legacy_mouse = legacy_mouse,
 			modern_ui = modern_ui,
+			is_staff = is_staff,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,

@@ -42,6 +42,23 @@ func loadMapFile():
 	notes = got if got is Array else []
 	var file: File = File.new()
 	var song: AudioStream = map.stream()
+	if Rhythia.mod_reverse and notes.size() > 0:
+		# Reverse: each note at (length - time), with the song backwards
+		# (made on the loading screen: ReverseSong.gd)
+		var total: float = Rhythia.reverse_length_ms
+		if total <= 0.0 or Rhythia.reverse_song_id != String(map.id):
+			total = preload("res://scripts/game/ReverseSong.gd").total_ms(map, song)
+		var rev := []
+		var first := INF
+		for n in notes:
+			var r: Array = n.duplicate()
+			r[2] = total - float(n[2])
+			first = min(first, float(n[2]))
+			rev.append(r)
+		notes = rev
+		last_ms = total - first
+		if Rhythia.reverse_stream != null and Rhythia.reverse_song_id == String(map.id):
+			song = Rhythia.reverse_stream
 
 
 	$Spawn.spawn_notes(notes)
@@ -115,7 +132,7 @@ func end(end_type: int):
 	if Rhythia.record_replays and not Rhythia.replaying:
 		Rhythia.replay.end_recording()
 
-	if end_type == Globals.END_PASS and not Rhythia.replaying and Rhythia.selected_song != null:
+	if end_type == Globals.END_PASS and not Rhythia.replaying and Rhythia.selected_song != null and not Rhythia.mod_reverse: # (Reverse: never ranked)
 		Rhythia.report_map_completion(String(Rhythia.selected_song.id))
 		Rhythia.award_offline_rp()
 

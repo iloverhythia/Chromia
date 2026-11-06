@@ -2815,7 +2815,7 @@ func _ready():
 	# Experimental: the Modern UI over this menu (scripts/ui/modern/ModernUI.gd)
 	if not Rhythia.is_connected("modern_ui_changed", self, "_on_modern_ui"):
 		Rhythia.connect("modern_ui_changed", self, "_on_modern_ui")
-	if Rhythia.modern_ui:
+	if Rhythia.modern_ui_on():
 		call_deferred("_on_modern_ui")
 	_add_new_mod_checkboxes()
 	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
@@ -3174,7 +3174,7 @@ func _union_visible(n, box):
 # Map folders also show up as filters under "stars" in the Filters column.
 func _on_modern_ui():
 	var M = load("res://scripts/ui/modern/ModernUI.gd")
-	if Rhythia.modern_ui and not Rhythia.vr:
+	if Rhythia.modern_ui_on(): # (staff only)
 		M.attach(self)
 	else:
 		M.detach(self)
@@ -3217,8 +3217,10 @@ func _add_new_mod_checkboxes():
 	for n in ["HpModel", "360Speed", "GradeSystem"]:
 		var c = mods.get_node_or_null(n)
 		if c != null:
-			c.rect_position.y += row_h
-	mods.rect_min_size.y += row_h
+			c.rect_position.y += row_h * 2
+	mods.rect_min_size.y += row_h * 2
+	_mod_checkbox(mods, left, "ReverseMod", "Reverse", "mod_reverse", y + row_h,
+		"The map is played backwards, the song too (never ranked)")
 	_mod_checkbox(mods, left, "HardModeMod", "Hard Mode", "mod_hard_mode", y,
 		"Notes are smaller and so is their hitbox")
 	_mod_checkbox(mods, right, "FlashlightMod", "Flashlight", "mod_flashlight", y,

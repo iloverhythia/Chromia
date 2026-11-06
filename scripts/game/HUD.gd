@@ -1875,6 +1875,7 @@ func _ready():
 	if Rhythia.mod_hardrock: _mod_icon("hardrock")
 	if Rhythia.mod_hard_mode: _mod_icon("hard_mode")
 	if Rhythia.mod_flashlight: _mod_icon("flashlight")
+	if Rhythia.mod_reverse: _mod_icon("reverse")
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
 		ms += tr(" Vulnus Judgement ")
