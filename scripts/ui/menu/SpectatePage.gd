@@ -1094,8 +1094,14 @@ func _make_card() -> Dictionary:
 
 func _card_style(c: Dictionary):
 	var lit: bool = c.hover and c.can
-	var border := ACCENT if c.is_you else (LILAC if lit else Color(1, 1, 1, 0.04))
-	var sb := _pad(_flat(CARD_HOVER if lit else CARD_BG, 3, border, 2 if (c.is_you or lit) else 1), 8 * _k, 8 * _k)
+	# (their card from profile > Cards: its background and border)
+	var cbg = c.get("card_bg")
+	var cbd = c.get("card_border")
+	var base: Color = cbg if cbg is Color else CARD_BG
+	var idle_border: Color = cbd if cbd is Color else Color(1, 1, 1, 0.04)
+	var border := ACCENT if c.is_you else (LILAC if lit else idle_border)
+	var wide: bool = c.is_you or lit or cbd is Color
+	var sb := _pad(_flat(base.lightened(0.06) if lit else base, 3, border, 2 if wide else 1), 8 * _k, 8 * _k)
 	c.card.add_stylebox_override("panel", sb)
 	c.card.mouse_default_cursor_shape = CURSOR_POINTING_HAND if c.can else CURSOR_ARROW
 	var fav := _is_fav(int(c.number))
@@ -1128,6 +1134,9 @@ func _card_alt() -> bool:
 	return bool(Engine.get_meta("card_alt"))
 
 func _fill_card(c: Dictionary, p: Dictionary):
+	var cd = p.get("card")
+	c["card_bg"] = Color(String(cd.get("bg", ""))) if cd is Dictionary and String(cd.get("bg", "")).is_valid_html_color() else null
+	c["card_border"] = Color(String(cd.get("border", ""))) if cd is Dictionary and String(cd.get("border", "")).is_valid_html_color() else null
 	var n := int(p.get("number", -1))
 	c.number = n
 	c.is_you = n == _you

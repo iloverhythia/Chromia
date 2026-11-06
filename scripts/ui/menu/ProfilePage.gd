@@ -95,6 +95,15 @@ func _ready():
 	head.add_child(names)
 	name_label = _label("Your Profile", 34)
 	names.add_child(name_label)
+	# Cards: your card's colours in the Spectate grid (scripts/ui/CardsMenu.gd)
+	var cards_btn := Button.new()
+	cards_btn.text = "Cards"
+	cards_btn.theme = _theme
+	cards_btn.rect_min_size = Vector2(90, 30)
+	cards_btn.size_flags_horizontal = 0 # (its own width, at the left)
+	cards_btn.hint_tooltip = "Pick the card your player card shows in the Spectate grid"
+	cards_btn.connect("pressed", self, "_open_cards")
+	names.add_child(cards_btn)
 	tag_label = _label("", 16)
 	tag_label.visible = false
 	names.add_child(tag_label)
@@ -479,3 +488,6 @@ func _on_sign_out():
 	Rhythia.unlink_discord()
 	yield(Rhythia, "discord_login_changed")
 	load_profile()
+
+func _open_cards():
+	load("res://scripts/ui/CardsMenu.gd").open_on(self)

@@ -443,7 +443,13 @@ func _draw_player(c: Control):
 	var hover: bool = c.has_meta("hover") and c.get_meta("hover")
 	var you := int(p.get("number", -1)) == _you
 	var ban = c.get_meta("banner") if c.has_meta("banner") else null
-	var bg := Color("#161616") if not hover else Color("#1d1d1d")
+	# (their card from profile > Cards: background and border)
+	var cd = p.get("card")
+	var cbg = Color(String(cd.get("bg", ""))) if cd is Dictionary and String(cd.get("bg", "")).is_valid_html_color() else null
+	var cbd = Color(String(cd.get("border", ""))) if cd is Dictionary and String(cd.get("border", "")).is_valid_html_color() else null
+	var bg: Color = (cbg if cbg != null else Color("#161616"))
+	if hover:
+		bg = bg.lightened(0.05)
 	c.draw_style_box(ui._flat(bg, 6 * k), Rect2(Vector2(), s))
 	if ban != null:
 		# the banner fills the card (cropped to it), darker on the left for the text
@@ -453,7 +459,7 @@ func _draw_player(c: Control):
 		c.draw_texture_rect_region(ban, Rect2(Vector2(2, 2), s - Vector2(4, 4)), src.grow_individual(-2 / sc, -2 / sc, -2 / sc, -2 / sc), Color(0.8, 0.8, 0.8) if not hover else Color(0.95, 0.95, 0.95))
 		var grad := PoolColorArray([Color(0, 0, 0, 0.55), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.0), Color(0, 0, 0, 0.55)])
 		c.draw_polygon(PoolVector2Array([Vector2(2, 2), Vector2(s.x * 0.6, 2), Vector2(s.x * 0.6, s.y - 2), Vector2(2, s.y - 2)]), grad)
-	var border := Color(1, 1, 1, 0.07)
+	var border: Color = cbd if cbd != null else Color(1, 1, 1, 0.07)
 	if you:
 		border = Color("#c2475e")
 	elif hover:

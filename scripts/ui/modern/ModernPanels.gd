@@ -993,7 +993,7 @@ func _on_profile(result: int, code: int, _h, b: PoolByteArray, r: HTTPRequest, n
 		var row := HBoxContainer.new()
 		row.add_constant_override("separation", int(6 * k))
 		body.add_child(row)
-		for bt in [["Change profile", "_change_profile"], ["Open on website", "_profile_site"]]:
+		for bt in [["Cards", "_open_cards"], ["Change profile", "_change_profile"], ["Open on website", "_profile_site"]]:
 			var btn = ui._button(Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.09), 5)
 			btn.text = bt[0]
 			btn.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -1065,6 +1065,9 @@ func _draw_score_line(row: Control):
 	var rt := "%drp  •  %d%%" % [int(round(float(e.get("sp_final", e.get("sp_weighted", 0))))), int(round(float(e.get("sp_weight_pct", 100))))]
 	var w: float = ui.f.rowsub.get_string_size(rt).x
 	row.draw_string(ui.f.rowsub, Vector2(s.x - 10 * k - w, s.y / 2 + 3 * k), rt, Color("#a9a8b0"))
+
+func _open_cards():
+	load("res://scripts/ui/CardsMenu.gd").open_on(self)
 
 func _change_profile():
 	close()

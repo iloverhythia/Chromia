@@ -39,6 +39,8 @@ signal motd_changed() # Map of the Day: motd_song_id, motd_name, motd_completed,
 signal admin_motd_result(ok, reason)
 # the Spectate tab
 signal online_players_received(list, you)
+signal cards_received(cards, chosen) # (your profile > Cards: scripts/ui/CardsMenu.gd)
+signal card_message(text, refresh)
 signal spectate_denied(reason)
 signal watch_ended(text)
 signal presence_support_changed(supported)
@@ -397,6 +399,16 @@ func admin_remove_map_rank(song_id: String):
 	if not has_admin_key() or song_id == "":
 		return
 	_ensure_connected_then_send({"type": "admin_remove_map_rank", "admin_key": _admin_key, "song_id": song_id})
+
+# --- cards (your profile > Cards, scripts/ui/CardsMenu.gd) --------------------------
+func get_cards():
+	_ensure_connected_then_send({"type": "get_cards", "client_id": Rhythia.cid})
+
+func set_card(id: String):
+	_ensure_connected_then_send({"type": "set_card", "id": id, "client_id": Rhythia.cid})
+
+func redeem_card_code(code: String):
+	_ensure_connected_then_send({"type": "redeem_card_code", "code": code.substr(0, 64), "client_id": Rhythia.cid})
 
 # --- lobby invites ---------------------------------------------------------------
 # Invite someone online into your lobby (the Spectate window's player menu, or
@@ -1870,6 +1882,23 @@ func _handle_message(msg: Dictionary):
 			emit_signal("admin_rankers_received", msg.get("rankers", []))
 		"admin_map_ranks":
 			emit_signal("admin_map_ranks_received", msg.get("ranks", []))
+		"cards":
+			var cl = msg.get("cards", [])
+			emit_signal("cards_received", cl if cl is Array else [], Globals.s(msg.get("chosen", "default")))
+		"card_set":
+			emit_signal("card_message", "Your card is set.", true)
+		"card_denied":
+			emit_signal("card_message", Globals.s(msg.get("reason", "You can't use that card.")), false)
+		"card_code":
+			if bool(msg.get("ok", false)):
+				var got := []
+				for c in msg.get("cards", []):
+					if c is Dictionary:
+						got.append(Globals.s(c.get("name", "")))
+				Globals.notify(Globals.NOTIFY_SUCCEED, "Unlocked: %s" % PoolStringArray(got).join(", "), "Cards")
+				emit_signal("card_message", "Unlocked: %s!" % PoolStringArray(got).join(", "), true)
+			else:
+				emit_signal("card_message", Globals.s(msg.get("reason", "That code doesn't unlock anything.")), false)
 		"lobby_invite":
 			_on_lobby_invite(msg)
 		"invite_result":
