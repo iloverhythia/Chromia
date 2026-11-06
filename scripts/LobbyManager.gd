@@ -768,6 +768,10 @@ func _flush_mods_push():
 func _apply_mods_locally(mods: Dictionary):
 	if mods.empty():
 		return
+	# (during the song they can't change: setting them again on every lobby
+	# update, several a second, was wasted work mid-map)
+	if Rhythia.in_map and bool(lobby_state.get("started", false)):
+		return
 	Rhythia.mod_nofail = mods.get("nofail", Rhythia.mod_nofail)
 	Rhythia.mod_speed_level = mods.get("speed_level", Rhythia.mod_speed_level)
 	if Rhythia.mod_speed_level == Globals.SPEED_CUSTOM:

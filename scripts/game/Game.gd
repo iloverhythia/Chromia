@@ -713,7 +713,8 @@ func hit(col):
 	emit_signal("hit", col)
 	hits += 1
 	total_notes += 1
-	_sync_lobby_stats()
+	# (the lobby gets your stats 4 times a second from _process, not on every
+	# note: one message per note, sent on to every player, lagged matches)
 	if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit, 0, max_energy)
 	combo += 1
 
@@ -748,7 +749,6 @@ func miss(col):
 	emit_signal("miss", col)
 	misses += 1
 	total_notes += 1
-	_sync_lobby_stats()
 	energy = clamp(energy - 1, 0, max_energy)
 	combo = 0
 	lvl_progress = 0
