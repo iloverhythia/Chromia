@@ -202,7 +202,10 @@ func finish():
 			yield(Globals.confirm_prompt, "done_closing")
 
 
-	if Rhythia.show_warnings and not Rhythia.vr:
+	var _lmw = get_node_or_null("/root/LobbyManager")
+	# (watching someone: the warnings are about their settings, not yours, and
+	# would hold the watch until clicked)
+	if Rhythia.show_warnings and not Rhythia.vr and not (_lmw != null and _lmw.watch_mode):
 		if (
 			(
 				Rhythia.smart_trail and

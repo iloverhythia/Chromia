@@ -617,7 +617,7 @@ func _process(delta):
 		black_fade = min(black_fade + (delta / 0.3), 1)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	elif not black_fade_target and black_fade != 0:
-		black_fade = max(black_fade - (delta / 0.75), 0)
+		black_fade = max(black_fade - (delta / (0.25 if _watching_from_tab() else 0.75)), 0) # (watching: in quickly)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	$BlackFade.visible = (black_fade != 0)
 

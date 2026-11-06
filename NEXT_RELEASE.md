@@ -17,3 +17,4 @@ in scripts/Savia.gd and empties this list.
 - Spectate: "N watching" sits in the very bottom-left corner of a player's card and the ••• button is smaller, so they no longer overlap
 - VR: four new hands in Settings > VR > Hands: Cartoon glove, Robot, Skeleton and Crystal (spectators see them too)
 - Multiplayer: the leaderboard during a match looks like the Online menu (a card per player with their place, picture, accuracy, misses, host / done / failed badges and score), and in VR it shows on a panel beside the left grid panel
+- Spectating opens faster: the song starts loading as soon as you click, it no longer waits up to 4 seconds for the player's files (a custom border always made it wait the full time, and never showed), their background pictures and videos come in while you watch, and the setting warnings don't stop it

@@ -976,6 +976,9 @@ func _upload_asset_file(kind: String, file: String, sha: String):
 # (tried a few times: they may still be uploading it). The first load of a
 # watch waits for them a moment (spectate_assets_ready).
 var _asset_downloads := {} # "sha.ext" -> tries left
+var _asset_kinds := {} # "sha.ext" -> kind (border / mesh / font hold the first load; background media don't)
+const _BLOCKING_ASSETS := ["border", "mesh", "font"]
+const SPECTATE_ASSET_WAIT := 1.5 # (seconds the first load of a watch waits for their border / mesh / font)
 var _asset_cache_tidied := false
 
 func fetch_spectate_assets(settings):
@@ -1008,6 +1011,7 @@ func _queue_asset_download(kind: String, sha: String, ext: String):
 	if _asset_downloads.has(key):
 		return
 	_asset_downloads[key] = 4
+	_asset_kinds[key] = kind
 	_download_asset(kind, sha, ext)
 
 # a downloaded Background Editor layout: the files it names
@@ -1045,25 +1049,43 @@ func _on_asset_downloaded(result, code, _headers, _body, http, kind, sha, ext):
 	var dir_path: String = Globals.p(load("res://scripts/SpectateSettings.gd").ASSET_CACHE)
 	var part: String = dir_path.plus_file(key + ".part")
 	var d := Directory.new()
-	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and File.new().get_sha256(part) == sha:
+	# (a border is stored re-encoded by the server, so its name isn't its
+	# file's sha256 any more: a PNG is taken as it comes)
+	var ok: bool = result == HTTPRequest.RESULT_SUCCESS and code == 200 and (File.new().get_sha256(part) == sha or (kind == "border" and _is_png(part)))
+	if ok:
 		d.rename(part, dir_path.plus_file(key))
 		if kind == "bglayers":
 			_queue_layout_media(dir_path.plus_file(key)) # (before this one counts as done)
 		_asset_downloads.erase(key)
+		_asset_kinds.erase(key)
 		_assets_arrived()
 		return
 	d.remove(part)
 	var left: int = int(_asset_downloads.get(key, 0)) - 1
 	if left <= 0:
 		_asset_downloads.erase(key)
+		_asset_kinds.erase(key)
 		_assets_arrived() # (given up: load without it)
 		return
 	_asset_downloads[key] = left
-	yield(get_tree().create_timer(1.5), "timeout")
+	yield(get_tree().create_timer(0.5), "timeout")
 	_download_asset(kind, sha, ext)
 
+static func _is_png(path: String) -> bool:
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return false
+	var b := f.get_buffer(8)
+	f.close()
+	return b.size() == 8 and b[0] == 0x89 and b[1] == 0x50 and b[2] == 0x4E and b[3] == 0x47
+
+# the files the first load of a watch waits for are here (their background
+# pictures / videos aren't waited for: they show once they've downloaded)
 func spectate_assets_ready() -> bool:
-	return _asset_downloads.empty()
+	for key in _asset_downloads:
+		if String(_asset_kinds.get(key, "")) in _BLOCKING_ASSETS:
+			return false
+	return true
 
 # the first load of a watch was waiting for them
 func _assets_arrived():
@@ -1198,13 +1220,13 @@ func _check_map_readiness():
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
 			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and has_player_settings(_spectate_load_target) and not spectate_assets_ready():
-				_watch_wait_t = 4.0 # their border / mesh are downloading: load once they're here
+				_watch_wait_t = SPECTATE_ASSET_WAIT # their border / mesh are downloading: load once they're here
 				return
 			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and not has_player_settings(_spectate_load_target):
 				# Spectate tab: their settings are on the way (they send them
 				# when someone starts watching); load once with them
 				request_player_settings(_spectate_load_target)
-				_watch_wait_t = 2.5
+				_watch_wait_t = 1.5
 				return
 			request_player_settings(get_first_place_peer_id())
 			_scene_transition_now()
@@ -1572,6 +1594,13 @@ func _handle_message(msg: Dictionary):
 				watch_target_name = Globals.s(msg.get("target_name", ""))
 				_spectate_load_target = int(msg.get("target_peer", -1))
 				_watch_first_load = true
+				# (switching to someone else: their map is checked again, and the
+				# last player's look isn't used for them)
+				_map_readiness_checked_song_id = ""
+				player_view_settings.erase(_spectate_load_target)
+				# the song scene starts loading now, while their settings and
+				# files come (songload finds it ready)
+				RQueue.queue_resource("res://scenes/song.tscn")
 				_watch_requested_at = 0
 				if watch_target_name != "":
 					follow_name = watch_target_name
@@ -1634,12 +1663,13 @@ func _handle_message(msg: Dictionary):
 			player_view_settings[sp] = ss if ss is Dictionary else {}
 			fetch_spectate_assets(player_view_settings[sp])
 			emit_signal("player_settings_received", sp)
-			if _watch_wait_t > 0.0 and watch_mode and sp == _spectate_load_target and has_player_settings(sp):
-				if spectate_assets_ready():
+			if _watch_wait_t > 0.0 and watch_mode and sp == _spectate_load_target:
+				if not has_player_settings(sp) or spectate_assets_ready():
+					# (none to wait for: an empty answer loads straight away too)
 					_watch_wait_t = 0.0
 					_scene_transition_now()
 				else:
-					_watch_wait_t = max(_watch_wait_t, 4.0) # (their border / mesh downloading)
+					_watch_wait_t = max(_watch_wait_t, SPECTATE_ASSET_WAIT) # (their border / mesh downloading)
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
@@ -1865,7 +1895,10 @@ func _scene_transition_now():
 			song = null
 		if song:
 			Rhythia.selected_song = song
-			Rhythia.emit_signal("selected_song_changed", song)
+			if not watch_mode:
+				# (watching: the menu is about to go, so it isn't rebuilt for
+				# this map, nor its stars worked out, while the song loads)
+				Rhythia.emit_signal("selected_song_changed", song)
 		else:
 			emit_signal("lobby_error", "You don't have this map — downloading it now...")
 			report_missing_map()
