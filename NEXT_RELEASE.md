@@ -13,3 +13,4 @@ in scripts/Savia.gd and empties this list.
 - Leaderboards by device: every leaderboard in the game (the global one and each map's) has a dropdown for All devices, PC, VR, Quest, Spin or Phone, and so does each map's page on the website
 - Each map's leaderboard shows the SP of every pass again (it showed 0)
 - Background Editor: right-click a layer > Move to Space puts the picture in the song's world, behind the grid (it moves with the camera), with a Distance slider for how far away it stands
+- The cursor trail is smooth on phones (iOS especially): it fades evenly instead of in steps, curves with your swipe instead of in straight pieces, and doesn't get cut short on fast swipes

@@ -213,6 +213,8 @@ var trail_cache: Array = []
 var prev_pos
 var prev_rot
 var trail_started = false
+var _trail_gap := 0.0 # (seconds since the trail last got new pieces)
+var _trail_before = null # (the point before the last one: the trail's curve)
 
 var ct: float = 0
 var segt: float = 0
@@ -301,17 +303,39 @@ func _process(delta):
 		var r_diff = PI * Rhythia.cursor_scale * abs(start_r - end_r) / 360
 		var diff = p_diff
 		if r_diff > p_diff: diff = r_diff
-		var amt = min(ceil(Rhythia.trail_detail * diff), 120)
-		# (all the pieces are one MultiMesh: TrailMulti.gd)
-		if _trail_mm != null and is_instance_valid(_trail_mm):
-			var col: Color = $Mesh.get("material/0").albedo_color
-			col.a *= Rhythia.trail_opacity
-			var rot_now: Vector3 = $Mesh.rotation
-			for i in range(amt):
-				var v = float(i) / float(amt)
-				_trail_mm.add(lerp(start_p, end_p, v), rot_now, col, v * delta)
-		if $L.visible:
-			$L.text = "amount this frame: %s\nalive: %s" % [amt, _trail_mm.live() if _trail_mm != null else 0]
+		# the time this stretch took: on phones the touch moves the cursor less
+		# often than frames are drawn (60 touches a second at 120 FPS), so a
+		# frame without a move adds its time to the next stretch
+		_trail_gap += delta
+		if diff <= 0.00001:
+			if _trail_gap > 0.1:
+				_trail_gap = delta # (standing still: the next move starts afresh)
+		else:
+			var amt = min(ceil(Rhythia.trail_detail * diff), 240)
+			# (all the pieces are one MultiMesh: TrailMulti.gd)
+			if _trail_mm != null and is_instance_valid(_trail_mm):
+				var col: Color = $Mesh.get("material/0").albedo_color
+				col.a *= Rhythia.trail_opacity
+				var rot_now: Vector3 = $Mesh.rotation
+				var tt: float = max(0.001, float(Rhythia.trail_time))
+				# a curve through the last points, not straight lines with corners
+				# (Catmull-Rom: the point before, and the move continuing ahead)
+				var p0: Vector3 = _trail_before if _trail_before != null else end_p
+				var p3: Vector3 = start_p + (start_p - end_p)
+				var curve: bool = _trail_before != null and p_diff > 0.0001
+				for i in range(amt):
+					var v = float(i) / float(amt)
+					var pos: Vector3
+					if curve:
+						pos = start_p.cubic_interpolate(end_p, p3, p0, v)
+					else:
+						pos = lerp(start_p, end_p, v)
+					# (its age as a part of Trail Time: older towards the last point)
+					_trail_mm.add(pos, rot_now, col, clamp(v * _trail_gap / tt, 0.0, 1.0))
+			_trail_before = end_p
+			_trail_gap = 0.0
+			if $L.visible:
+				$L.text = "amount this frame: %s\nalive: %s" % [amt, _trail_mm.live() if _trail_mm != null else 0]
 		prev_pos = global_transform.origin
 		prev_rot = $Mesh.rotation_degrees.x
 

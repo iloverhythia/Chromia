@@ -8,7 +8,7 @@ extends MultiMeshInstance
 # Looks the same as before (CursorTrail.gd start_smart / update): each piece
 # fades and / or shrinks over Trail Time, with the trail gradient if it's on.
 
-const MAX_PIECES := 1024
+const MAX_PIECES := 4096 # (a high Trail Detail with fast phone swipes filled 1024)
 const TrailGradient = preload("res://scripts/game/TrailGradient.gd")
 
 var _pos := [] # Vector3, local to this node
