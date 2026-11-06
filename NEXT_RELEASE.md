@@ -16,3 +16,4 @@ in scripts/Savia.gd and empties this list.
 - The cursor trail is smooth on phones (iOS especially): it fades evenly instead of in steps, curves with your swipe instead of in straight pieces, and doesn't get cut short on fast swipes
 - Spectate: "N watching" sits in the very bottom-left corner of a player's card and the ••• button is smaller, so they no longer overlap
 - VR: four new hands in Settings > VR > Hands: Cartoon glove, Robot, Skeleton and Crystal (spectators see them too)
+- Multiplayer: the leaderboard during a match looks like the Online menu (a card per player with their place, picture, accuracy, misses, host / done / failed badges and score), and in VR it shows on a panel beside the left grid panel

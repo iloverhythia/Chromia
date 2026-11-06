@@ -442,7 +442,13 @@ func _update_lobby_score_ui():
 	var show = showing_round_results or (lobby_manager.lobby_active and lobby_manager.lobby_state.get("started", false) and not lobby_manager.watch_mode)
 	lobby_score_canvas.visible = show
 	if not show:
+		if _board_vr_shown:
+			_board_vr_shown = false
+			var hud0 = get_node_or_null("HUD")
+			if hud0 != null and hud0.has_method("update_leaderboard_vr"):
+				hud0.update_leaderboard_vr([], "", "", false)
 		return
+	_board_vr_shown = true
 	lobby_score_title.text = "RESULTS" if showing_round_results else "LEADERBOARD"
 
 	var rows = []
@@ -459,85 +465,61 @@ func _update_lobby_score_ui():
 				"alive": not bool(p.get("failed", false)),
 				"tag_text": Globals.s(p.get("tag_text", "")),
 				"tag_color": Globals.s(p.get("tag_color", "")),
+				"avatar_url": Globals.s(p.get("avatar_url", "")),
+				"finished": bool(p.get("finished", false)),
 			})
 	else:
 		rows.append({
 			"name": "You", "score": score, "misses": misses,
 			"accuracy": (float(hits) / float(total_notes)) if total_notes > 0 else 0.0,
 			"is_host": false, "is_you": true, "peer_id": -1, "alive": not ending,
-			"tag_text": "", "tag_color": "",
+			"tag_text": "", "tag_color": "", "avatar_url": "", "finished": false,
 		})
 
 	rows.sort_custom(self, "_sort_lobby_player_stats")
 
-	var existing_children = lobby_score_rows_box.get_children()
-	while existing_children.size() < rows.size():
-		var new_row = _make_lobby_score_row()
-		lobby_score_rows_box.add_child(new_row.root)
-		new_row.root.set_meta("refs", new_row)
-		existing_children = lobby_score_rows_box.get_children()
-	while existing_children.size() > rows.size():
-		var extra = existing_children.pop_back()
-		extra.queue_free()
-
-	for i in range(rows.size()):
-		var row_node = lobby_score_rows_box.get_child(i)
-		var refs = row_node.get_meta("refs")
-		var row = rows[i]
-		var rank = i + 1
-
-		refs.rank_label.text = "#%d" % rank
-		refs.rank_label.add_color_override("font_color",
-			_RANK_COLORS[rank - 1] if rank <= 3 else _DEFAULT_RANK_COLOR)
-
-		var display_name = row.name
-		if row.is_host: display_name = "(host) " + display_name
-		refs.name_label.text = display_name
-		refs.name_label.add_color_override("font_color",
-			Color(0.4, 0.85, 1.0) if row.is_you else Color(1, 1, 1))
-
-		var tag_text = Globals.s(row.get("tag_text", ""))
-		if tag_text != "":
-			var tag_color_str = Globals.s(row.get("tag_color", ""))
-			refs.tag_label.text = "● [%s]" % tag_text
-			refs.tag_label.add_color_override("font_color", Color(tag_color_str) if tag_color_str != "" else Color(1, 1, 1))
-			refs.tag_label.visible = true
-		else:
-			refs.tag_label.visible = false
-
-		var bar_bg_width = refs.acc_bar_bg.rect_size.x
-		if bar_bg_width <= 0:
-			bar_bg_width = refs.acc_bar_bg.rect_min_size.x
-		refs.acc_bar_fill.rect_size.x = clamp(row.accuracy, 0.0, 1.0) * bar_bg_width
-		refs.acc_bar_fill.rect_size.y = 4
-
-		refs.score_label.text = "%d" % row.score
-		refs.meta_label.text = "%.2f%% · %d miss" % [row.accuracy * 100.0, row.misses]
-
-		row_node.add_stylebox_override("panel", refs.you_style if row.is_you else refs.default_style)
-		row_node.self_modulate = Color(1, 1, 1, 1) if row.is_you else Color(1, 1, 1, 0.85)
-		row_node.set_meta("peer_id", row.peer_id)
-
+	# the board in the Online menu's look (LobbyBoard.gd); in VR also on a
+	# panel beside the left grid panel (HUD.gd)
+	_ensure_board()
+	var title := "Results" if showing_round_results else "Leaderboard"
+	var footer := _results_countdown_label.text if showing_round_results else ""
+	_board.set_board(rows, title, footer, showing_round_results and not Rhythia.vr)
 	_layout_lobby_score_ui()
-	call_deferred("_layout_lobby_score_ui")
+	var hud = get_node_or_null("HUD")
+	if hud != null and hud.has_method("update_leaderboard_vr"):
+		hud.update_leaderboard_vr(rows, title, footer, true)
 
-const LOBBY_SCORE_WIDTH_NORMAL: float = 300.0
-const LOBBY_SCORE_WIDTH_SPIN: float = 230.0
+var _board = null # LobbyBoard.gd (on the screen)
+var _board_vr_shown := false
+func _ensure_board():
+	if _board != null and is_instance_valid(_board):
+		return
+	lobby_score_panel.visible = false # (the old one: replaced)
+	_board = load("res://scripts/game/LobbyBoard.gd").new()
+	_board.name = "Board"
+	lobby_score_canvas.add_child(_board)
+	_board.continue_button.connect("pressed", self, "_finish_round_results")
+	_board.connect("row_clicked", self, "_on_board_row")
+	_board.connect("changed", self, "_layout_lobby_score_ui")
+
+func _on_board_row(peer_id: int):
+	var hud = get_node_or_null("HUD")
+	if hud != null and hud.spectating and peer_id != -1:
+		hud.spectate_specific_player(peer_id)
+
+const LOBBY_SCORE_WIDTH_NORMAL: float = 340.0
+const LOBBY_SCORE_WIDTH_SPIN: float = 260.0
 
 func _layout_lobby_score_ui():
-	if lobby_score_panel == null:
+	if _board == null or not is_instance_valid(_board):
 		return
 	var viewport_size = get_viewport().size
 	var target_width = LOBBY_SCORE_WIDTH_SPIN if Rhythia.spin_now() else LOBBY_SCORE_WIDTH_NORMAL
-	lobby_score_panel.rect_min_size.x = target_width
-	var panel_size = lobby_score_panel.get_combined_minimum_size()
+	_board.rect_min_size.x = target_width
+	var panel_size = _board.get_combined_minimum_size()
 	panel_size.x = target_width
-	lobby_score_panel.rect_size = panel_size
-	var margin = 16
-	lobby_score_panel.rect_position = Vector2(
-		margin,
-		(viewport_size.y - panel_size.y) / 2.0
-	)
+	_board.rect_size = panel_size
+	_board.rect_position = Vector2(16, (viewport_size.y - panel_size.y) / 2.0)
 
 func _accuracy_color(acc: float) -> Color:
 	if acc >= 0.95: return Color(0.4, 0.9, 0.6)
