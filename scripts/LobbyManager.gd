@@ -136,6 +136,7 @@ var _watch_only_maps := []
 
 func _ready():
 	_clear_watch_only_dir()
+	add_child(load("res://scripts/ui/Rngdle.gd").new()) # (a secret)
 	_client.connect("connection_established", self, "_on_connected")
 	_client.connect("connection_closed", self, "_on_closed")
 	_client.connect("connection_error", self, "_on_conn_error")
@@ -856,7 +857,7 @@ func _chat_in(m: Dictionary, others: bool):
 	m["orig"] = m.text
 	m["ready"] = true
 	m["waited"] = 0.0
-	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1:
+	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1 and not m.get("rngdle", false):
 		m.id = _tr_next_id
 		_tr_next_id += 1
 		m.ready = false
@@ -1901,7 +1902,7 @@ func _handle_message(msg: Dictionary):
 			_chat_in({kind = "lobby", who = lm_peer_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, lm_peer_id != local_peer_id)
 		"global_chat_message":
 			var gm_client_id = Globals.s(msg.get("client_id", ""))
-			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, gm_client_id != Rhythia.cid)
+			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", "")), rngdle = bool(msg.get("rngdle", false))}, gm_client_id != Rhythia.cid)
 		"translated":
 			_chat_translated(msg)
 		"chat_reactions":
