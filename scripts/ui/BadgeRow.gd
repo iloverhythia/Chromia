@@ -127,7 +127,8 @@ static func _cache() -> Dictionary:
 	return root.get_meta("badge_icon_cache")
 
 func _icon(url: String, tr: TextureRect):
-	if not url.begins_with("/savia-public/api/badge-icon/"):
+	# (the website's drawings, or a badge's own picture: /savia-art/)
+	if not (url.begins_with("/savia-public/api/badge-icon/") or url.begins_with("/savia-art/")):
 		return
 	var name := url.get_file()
 	var cache := _cache()

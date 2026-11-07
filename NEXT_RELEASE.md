@@ -41,3 +41,4 @@ in scripts/Savia.gd and empties this list.
 - The grid map list no longer lags in VR
 - Modifiers show 9 per page
 - The Stats page opens instantly, even with a big map library (its records summary loads in the background)
+- Badges, cards and frames can now use custom pictures: badges with their own picture, cards with a background picture in the Spectate grid, and picture frames round profile pictures

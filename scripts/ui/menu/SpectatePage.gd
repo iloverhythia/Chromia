@@ -975,6 +975,21 @@ func _make_card() -> Dictionary:
 	var box := Control.new()
 	box.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_child(box)
+	# their card's own picture (profile > Cards, an admin's upload), behind
+	# everything, dimmed so the text reads
+	var bgimg := TextureRect.new()
+	bgimg.anchor_right = 1.0
+	bgimg.anchor_bottom = 1.0
+	bgimg.margin_left = -6 * _k
+	bgimg.margin_top = -6 * _k
+	bgimg.margin_right = 6 * _k
+	bgimg.margin_bottom = 6 * _k
+	bgimg.expand = true
+	bgimg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bgimg.mouse_filter = MOUSE_FILTER_IGNORE
+	bgimg.modulate = Color(0.62, 0.62, 0.62)
+	bgimg.visible = false
+	box.add_child(bgimg)
 	var v := VBoxContainer.new()
 	v.anchor_right = 1.0
 	v.anchor_bottom = 1.0
@@ -1087,7 +1102,7 @@ func _make_card() -> Dictionary:
 	alt.visible = false
 	box.add_child(alt)
 
-	var c := {"fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+	var c := {"bgimg": bgimg, "img_url": "", "fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
@@ -1095,6 +1110,20 @@ func _make_card() -> Dictionary:
 	card.connect("mouse_entered", self, "_on_card_hover", [c, true])
 	card.connect("mouse_exited", self, "_on_card_hover", [c, false])
 	return c
+
+# a card's picture (FrameImages.gd keeps it; it may still be coming)
+func _card_img(c: Dictionary):
+	var fi = load("res://scripts/ui/FrameImages.gd").instance()
+	if not fi.is_connected("loaded", self, "_on_art_loaded"):
+		fi.connect("loaded", self, "_on_art_loaded")
+	var tex = fi.pic(c.img_url) if c.img_url != "" else null
+	c.bgimg.texture = tex
+	c.bgimg.visible = tex != null
+
+func _on_art_loaded(url: String):
+	for c in _cards.values():
+		if c.img_url == url:
+			_card_img(c)
 
 func _card_style(c: Dictionary):
 	var lit: bool = c.hover and c.can
@@ -1141,6 +1170,10 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var cd = p.get("card")
 	c["card_bg"] = Color(String(cd.get("bg", ""))) if cd is Dictionary and String(cd.get("bg", "")).is_valid_html_color() else null
 	c["card_border"] = Color(String(cd.get("border", ""))) if cd is Dictionary and String(cd.get("border", "")).is_valid_html_color() else null
+	var iu: String = String(cd.get("image_url", "")) if cd is Dictionary and cd.get("image_url") != null else ""
+	if iu != c.img_url:
+		c.img_url = iu
+		_card_img(c)
 	var fsig := var2str(p.get("frame"))
 	if fsig != c.frame_sig:
 		c.frame_sig = fsig

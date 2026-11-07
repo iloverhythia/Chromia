@@ -132,6 +132,26 @@ func _card(c: Dictionary) -> Control:
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var sb = OnlineStyle.flat(bg.lightened(0.06) if st == "hover" else bg, 6, OnlineStyle.TEXT if picked else border, 3 if picked else 2)
 		b.add_stylebox_override(st, sb)
+	# the card's own picture (an admin's upload), dimmed behind its name
+	var iu := String(c.get("image_url", "")) if c.get("image_url") != null else ""
+	if iu != "":
+		var pic := TextureRect.new()
+		pic.anchor_right = 1
+		pic.anchor_bottom = 1
+		pic.margin_left = 3
+		pic.margin_top = 3
+		pic.margin_right = -3
+		pic.margin_bottom = -3
+		pic.expand = true
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		pic.mouse_filter = MOUSE_FILTER_IGNORE
+		pic.modulate = Color(0.6, 0.6, 0.6)
+		pic.set_meta("url", iu)
+		b.add_child(pic)
+		var fi = load("res://scripts/ui/FrameImages.gd").instance()
+		pic.texture = fi.pic(iu)
+		if not fi.is_connected("loaded", self, "_on_art_loaded"):
+			fi.connect("loaded", self, "_on_art_loaded")
 	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND if have else CURSOR_ARROW
 	b.disabled = not have
 	b.hint_tooltip = ("Showing" if picked else "Use this card") if have else "Locked"
@@ -153,6 +173,14 @@ func _card(c: Dictionary) -> Control:
 		b.modulate = Color(1, 1, 1, 0.45)
 	b.connect("pressed", self, "_pick", [id])
 	return b
+
+# a card picture arrived: put it on its tiles
+func _on_art_loaded(url: String):
+	var fi = load("res://scripts/ui/FrameImages.gd").instance()
+	for t in _grid.get_children():
+		for ch in t.get_children():
+			if ch is TextureRect and ch.has_meta("url") and String(ch.get_meta("url")) == url:
+				ch.texture = fi.pic(url)
 
 func _pick(id: String):
 	if lm != null:

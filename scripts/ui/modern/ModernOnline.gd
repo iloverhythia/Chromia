@@ -379,6 +379,9 @@ func _rebuild():
 		if url != "":
 			_pic(url, c, "pic")
 		var ban := AnimPic.banner_url(p)
+		# (no banner: their card's picture, if it has one)
+		if ban == "" and p.get("card") is Dictionary and p.card.get("image_url") != null:
+			ban = String(p.card.get("image_url", ""))
 		if ban != "":
 			_pic(ban, c, "banner")
 		c.hint_tooltip = _tip(p)

@@ -41,6 +41,7 @@ static func parse(f) -> Dictionary:
 		"id": String(f.get("id", "")), "name": String(f.get("name", "")), "style": st,
 		"color": Color(c1) if c1.is_valid_html_color() else Color("#a78bfa"),
 		"color2": Color(c2) if c2.is_valid_html_color() else Color("#13111a"),
+		"image_url": String(f.get("image_url", "")) if f.get("image_url") != null else "",
 	}
 
 static func animated(fr: Dictionary) -> bool:
@@ -63,6 +64,7 @@ static func draw(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float 
 		"glow": _glow_style(ci, c, r, fr, t)
 		"sparkle": _sparkle(ci, c, r, fr, t)
 		"flame": _flame(ci, c, r, fr, t)
+		"image": _image(ci, c, r, fr)
 		_: _ring_style(ci, c, r, fr, t)
 
 # ------------------------------------------------------------------ helpers
@@ -412,6 +414,16 @@ static func _note(ci: CanvasItem, p: Vector2, s: float, col: Color):
 	ci.draw_line(p + Vector2(s * 0.36, -s * 1.3), p + Vector2(s * 0.95, -s * 0.95), col, max(1.0, s * 0.16), true)
 
 # ------------------------------------------------------------------ the looks for cards admins make
+
+# a picture frame: an admin's picture (FrameImages.gd), a square 2 x REACH
+# times the avatar's radius wide, centred on it (the avatar covers its middle
+# 1 / REACH, about 70 %)
+static func _image(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary):
+	var tex = load("res://scripts/ui/FrameImages.gd").instance().pic(String(fr.get("image_url", "")))
+	if tex == null:
+		return
+	var s := r * REACH
+	ci.draw_texture_rect(tex, Rect2(c - Vector2(s, s), Vector2(s, s) * 2.0), false)
 
 static func _ring_style(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float):
 	var col: Color = fr.color
