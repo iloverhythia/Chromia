@@ -477,6 +477,9 @@ func _draw_player(c: Control):
 		var ini := nm0.substr(0, 1).to_upper()
 		var fi := _f("ExtraBold", 14)
 		c.draw_string(fi, ctr - Vector2(fi.get_string_size(ini).x / 2, -fi.get_ascent() / 2 + 2 * k), ini, Color(1, 1, 1, 0.7))
+	# their frame round the picture (profile > Frames)
+	if p.get("frame") is Dictionary:
+		preload("res://scripts/ui/FrameDraw.gd").draw(c, ctr, r, preload("res://scripts/ui/FrameDraw.gd").parse(p.frame))
 	# the place on the leaderboard (big, grey, on the right)
 	var fr := _f("ExtraBold", 22)
 	var rank := _rank_of(p)

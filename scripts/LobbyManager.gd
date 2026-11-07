@@ -40,6 +40,9 @@ signal admin_motd_result(ok, reason)
 # the Spectate tab
 signal online_players_received(list, you)
 signal cards_received(cards, chosen) # (your profile > Cards: scripts/ui/CardsMenu.gd)
+signal frames_received(frames, chosen) # (your profile > Frames: scripts/ui/FramesMenu.gd)
+signal frame_message(text, refresh)
+signal my_frame_changed(frame) # (the frame you picked: {id, name, style, color, color2} or null)
 signal card_message(text, refresh)
 signal spectate_denied(reason)
 signal watch_ended(text)
@@ -409,6 +412,13 @@ func set_card(id: String):
 
 func redeem_card_code(code: String):
 	_ensure_connected_then_send({"type": "redeem_card_code", "code": code.substr(0, 64), "client_id": Rhythia.cid})
+
+# --- frames (your profile > Frames, scripts/ui/FramesMenu.gd): the frame round your picture
+func get_frames():
+	_ensure_connected_then_send({"type": "get_frames", "client_id": Rhythia.cid})
+
+func set_frame(id: String):
+	_ensure_connected_then_send({"type": "set_frame", "id": id, "client_id": Rhythia.cid})
 
 # --- lobby invites ---------------------------------------------------------------
 # Invite someone online into your lobby (the Spectate window's player menu, or
@@ -1933,6 +1943,14 @@ func _handle_message(msg: Dictionary):
 				emit_signal("card_message", "Unlocked: %s!" % PoolStringArray(got).join(", "), true)
 			else:
 				emit_signal("card_message", Globals.s(msg.get("reason", "That code doesn't unlock anything.")), false)
+		"frames":
+			var fl = msg.get("frames", [])
+			emit_signal("frames_received", fl if fl is Array else [], Globals.s(msg.get("chosen", "default")))
+		"frame_set":
+			emit_signal("frame_message", "Your frame is set.", true)
+			emit_signal("my_frame_changed", msg.get("frame"))
+		"frame_denied":
+			emit_signal("frame_message", Globals.s(msg.get("reason", "You can't use that frame.")), false)
 		"lobby_invite":
 			_on_lobby_invite(msg)
 		"invite_result":

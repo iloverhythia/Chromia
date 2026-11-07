@@ -1006,6 +1006,9 @@ func _make_card() -> Dictionary:
 	pic.mouse_filter = MOUSE_FILTER_IGNORE
 	pic.visible = false
 	av.add_child(pic)
+	# their frame round the picture (profile > Frames)
+	var fv = load("res://scripts/ui/FrameView.gd").new()
+	av.add_child(fv)
 	var name_l = _label("", font_name, TEXT)
 	name_l.align = Label.ALIGN_CENTER
 	name_l.clip_text = true
@@ -1083,7 +1086,7 @@ func _make_card() -> Dictionary:
 	alt.visible = false
 	box.add_child(alt)
 
-	var c := {"dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+	var c := {"fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
@@ -1137,6 +1140,10 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var cd = p.get("card")
 	c["card_bg"] = Color(String(cd.get("bg", ""))) if cd is Dictionary and String(cd.get("bg", "")).is_valid_html_color() else null
 	c["card_border"] = Color(String(cd.get("border", ""))) if cd is Dictionary and String(cd.get("border", "")).is_valid_html_color() else null
+	var fsig := var2str(p.get("frame"))
+	if fsig != c.frame_sig:
+		c.frame_sig = fsig
+		c.fv.set_frame(p.get("frame"))
 	var n := int(p.get("number", -1))
 	c.number = n
 	c.is_you = n == _you

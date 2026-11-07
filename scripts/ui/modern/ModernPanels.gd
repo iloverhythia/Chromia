@@ -977,9 +977,18 @@ func _on_profile(result: int, code: int, _h, b: PoolByteArray, r: HTTPRequest, n
 	head_title.text = Globals.s(p.get("name", "Profile"))
 	# the card: picture, name, RP
 	var card := Control.new()
-	card.rect_min_size = Vector2(0, 58 * k)
+	card.rect_min_size = Vector2(0, 66 * k)
 	card.set_meta("e", p)
 	card.connect("draw", self, "_draw_profile_card", [card])
+	# their frame round the picture (profile > Frames)
+	if p.get("frame") is Dictionary:
+		var fv = load("res://scripts/ui/FrameView.gd").new()
+		fv.anchor_right = 0
+		fv.anchor_bottom = 0
+		fv.rect_position = Vector2(14 * k, 13 * k)
+		fv.rect_size = Vector2(40 * k, 40 * k)
+		fv.set_frame(p.frame)
+		card.add_child(fv)
 	if Globals.s(p.get("avatar_url", "")) != "":
 		ui._load_pic(Globals.s(p.avatar_url), card)
 	body.add_child(card)
@@ -993,7 +1002,7 @@ func _on_profile(result: int, code: int, _h, b: PoolByteArray, r: HTTPRequest, n
 		var row := HBoxContainer.new()
 		row.add_constant_override("separation", int(6 * k))
 		body.add_child(row)
-		for bt in [["Cards", "_open_cards"], ["Change profile", "_change_profile"], ["Open on website", "_profile_site"]]:
+		for bt in [["Cards", "_open_cards"], ["Frames", "_open_frames"], ["Change profile", "_change_profile"], ["Open on website", "_profile_site"]]:
 			var btn = ui._button(Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.09), 5)
 			btn.text = bt[0]
 			btn.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -1015,15 +1024,15 @@ func _draw_profile_card(c: Control):
 	var s := c.rect_size
 	c.draw_style_box(ui._flat(Color(1, 1, 1, 0.035), 8), Rect2(Vector2(), s))
 	var pic = c.get_meta("pic") if c.has_meta("pic") else null
-	var r := Rect2(10 * k, 9 * k, 40 * k, 40 * k)
+	var r := Rect2(14 * k, 13 * k, 40 * k, 40 * k)
 	if pic != null:
 		c.draw_texture_rect(pic, r, false)
 	else:
 		c.draw_circle(r.position + r.size / 2, 20 * k, Color(1, 1, 1, 0.12))
-	c.draw_string(ui.f.name, Vector2(60 * k, 26 * k), Globals.s(p.get("name", "")), ui.TEXT)
+	c.draw_string(ui.f.name, Vector2(68 * k, 30 * k), Globals.s(p.get("name", "")), ui.TEXT)
 	var rp := float(p.get("sp", 0))
 	var sub := "%s RP  •  #%s" % [String(int(round(rp))), String(p.get("sp_rank", "-"))]
-	c.draw_string(ui.f.rp, Vector2(60 * k, 44 * k), sub, ui.DIM)
+	c.draw_string(ui.f.rp, Vector2(68 * k, 48 * k), sub, ui.DIM)
 
 func _on_scores(result: int, code: int, _h, b: PoolByteArray, r: HTTPRequest, number: int):
 	r.queue_free()
@@ -1068,6 +1077,9 @@ func _draw_score_line(row: Control):
 
 func _open_cards():
 	load("res://scripts/ui/CardsMenu.gd").open_on(self)
+
+func _open_frames():
+	load("res://scripts/ui/FramesMenu.gd").open_on(self)
 
 func _change_profile():
 	close()
