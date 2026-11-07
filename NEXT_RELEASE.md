@@ -39,6 +39,6 @@ in scripts/Savia.gd and empties this list.
 - Website: you can now comment on maps on their map page (sign in with Discord); you can delete your own comments
 - Map icons load much faster everywhere (grid, map list, the multiplayer map picker, VR) and no longer make the menu stutter while they load
 - The grid map list no longer lags in VR
-- Modifiers show 9 per page
+- Modifiers show 14 per page
 - The Stats page opens instantly, even with a big map library (its records summary loads in the background)
 - Badges, cards and frames can now use custom pictures: badges with their own picture, cards with a background picture in the Spectate grid, and picture frames round profile pictures

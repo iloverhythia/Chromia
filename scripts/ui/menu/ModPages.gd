@@ -12,9 +12,9 @@ extends HBoxContainer
 # checkboxes alone. menu2.gd installs it (_add_new_mod_checkboxes), before
 # SSModPanel takes its snapshot of the layout.
 
-const PER_PAGE := 9 # modifiers on a page
-const ROWS := 5 # rows of two (the last one has one)
-const ROW_H := 30.0
+const PER_PAGE := 14 # modifiers on a page
+const ROWS := 7 # rows of two
+const ROW_H := 25.0 # (7 rows fit at 1280x720)
 const ON_DOT := Color(0.45, 0.95, 0.5)
 const LABEL_YELLOW := Color(0.960784, 1, 0.478431)
 
@@ -28,13 +28,12 @@ const ORDER := [
 	"EasyMode", "HardMode",
 	"Ghost", "HardModeMod",
 	"HardRock", "HarderRockMod",
-	"MirrorX",
+	"MirrorX", "MirrorY",
+	"ReverseMod", "InvertMouse",
+	"Earthquake", "VisualMode",
 	# page 2
-	"MirrorY", "InvertMouse",
-	"ReverseMod", "VisualMode",
-	"Earthquake", "Strobe",
-	"Chaos", "FlashlightMod",
-	"360",
+	"Chaos", "Strobe",
+	"360", "FlashlightMod",
 ]
 
 var mods: Control
