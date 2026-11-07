@@ -4324,7 +4324,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("vr_grid_distance"):
 			vr_grid_distance = clamp(float(data.vr_grid_distance), 0.75, 5.0)
 		if data.has("vr_grid_size"):
-			vr_grid_size = clamp(float(data.vr_grid_size), 0.5, 2.0)
+			vr_grid_size = clamp(float(data.vr_grid_size), 1.0, 2.0) # (never smaller than the default)
 		if data.has("vr_sensitivity"):
 			vr_sensitivity = clamp(float(data.vr_sensitivity), 0.25, 4.0)
 		if data.has("vr_height"):

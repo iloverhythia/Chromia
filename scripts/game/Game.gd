@@ -773,11 +773,12 @@ func _exit_tree():
 
 func _ready():
 	Rhythia.start_log("game")
-	# Settings > VR > Grid size: the grid, notes and cursor bigger or smaller,
-	# around the grid's middle (the world's centre); the VR cursor works in
-	# the grid's own space (NoteManager.do_vr_cursor), so aiming still lines up
-	if Rhythia.vr and abs(float(Rhythia.vr_grid_size) - 1.0) > 0.001:
-		scale = Vector3.ONE * float(Rhythia.vr_grid_size)
+	# Settings > VR > Grid size: the grid, notes and cursor bigger (never
+	# smaller than the default), around the grid's middle (the world's centre);
+	# the VR cursor works in the grid's own space (NoteManager.do_vr_cursor),
+	# so aiming still lines up
+	if Rhythia.vr and float(Rhythia.vr_grid_size) > 1.001:
+		scale = Vector3.ONE * min(2.0, float(Rhythia.vr_grid_size))
 	Rhythia.in_map = true
 	Rhythia.no_delay_begin() # (Experimental No Delay, PC)
 	_results_continue_button.connect("pressed", self, "_finish_round_results")

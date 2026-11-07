@@ -31,7 +31,7 @@ in scripts/Savia.gd and empties this list.
 - Frames: a new Frames button next to Cards on your profile. Pick a frame for your profile picture; it shows in the Spectate grid, Online players, profiles and on the website. Admin has a gold crown, Developer circuit lines, DJ headphones with moving sound bars; every card you unlock gives you its frame
 - Badges on profiles (in the game and on the website) are now simple one-colour icons
 - VR: every slider in Settings > VR (grip, grid, menu screen, aim, haptics...) has - and + buttons beside it that move it one step (hold to keep going). The sliders no longer get pushed to the end by the thumbstick after you drag one
-- VR: new Grid size setting (Settings > VR > In songs): makes the grid, notes and cursor bigger or smaller
+- VR: new Grid size setting (Settings > VR > In songs): makes the grid, notes and cursor bigger, from the default size up to double
 - Menu Customizer (Settings > Menu Customizer): pick your own colours for the menu's buttons, text, text boxes and sidebar, button roundness and borders, and a background pattern (contour lines, grid, dots, waves, hexagons, stripes, stars or a plain colour) with your colours and speed. Exporting a skin now takes your menu with it
 - New modifier: Harder Rock. Like Hard Rock but the notes spread even further out, your cursor can go further past the grid and the hit window is tighter. Turning it on turns Hard Rock off (and the other way round)
 - The modifiers on the map screen are on pages now (3 rows at a time): the arrows or the mouse wheel turn the page, the dots jump to a page, and a page with a modifier on has a green dot

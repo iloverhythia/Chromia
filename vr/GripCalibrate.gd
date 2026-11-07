@@ -87,7 +87,7 @@ func _ready():
 	_root = Spatial.new()
 	player.add_child(_root)
 	# (Settings > VR > Grid size: the grid as big as in songs)
-	_k = clamp(float(Rhythia.vr_grid_size), 0.5, 2.0)
+	_k = clamp(float(Rhythia.vr_grid_size), 1.0, 2.0)
 	_root.global_transform = Transform(Basis(_right * _k, _up * _k, _normal * _k), _center)
 	_root.add_child(_grid_mesh())
 	_note = _square(0.86, Color(1, 0.76, 0.96), 0.09)
