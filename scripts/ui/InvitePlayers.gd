@@ -165,7 +165,7 @@ func _row(p: Dictionary, n: int, nm: String, here: bool) -> Control:
 	card.get_stylebox("panel").content_margin_top = 6
 	card.get_stylebox("panel").content_margin_bottom = 6
 	h.add_constant_override("separation", 10)
-	var pic: Control = S.avatar(nm, String(p.get("avatar_url", "")), self)
+	var pic: Control = S.avatar(nm, load("res://scripts/ui/AnimPic.gd").pic_url(p), self)
 	pic.rect_min_size = Vector2(32, 32)
 	h.add_child(pic)
 	var v := VBoxContainer.new()

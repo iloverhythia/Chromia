@@ -318,6 +318,10 @@ func _on_pic(result: int, code: int, _h, data: PoolByteArray, r: HTTPRequest, ur
 	_waiting.erase(url)
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or data.empty():
 		return
+	if load("res://scripts/ui/AnimPic.gd").is_gif(data):
+		# a moving picture (AnimPic.gd: decoded on a thread, round)
+		load("res://scripts/ui/AnimPic.gd").load_async(data, url, 96, true, self, "_on_gif", [url, waiting])
+		return
 	var img := Image.new()
 	if img.load_png_from_buffer(data) != OK and img.load_jpg_from_buffer(data) != OK and img.load_webp_from_buffer(data) != OK:
 		return
@@ -338,6 +342,13 @@ func _on_pic(result: int, code: int, _h, data: PoolByteArray, r: HTTPRequest, ur
 	img.unlock()
 	var tex := ImageTexture.new()
 	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+	_pics[url] = tex
+	for pic in waiting:
+		_show_pic(pic, tex)
+
+func _on_gif(tex, url: String, waiting: Array):
+	if tex == null:
+		return
 	_pics[url] = tex
 	for pic in waiting:
 		_show_pic(pic, tex)

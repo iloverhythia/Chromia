@@ -1067,6 +1067,10 @@ func _on_pic(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, ur
 	r.queue_free()
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
 		return
+	if load("res://scripts/ui/AnimPic.gd").is_gif(body):
+		# a moving picture (AnimPic.gd: decoded on a thread, round)
+		load("res://scripts/ui/AnimPic.gd").load_async(body, url, 128, true, self, "_on_gif_pic", [url, row])
+		return
 	var img := Image.new()
 	if img.load_png_from_buffer(body) != OK and img.load_jpg_from_buffer(body) != OK and img.load_webp_from_buffer(body) != OK:
 		return
@@ -1074,6 +1078,14 @@ func _on_pic(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, ur
 	_pics[url] = t
 	if is_instance_valid(row):
 		row.set_meta("pic", t)
+		row.update()
+
+func _on_gif_pic(tex, url: String, row):
+	if tex == null:
+		return
+	_pics[url] = tex
+	if is_instance_valid(row):
+		row.set_meta("pic", tex)
 		row.update()
 
 # a picture made round (smooth edge), sharp when drawn small or large

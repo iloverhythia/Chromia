@@ -990,7 +990,7 @@ func _on_profile(result: int, code: int, _h, b: PoolByteArray, r: HTTPRequest, n
 		fv.set_frame(p.frame)
 		card.add_child(fv)
 	if Globals.s(p.get("avatar_url", "")) != "":
-		ui._load_pic(Globals.s(p.avatar_url), card)
+		ui._load_pic(load("res://scripts/ui/AnimPic.gd").pic_url(p), card) # (a moving GIF when it is)
 	body.add_child(card)
 	# the website's badges
 	var bf := DynamicFont.new()

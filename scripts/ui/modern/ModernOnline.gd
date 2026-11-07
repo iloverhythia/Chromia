@@ -12,6 +12,7 @@ extends Control
 #     you're in one), the messages and the message box on the right
 # The list and the chat come from LobbyManager, like the classic Spectate window.
 
+const AnimPic = preload("res://scripts/ui/AnimPic.gd")
 const COLS := 4
 const CHAT_MAX := 200
 
@@ -373,10 +374,11 @@ func _rebuild():
 		c.set_meta("p", p)
 		grid.move_child(c, i)
 		i += 1
-		var url := String(p.get("avatar_url", ""))
+		# (a moving GIF when they have one: AnimPic.gd)
+		var url := AnimPic.pic_url(p)
 		if url != "":
 			_pic(url, c, "pic")
-		var ban := String(p.get("banner_url", ""))
+		var ban := AnimPic.banner_url(p)
 		if ban != "":
 			_pic(ban, c, "banner")
 		c.hint_tooltip = _tip(p)
@@ -560,11 +562,24 @@ func _pic(url: String, c: Control, key: String):
 		r.queue_free()
 		_waiting.erase(url)
 
+func _on_gif(tex, url: String, who: Array):
+	if tex == null:
+		return
+	_pics[url] = tex
+	for w in who:
+		if is_instance_valid(w[0]):
+			w[0].set_meta(w[1], tex)
+			w[0].update()
+
 func _on_pic(result: int, code: int, _h, data: PoolByteArray, r: HTTPRequest, url: String, key: String):
 	r.queue_free()
 	var who: Array = _waiting.get(url, [])
 	_waiting.erase(url)
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		return
+	if AnimPic.is_gif(data):
+		# a moving picture / banner: decoded on a thread (AnimPic.gd)
+		AnimPic.load_async(data, url, 72 if key == "pic" else 0, key == "pic", self, "_on_gif", [url, who])
 		return
 	var img := Image.new()
 	if img.load_png_from_buffer(data) != OK and img.load_jpg_from_buffer(data) != OK and img.load_webp_from_buffer(data) != OK:

@@ -311,7 +311,7 @@ func load_profile():
 	if profile is Dictionary:
 		_crumb("showing your profile")
 		_show_profile(profile)
-		av = Globals.s(profile.get("avatar_url", ""))
+		av = load("res://scripts/ui/AnimPic.gd").pic_url(profile) # (a moving GIF when it is)
 	_crumb("loading your scores")
 	var scores = yield(_get_json(API + "/player/%s/scores" % String(number).http_escape()), "completed")
 	if scores is Dictionary:
@@ -343,6 +343,12 @@ func _load_avatar(url: String):
 		_crumbs_done()
 		return
 	var format: String = Globals.imageLoader.get_format(body)
+	# a moving picture: the server's own small GIF (avatar_gif_url), decoded on
+	# a thread and rounded there (AnimPic.gd); other animations stay out
+	if format == "gif" and url.find("/savia-avatar/") != -1:
+		_crumb("decoding your moving avatar (%d bytes)" % body.size())
+		load("res://scripts/ui/AnimPic.gd").load_async(body, url, 128, true, self, "_on_gif_avatar")
+		return
 	# still images only: decoding animations here isn't worth the risk
 	if not format in ["png", "jpg"]:
 		_crumbs_done()
@@ -363,6 +369,12 @@ func _load_avatar(url: String):
 	avatar_rect.texture = tex
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
+	_crumbs_done()
+
+func _on_gif_avatar(tex):
+	if tex != null:
+		_crumb("drawing your moving avatar")
+		avatar_rect.texture = tex
 	_crumbs_done()
 
 # Cuts the avatar into a circle with a soft edge (instead of a custom shader).

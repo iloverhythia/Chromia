@@ -11,6 +11,7 @@ extends Control
 # LobbyManager.spectate_player. Settings > Online > Allow Spectators is the
 # other side: off, nobody can watch you. Made by Sidebar.gd.
 
+const AnimPic = preload("res://scripts/ui/AnimPic.gd")
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const ACCENT = Color(1, 0.756863, 0.960784)
 const ACCENT_HOVER = Color(0.913725, 0.74902, 0.94902)
@@ -1169,7 +1170,7 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var av_size: float = c.circle.get_parent().rect_min_size.x
 	c.circle.add_stylebox_override("panel", _flat(_name_color(nm), int(av_size / 2)))
 	c.initial.text = nm.substr(0, 1).to_upper()
-	var url := String(p.get("avatar_url", ""))
+	var url := AnimPic.pic_url(p) # (a moving GIF when they have one)
 	if url != c.url:
 		c.url = url
 		c.pic.visible = false
@@ -1438,6 +1439,10 @@ func _on_avatar(result: int, code: int, _headers, data: PoolByteArray, r: HTTPRe
 	_img_waiting.erase(url)
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or data.empty():
 		return
+	if AnimPic.is_gif(data):
+		# a moving picture: decoded on a thread, round, then shown (AnimPic.gd)
+		AnimPic.load_async(data, url, 96, true, self, "_on_gif_avatar", [url, waiting])
+		return
 	var img := Image.new()
 	var err := img.load_png_from_buffer(data)
 	if err != OK:
@@ -1464,6 +1469,18 @@ func _on_avatar(result: int, code: int, _headers, data: PoolByteArray, r: HTTPRe
 	img.unlock()
 	var tex := ImageTexture.new()
 	tex.create_from_image(img)
+	_img_cache[url] = tex
+	_img_order.append(url)
+	while _img_order.size() > MAX_IMG_CACHE:
+		_img_cache.erase(_img_order.pop_front())
+	for pic in waiting:
+		if is_instance_valid(pic):
+			pic.texture = tex
+			pic.visible = true
+
+func _on_gif_avatar(tex, url: String, waiting: Array):
+	if tex == null:
+		return
 	_img_cache[url] = tex
 	_img_order.append(url)
 	while _img_order.size() > MAX_IMG_CACHE:

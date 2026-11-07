@@ -35,3 +35,4 @@ in scripts/Savia.gd and empties this list.
 - Menu Customizer (Settings > Menu Customizer): pick your own colours for the menu's buttons, text, text boxes and sidebar, button roundness and borders, and a background pattern (contour lines, grid, dots, waves, hexagons, stripes, stars or a plain colour) with your colours and speed. Exporting a skin now takes your menu with it
 - New modifier: Harder Rock. Like Hard Rock but the notes spread even further out, your cursor can go further past the grid and the hit window is tighter. Turning it on turns Hard Rock off (and the other way round)
 - The modifiers on the map screen are on pages now (3 rows at a time): the arrows or the mouse wheel turn the page, the dots jump to a page, and a page with a modifier on has a green dot
+- Moving profile pictures and banners: upload a GIF on the website and it moves in the game too (Spectate, Online players, profiles)
