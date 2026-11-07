@@ -30,3 +30,5 @@ in scripts/Savia.gd and empties this list.
 - Chat: type /share to share the map you have selected (or /share and a map's name). It shows as the map's name in blue: click it to download the map and open it ready to play, also from the Spectate window while watching someone. /share colorset, settings, skin, mesh, cursor and hitsound work as before
 - Frames: a new Frames button next to Cards on your profile. Pick a frame for your profile picture; it shows in the Spectate grid, Online players, profiles and on the website. Admin has a gold crown, Developer circuit lines, DJ headphones with moving sound bars; every card you unlock gives you its frame
 - Badges on profiles (in the game and on the website) are now simple one-colour icons
+- VR: every slider in Settings > VR (grip, grid, menu screen, aim, haptics...) has - and + buttons beside it that move it one step (hold to keep going). The sliders no longer get pushed to the end by the thumbstick after you drag one
+- VR: new Grid size setting (Settings > VR > In songs): makes the grid, notes and cursor bigger or smaller

@@ -2221,6 +2221,9 @@ var vr_menu_curve: bool = true     # curved around you
 var vr_menu_ui: float = 100.0      # % size of the menu's text and buttons on the screen
 # how far the note grid (where the notes come from) is from you in songs, in metres
 var vr_grid_distance: float = 2.25
+# how big the note grid is in songs (1 = normal; the grid, notes and cursor
+# all scale around the grid's middle: scripts/game/Game.gd)
+var vr_grid_size: float = 1.0
 # VR aim: how far the cursor moves for how far you turn the controller (1 =
 # exactly where you point)
 var vr_sensitivity: float = 1.0
@@ -4295,6 +4298,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_menu_ui = clamp(float(data.vr_menu_ui), 60.0, 140.0)
 		if data.has("vr_grid_distance"):
 			vr_grid_distance = clamp(float(data.vr_grid_distance), 0.75, 5.0)
+		if data.has("vr_grid_size"):
+			vr_grid_size = clamp(float(data.vr_grid_size), 0.5, 2.0)
 		if data.has("vr_sensitivity"):
 			vr_sensitivity = clamp(float(data.vr_sensitivity), 0.25, 4.0)
 		if data.has("vr_height"):
@@ -4892,6 +4897,7 @@ func _write_settings_file(saveFile: String):
 			vr_menu_curve = vr_menu_curve,
 			vr_menu_ui = vr_menu_ui,
 			vr_grid_distance = vr_grid_distance,
+			vr_grid_size = vr_grid_size,
 			vr_sensitivity = vr_sensitivity,
 			vr_height = vr_height,
 			vr_haptics = vr_haptics,
