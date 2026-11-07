@@ -109,6 +109,10 @@ func _ready():
 	_hide_box.hint_tooltip = "Only show passed attempts"
 	_hide_box.connect("toggled", self, "_on_hide_failed")
 	head.add_child(_hide_box)
+	# the leaderboard's device dropdown (LbModes.gd), only on the Leaderboard tab
+	_dev_box = load("res://scripts/ui/LbModes.gd").make(self, "_on_board_device", _f_tab)
+	_dev_box.visible = mode == MODE_BOARD
+	head.add_child(_dev_box)
 	add_child(head)
 
 	_scroll = ScrollContainer.new()
@@ -216,6 +220,9 @@ func _set_mode(m: int, save: bool = true):
 	_show_mods(mode == MODE_BEST)
 	if is_instance_valid(_hide_box):
 		_hide_box.visible = mode == MODE_HISTORY
+	if is_instance_valid(_dev_box):
+		_dev_box.visible = mode == MODE_BOARD
+		load("res://scripts/ui/LbModes.gd").sync(_dev_box)
 	if mode != MODE_BEST:
 		_refresh()
 		call_deferred("_layout")
@@ -703,12 +710,21 @@ var _board_cache := {} # song id -> {at, rows, ranked}
 var _board_req: HTTPRequest = null
 var _board_for := ""
 
-func _refresh_board(id: String):
+var _dev_box: OptionButton
+func _on_board_device():
+	var song = Rhythia.selected_song
+	if mode == MODE_BOARD and song != null:
+		_refresh_board(String(song.id))
+
+func _refresh_board(id0: String):
+	# (one list per map and device)
+	var id := id0
 	_clear_rows()
 	if id == "":
 		_board_message("\nPick a map to see its leaderboard.")
 		return
-	var c = _board_cache.get(id)
+	var dev: String = String(Rhythia.lb_device)
+	var c = _board_cache.get(id + "|" + dev)
 	if c != null and OS.get_ticks_msec() - int(c.at) < BOARD_TTL_MS:
 		_show_board(id, c)
 		return
@@ -720,11 +736,11 @@ func _refresh_board(id: String):
 	_board_req = HTTPRequest.new()
 	_board_req.timeout = 15
 	add_child(_board_req)
-	_board_req.connect("request_completed", self, "_on_board", [_board_req, id])
-	if _board_req.request(SITE + "/savia-public/api/map/" + id.http_escape()) != OK:
+	_board_req.connect("request_completed", self, "_on_board", [_board_req, id, dev])
+	if _board_req.request(SITE + "/savia-public/api/map/" + id.http_escape() + load("res://scripts/ui/LbModes.gd").query(true)) != OK:
 		_board_message("\nCouldn't load the leaderboard.")
 
-func _on_board(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String):
+func _on_board(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String, dev: String = ""):
 	r.queue_free()
 	if r != _board_req:
 		return # (an older request: another map was picked since)
@@ -739,7 +755,7 @@ func _on_board(result: int, code: int, _headers, body: PoolByteArray, r: HTTPReq
 			var lb = j.get("leaderboard", [])
 			c.rows = lb if lb is Array else []
 	if c.ok:
-		_board_cache[id] = c
+		_board_cache[id + "|" + dev] = c
 	var song = Rhythia.selected_song
 	if mode == MODE_BOARD and song != null and String(song.id) == id:
 		if c.ok:
@@ -753,7 +769,10 @@ func _show_board(_id: String, c: Dictionary):
 		_board_message("\nThis map isn't ranked, so it has no leaderboard.")
 		return
 	if c.rows.empty():
-		_board_message("\nNo passes yet.\nPass it to be first on the leaderboard!")
+		if String(Rhythia.lb_device) != "":
+			_board_message("\nNo %s passes yet." % load("res://scripts/ui/LbModes.gd").name_of(String(Rhythia.lb_device)))
+		else:
+			_board_message("\nNo passes yet.\nPass it to be first on the leaderboard!")
 		return
 	_empty.visible = false
 	var me := -1
@@ -883,7 +902,7 @@ func _make_board_row(e: Dictionary, show_fc: bool, me: int) -> Control:
 	name_l.clip_text = true
 	name_l.size_flags_horizontal = SIZE_EXPAND_FILL
 	v.add_child(name_l)
-	var sp_l := _label("%s SP" % Globals.comma_sep(int(e.get("sp", 0))), _f_small, Color("#6ff1ff"))
+	var sp_l := _label("%s SP" % Globals.comma_sep(int(e.get("sp_weighted", e.get("sp", 0)))), _f_small, Color("#6ff1ff"))
 	sp_l.clip_text = true
 	v.add_child(sp_l)
 	var extra := PoolStringArray()
@@ -909,7 +928,7 @@ func _make_board_row(e: Dictionary, show_fc: bool, me: int) -> Control:
 	var al := _label("%.2f%%" % (acc * 100.0), _f_acc, C_ACCENT)
 	al.align = Label.ALIGN_CENTER
 	right.add_child(al)
-	panel.hint_tooltip = "#%d %s\n%d SP, %.2f%%, %s\nClick to open their profile" % [rank, nm, int(e.get("sp", 0)), acc * 100.0, extra.join(", ")]
+	panel.hint_tooltip = "#%d %s\n%d SP, %.2f%%, %s\nClick to open their profile" % [rank, nm, int(e.get("sp_weighted", e.get("sp", 0))), acc * 100.0, extra.join(", ")]
 	return panel
 
 func _board_row_input(ev, number: int):

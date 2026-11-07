@@ -27,12 +27,19 @@ var _f_value: DynamicFont
 var _f_combo: DynamicFont
 
 var _notes: Array = [] # [time s, Vector2 cell (-1..1)]
+var _loop := LOOP_S # how long the map is before it starts over
+var _map_key := "" # the selected map (and speed / mirrors) the notes are from
 var _t: float = 0.0
 var _cursor_tex: Texture
 var _drag := 0 # 0 none, 1 move, 2 resize
 var _drag_from := Vector2()
 var _drag_rect := Rect2()
 var _placed := false
+# the Modern UI's (ModernPanels.gd) copy: a big box beside the settings panel,
+# placed by it, with the title, time and progress line on top (like the video)
+var modern := false
+var modern_on := false
+var k := 1.0
 
 func _init():
 	name = "SettingsPreview"
@@ -79,9 +86,13 @@ func _make_map():
 			t += 0.8 # (a short break)
 
 func _ready():
+	if modern:
+		mouse_filter = MOUSE_FILTER_STOP # (a click on it doesn't close the settings)
 	var img = Globals.imageLoader.load_if_exists("user://cursor")
 	_cursor_tex = img if img else load("res://assets/images/cursors/circle.png")
 	var p = get_parent()
+	if modern:
+		return
 	if p is Control:
 		p.connect("resized", self, "_fit")
 	call_deferred("_place")
@@ -114,12 +125,87 @@ func _save_rect():
 
 func _process(delta):
 	var on: bool = bool(Rhythia.get("settings_preview"))
+	if modern:
+		on = on and modern_on
+	elif Rhythia.modern_ui_on():
+		on = false # (the Modern UI shows its own)
 	if visible != on:
 		visible = on
 	if not on or not is_visible_in_tree():
 		return
-	_t = fmod(_t + delta, LOOP_S)
+	_follow_map()
+	var heard = _heard_time()
+	if heard != null:
+		_t = clamp(float(heard), 0.0, _loop) # (in time with the map's music playing in the menu)
+	else:
+		_t = fmod(_t + delta, _loop)
 	_step_view(delta)
+
+# --- the selected map --------------------------------------------------------
+# The preview plays the map you have selected (its notes, at your speed mod,
+# mirrored if you mirror), so you see your settings on that exact mapping. While
+# the menu plays that map's music (Play Music), it's in time with the music.
+# With no map (or a map with no notes) it plays the made-up minute above.
+
+func _follow_map():
+	var song = Rhythia.selected_song
+	var speed: float = Rhythia.current_speed_multiplier() if Rhythia.has_method("current_speed_multiplier") else 1.0
+	var key := "%s|%s|%s|%s" % [String(song.id) if song != null else "", speed, Rhythia.mod_mirror_x, Rhythia.mod_mirror_y]
+	if key == _map_key:
+		return
+	_map_key = key
+	_notes = []
+	_loop = LOOP_S
+	if song != null:
+		Rhythia.lock_song_notes(song)
+		var got = song.read_notes()
+		Rhythia.unlock_song_notes(song)
+		if got is Array and got.size() > 0:
+			var sp: float = max(0.05, speed)
+			var first := INF
+			var last := 0.0
+			for n in got:
+				if not (n is Array) or n.size() < 3:
+					continue
+				var x := float(n[0]) - 1.0
+				var y := 1.0 - float(n[1])
+				if Rhythia.mod_mirror_x: x = -x
+				if Rhythia.mod_mirror_y: y = -y
+				var t := float(n[2]) / 1000.0 / sp
+				_notes.append([t, Vector2(x, y)])
+				first = min(first, t)
+				last = max(last, t)
+			_notes.sort_custom(self, "_by_time")
+			if not _notes.empty():
+				# (from a little before the first note to a little after the last)
+				var lead: float = max(0.0, first - 1.5)
+				for n in _notes:
+					n[0] -= lead
+				_lead = lead
+				_loop = last - lead + 1.5
+				_t = 0.0
+				_last_t = 0.0
+				return
+	_lead = 0.0
+	_make_map()
+	_t = 0.0
+	_last_t = 0.0
+
+var _lead := 0.0 # (the map's time at the preview's 0, before the speed)
+
+func _by_time(a, b) -> bool:
+	return a[0] < b[0]
+
+# where the menu's music is in the selected map (null when it isn't playing it)
+func _heard_time():
+	var ps = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/PlaySong") if Rhythia.has_method("menu_node") else null
+	if ps == null or not ps.has_node("Song"):
+		return null
+	var p: AudioStreamPlayer = ps.get_node("Song")
+	if not p.playing or _lead == 0.0 and _notes.empty():
+		return null
+	var sp: float = max(0.05, Rhythia.current_speed_multiplier())
+	return p.get_playback_position() / sp - _lead
 
 # --- input ----------------------------------------------------------------
 
@@ -127,6 +213,10 @@ func _close_rect() -> Rect2:
 	return Rect2(rect_size.x - TITLE_H, 0, TITLE_H, TITLE_H)
 
 func _gui_input(event):
+	if modern:
+		if event is InputEventMouseButton:
+			accept_event()
+		return
 	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT:
 		if event.pressed:
 			if _close_rect().has_point(event.position):
@@ -192,20 +282,34 @@ func _linstep(a: float, b: float, x: float) -> float:
 		return float(x >= a)
 	return clamp((x - a) / (b - a), 0, 1)
 
+# how many notes are at or before t (the notes are in time order)
+func _count_before(t: float) -> int:
+	var lo := 0
+	var hi := _notes.size()
+	while lo < hi:
+		var mid := (lo + hi) / 2
+		if _notes[mid][0] <= t:
+			lo = mid + 1
+		else:
+			hi = mid
+	return lo
+
 func _cursor_pos(t: float) -> Vector2:
 	# glides from the last note to the next one, like autoplay
-	var prev := Vector2(0, 0)
-	var prev_t := 0.0
-	for n in _notes:
-		if n[0] > t:
-			var k: float = clamp((t - prev_t) / max(0.001, n[0] - prev_t), 0, 1)
-			k = k * k * (3 - 2 * k)
-			return prev.linear_interpolate(n[1], k)
-		prev = n[1]
-		prev_t = n[0]
-	return prev
+	var i := _count_before(t)
+	if i >= _notes.size():
+		return _notes[-1][1] if not _notes.empty() else Vector2()
+	var prev: Vector2 = _notes[i - 1][1] if i > 0 else Vector2(0, 0)
+	var prev_t: float = _notes[i - 1][0] if i > 0 else 0.0
+	var n: Array = _notes[i]
+	var k: float = clamp((t - prev_t) / max(0.001, n[0] - prev_t), 0, 1)
+	k = k * k * (3 - 2 * k)
+	return prev.linear_interpolate(n[1], k)
 
 func _draw():
+	if modern:
+		draw_style_box(_box(), Rect2(Vector2(), rect_size))
+		return
 	var w := rect_size.x
 	draw_rect(Rect2(Vector2(), rect_size), BG_COL)
 	draw_rect(Rect2(0, 0, w, TITLE_H), TITLE_COL)
@@ -253,8 +357,17 @@ func _make_view():
 	add_child(_ov)
 	_ov.connect("draw", self, "_draw_overlay")
 
+func _box() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.012, 0.012, 0.014, 0.97)
+	sb.border_color = Color(1, 1, 1, 0.2)
+	sb.set_border_width_all(1)
+	return sb
+
 func _layout_view():
 	var r := Rect2(1, TITLE_H, rect_size.x - 2, rect_size.y - TITLE_H - 1)
+	if modern:
+		r = Rect2(1, 1, rect_size.x - 2, rect_size.y - 2)
 	if _vc.rect_position != r.position or _vc.rect_size != r.size:
 		_vc.rect_position = r.position
 		_vc.rect_size = r.size
@@ -269,16 +382,16 @@ func _step_view(delta: float):
 	var colors := _colors()
 	var ar: float = max(0.1, float(Rhythia.get("approach_rate")))
 	var sd: float = max(0.1, float(Rhythia.get("spawn_distance")))
-	var combo := 0
 	var shown: Array = []
 	var hits: Array = []
-	for i in _notes.size():
+	# (notes before now: found by halving, a long map isn't walked every frame)
+	var combo := _count_before(t)
+	var from := _count_before(_last_t) if _last_t >= 0.0 else 0
+	from = max(from, combo - 12) # (a jump in the music doesn't burst every note at once)
+	for i in range(from, combo):
+		hits.append([_notes[i][1], colors[i % colors.size()]])
+	for i in range(combo, _notes.size()):
 		var n: Array = _notes[i]
-		if n[0] <= t:
-			combo += 1
-			if n[0] > _last_t:
-				hits.append([n[1], colors[i % colors.size()]])
-			continue
 		var dist: float = ar * (n[0] - t)
 		if dist > sd:
 			break
@@ -288,12 +401,14 @@ func _step_view(delta: float):
 	_last_t = t
 	var cc: Color = colors[(combo - 1) % colors.size()] if combo > 0 else colors[-1]
 	_world.frame(delta, shown, _cursor_pos(t), hits, cc)
-	_world.hud_frame(delta, t, LOOP_S, combo, _notes.size(), combo, cc) # (the song's own HUD panels)
+	_world.hud_frame(delta, t, _loop, combo, _notes.size(), combo, cc) # (the song's own HUD panels)
 	_ov.update()
 
 func _draw_overlay():
 	var w := _ov.rect_size.x
 	var h := _ov.rect_size.y
+	if modern:
+		return # (the song's own HUD says "Watching Auto play Settings Preview" and the time: SettingsPreviewHud.gd)
 	# (the HUD itself is the song's, in the 3D view: SettingsPreviewHud.gd)
 	# resize grip
 	var g := Vector2(w - 4, h - 4)

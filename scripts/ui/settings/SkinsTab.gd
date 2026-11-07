@@ -34,6 +34,8 @@ static func add_tab(tab_container) -> void:
 		after = tab_container.get_node_or_null("Background Editor")
 	if after:
 		tab_container.move_child(t, after.get_index() + 1)
+	# (Menu Customizer next to it: skins carry the menu's look)
+	load("res://scripts/ui/settings/MenuCustomTab.gd").add_tab(tab_container)
 
 # a .cskin dropped on the game window: shown in the Skins tab
 static func import_dropped(tree: SceneTree, path: String) -> bool:
@@ -68,7 +70,7 @@ func _ready():
 	m.add_child(box)
 
 	_label("Chromia skins (.cskin)", f_title, ACCENT)
-	_label("A skin is everything you have on in one file: your look settings (notes, cursor, trail, grid, HUD, camera, colours, fonts, panels, avatar, VR hands), what you have equipped (colorset, note mesh, border, hit and miss sounds, space, effects) and your custom files (cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture). Your device settings (window, sensitivity, volume, offset) and the hit window stay yours.", f_body, DIM, true)
+	_label("A skin is everything you have on in one file: your look settings (notes, cursor, trail, grid, HUD, camera, colours, fonts, panels, avatar, VR hands), what you have equipped (colorset, note mesh, border, hit and miss sounds, space, effects) and your custom files (cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture) and your menu's look from the Menu Customizer. Your device settings (window, sensitivity, volume, offset) and the hit window stay yours.", f_body, DIM, true)
 
 	box.add_child(HSeparator.new())
 	_label("Export what you have on", f_title, ACCENT)

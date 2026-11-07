@@ -290,6 +290,7 @@ const PASS_ENV_URL = "https://savia.nysr.host/savia-pass-env" # (ProcessScan.gd:
 const PLAYER_XP_URL = "https://savia.nysr.host/savia-player-xp"
 const LEADERBOARD_URL = "https://savia.nysr.host/savia-leaderboard"
 const LEADERBOARD_SP_URL = "https://savia.nysr.host/savia-leaderboard-sp"
+const PUBLIC_LB_URL = "https://savia.nysr.host/savia-public/api/leaderboard/"
 const UPLOAD_REPLAY_URL = "https://savia.nysr.host/savia-upload-replay"
 
 func upload_replay_for_pass(song_id: String, replay_id: String):
@@ -318,7 +319,8 @@ func fetch_leaderboard():
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.connect("request_completed", self, "_on_leaderboard_received", [http_request])
-	var error = http_request.request(LEADERBOARD_URL)
+	# (the website's leaderboard, by device: LbModes.gd)
+	var error = http_request.request(PUBLIC_LB_URL + "xp?limit=100" + load("res://scripts/ui/LbModes.gd").query())
 	if error != OK:
 		http_request.queue_free()
 
@@ -331,13 +333,13 @@ func _on_leaderboard_received(result, response_code, headers, body, http_request
 	if json_result.error != OK or typeof(json_result.result) != TYPE_DICTIONARY:
 		emit_signal("leaderboard_received", [])
 		return
-	emit_signal("leaderboard_received", json_result.result.get("entries", []))
+	emit_signal("leaderboard_received", _lb_rows(json_result.result.get("entries", []), "xp"))
 
 func fetch_leaderboard_sp():
 	var http_request = HTTPRequest.new()
 	add_child(http_request)
 	http_request.connect("request_completed", self, "_on_leaderboard_sp_received", [http_request])
-	var error = http_request.request(LEADERBOARD_SP_URL)
+	var error = http_request.request(PUBLIC_LB_URL + "sp?limit=100" + load("res://scripts/ui/LbModes.gd").query())
 	if error != OK:
 		http_request.queue_free()
 
@@ -350,7 +352,19 @@ func _on_leaderboard_sp_received(result, response_code, headers, body, http_requ
 	if json_result.error != OK or typeof(json_result.result) != TYPE_DICTIONARY:
 		emit_signal("leaderboard_sp_received", [])
 		return
-	emit_signal("leaderboard_sp_received", json_result.result.get("entries", []))
+	emit_signal("leaderboard_sp_received", _lb_rows(json_result.result.get("entries", []), "sp"))
+
+# (the public API gives each row's number as "value")
+static func _lb_rows(entries, key: String) -> Array:
+	var out := []
+	if entries is Array:
+		for e in entries:
+			if e is Dictionary:
+				var r: Dictionary = e.duplicate()
+				if not r.has(key):
+					r[key] = r.get("value", 0)
+				out.append(r)
+	return out
 
 func check_player_xp():
 	if cid == "":
@@ -385,6 +399,7 @@ func _get_active_mods_dict() -> Dictionary:
 	return {
 		"vr": vr, # how it was played (the website shows VR / Mobile / Spin badges)
 		"mobile": device("mobile"),
+		"quest": vr and OS.has_feature("quest"), # (the Quest leaderboards)
 		"nofail": mod_nofail,
 		"extra_energy": mod_extra_energy,
 		"no_regen": mod_no_regen,
@@ -401,8 +416,10 @@ func _get_active_mods_dict() -> Dictionary:
 		"360_speed": mod_360_speed,
 		"strobe": mod_strobe,
 		"hardrock": mod_hardrock,
+		"harderrock": mod_harderrock,
 		"hard_mode": mod_hard_mode,
 		"flashlight": mod_flashlight,
+		"reverse": mod_reverse,
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
 		"retain_pitch": retain_song_pitch,
@@ -551,7 +568,7 @@ func sp_for_accuracy(accuracy: float) -> int:
 	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
 
 func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
-	if mod_nofail or mod_extra_energy or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
+	if mod_nofail or mod_extra_energy or mod_reverse or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
 	if replay != null and replay.autoplayer:
 		return false
@@ -1006,11 +1023,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov7-2026-a": "- Fixed the cursor trail crashing the game in VR and sometimes not showing: Smart Trail is now drawn as one object instead of a new one for every piece (smoother on PC too)\n- Settings > Video & Audio: No Delay (Experimental, PC) removes mouse movement delay in maps: every mouse movement is used as soon as it comes in, and VSync, the FPS cap and the Windows compositor's extra frame are off while you play (yours come back after the map)\n- Settings > Replays & Misc > Experimental: Legacy Mouse Movement moves the cursor with the mouse the way Chromia's very first update did (its original mouse code)\n- New modifier: Reverse. The map plays backwards, and so does the song (the first time you play a song with it, it takes a few seconds to turn the song around). Plays with Reverse are never ranked\n- The settings preview plays the map you have selected (its notes at your speed mod), and in time with the music when you play the map's music in the menu\n- Star ratings follow your speed: a 10 star map at 0.74x shows 7.40 stars\n- VR: type with both hands on the keyboard at once (each hand's trigger types the key it points at, straight away)\n- Leaderboards by device: every leaderboard in the game (the global one and each map's) has a dropdown for All devices, PC, VR, Quest, Spin or Phone, and so does each map's page on the website\n- Each map's leaderboard shows the SP of every pass again (it showed 0)\n- Background Editor: right-click a layer > Move to Space puts the picture in the song's world, behind the grid (it moves with the camera), with a Distance slider for how far away it stands\n- The cursor trail is smooth on phones (iOS especially): it fades evenly instead of in steps, curves with your swipe instead of in straight pieces, and doesn't get cut short on fast swipes\n- Spectate: \"N watching\" sits in the very bottom-left corner of a player's card and the ••• button is smaller, so they no longer overlap\n- VR: four new hands in Settings > VR > Hands: Cartoon glove, Robot, Skeleton and Crystal (spectators see them too)\n- Multiplayer: the leaderboard during a match looks like the Online menu (a card per player with their place, picture, accuracy, misses, host / done / failed badges and score), and in VR it shows on a panel beside the left grid panel\n- Spectating opens faster: the song starts loading as soon as you click, it no longer waits up to 4 seconds for the player's files (a custom border always made it wait the full time, and never showed), their background pictures and videos come in while you watch, and the setting warnings don't stop it\n- Multiplayer: invite people into your lobby. In a lobby, press Invite players (or open the Spectate window) and pick Invite to your lobby from someone's ••• menu; they're asked if they want to join (during a song, right after it). Settings > Online > Allow Lobby Invites turns invites to you off\n- VR: the first seconds of a map no longer lag. The hit and miss effects are ready before the first note (in VR they were made on the first hits, a stall every map), the music isn't restarted over small timing blips while the headset is busy loading, ranked maps no longer work out their fingerprint during the first seconds, and on PC VR the cheat scan waits until the song has settled\n- Cards: a Cards button under your name on your profile picks your card, the background and border colour of your player card in the Spectate grid. Everyone has Default; special cards unlock in secret ways (Admin, Developer and DJ go to who they're named for). Got a secret code? Type it in the Cards menu\n- New Grid Map List option (Settings, or Filters > View > grid): your maps as a grid of square covers, fast even with thousands of maps, switches on and off right away\n- Multiplayer: the leaderboard while playing is much smaller (top left corner), no longer glitches, and Tab hides or shows it\n- Multiplayer: less lag during matches (the leaderboard no longer rebuilds itself on every note)\n- Lobby invites: no more big popup. A small notice in the bottom right says who invited you (Join or Later), the Online tab gets a dot, and the Online page lists your invites\n- Invite players in a lobby opens its own list of everyone online with an Invite button each (no longer the Spectate window)\n- Multiplayer: the host has a new Pick map button in the lobby that opens its own map list (search, difficulty buttons, covers, stars) to choose the lobby's map\n- Chat: type /share to share the map you have selected (or /share and a map's name). It shows as the map's name in blue: click it to download the map and open it ready to play, also from the Spectate window while watching someone. /share colorset, settings, skin, mesh, cursor and hitsound work as before\n- Frames: a new Frames button next to Cards on your profile. Pick a frame for your profile picture; it shows in the Spectate grid, Online players and profiles. Admin has a gold crown, Developer circuit lines, DJ headphones with moving sound bars; every card you unlock gives you its frame\n- Badges on profiles (in the game and on the website) are now simple one-colour icons\n- VR: every slider in Settings > VR (grip, grid, menu screen, aim, haptics...) has - and + buttons beside it that move it one step (hold to keep going). The sliders no longer get pushed to the end by the thumbstick after you drag one\n- VR: new Grid size setting (Settings > VR > In songs): makes the grid, notes and cursor bigger, from the default size up to double\n- Menu Customizer (Settings > Menu Customizer): pick your own colours for the menu's buttons, text, text boxes and sidebar, button roundness and borders, and a background pattern (contour lines, grid, dots, waves, hexagons, stripes, stars or a plain colour) with your colours and speed. Exporting a skin now takes your menu with it\n- New modifier: Harder Rock. Like Hard Rock but the notes spread even further out, your cursor can go further past the grid and the hit window is tighter. Turning it on turns Hard Rock off (and the other way round)\n- The modifiers on the map screen are on pages now (14 per page): the arrows or the mouse wheel turn the page, the dots jump to a page, and a page with a modifier on has a green dot\n- Moving profile pictures and banners: upload a GIF on the website and it moves in the game too (Spectate, Online players, profiles)\n- Website: you can now comment on maps on their map page (sign in with Discord); you can delete your own comments\n- Map icons load much faster everywhere (grid, map list, the multiplayer map picker, VR) and no longer make the menu stutter while they load\n- The grid map list no longer lags in VR\n- The Stats page opens instantly, even with a big map library (its records summary loads in the background)\n- Badges, cards and frames can now use custom pictures: badges with their own picture, cards with a background picture in the Spectate grid, and picture frames round profile pictures",
 	"nov4-2026-a": "- No more little stutter when someone starts spectating you in the middle of a map.\n- In a map, the custom speed icon shows its speed (for example 137%).\n- Settings has a small preview window (\"Watching Auto play\") that plays a short map exactly the way your songs look: your note mesh, colorset, note size, opacity, fade, half ghost and spin, approach rate and spawn distance, border, cursor, FOV, parallax, Spin and hit effect. Drag it by its top bar, resize it from its corner, close it with the x, or turn it off in Settings > UI > Settings Preview.\n- Settings > Video & Audio: Exclusive Fullscreen is called Fullscreen again. It is the same fullscreen as always (the lowest input delay); Borderless Windowed is still there too.\n- Spectating: you always see the map with the other player's settings when you pick theirs (sometimes their approach rate, spawn distance, note size and other number settings were swapped back to yours), also after they lose their connection for a moment.\n- Lobbies: you can leave in the middle of a match. After giving up (or failing), hold the give up key again or press Leave lobby on the watching banner (in VR the panel shows which button): you go back to the menu and the round goes on for the others\n- VR: no more lag at high speeds (200% and up) on dense maps. The game waited on the graphics card for every note on screen every frame, and made a new hit effect for every hit; it does neither now. PC gets smoother too.\n- Spectating someone who plays with Spin shows it their way: the camera turns with their cursor like in their game (your own Spin setting stays as it is), the spectate banner says SPIN, and their card in the Spectate window says Spin.\n- A controller left plugged in no longer grabs the cursor at the start of a song (it could stick in the middle and not move) when Disable Controller is ticked, and a resting stick no longer takes over otherwise.\n- VR: the Map Folders window opens on the menu screen (it opened somewhere you couldn't see).\n- Profile: a Reset RP button puts your offline RP back to 0 (it asks first; your XP, SP and level stay).\n- VR: type with both hands. While the keyboard is up, your other hand's beam shows too and its trigger presses the key it points at.\n- VR: grip calibration is easier (Settings > VR > Controller grip > Calibrate). The song grid shows in front of you and notes light up one at a time: move your hand to each the way you would in a song and pull the trigger, no careful aiming. Then a dot follows your hand on the grid with the new grip so you can check it (trigger keeps it, B / Y starts over).\n- Chat: other people's messages show in your game's language (Settings > Language), with the language they wrote in after them, like [ES]. Turn it off in Settings > Online > Translate Chat.\n- VR: switching settings profiles no longer makes the headset judder (the profile's frame cap and vsync from the desktop were put on the headset). In VR the Max FPS and VSync settings are kept for when you play without VR.\n- Settings > Notes: Note Brightness (100% is your colorset as it is, less is darker, more goes towards white). Spectators watching with your settings see it too.\n- Spectate: every player card has a ••• button (bottom left) for View stats, Spectate and their profile, so you don't need to right-click.\n- Discord: your status shows when you're mapping (and who you map together with), watching a replay or playing in a lobby, how long you've been at it, and whether you're on PC, in VR or on a phone.\n- Alt + scroll volume shows as a small square in the bottom right (a speaker, a fill that rises with the volume, and the percentage).\n- VR / phones: maps whose cover is stored in an older compressed format show their cover in the map list (they showed none on the Quest and phones).\n- Map covers can be GIFs: they move in the map list and on the map's screen. Pick a .gif as the cover when you make a map and it's kept as a GIF.\n- Chat commands: /share map, /share settings, /share colorset (also mesh, cursor, hitsound) post a link anyone can click to get it; /profile <name> shows a player's stats, /report <name> reports them, /help lists them.\n- Spectating shows the player's Buffer Cursor, and with their Follow Buffer Cursor the camera parallax follows it like on their screen\n- Chat reactions: press + after a message to react (👍 ❤️ 😂 🔥 and more); reactions show on their own line under the message, press one to add yours or take it back. An emoji button next to the chat boxes types emoji\n- Map list: the column is now called Difficulties, and a Filters button under it opens a page with what to show (broken, online, ranked), the order switches, map folders and the sorts\n- New map list sorts: shortest / longest, highest / lowest SP, played, unplayed, recently ranked, recently played, most / fewest notes\n- Content Browser: a Skins tab for Chromia skins (.cskin). Get one to keep it in My skins and put it on from Settings > Skins, or share your own look. In chat, /share skin posts your look as a link\n- Settings preview shows the song's real HUD: the side panels (combo, accuracy, grade, pauses, score, misses, notes), timer and health bar, with your HUD colours, fonts, panel style and size, Simple / Faraway HUD and attach-to-grid\n- Badges on your in-game profile and in Spectate > View stats are the exact ones from your website profile (same pictures, colours and hover text)\n- Settings > Background Editor > HUD panels: HUD brightness, and move the side panels left / right and up / down, and the timer and health bar closer to or away from the grid (spectators and skins carry them too)\n- Multiplayer: the hit window is 55 or 58 ms. Any other hit window is set to 55 ms while you're in a lobby, and yours comes back when you leave",
 	"nov2-2026-a": "- VR / phones: .rhm maps from rhythia.com (Content Browser) convert properly: they were converted without their music (and then wouldn't play) because the audio was looked for in the wrong folder\n- VR: pressing Start after Random starts the map (the Random button could stay held, so Start picked another map instead)\n- Spectating: you hear the hit and miss sounds of the player you watch (there were none)\n- VR: while you watch someone, a panel above the right side says who it is and how to stop (hold your give up button); the Following / Stop bar shows on the menu screen in the headset\n- Map editor is much faster: placing, deleting and moving notes on big maps no longer freezes for a moment (about 30 times quicker on a 20,000-note map, undo/redo too), and playing the song in the editor no longer slows every frame down\n- Your Online status shows you playing again while you're in a map (it errored and wasn't sent)\n- Map screen: a Leaderboard tab (next to Best and History) on ranked maps shows everyone's best pass, top first: their picture, SP, accuracy, misses and speed (click someone to open their profile)\n- VR: move the keyboard anywhere on the menu screen by dragging the bar along its top; it stays where you put it (Reset in the bar puts it back)\n- VR: a Height setting (Settings > VR > Height) raises or lowers you up to 1 m, in the menu and in songs\n- Fixed the in-game HUD failing to load in the last test builds (two features had a function with the same name)\n- VR: a new Ball hand (Settings > VR > Hands): a plain round white sphere for each hand (spectators see it too)\n- Settings: the grid's Borders moved to the Background Editor tab\n- Background Editor > HUD panels: pick how the side panels look while you play (Chromia, Sound Space, Outlined, Glass, No background, or your own picture) and how big they are (50% to 200%). Spectators see your style and size\n- Settings > Fonts: a Size slider for the HUD's text (50% to 200%), seen by spectators too\n- Settings > Video & Audio: Fullscreen is now called Exclusive Fullscreen (the true fullscreen, run by your graphics driver), and it and Borderless Windowed turn each other off; F11 / Alt+Enter leaves Borderless Windowed first\n- Spectate: right-click someone's card for View stats (their level, XP, SP and places, passes, bio and best plays), Spectate, or their profile on the website\n- Settings > Keybinds: turn any keybind off with its On box, or all of them with Turn all keybinds off (their keys and controller buttons do nothing); turning one back on restores your key\n- Player Avatar editor works again and is easier to use: tick items instead of typing their names, with new ones (top hat, cap, crown, cat ears, horns, halo, glasses, bow, scarf, tie, bow tie, cape), colours for the head, body and eyes, drag to turn your avatar, and it's saved. The Back button works again. Your avatar shows in replays with the alternate camera, and people watching you with your settings see it\n- Spectating: 3rd person view. In VR press B / Y while you watch someone: you move behind and beside them and see their avatar play (the avatar from their Player Avatar editor). On PC press 3. Replays: press 3 to switch to the avatar camera\n- VR: the intro cutscene never plays in VR (on the Quest it used to play every time the game opened); the Replay Intro button says so instead\n- Maps with WAV music (some rhythia.com downloads) play their music: they said the audio was broken. WAV files with extra sections (JUNK, LIST...) and 8, 24 and 32-bit ones work too\n- Spectating with their settings no longer shows bits of your own: colours, note shapes, effects or backgrounds you don't have fall back to the defaults instead of yours, and their HUD options (stats, config, avatar, panels) are used too\n- Spectating: following someone keeps watching them when they restart a map (it used to stop)\n- Background Editor: a Background brightness slider darkens the background behind the notes (notes and HUD stay bright)\n- VR: the Ball hand is white now in every scene (it looked grey in dark spaces and menus)\n- Background Editor: add .mp4, .mov, .mkv, .avi and other videos (the Chromia server turns them into .webm for you, no sound, up to 2 minutes; you can close the settings while it works). GIFs move, and .webm / .ogv are added as they are\n- Chromia skins (.cskin): Settings > Skins exports everything you have on into one file (your look settings, colorset, note mesh, border, hit and miss sounds, cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture, avatar, VR hands) for others to import. Putting one on keeps your old look as \"Before <skin>\" in My skins so you can go back. You can also drop a .cskin on the game window\n- Online page redone: a clear \"Play together\" section (Host a lobby, Public, join with a friend's code), public lobbies always listed with Refresh, and inside a lobby a big lobby code with Copy, the map, players as cards (ready / checking / downloading the map, HOST) and Start / Leave. Same look as the Spectate window\n- The Spectate window opens smoothly (it no longer stutters while it fills in)\n- Menu music is back: the seven menu songs play again. They're downloaded from the Chromia server the first time (about 15 MB, once) instead of making every download bigger, and then play from your game's cache, offline too\n- VR: Settings > VR > Controller grip > Calibrate: a dot shows in front of you; hold the controller the way you normally play, point at it and hold the trigger for a second, and the grip's tilt and turn are set so the beam goes where your hand points (either hand; B / Y cancels)\n- Content Browser: a Hit Sounds tab. Play one to hear it, Use it to make it your hit sound, or share yours / upload a file (.ogg, .mp3, .wav)\n- Content Browser > Maps > Chromia players: every map on the Chromia server is listed too (ranked ones say Ranked), ready to download\n- Fixed the Ranked filter leaving out ranked maps whose id has capitals, spaces or signs like . ! ( ) (for example the Trrricksters!! map)\n- Online > Admin (staff only) in the same look as the rest of the Online page, and bigger Lobby / Admin tabs\n- Map editor: Legacy UI (editor Settings > Graphics > Look): the editor in Sound Space Quantum Editor Plus's own look, with its fonts, dark outlined buttons, round checkboxes, cyan / magenta colours and solid background. Turn it on or off any time\n- Online lobby: players show their profile picture instead of their initial\n- Map editor: import your SSQE+ settings (editor Settings > Other > Import SSQE+ settings, pick settings.txt from your Sound Space Quantum Editor Plus folder): colours, note colours, keybinds, grid keys, patterns, playtest settings and the rest\n- Map editor: Font scale (Settings > Graphics) makes every text in the editor bigger or smaller, and the grid keys (QWE / ASD / ZXC) can be your own keys\n- Map editor, Legacy UI: the editor's start screen, Create, Settings and Keybinds screens are SSQE+'s own (SOUND SPACE+ QUANTUM EDITOR PLUS menu with the changelog and your maps along the bottom, Create with Audio ID / Import Audio, every SSQE+ setting incl. VSync, FPS limit, font scale, playtest game, and the keybinds screen with grid keys, RESET buttons and CTRL / ALT / SHIFT Held)\n- Map editor: Import SSQE+ settings takes SSQE+'s setup files (.ssqes) as well as settings.txt\n- Editor settings: a long note no longer pushes the buttons and sliders off the right side of the window.\n- Mapping together: pausing during a playtest (or a long song load) no longer drops you out of the session.\n- Mapping together is much less laggy, especially on big maps.\n- Mapping together: Store Nodes keeps your bezier nodes on the right notes when the others add or move notes.\n- Editor Legacy UI: its Settings now also has Invites To Map Together, Adjust Notes With Timing and Use Note Colors.\n- Mapping together: your stored nodes (Store Nodes) are yours only. Nothing the others do (placing, moving or deleting notes, even the ones you stored) changes them.\n- Editor colours: Color 3 is now only the 1/2 beat ticks. The preview (timeline view and bookmarks) has its own Color 6, stored nodes their own Color 7, and the waveform uses Color 4 like its setting says.\n- In a map, every mod you have on now shows its icon next to the speed icon (not just the speed mods).\n- Spectating: the cursor of the person you watch always shows, also with Show cursor off, and is drawn over the grid, its background and panels.\n- Sound Space HUD (panels only): the health bar is right under the grid and the progress bar right over it again, with the mod icons under the health bar.\n- Map of the Day: one ranked map a day, picked by the admins, at the very top of your maps with a bright yellow outline. Pass it on its day to add to the Map of the Day badge on your profile.",
 	"nov1-2026-b": "- Fixed a crash when you start watching someone from the Spectate window (since nov1-2026-a)\n- Fixed a possible freeze in the menu on ranked maps (since nov1-2026-a), and the Spectate window shows pictures uploaded to Chromia again\n- Map screen: History uses the whole row, so your attempts aren't squished (the Modifiers box comes back when you switch to Best)\n- Downloading maps: when a map can't be saved, read or converted, you're told why (it failed without a word and the map stayed unconverted)\n- VR: maps no longer load to a black screen when the game wants to warn you about something (high cursor trail detail, broken audio, unusual approach rate or hit window): the warning was a flat-screen question the headset didn't show, so the game waited forever\n- Profile: the old name box is gone (your name is your Discord / website profile name, and lobbies use it too)\n- Fixed a crash right after a map finished downloading (most often in VR): the map was set up while the background star rating could be reading it",
@@ -1700,10 +1718,13 @@ func trail(msg: String):
 		_trail_file.open(Globals.p(TRAIL_FILE), File.WRITE)
 		_trail_lines = 0
 	_trail_lines += 1
-	_trail_file.store_line("[%7.1fs | objs %d | vram %d MB] %s" % [
+	# (the video memory reading waits for the render thread: not during a
+	# song, where it made the next frame late too, worst in VR)
+	var vram: String = "-" if in_map else str(int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576))
+	_trail_file.store_line("[%7.1fs | objs %d | vram %s MB] %s" % [
 		OS.get_ticks_msec() / 1000.0,
 		Performance.get_monitor(Performance.OBJECT_COUNT),
-		int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576),
+		vram,
 		msg])
 	_trail_file.flush()
 	_trail_mutex.unlock()
@@ -2020,11 +2041,20 @@ func _thumb_builder_worker(list: Array):
 			break
 		var wanted = _pop_priority_thumb()
 		if wanted != null:
-			if wanted.build_thumb_file(false) != null:
-				built += 1
+			# (shown in the list: its picture read here, off the main thread)
+			var had: bool = have.has(wanted._thumb_path().get_file())
+			var im = wanted.build_thumb_file(true)
+			if im != null:
+				if not had:
+					built += 1
+				_thumb_mutex.lock()
+				wanted._thumb_img = im
+				_thumb_mutex.unlock()
+			else:
+				wanted._thumb_failed = true
 			if wanted.has_method("build_gif_frames") and wanted.cover_is_gif():
 				wanted.build_gif_frames() # (a GIF cover: its frames, to move)
-			call_deferred("emit_signal", "thumbs_ready")
+			_thumbs_ready_soon()
 			continue
 		if not have.has(list[i]._thumb_path().get_file()):
 			if list[i].build_thumb_file(false) != null:
@@ -2032,6 +2062,22 @@ func _thumb_builder_worker(list: Array):
 		i += 1
 	_thumb_running = false
 	call_deferred("_thumb_builder_finished", built)
+
+# thumbs_ready once a frame at most (the list asks for its covers again on it)
+var _thumbs_signal_queued := false
+func _thumbs_ready_soon():
+	_thumb_mutex.lock()
+	var q := _thumbs_signal_queued
+	_thumbs_signal_queued = true
+	_thumb_mutex.unlock()
+	if not q:
+		call_deferred("_emit_thumbs_ready")
+
+func _emit_thumbs_ready():
+	_thumb_mutex.lock()
+	_thumbs_signal_queued = false
+	_thumb_mutex.unlock()
+	emit_signal("thumbs_ready")
 
 func _thumb_builder_finished(built: int):
 	if _thumb_thread and _thumb_thread.is_active():
@@ -2202,6 +2248,9 @@ var vr_menu_curve: bool = true     # curved around you
 var vr_menu_ui: float = 100.0      # % size of the menu's text and buttons on the screen
 # how far the note grid (where the notes come from) is from you in songs, in metres
 var vr_grid_distance: float = 2.25
+# how big the note grid is in songs (1 = normal; the grid, notes and cursor
+# all scale around the grid's middle: scripts/game/Game.gd)
+var vr_grid_size: float = 1.0
 # VR aim: how far the cursor moves for how far you turn the controller (1 =
 # exactly where you point)
 var vr_sensitivity: float = 1.0
@@ -2211,7 +2260,8 @@ var vr_height: float = 0.0
 # controller rumble on hits (0..1) and on misses
 var vr_haptics: float = 0.5
 var vr_haptic_miss: bool = true
-# the hands: "default" (box), "paw" (built-in furry paw), "ball" (a white sphere), "custom" (vr_hand.obj)
+# the hands: "default" (box), "paw" (built-in furry paw), "ball" (a white sphere),
+# "glove" / "robot" / "skeleton" / "crystal" (vr/ExtraHands.gd), "custom" (vr_hand.obj)
 var vr_hand: String = "default"
 # the VR menu's surroundings: "classic", a built-in one (vr/MenuEnvs.gd) or
 # "bg:<background id>" for a background from the background list
@@ -2770,8 +2820,10 @@ func update_rpc_song():
 	if mod_ghost: mods.append("Ghost")
 	if mod_nearsighted: mods.append("Nearsight")
 	if mod_hardrock: mods.append("Hard Rock")
+	if mod_harderrock: mods.append("Harder Rock")
 	if mod_hard_mode: mods.append("Hard Mode")
 	if mod_flashlight: mods.append("Flashlight")
+	if mod_reverse: mods.append("Reverse")
 	if mod_360: mods.append(("360x%s" % Rhythia.mod_360_speed))
 	if mod_strobe: mods.append(("Strobe!!!"))
 	if replay.autoplayer: mods.append("Auto")
@@ -2825,11 +2877,31 @@ var mod_360: bool = false setget set_mod_360
 var mod_360_speed: float = 1 setget _set_mod_360_speed
 var mod_strobe: bool = false setget _set_mod_strobe
 var mod_hardrock: bool = false setget set_mod_hardrock
+# Harder Rock: Hard Rock spread wider (notes further out, the cursor can go
+# further, a tighter hit window). Only one of the two is on at a time.
+var mod_harderrock: bool = false setget set_mod_harderrock
+const HARDROCK_SPREAD = 1.35
+const HARDERROCK_SPREAD = 1.7
+# either Hard Rock is on
+func hr_on() -> bool:
+	return mod_hardrock or mod_harderrock
+# how far the notes spread from the grid's middle (1: no Hard Rock)
+func hr_spread() -> float:
+	return HARDERROCK_SPREAD if mod_harderrock else (HARDROCK_SPREAD if mod_hardrock else 1.0)
+# how much further past the grid's edge the cursor can go (Hard Rock 0.6)
+func hr_reach() -> float:
+	return 0.6 * (hr_spread() - 1.0) / (HARDROCK_SPREAD - 1.0)
 # Hard Mode: notes are drawn smaller and their hitbox shrinks by the same amount.
 const HARD_MODE_SCALE = 0.75
 var mod_hard_mode: bool = false setget set_mod_hard_mode
 # Flashlight: everything is dark except a circle around the cursor.
 var mod_flashlight: bool = false setget set_mod_flashlight
+# Reverse: the map played backwards, the song too (scripts/game/ReverseSong.gd); never ranked
+var mod_reverse: bool = false setget set_mod_reverse
+var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
+var reverse_length_ms: float = 0.0
+var reverse_song_id: String = ""
+var lb_device: String = "" # the leaderboards' device dropdown (scripts/ui/LbModes.gd): "" all, pc, vr, quest, spin, mobile
 
 var start_offset: float = 0 setget _set_start_offset
 var note_hitbox_size: float = 1.14 setget _set_hitbox_size
@@ -2901,11 +2973,19 @@ func _set_mod_360_speed(v: float):
 func _set_mod_strobe(v: bool):
 	mod_strobe = v; emit_signal("mods_changed")
 func set_mod_hardrock(v: bool):
-	mod_hardrock = v; emit_signal("mods_changed")
+	mod_hardrock = v
+	if v: mod_harderrock = false
+	emit_signal("mods_changed")
+func set_mod_harderrock(v: bool):
+	mod_harderrock = v
+	if v: mod_hardrock = false
+	emit_signal("mods_changed")
 func set_mod_hard_mode(v: bool):
 	mod_hard_mode = v; emit_signal("mods_changed")
 func set_mod_flashlight(v: bool):
 	mod_flashlight = v; emit_signal("mods_changed")
+func set_mod_reverse(v: bool):
+	mod_reverse = v; emit_signal("mods_changed")
 
 func _set_start_offset(v: float):
 	start_offset = v; emit_signal("mods_changed")
@@ -2978,6 +3058,7 @@ var mute_global_chat: bool = false
 # Settings > Online: others can watch you from their Spectate tab (the server
 # refuses anyone when this is off; LobbyManager sends it with your presence)
 var allow_spectators: bool = true
+var allow_lobby_invites: bool = true # Settings > Online: others can invite you into their lobby (LobbyManager.invite_player)
 # Settings > Online > Share My Maps With Spectators: off, a spectator without
 # the map isn't sent it (unreleased maps); they can still watch on maps they have
 var share_maps_with_spectators: bool = true
@@ -3103,6 +3184,33 @@ var trail_opacity: float = 1.0
 var trail_gradient_enabled: bool = false
 var trail_gradient: Array = [[0.0, "ffffffff"], [1.0, "ffc3a6cc"]] # Godot html = aarrggbb
 var max_fps_mode: bool = false
+# Settings > Grid Map List (or the map list's Filters page): the maps as a grid
+# of square tiles (MapGrid.gd), switched while the game runs
+signal map_grid_changed
+var map_grid: bool = false setget _set_map_grid
+func _set_map_grid(v: bool):
+	if v == map_grid:
+		return
+	map_grid = v
+	emit_signal("map_grid_changed")
+var modern_ui: bool = false setget _set_modern_ui # Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
+signal modern_ui_changed
+# the Modern UI is for staff (an Owner / Administrator tag): the server says
+# so at sign-in (LobbyManager); remembered for a start before it answers
+var is_staff: bool = false setget _set_is_staff
+func _set_is_staff(v: bool):
+	if v == is_staff:
+		return
+	is_staff = v
+	save_settings()
+	emit_signal("modern_ui_changed")
+func modern_ui_on() -> bool:
+	return modern_ui and is_staff and not vr
+func _set_modern_ui(v: bool):
+	modern_ui = v
+	emit_signal("modern_ui_changed")
+var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd: the first version's mouse code)
+var pc_no_delay: bool = false # Experimental: No Delay (PC mouse), no_delay_begin / no_delay_end
 # Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
 var realistic_autoplay: bool = false
 
@@ -3113,6 +3221,34 @@ func _web_replay_light():
 	if vp:
 		vp.msaa = Viewport.MSAA_DISABLED
 		vp.hdr = false
+
+# Experimental No Delay (PC, mouse): while a map plays, what you see follows
+# your newest mouse movement. Each movement is used as it comes (not saved up
+# for the next frame), the ones made while a frame is being made are taken in
+# just before it's drawn (NoteManager._process), and nothing holds the frame
+# back: VSync, the FPS cap and the Windows compositor's extra frame are off
+# for the song. Your VSync and FPS cap come back after it.
+func no_delay_active() -> bool:
+	return pc_no_delay and not legacy_mouse and not vr and not device("mobile") and not OS.has_feature("JavaScript") and not replaying
+
+func no_delay_begin():
+	if not no_delay_active() or has_meta("no_delay_saved"):
+		return
+	set_meta("no_delay_saved", [OS.vsync_enabled, Engine.target_fps, OS.vsync_via_compositor, Input.use_accumulated_input])
+	Input.use_accumulated_input = false
+	OS.vsync_enabled = false
+	OS.vsync_via_compositor = false
+	Engine.target_fps = 0
+
+func no_delay_end():
+	if not has_meta("no_delay_saved"):
+		return
+	var s: Array = get_meta("no_delay_saved")
+	remove_meta("no_delay_saved")
+	OS.vsync_enabled = bool(s[0])
+	Engine.target_fps = int(s[1])
+	OS.vsync_via_compositor = bool(s[2])
+	Input.use_accumulated_input = bool(s[3])
 
 func apply_max_fps_mode():
 	var vp = get_viewport()
@@ -3451,6 +3587,51 @@ func _award_level_exp(play_ms: int):
 		Globals.notify(Globals.NOTIFY_INFO, "%d / %d to level %d" % [store.cur_exp, store.required(), store.level + 1], "+%d EXP" % gained, 3)
 
 # Summary of personal bests across all maps (from user://bests).
+# The stats page's records summary. It reads every personal-best file, which
+# is slow with many maps, so: pb_summary_async() works it out on a thread and
+# sends pb_summary_ready; each file's result is kept with its modified time,
+# so later only the files that changed are read again.
+signal pb_summary_ready(summary)
+var _pb_file_cache := {} # file name -> [modified time, result]
+var _pb_cache_mutex := Mutex.new()
+var _pb_summary_last = null
+var _pb_summary_thread: Thread = null
+
+# the last summary worked out (null before the first) and a fresh one on its way
+func pb_summary_async():
+	if _pb_summary_thread == null:
+		_pb_summary_thread = Thread.new()
+		if not OS.can_use_threads() or _pb_summary_thread.start(self, "_pb_summary_work") != OK:
+			_pb_summary_thread = null
+			_pb_summary_last = get_pb_summary()
+			call_deferred("emit_signal", "pb_summary_ready", _pb_summary_last)
+	return _pb_summary_last
+
+func _pb_summary_work(_u = null):
+	var out := get_pb_summary()
+	call_deferred("_pb_summary_done", out)
+
+func _pb_summary_done(out: Dictionary):
+	if _pb_summary_thread != null and _pb_summary_thread.is_active():
+		_pb_summary_thread.wait_to_finish()
+	_pb_summary_thread = null
+	_pb_summary_last = out
+	emit_signal("pb_summary_ready", out)
+
+func _best_file_cached(fn: String) -> Dictionary:
+	var path := user_best_dir.plus_file(fn)
+	var mt := File.new().get_modified_time(path)
+	_pb_cache_mutex.lock()
+	var c = _pb_file_cache.get(fn)
+	_pb_cache_mutex.unlock()
+	if c != null and int(c[0]) == mt:
+		return c[1]
+	var best := _read_best_file(path)
+	_pb_cache_mutex.lock()
+	_pb_file_cache[fn] = [mt, best]
+	_pb_cache_mutex.unlock()
+	return best
+
 func get_pb_summary() -> Dictionary:
 	var out := {"maps_played": 0, "maps_passed": 0, "full_combos": 0, "avg_best_accuracy": 0.0}
 	var dir := Directory.new()
@@ -3461,7 +3642,7 @@ func get_pb_summary() -> Dictionary:
 	var fn := dir.get_next()
 	while fn != "":
 		if not dir.current_is_dir():
-			var best := _read_best_file(user_best_dir.plus_file(fn))
+			var best := _best_file_cached(fn)
 			if not best.empty():
 				out.maps_played += 1
 				if best.passed:
@@ -3559,8 +3740,10 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_360: pts.append("m_360")
 	if mod_strobe: pts.append("m_strobe")
 	if mod_hardrock: pts.append("m_hardrock")
+	if mod_harderrock: pts.append("m_harderrock")
 	if mod_hard_mode: pts.append("m_hardmode")
 	if mod_flashlight: pts.append("m_flashlight")
+	if mod_reverse: pts.append("m_reverse")
 	if mod_nofail: pts.append("m_nofail")
 
 	pts.sort()
@@ -3590,8 +3773,10 @@ func parse_pb_str(txt: String):
 	data.invert_mouse = false
 	data.mod_earthquake = false
 	data.mod_hardrock = false
+	data.mod_harderrock = false
 	data.mod_hard_mode = false
 	data.mod_flashlight = false
+	data.mod_reverse = false
 	data.mod_nofail = false
 
 	for s in pts:
@@ -3628,8 +3813,10 @@ func parse_pb_str(txt: String):
 				"m_earthquake": data.mod_earthquake = true
 				"m_strobe": data.mod_strobe = true
 				"m_hardrock": data.mod_hardrock = true
+				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true
 				"m_flashlight": data.mod_flashlight = true
+				"m_reverse": data.mod_reverse = true
 				"m_nofail": data.mod_nofail = true
 	return data
 var prev_state: Dictionary = {}
@@ -3852,6 +4039,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			lead_in_ms = data.lead_in_ms
 		if data.has("mute_global_chat"):
 			mute_global_chat = data.mute_global_chat
+		if data.has("allow_lobby_invites"):
+			allow_lobby_invites = bool(data.allow_lobby_invites)
 		if data.has("allow_spectators"):
 			allow_spectators = bool(data.allow_spectators)
 		if data.has("share_maps_with_spectators"):
@@ -3948,6 +4137,18 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("max_fps_mode"):
 			max_fps_mode = bool(data.max_fps_mode)
 			if max_fps_mode: call_deferred("apply_max_fps_mode")
+		if data.has("pc_no_delay"):
+			pc_no_delay = bool(data.pc_no_delay)
+		if data.has("legacy_mouse"):
+			legacy_mouse = bool(data.legacy_mouse)
+		if data.has("modern_ui"):
+			modern_ui = bool(data.modern_ui)
+		if data.has("map_grid"):
+			map_grid = bool(data.map_grid)
+		if data.has("is_staff"):
+			is_staff = bool(data.is_staff)
+		if data.has("lb_device"):
+			lb_device = String(data.lb_device)
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
@@ -4193,6 +4394,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_menu_ui = clamp(float(data.vr_menu_ui), 60.0, 140.0)
 		if data.has("vr_grid_distance"):
 			vr_grid_distance = clamp(float(data.vr_grid_distance), 0.75, 5.0)
+		if data.has("vr_grid_size"):
+			vr_grid_size = clamp(float(data.vr_grid_size), 1.0, 2.0) # (never smaller than the default)
 		if data.has("vr_sensitivity"):
 			vr_sensitivity = clamp(float(data.vr_sensitivity), 0.25, 4.0)
 		if data.has("vr_height"):
@@ -4201,7 +4404,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_haptics = clamp(float(data.vr_haptics), 0.0, 1.0)
 		if data.has("vr_haptic_miss"):
 			vr_haptic_miss = bool(data.vr_haptic_miss)
-		if data.has("vr_hand") and ["default", "paw", "ball", "custom"].has(str(data.vr_hand)):
+		if data.has("vr_hand") and ["default", "paw", "ball", "glove", "robot", "skeleton", "crystal", "custom"].has(str(data.vr_hand)):
 			vr_hand = str(data.vr_hand)
 		if data.has("vr_menu_env") and load("res://vr/MenuEnvs.gd").is_valid(str(data.vr_menu_env)):
 			vr_menu_env = str(data.vr_menu_env)
@@ -4615,7 +4818,7 @@ func _write_settings_file(saveFile: String):
 			update_channel = update_channel,
 			tried_test_builds = tried_test_builds or update_channel == "test",
 			tester_channel = tester_channel,
-			vsync_enabled = _desk_vsync if vr else OS.vsync_enabled, # (in VR the headset paces frames: your desktop choice is kept)
+			vsync_enabled = _desk_vsync if vr else (bool(get_meta("no_delay_saved")[0]) if has_meta("no_delay_saved") else OS.vsync_enabled), # (in VR the headset paces frames: your desktop choice is kept)
 
 			window_fullscreen = OS.window_fullscreen,
 			window_borderless = OS.window_borderless,
@@ -4695,6 +4898,13 @@ func _write_settings_file(saveFile: String):
 			favorite_meshes = favorite_meshes,
 			custombg_color = custombg_color.to_html(false),
 			max_fps_mode = max_fps_mode,
+			pc_no_delay = pc_no_delay,
+			legacy_mouse = legacy_mouse,
+			modern_ui = modern_ui,
+			map_grid = map_grid,
+			is_staff = is_staff,
+			lb_device = lb_device,
+			allow_lobby_invites = allow_lobby_invites,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,
@@ -4741,7 +4951,7 @@ func _write_settings_file(saveFile: String):
 			cursor_color_type = cursor_color_type,
 			half_ghost = half_ghost,
 			note_spawn_effect = note_spawn_effect,
-			target_fps = _desk_fps if vr else Engine.target_fps,
+			target_fps = _desk_fps if vr else (int(get_meta("no_delay_saved")[1]) if has_meta("no_delay_saved") else Engine.target_fps),
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
 			wave_menu_colorset = wave_menu_colorset,
@@ -4783,6 +4993,7 @@ func _write_settings_file(saveFile: String):
 			vr_menu_curve = vr_menu_curve,
 			vr_menu_ui = vr_menu_ui,
 			vr_grid_distance = vr_grid_distance,
+			vr_grid_size = vr_grid_size,
 			vr_sensitivity = vr_sensitivity,
 			vr_height = vr_height,
 			vr_haptics = vr_haptics,

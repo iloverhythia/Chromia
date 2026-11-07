@@ -240,6 +240,14 @@ func _draw_overlay():
 		pts.append(_corner_pos(l, c))
 	pts.append(pts[0])
 	_overlay.draw_polyline(pts, SEL_COL, 2.0)
+	if bool(l.get("space", false)):
+		# (moved to the space: it stands in the world, behind the grid)
+		var fnt: Font = _overlay.get_font("font", "Label")
+		var tag := "In space"
+		var tp: Vector2 = pts[0] + Vector2(6, 6)
+		var ts: Vector2 = fnt.get_string_size(tag)
+		_overlay.draw_rect(Rect2(tp, ts + Vector2(10, 4)), Color(0.1, 0.3, 0.45, 0.85))
+		_overlay.draw_string(fnt, tp + Vector2(5, 2 + fnt.get_ascent()), tag, Color(0.85, 0.95, 1))
 	var top_mid = (pts[0] + pts[1]) / 2.0
 	var rh = _rot_handle_pos(l)
 	_overlay.draw_line(top_mid, rh, SEL_COL, 2.0)

@@ -39,6 +39,11 @@ signal motd_changed() # Map of the Day: motd_song_id, motd_name, motd_completed,
 signal admin_motd_result(ok, reason)
 # the Spectate tab
 signal online_players_received(list, you)
+signal cards_received(cards, chosen) # (your profile > Cards: scripts/ui/CardsMenu.gd)
+signal frames_received(frames, chosen) # (your profile > Frames: scripts/ui/FramesMenu.gd)
+signal frame_message(text, refresh)
+signal my_frame_changed(frame) # (the frame you picked: {id, name, style, color, color2} or null)
+signal card_message(text, refresh)
 signal spectate_denied(reason)
 signal watch_ended(text)
 signal presence_support_changed(supported)
@@ -131,6 +136,7 @@ var _watch_only_maps := []
 
 func _ready():
 	_clear_watch_only_dir()
+	add_child(load("res://scripts/ui/Rngdle.gd").new()) # (a secret)
 	_client.connect("connection_established", self, "_on_connected")
 	_client.connect("connection_closed", self, "_on_closed")
 	_client.connect("connection_error", self, "_on_conn_error")
@@ -397,6 +403,97 @@ func admin_remove_map_rank(song_id: String):
 	if not has_admin_key() or song_id == "":
 		return
 	_ensure_connected_then_send({"type": "admin_remove_map_rank", "admin_key": _admin_key, "song_id": song_id})
+
+# --- cards (your profile > Cards, scripts/ui/CardsMenu.gd) --------------------------
+func get_cards():
+	_ensure_connected_then_send({"type": "get_cards", "client_id": Rhythia.cid})
+
+func set_card(id: String):
+	_ensure_connected_then_send({"type": "set_card", "id": id, "client_id": Rhythia.cid})
+
+func redeem_card_code(code: String):
+	_ensure_connected_then_send({"type": "redeem_card_code", "code": code.substr(0, 64), "client_id": Rhythia.cid})
+
+# --- frames (your profile > Frames, scripts/ui/FramesMenu.gd): the frame round your picture
+func get_frames():
+	_ensure_connected_then_send({"type": "get_frames", "client_id": Rhythia.cid})
+
+func set_frame(id: String):
+	_ensure_connected_then_send({"type": "set_frame", "id": id, "client_id": Rhythia.cid})
+
+# --- lobby invites ---------------------------------------------------------------
+# Invite someone online into your lobby (the Spectate window's player menu, or
+# the lobby's Invite players button); they're asked if they want to join.
+# Settings > Online > Allow Lobby Invites turns getting them off.
+# Invites you got wait in `invites` (newest first, a few minutes each): a small
+# notice in the bottom right says who invited you (InviteToast.gd), the
+# Online tab gets a dot and its page lists them with Join / Decline.
+signal invites_changed
+const INVITE_KEEP_MS := 5 * 60 * 1000
+var invites := [] # {code, from_name, lobby_size, song_name, at}
+
+func invite_player(number: int):
+	if not lobby_active or watch_mode:
+		Globals.notify(Globals.NOTIFY_WARN, "Make or join a lobby first (Online).", "Lobby invite")
+		return
+	_ensure_connected_then_send({"type": "invite_to_lobby", "number": number, "client_id": Rhythia.cid})
+
+func _on_lobby_invite(msg: Dictionary):
+	if Rhythia.get("allow_lobby_invites") == false:
+		return
+	var code := Globals.s(msg.get("code", ""))
+	if code == "" or (lobby_active and lobby_code == code):
+		return
+	var inv := {
+		"code": code,
+		"from_name": Globals.s(msg.get("from_name", "Someone")),
+		"lobby_size": int(msg.get("lobby_size", 1)),
+		"song_name": Globals.s(msg.get("song_name", "")),
+		"at": OS.get_ticks_msec(),
+	}
+	_drop_invite(code, false)
+	invites.push_front(inv)
+	if invites.size() > 5:
+		invites.resize(5)
+	emit_signal("invites_changed")
+	load("res://scripts/ui/InviteToast.gd").show_invite(inv)
+
+# the invites still worth showing (old ones go)
+func current_invites() -> Array:
+	var now := OS.get_ticks_msec()
+	var keep := []
+	for inv in invites:
+		if now - int(inv.at) < INVITE_KEEP_MS and not (lobby_active and lobby_code == String(inv.code)):
+			keep.append(inv)
+	if keep.size() != invites.size():
+		invites = keep
+		call_deferred("emit_signal", "invites_changed")
+	return invites
+
+func accept_invite(code: String):
+	_drop_invite(code)
+	if Rhythia.in_map:
+		return
+	join_lobby(code, _presence_name())
+
+func _drop_invite(code: String, tell := true):
+	for i in range(invites.size() - 1, -1, -1):
+		if String(invites[i].code) == code:
+			invites.remove(i)
+	if tell:
+		emit_signal("invites_changed")
+
+# (the menu calls this when it opens after a song: the invites are waiting on
+# the Online tab now, nothing to ask)
+func ask_pending_invite():
+	current_invites()
+
+# (the lobby map picker, LobbyMapPicker.gd: an online map was downloaded and
+# selected, now it's the lobby's map)
+func _lobby_song_from_picker(selected, wanted):
+	if selected == wanted and lobby_active and is_host:
+		set_lobby_song(wanted)
+		push_current_mods()
 
 func check_ranker_status():
 	if Rhythia.cid == "":
@@ -675,8 +772,10 @@ func _collect_current_mods() -> Dictionary:
 		"ghost": Rhythia.mod_ghost,
 		"nearsighted": Rhythia.mod_nearsighted,
 		"hardrock": Rhythia.mod_hardrock,
+		"harderrock": Rhythia.mod_harderrock,
 		"hard_mode": Rhythia.mod_hard_mode,
 		"flashlight": Rhythia.mod_flashlight,
+		"reverse": Rhythia.mod_reverse,
 		"mod_360": Rhythia.mod_360,
 		"mod_360_speed": Rhythia.mod_360_speed,
 		"strobe": Rhythia.mod_strobe,
@@ -711,6 +810,10 @@ func _flush_mods_push():
 func _apply_mods_locally(mods: Dictionary):
 	if mods.empty():
 		return
+	# (during the song they can't change: setting them again on every lobby
+	# update, several a second, was wasted work mid-map)
+	if Rhythia.in_map and bool(lobby_state.get("started", false)):
+		return
 	Rhythia.mod_nofail = mods.get("nofail", Rhythia.mod_nofail)
 	Rhythia.mod_speed_level = mods.get("speed_level", Rhythia.mod_speed_level)
 	if Rhythia.mod_speed_level == Globals.SPEED_CUSTOM:
@@ -723,8 +826,10 @@ func _apply_mods_locally(mods: Dictionary):
 	Rhythia.mod_ghost = mods.get("ghost", Rhythia.mod_ghost)
 	Rhythia.mod_nearsighted = mods.get("nearsighted", Rhythia.mod_nearsighted)
 	Rhythia.mod_hardrock = mods.get("hardrock", Rhythia.mod_hardrock)
+	Rhythia.mod_harderrock = mods.get("harderrock", Rhythia.mod_harderrock if not mods.has("hardrock") else false)
 	Rhythia.mod_hard_mode = mods.get("hard_mode", Rhythia.mod_hard_mode)
 	Rhythia.mod_flashlight = mods.get("flashlight", Rhythia.mod_flashlight)
+	Rhythia.mod_reverse = mods.get("reverse", Rhythia.mod_reverse)
 	Rhythia.mod_360 = mods.get("mod_360", Rhythia.mod_360)
 	Rhythia.mod_360_speed = mods.get("mod_360_speed", Rhythia.mod_360_speed)
 	Rhythia.mod_strobe = mods.get("strobe", Rhythia.mod_strobe)
@@ -752,7 +857,7 @@ func _chat_in(m: Dictionary, others: bool):
 	m["orig"] = m.text
 	m["ready"] = true
 	m["waited"] = 0.0
-	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1:
+	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1 and not m.get("rngdle", false):
 		m.id = _tr_next_id
 		_tr_next_id += 1
 		m.ready = false
@@ -974,6 +1079,9 @@ func _upload_asset_file(kind: String, file: String, sha: String):
 # (tried a few times: they may still be uploading it). The first load of a
 # watch waits for them a moment (spectate_assets_ready).
 var _asset_downloads := {} # "sha.ext" -> tries left
+var _asset_kinds := {} # "sha.ext" -> kind (border / mesh / font hold the first load; background media don't)
+const _BLOCKING_ASSETS := ["border", "mesh", "font"]
+const SPECTATE_ASSET_WAIT := 1.5 # (seconds the first load of a watch waits for their border / mesh / font)
 var _asset_cache_tidied := false
 
 func fetch_spectate_assets(settings):
@@ -1006,6 +1114,7 @@ func _queue_asset_download(kind: String, sha: String, ext: String):
 	if _asset_downloads.has(key):
 		return
 	_asset_downloads[key] = 4
+	_asset_kinds[key] = kind
 	_download_asset(kind, sha, ext)
 
 # a downloaded Background Editor layout: the files it names
@@ -1043,25 +1152,43 @@ func _on_asset_downloaded(result, code, _headers, _body, http, kind, sha, ext):
 	var dir_path: String = Globals.p(load("res://scripts/SpectateSettings.gd").ASSET_CACHE)
 	var part: String = dir_path.plus_file(key + ".part")
 	var d := Directory.new()
-	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and File.new().get_sha256(part) == sha:
+	# (a border is stored re-encoded by the server, so its name isn't its
+	# file's sha256 any more: a PNG is taken as it comes)
+	var ok: bool = result == HTTPRequest.RESULT_SUCCESS and code == 200 and (File.new().get_sha256(part) == sha or (kind == "border" and _is_png(part)))
+	if ok:
 		d.rename(part, dir_path.plus_file(key))
 		if kind == "bglayers":
 			_queue_layout_media(dir_path.plus_file(key)) # (before this one counts as done)
 		_asset_downloads.erase(key)
+		_asset_kinds.erase(key)
 		_assets_arrived()
 		return
 	d.remove(part)
 	var left: int = int(_asset_downloads.get(key, 0)) - 1
 	if left <= 0:
 		_asset_downloads.erase(key)
+		_asset_kinds.erase(key)
 		_assets_arrived() # (given up: load without it)
 		return
 	_asset_downloads[key] = left
-	yield(get_tree().create_timer(1.5), "timeout")
+	yield(get_tree().create_timer(0.5), "timeout")
 	_download_asset(kind, sha, ext)
 
+static func _is_png(path: String) -> bool:
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return false
+	var b := f.get_buffer(8)
+	f.close()
+	return b.size() == 8 and b[0] == 0x89 and b[1] == 0x50 and b[2] == 0x4E and b[3] == 0x47
+
+# the files the first load of a watch waits for are here (their background
+# pictures / videos aren't waited for: they show once they've downloaded)
 func spectate_assets_ready() -> bool:
-	return _asset_downloads.empty()
+	for key in _asset_downloads:
+		if String(_asset_kinds.get(key, "")) in _BLOCKING_ASSETS:
+			return false
+	return true
 
 # the first load of a watch was waiting for them
 func _assets_arrived():
@@ -1196,13 +1323,13 @@ func _check_map_readiness():
 		_send({"type": "map_ready", "song_id": song_id})
 		if _late_join_pending:
 			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and has_player_settings(_spectate_load_target) and not spectate_assets_ready():
-				_watch_wait_t = 4.0 # their border / mesh are downloading: load once they're here
+				_watch_wait_t = SPECTATE_ASSET_WAIT # their border / mesh are downloading: load once they're here
 				return
 			if watch_mode and _watch_first_load and load("res://scripts/SpectateSettings.gd").prefer_theirs() and not has_player_settings(_spectate_load_target):
 				# Spectate tab: their settings are on the way (they send them
 				# when someone starts watching); load once with them
 				request_player_settings(_spectate_load_target)
-				_watch_wait_t = 2.5
+				_watch_wait_t = 1.5
 				return
 			request_player_settings(get_first_place_peer_id())
 			_scene_transition_now()
@@ -1532,6 +1659,9 @@ func _handle_message(msg: Dictionary):
 		return
 	match Globals.s(msg.get("type", "")):
 		"auth_ok", "display_name_changed":
+			if msg.has("staff"):
+				i_am_staff = bool(msg.get("staff"))
+				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
@@ -1567,6 +1697,13 @@ func _handle_message(msg: Dictionary):
 				watch_target_name = Globals.s(msg.get("target_name", ""))
 				_spectate_load_target = int(msg.get("target_peer", -1))
 				_watch_first_load = true
+				# (switching to someone else: their map is checked again, and the
+				# last player's look isn't used for them)
+				_map_readiness_checked_song_id = ""
+				player_view_settings.erase(_spectate_load_target)
+				# the song scene starts loading now, while their settings and
+				# files come (songload finds it ready)
+				RQueue.queue_resource("res://scenes/song.tscn")
 				_watch_requested_at = 0
 				if watch_target_name != "":
 					follow_name = watch_target_name
@@ -1629,12 +1766,13 @@ func _handle_message(msg: Dictionary):
 			player_view_settings[sp] = ss if ss is Dictionary else {}
 			fetch_spectate_assets(player_view_settings[sp])
 			emit_signal("player_settings_received", sp)
-			if _watch_wait_t > 0.0 and watch_mode and sp == _spectate_load_target and has_player_settings(sp):
-				if spectate_assets_ready():
+			if _watch_wait_t > 0.0 and watch_mode and sp == _spectate_load_target:
+				if not has_player_settings(sp) or spectate_assets_ready():
+					# (none to wait for: an empty answer loads straight away too)
 					_watch_wait_t = 0.0
 					_scene_transition_now()
 				else:
-					_watch_wait_t = max(_watch_wait_t, 4.0) # (their border / mesh downloading)
+					_watch_wait_t = max(_watch_wait_t, SPECTATE_ASSET_WAIT) # (their border / mesh downloading)
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
@@ -1711,6 +1849,7 @@ func _handle_message(msg: Dictionary):
 			online_players = lst if lst is Array else []
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
 			i_am_staff = bool(msg.get("you_staff", false))
+			Rhythia.is_staff = i_am_staff
 			emit_signal("online_players_received", online_players, my_player_number)
 			_check_follow(online_players)
 		"spectate_denied":
@@ -1763,7 +1902,7 @@ func _handle_message(msg: Dictionary):
 			_chat_in({kind = "lobby", who = lm_peer_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, lm_peer_id != local_peer_id)
 		"global_chat_message":
 			var gm_client_id = Globals.s(msg.get("client_id", ""))
-			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, gm_client_id != Rhythia.cid)
+			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", "")), rngdle = bool(msg.get("rngdle", false))}, gm_client_id != Rhythia.cid)
 		"translated":
 			_chat_translated(msg)
 		"chat_reactions":
@@ -1790,7 +1929,42 @@ func _handle_message(msg: Dictionary):
 			emit_signal("admin_rankers_received", msg.get("rankers", []))
 		"admin_map_ranks":
 			emit_signal("admin_map_ranks_received", msg.get("ranks", []))
+		"cards":
+			var cl = msg.get("cards", [])
+			emit_signal("cards_received", cl if cl is Array else [], Globals.s(msg.get("chosen", "default")))
+		"card_set":
+			emit_signal("card_message", "Your card is set.", true)
+		"card_denied":
+			emit_signal("card_message", Globals.s(msg.get("reason", "You can't use that card.")), false)
+		"card_code":
+			if bool(msg.get("ok", false)):
+				var got := []
+				for c in msg.get("cards", []):
+					if c is Dictionary:
+						got.append(Globals.s(c.get("name", "")))
+				Globals.notify(Globals.NOTIFY_SUCCEED, "Unlocked: %s" % PoolStringArray(got).join(", "), "Cards")
+				emit_signal("card_message", "Unlocked: %s!" % PoolStringArray(got).join(", "), true)
+			else:
+				emit_signal("card_message", Globals.s(msg.get("reason", "That code doesn't unlock anything.")), false)
+		"frames":
+			var fl = msg.get("frames", [])
+			emit_signal("frames_received", fl if fl is Array else [], Globals.s(msg.get("chosen", "default")))
+		"frame_set":
+			emit_signal("frame_message", "Your frame is set.", true)
+			emit_signal("my_frame_changed", msg.get("frame"))
+		"frame_denied":
+			emit_signal("frame_message", Globals.s(msg.get("reason", "You can't use that frame.")), false)
+		"lobby_invite":
+			_on_lobby_invite(msg)
+		"invite_result":
+			if bool(msg.get("ok", false)):
+				Globals.notify(Globals.NOTIFY_SUCCEED, "Invited %s to your lobby." % Globals.s(msg.get("name", "them")), "Lobby invite")
+			else:
+				Globals.notify(Globals.NOTIFY_WARN, Globals.s(msg.get("reason", "Couldn't invite them.")), "Lobby invite")
 		"ranker_status":
+			if msg.has("staff"):
+				i_am_staff = bool(msg.get("staff"))
+				Rhythia.is_staff = i_am_staff
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
 		"map_rank_info":
 			emit_signal("map_rank_info_received", Globals.s(msg.get("song_id", "")), bool(msg.get("ranked", false)), int(msg.get("xp", 0)), Globals.s(msg.get("content_hash", "")))
@@ -1856,7 +2030,10 @@ func _scene_transition_now():
 			song = null
 		if song:
 			Rhythia.selected_song = song
-			Rhythia.emit_signal("selected_song_changed", song)
+			if not watch_mode:
+				# (watching: the menu is about to go, so it isn't rebuilt for
+				# this map, nor its stars worked out, while the song loads)
+				Rhythia.emit_signal("selected_song_changed", song)
 		else:
 			emit_signal("lobby_error", "You don't have this map — downloading it now...")
 			report_missing_map()
@@ -1988,6 +2165,7 @@ func _presence_now() -> Dictionary:
 		"type": "presence", "client_id": Rhythia.cid, "name": _presence_name(),
 		"status": "playing" if playing else "menu",
 		"allow_spectate": bool(Rhythia.allow_spectators),
+		"allow_invites": bool(Rhythia.get("allow_lobby_invites") != false), # (Settings > Online)
 		# Settings > Online > Share My Maps With Spectators: the server sends
 		# nobody watching you your map (not even a copy it already has)
 		"share_maps": bool(Rhythia.get("share_maps_with_spectators")),

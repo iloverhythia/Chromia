@@ -12,6 +12,8 @@ var edgec: float = 0.13125
 var edger: float = 0.13125 - max(0, Rhythia.get("edge_drift"))
 var _face_spin_deg: float = 0.0
 var _face_accum: Vector2 = Vector2.ZERO
+var face: Vector2 # (Legacy Mouse Movement: the last movement, as the first version kept it)
+var _legacy: bool = bool(Rhythia.get("legacy_mouse")) and not Rhythia.device("mobile")
 
 var move_mode: int = C_MOUSE
 var can_switch_move_modes: bool = true
@@ -30,8 +32,8 @@ func move_cursor(mdel: Vector2):
 	rx += mdel.x
 	ry += mdel.y
 
-	if Rhythia.mod_hardrock:
-		var hard_cock = edger - 0.6
+	if Rhythia.hr_on():
+		var hard_cock = edger - Rhythia.hr_reach()
 		rx = clamp(rx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 		ry = clamp(ry, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))
 	else:
@@ -44,8 +46,8 @@ func move_cursor(mdel: Vector2):
 	var cx = rx
 	var cy = ry
 
-	if Rhythia.mod_hardrock:
-		var hard_cock = edgec - 0.6
+	if Rhythia.hr_on():
+		var hard_cock = edgec - Rhythia.hr_reach()
 
 
 		cx = clamp(cx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
@@ -68,8 +70,8 @@ func move_cursor_abs(mdel: Vector2):
 	# drift had their cursor squashed onto the grid's edge)
 	if Rhythia.replaying:
 		pass
-	elif Rhythia.mod_hardrock:
-		var hard_cock = edger - 0.6
+	elif Rhythia.hr_on():
+		var hard_cock = edger - Rhythia.hr_reach()
 		rx = clamp(rx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 		ry = clamp(ry, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))
 	else:
@@ -82,8 +84,8 @@ func move_cursor_abs(mdel: Vector2):
 	var cx = rx
 	var cy = ry
 
-	if Rhythia.mod_hardrock:
-		var hard_cock = edgec - 0.6
+	if Rhythia.hr_on():
+		var hard_cock = edgec - Rhythia.hr_reach()
 		cx = clamp(cx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 		cy = clamp(cy, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))
 	else:
@@ -170,6 +172,22 @@ func _input(event: InputEvent):
 				move_cursor_abs((relative + off) * -1)
 			else:
 				move_cursor_abs(relative + off)
+		elif not Rhythia.spin_now() and move_mode == C_MOUSE and _legacy:
+			# Experimental Legacy Mouse Movement: the first version's mouse code,
+			# line for line (its render scale was always 1)
+			visible = true
+			if (event is InputEventMouseMotion):
+				face = event.relative
+				if Rhythia.invert_mouse:
+					if Rhythia.absolute_mode:
+						move_cursor_abs(get_absolute_position() * -1)
+					else:
+						move_cursor((event.relative * 0.018 * Rhythia.sensitivity) * -1)
+				else:
+					if Rhythia.absolute_mode:
+						move_cursor_abs(get_absolute_position())
+					else:
+						move_cursor(event.relative * 0.018 * Rhythia.sensitivity)
 		elif not Rhythia.spin_now() and move_mode == C_MOUSE:
 			visible = true
 			if (event is InputEventMouseMotion):
@@ -195,12 +213,15 @@ var trail_cache: Array = []
 var prev_pos
 var prev_rot
 var trail_started = false
+var _trail_gap := 0.0 # (seconds since the trail last got new pieces)
+var _trail_before = null # (the point before the last one: the trail's curve)
 
 var ct: float = 0
 var segt: float = 0
 var segl: float = 0.01
 
 var total_trail_segments = 0
+var _trail_mm = null # the smart trail (TrailMulti.gd)
 
 onready var trail_base = get_node("../../CursorTrail")
 
@@ -245,7 +266,10 @@ func _process(delta):
 	if Rhythia.cursor_spin != 0 and not Rhythia.cursor_face_velocity:
 		$Mesh.rotate_z(deg2rad(-delta * Rhythia.cursor_spin))
 		$Mesh2.rotate_z(deg2rad(-delta * Rhythia.cursor_spin))
-	if Rhythia.cursor_face_velocity:
+	if Rhythia.cursor_face_velocity and _legacy:
+		# (the first version's turn towards where the cursor last moved)
+		$Mesh.rotation_degrees.x += ((rad2deg(face.angle()) + 180) - $Mesh.rotation_degrees.x) * 0.025
+	elif Rhythia.cursor_face_velocity:
 		var frame_face = _face_accum
 		_face_accum = Vector2.ZERO
 		if frame_face.length() > 0.05:
@@ -279,40 +303,47 @@ func _process(delta):
 		var r_diff = PI * Rhythia.cursor_scale * abs(start_r - end_r) / 360
 		var diff = p_diff
 		if r_diff > p_diff: diff = r_diff
-		var amt = min(ceil(Rhythia.trail_detail * diff), 120)
-		var new = 0
-		var cached = 0
-		for i in range(amt):
-			var trail: Spatial
-			var v = float(i) / float(amt)
-			var pos = lerp(start_p, end_p, v)
-			var rot = lerp(start_r, end_r, v)
-			if trail_cache.size() != 0:
-				trail = trail_cache.pop_front()
-				cached += 1
-			else:
-				trail = trail_base.duplicate()
-				get_node("../..").add_child(trail)
-				trail.connect("cache_me", self, "cache_trail", [trail])
-				total_trail_segments += 1
-				new += 1
-
-			trail.start_smart(v * delta, pos, rot)
-		if $L.visible:
-			$L.text = "amount this frame: %s\nnewly spawned: %s\nfrom cache: %s\n\nwaiting: %s\nactive: %s\ntotal: %s" % [
-				amt,
-				new,
-				cached,
-				trail_cache.size(),
-				total_trail_segments - trail_cache.size(),
-				total_trail_segments
-			]
+		# the time this stretch took: on phones the touch moves the cursor less
+		# often than frames are drawn (60 touches a second at 120 FPS), so a
+		# frame without a move adds its time to the next stretch
+		_trail_gap += delta
+		if diff <= 0.00001:
+			if _trail_gap > 0.1:
+				_trail_gap = delta # (standing still: the next move starts afresh)
+		else:
+			var amt = min(ceil(Rhythia.trail_detail * diff), 240)
+			# (all the pieces are one MultiMesh: TrailMulti.gd)
+			if _trail_mm != null and is_instance_valid(_trail_mm):
+				var col: Color = $Mesh.get("material/0").albedo_color
+				col.a *= Rhythia.trail_opacity
+				var rot_now: Vector3 = $Mesh.rotation
+				var tt: float = max(0.001, float(Rhythia.trail_time))
+				# a curve through the last points, not straight lines with corners
+				# (Catmull-Rom: the point before, and the move continuing ahead)
+				var p0: Vector3 = _trail_before if _trail_before != null else end_p
+				var p3: Vector3 = start_p + (start_p - end_p)
+				var curve: bool = _trail_before != null and p_diff > 0.0001
+				for i in range(amt):
+					var v = float(i) / float(amt)
+					var pos: Vector3
+					if curve:
+						pos = start_p.cubic_interpolate(end_p, p3, p0, v)
+					else:
+						pos = lerp(start_p, end_p, v)
+					# (its age as a part of Trail Time: older towards the last point)
+					_trail_mm.add(pos, rot_now, col, clamp(v * _trail_gap / tt, 0.0, 1.0))
+			_trail_before = end_p
+			_trail_gap = 0.0
+			if $L.visible:
+				$L.text = "amount this frame: %s\nalive: %s" % [amt, _trail_mm.live() if _trail_mm != null else 0]
 		prev_pos = global_transform.origin
 		prev_rot = $Mesh.rotation_degrees.x
 
 func _ready():
 	if not Rhythia.show_cursor: visible = false
 	_pred = Rhythia.device("mobile") and bool(Rhythia.get("mobile_no_delay")) and Rhythia.absolute_mode and not Rhythia.replaying
+	if _legacy and not Rhythia.replaying:
+		Input.use_accumulated_input = true # (as it was then)
 
 	if not Rhythia.replaying:
 		if not Rhythia.absolute_mode:
@@ -355,14 +386,9 @@ func _ready():
 
 	if Rhythia.cursor_trail:
 		if Rhythia.smart_trail:
-			yield(get_tree(), "idle_frame")
-			Rhythia.trail("song start: making the cursor trail")
-			for i in range(Rhythia.trail_detail * 3.5):
-				var trail = trail_base.duplicate()
-				get_node("../..").add_child(trail)
-				trail.connect("cache_me", self, "cache_trail", [trail])
-				trail_cache.append(trail)
-				trail.start_smart(1, Vector3(0, 0, -4), 0)
+			# one MultiMesh for the whole trail (TrailMulti.gd), next to the old pieces' place
+			_trail_mm = load("res://scripts/game/TrailMulti.gd").make(trail_base)
+			get_node("../..").call_deferred("add_child", _trail_mm)
 		else:
 			for i in range(Rhythia.trail_detail):
 				var trail: Spatial = trail_base

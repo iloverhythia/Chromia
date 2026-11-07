@@ -210,6 +210,8 @@ const THUMB_W = 512
 const THUMB_H = 96
 const THUMB_VERSION = 2
 var _thumb: Texture = null
+var _thumb_img: Image = null # (read by the thumbnail thread, made a texture on the next ask; Rhythia._thumb_mutex)
+var _thumb_failed := false # (its cover couldn't be read: not asked for again)
 
 # Keyed on where the cover sits in the map file (no disk access needed).
 func _thumb_path() -> String:
@@ -283,14 +285,17 @@ func get_cover_thumb() -> Texture:
 	if is_online:
 		# Online maps keep using the normal cover path.
 		return cover
-	var path := _thumb_path()
-	if not File.new().file_exists(path):
-		# Not built yet: let the background builder make it next instead of
-		# decoding the full cover here (which stalls the map list).
-		Rhythia.request_thumb(self)
-		return null
-	var img := Image.new()
-	if img.load(path) != OK:
+	# The thumbnail thread reads the kept file (or makes it) and leaves the
+	# picture here; nothing is read from disk on the main thread (that made
+	# scrolling stutter, most of all on the Quest). Until then: none
+	# (thumbs_ready asks again).
+	Rhythia._thumb_mutex.lock()
+	var img: Image = _thumb_img
+	_thumb_img = null
+	Rhythia._thumb_mutex.unlock()
+	if img == null:
+		if not _thumb_failed:
+			Rhythia.request_thumb(self)
 		return null
 	var tex := ImageTexture.new()
 	tex.create_from_image(img, Texture.FLAG_FILTER)
@@ -315,6 +320,15 @@ var _star_rating: float = -1.0
 # The star rating if it has been calculated already, otherwise -1 (no work done).
 func star_rating_cached() -> float:
 	return _star_rating if _star_rating >= 0.0 else -1.0
+
+# the stars as shown: the rating at your speed mod (10 stars at 0.74x shows
+# 7.40); -1 when not rated yet. (RP works from the rating and the speed itself.)
+func star_rating_shown() -> float:
+	var r := star_rating_cached()
+	if r < 0.0:
+		return r
+	var sp: float = Rhythia.current_speed_multiplier() if Rhythia.has_method("current_speed_multiplier") else 1.0
+	return r * sp
 
 func star_rating_known() -> bool:
 	return _star_rating >= 0.0 or _star_rating <= -1.5
@@ -997,12 +1011,25 @@ func read_notes() -> Array:
 	markers.ssp_note = notes
 	return notes
 
+# the chart's fingerprint (ranked maps: the server checks it). Worked out once
+# per song (on the loading screen) and kept: it was built note by note on the
+# main thread up to three times in a song's first seconds, a stall on Quest.
+# Same text as before: every note, each followed by ";".
+var _chart_hash := ""
+var _chart_hash_notes = null
 func compute_chart_hash() -> String:
 	var notes_arr = read_notes()
-	var s = ""
+	if _chart_hash != "" and _chart_hash_notes == notes_arr:
+		return _chart_hash
+	var parts := PoolStringArray()
 	for n in notes_arr:
-		s += String(n) + ";"
-	return s.sha256_text()
+		parts.append(String(n))
+	var s := ""
+	if parts.size() > 0:
+		s = parts.join(";") + ";"
+	_chart_hash = s.sha256_text()
+	_chart_hash_notes = notes_arr
+	return _chart_hash
 
 func read_markers() -> Dictionary:
 	if songType == Globals.MAP_SSPM2:

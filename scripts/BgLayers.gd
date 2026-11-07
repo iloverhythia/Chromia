@@ -44,6 +44,70 @@ static func is_supported_file(file_name: String) -> bool:
 	var ext = file_name.get_extension().to_lower()
 	return IMAGE_EXTS.has(ext) or VIDEO_EXTS.has(ext)
 
+# --- "Move to Space": a layer in the 3D world --------------------------------------
+# A layer moved to the space isn't drawn flat on the screen: it's a picture
+# standing in the song's world, `depth` units away, behind the grid (so it
+# moves with the camera's parallax and spin, and the world's objects can pass
+# in front of it). It's placed so that from the normal camera it covers the
+# same part of the screen as in the editor.
+const DEFAULT_DEPTH := 60.0
+const MIN_DEPTH := 5.0
+const MAX_DEPTH := 400.0
+const CAM_Z := 3.5 # (the song's camera, scenes/song.tscn)
+
+static func space_mesh(l: Dictionary, tex: Texture) -> MeshInstance:
+	var mi := MeshInstance.new()
+	mi.name = "SpaceLayer"
+	var q := QuadMesh.new()
+	q.size = Vector2(1, 1)
+	mi.mesh = q
+	mi.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	var m := SpatialMaterial.new()
+	m.flags_unshaded = true
+	m.flags_transparent = true
+	m.params_cull_mode = SpatialMaterial.CULL_DISABLED
+	m.render_priority = Material.RENDER_PRIORITY_MIN # (the notes and the cursor draw over it)
+	m.albedo_texture = tex
+	mi.material_override = m
+	return mi
+
+# where the picture stands: the camera's view at `fov` (degrees) and `aspect`
+static func place_space(mi: MeshInstance, l: Dictionary, fov: float, aspect: float):
+	if mi == null or not is_instance_valid(mi):
+		return
+	var m: SpatialMaterial = mi.material_override
+	var depth: float = float(l.get("depth", DEFAULT_DEPTH))
+	var hh: float = depth * tan(deg2rad(fov) / 2.0)
+	var hw: float = hh * aspect
+	var box := Vector2(float(l.w) * 2.0 * hw, float(l.h) * 2.0 * hh)
+	var size := box
+	var uv_scale := Vector2(1, 1)
+	var uv_off := Vector2()
+	var tex: Texture = m.albedo_texture
+	if tex != null and tex.get_height() > 0 and box.y > 0:
+		var ta: float = float(tex.get_width()) / float(tex.get_height())
+		var ba: float = box.x / box.y
+		match l.get("fit", FIT_STRETCH):
+			FIT_CONTAIN:
+				size = Vector2(box.x, box.x / ta) if ta > ba else Vector2(box.y * ta, box.y)
+			FIT_COVER:
+				if ta > ba:
+					uv_scale.x = ba / ta
+				else:
+					uv_scale.y = ta / ba
+				uv_off = (Vector2(1, 1) - uv_scale) / 2.0
+	if bool(l.get("flip_h", false)):
+		uv_off.x += uv_scale.x
+		uv_scale.x = -uv_scale.x
+	m.uv1_scale = Vector3(uv_scale.x, uv_scale.y, 1)
+	m.uv1_offset = Vector3(uv_off.x, uv_off.y, 0)
+	var c := Color(String(l.get("tint", "ffffff")))
+	c.a = float(l.get("opacity", 1.0))
+	m.albedo_color = c
+	(mi.mesh as QuadMesh).size = size
+	var centre := Vector3((float(l.x) - 0.5) * 2.0 * hw, -(float(l.y) - 0.5) * 2.0 * hh, CAM_Z - depth)
+	mi.transform = Transform(Basis(Vector3(0, 0, 1), -deg2rad(float(l.rot))), centre)
+
 static func default_data() -> Dictionary:
 	return {"enabled": true, "placement": PLACE_FRONT, "layers": []}
 
@@ -59,6 +123,7 @@ static func new_layer(file_name: String, aspect: float) -> Dictionary:
 		"x": 0.5, "y": 0.5, "w": w, "h": h, "rot": 0.0,
 		"flip_h": false, "fit": FIT_STRETCH,
 		"tint": "ffffff", "opacity": 1.0,
+		"space": false, "depth": DEFAULT_DEPTH,
 	}
 
 static func _num(d: Dictionary, key: String, def: float, lo: float, hi: float) -> float:
@@ -91,6 +156,8 @@ static func sanitize_layer(l) -> Dictionary:
 		"fit": fit,
 		"tint": tint,
 		"opacity": _num(l, "opacity", 1.0, 0.0, 1.0),
+		"space": bool(l.get("space", false)),
+		"depth": _num(l, "depth", DEFAULT_DEPTH, MIN_DEPTH, MAX_DEPTH),
 	}
 
 # the layers to draw: theirs while spectating with their settings, else yours

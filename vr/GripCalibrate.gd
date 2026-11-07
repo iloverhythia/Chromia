@@ -23,6 +23,7 @@ var _root: Spatial # the grid, its notes and the cursor
 var _center := Vector3()
 var _right := Vector3()
 var _up := Vector3()
+var _k := 1.0 # (Settings > VR > Grid size)
 var _normal := Vector3()
 var _note: MeshInstance
 var _cursor: MeshInstance
@@ -85,7 +86,9 @@ func _ready():
 	_right = _up.cross(_normal).normalized()
 	_root = Spatial.new()
 	player.add_child(_root)
-	_root.global_transform = Transform(Basis(_right, _up, _normal), _center)
+	# (Settings > VR > Grid size: the grid as big as in songs)
+	_k = clamp(float(Rhythia.vr_grid_size), 1.0, 2.0)
+	_root.global_transform = Transform(Basis(_right * _k, _up * _k, _normal * _k), _center)
 	_root.add_child(_grid_mesh())
 	_note = _square(0.86, Color(1, 0.76, 0.96), 0.09)
 	_root.add_child(_note)
@@ -197,7 +200,7 @@ func _by_pressed() -> bool:
 
 # a grid point (in squares from the middle) in the world
 func _grid_point(p: Vector2) -> Vector3:
-	return _center + _right * p.x + _up * p.y
+	return _center + (_right * p.x + _up * p.y) * _k
 
 func _process(delta: float):
 	if _done:
@@ -285,7 +288,7 @@ func _live(hands: Array):
 		_cursor.visible = false
 		return
 	var hit: Vector3 = from + dir * t
-	var local: Vector3 = _root.global_transform.xform_inv(hit)
+	var local: Vector3 = _root.global_transform.affine_inverse().xform(hit)
 	_cursor.visible = true
 	_cursor.transform.origin = Vector3(clamp(local.x, -1.8, 1.8), clamp(local.y, -1.8, 1.8), 0.02)
 

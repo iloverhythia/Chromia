@@ -21,8 +21,71 @@ func _ready():
 		call_deferred("_add_touch_toggle")
 	if target == "wave_menu":
 		call_deferred("_add_xp_boost_toggle")
+		call_deferred("_add_map_grid")
+	if target == "map_grid":
+		Rhythia.connect("map_grid_changed", self, "upd")
+	if target == "realistic_autoplay":
+		call_deferred("_add_legacy_mouse")
+	if target == "allow_spectators":
+		call_deferred("_add_lobby_invites")
 	if target == "xp_boost":
 		Rhythia.connect("discord_login_changed", self, "upd") # (Discord can sign in after the settings were built)
+
+# Settings > Online: Allow Lobby Invites, under Allow Spectators
+func _add_lobby_invites():
+	var parent = get_parent()
+	if parent == null or parent.has_node("AllowLobbyInvites"):
+		return
+	var cb = duplicate()
+	cb.name = "AllowLobbyInvites"
+	cb.target = "allow_lobby_invites"
+	cb.text = "Allow Lobby Invites"
+	cb.hint_tooltip = "On: people can invite you into their multiplayer lobby (you choose to join or not). Off: nobody can invite you"
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)
+
+# Experimental: Legacy Mouse Movement (Cursor.gd), under Realistic Autoplay
+func _add_legacy_mouse():
+	var parent = get_parent()
+	if parent == null or parent.has_node("LegacyMouse") or Rhythia.device("mobile"):
+		return
+	var cb = duplicate()
+	cb.name = "LegacyMouse"
+	cb.target = "legacy_mouse"
+	cb.text = "Legacy Mouse Movement"
+	cb.hint_tooltip = "The cursor moves with the mouse exactly the way it did in Chromia's very first update (its original mouse code, with your sensitivity). Turns No Delay off while it's on."
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)
+	# Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
+	if not parent.has_node("ModernUI"):
+		var mu = duplicate()
+		mu.name = "ModernUI"
+		mu.target = "modern_ui"
+		mu.text = "Modern UI"
+		mu.hint_tooltip = "A new look for the main screen: your maps as a grid of covers, the picked map with its leaderboard on the left, and a top bar with the pages. Turn it off to go back to the classic menu."
+		parent.add_child(mu)
+		parent.move_child(mu, cb.get_index() + 1)
+		# (only staff, an Owner / Administrator tag, see it)
+		mu.visible = Rhythia.is_staff
+		Rhythia.connect("modern_ui_changed", self, "_staff_shown", [mu])
+
+func _staff_shown(mu):
+	if is_instance_valid(mu):
+		mu.visible = Rhythia.is_staff
+
+# "Grid Map List" under Wave Menu: the maps as a grid of tiles (MapGrid.gd),
+# switched right away
+func _add_map_grid():
+	var parent = get_parent()
+	if parent == null or parent.has_node("MapGrid"):
+		return
+	var cb = duplicate()
+	cb.name = "MapGrid"
+	cb.target = "map_grid"
+	cb.text = "Grid Map List"
+	cb.hint_tooltip = "Shows your maps as a grid of square covers (like Sound Space Plus's grid menu) instead of a list. Works right away, no restart."
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)
 
 # Experimental: "10x EXP" (your level), only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
 func _add_xp_boost_toggle():

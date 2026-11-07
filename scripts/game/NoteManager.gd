@@ -32,6 +32,8 @@ var hitEffect: Spatial = null
 var _hit_fx_pool: Array = []
 var _miss_fx_pool: Array = []
 var _score_fx_pool: Array = []
+var _music_settle := 0.6 # (seconds the music sync leaves the music alone after it starts)
+var _music_off_t := 0.0 # (how long it's been off)
 func _fx_copy(tpl: Spatial, pool: Array) -> Spatial:
 	while not pool.empty():
 		var c = pool.pop_back()
@@ -475,7 +477,7 @@ func spawn_notes(note_array: Array):
 				Transform()
 			]
 
-			if Rhythia.mod_hardrock: note[0] = ((note[0] - Vector2(1, -1)) * 1.35) + Vector2(1, -1)
+			if Rhythia.hr_on(): note[0] = ((note[0] - Vector2(1, -1)) * Rhythia.hr_spread()) + Vector2(1, -1) # (Harder Rock: wider)
 			if Rhythia.mod_mirror_x: note[0].x = 2 - note[0].x
 			if Rhythia.mod_mirror_y: note[0].y = (-note[0].y) - 2
 			note[5] = note[5].scaled(note_transform_scale)
@@ -526,7 +528,9 @@ func _ready():
 	if Rhythia.speed_hitwindow:
 		hit_window = Rhythia.get("hitwindow_ms") * speed_multi
 
-	if Rhythia.mod_hardrock:
+	if Rhythia.mod_harderrock:
+		hit_window = hit_window * 0.7
+	elif Rhythia.mod_hardrock:
 		hit_window = hit_window * 0.8
 
 	$Note.speed_multi = speed_multi
@@ -668,6 +672,7 @@ var music_started: bool = false
 const cursor_offset = Vector3(1, -1, 0)
 onready var cam: Camera = get_node("../..").get_node("Camera")
 var hlpower = (0.1 * Rhythia.get("parallax"))
+var _no_delay: bool = Rhythia.no_delay_active()
 onready var Grid = get_node("../HUD")
 
 func do_half_lock():
@@ -937,6 +942,10 @@ func _set_rec_interval(delta: float):
 	last_cursor_position = newpos
 
 func _process(delta: float):
+	# Experimental No Delay: mouse movement that came in while this frame was
+	# being started is taken in now, before the camera and hits use the cursor
+	if _no_delay:
+		Input.flush_buffered_events()
 	var u = OS.get_ticks_usec()
 	delta = float(u - last_usec) / 1000000.0
 	last_usec = u
@@ -1143,9 +1152,24 @@ func _process(delta: float):
 
 			emit_signal("timer_update", ms, can_skip)
 
-			if _n_music.playing and not Rhythia.disable_desync:
+			# music sync: put right only when it has really drifted. The playback
+			# position only moves when the sound is mixed (in bursts on a busy
+			# Quest at the start of a song), so one late reading restarted the
+			# song (an audible hitch) over and over in the first seconds. Now:
+			# not just after it started, and only when it's off for a while.
+			if _music_settle > 0.0:
+				_music_settle -= delta
+			if _n_music.playing and not Rhythia.disable_desync and _music_settle <= 0.0:
 				var playback_pos: float = _n_music.get_playback_position() * 1000.0
-				if abs(playback_pos - (ms + Rhythia.music_offset)) > (100 * max(speed_multi * view_mult, 1.0)):
+				var limit: float = (150.0 if Rhythia.vr else 100.0) * max(speed_multi * view_mult, 1.0)
+				if abs(playback_pos - (ms + Rhythia.music_offset)) > limit:
+					_music_off_t += delta
+				else:
+					_music_off_t = 0.0
+				if _music_off_t >= 0.12:
+					_music_off_t = 0.0
+					_music_settle = 0.5
+					Rhythia.trail("music re-synced (%d ms off)" % int(playback_pos - (ms + Rhythia.music_offset)))
 					if Rhythia.desync_alerts:
 						Globals.notify(
 							Globals.NOTIFY_WARN,
@@ -1270,14 +1294,37 @@ func _setup_note_effects():
 		if missEffect: miss_id = Rhythia.selected_miss_effect.id
 
 func _warm_note_effects():
-	# spawn one copy far off-screen so shaders/particles are compiled before the first note
+	# spawn one copy where the camera draws it (far, behind the grid) so its
+	# shaders / particles are made before the first note. (It was 400 away:
+	# past the VR camera's 100, so in VR it was never drawn and the first hits
+	# stalled while the headset made them.)
+	var at := Vector3(0, 0, -60)
 	if hitEffect != null and is_instance_valid(hitEffect):
-		hitEffect.duplicate().spawn(get_parent(), Vector3(0, 0, -400), Color(1, 1, 1), hit_id, false)
+		hitEffect.duplicate().spawn(get_parent(), at, Color(1, 1, 1), hit_id, false)
 	if missEffect != null and is_instance_valid(missEffect):
-		missEffect.duplicate().spawn(self, Vector3(0, 0, -400), Color(1, 1, 1), miss_id, true)
+		missEffect.duplicate().spawn(self, at, Color(1, 1, 1), miss_id, true)
+	# copies made now, so the first hits don't copy the effect (VR most)
+	call_deferred("_fill_fx_pools")
+
+const FX_PREFILL := 8
+func _fill_fx_pools():
+	for pair in [[hitEffect, _hit_fx_pool], [missEffect, _miss_fx_pool]]:
+		var tpl = pair[0]
+		var pool: Array = pair[1]
+		if tpl == null or not is_instance_valid(tpl):
+			continue
+		for _i in range(FX_PREFILL - pool.size()):
+			var d = tpl.duplicate()
+			if "_pool" in d:
+				d._pool = pool
+			pool.append(d)
 
 func _exit_tree():
-
+	# (copies made ahead for the pools that never went into the song)
+	for pool in [_hit_fx_pool, _miss_fx_pool]:
+		for c in pool:
+			if is_instance_valid(c) and not c.is_inside_tree():
+				c.free()
 	scoreEffect.queue_free()
 	for n in noteCache:
 		n.queue_free()

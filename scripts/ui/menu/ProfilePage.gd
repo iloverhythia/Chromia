@@ -10,6 +10,7 @@ const API = SITE + "/savia-public/api"
 var _theme: Theme = preload("res://uitheme.tres")
 
 var avatar_rect: TextureRect
+var _frame_view
 var name_label: Label
 var tag_label: Label
 var motd_badge: Label # Map of the Day: how many days' maps completed
@@ -83,11 +84,22 @@ func _ready():
 	head.add_constant_override("separation", 18)
 	v.add_child(head)
 
+	# (room round the picture for its frame: profile > Frames)
+	var ava_box := Control.new()
+	ava_box.rect_min_size = Vector2(200, 200)
+	ava_box.size_flags_vertical = SIZE_SHRINK_CENTER
+	head.add_child(ava_box)
 	avatar_rect = TextureRect.new()
-	avatar_rect.rect_min_size = Vector2(128, 128)
+	avatar_rect.rect_position = Vector2(36, 38)
+	avatar_rect.rect_size = Vector2(128, 128)
 	avatar_rect.expand = true
 	avatar_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	head.add_child(avatar_rect)
+	ava_box.add_child(avatar_rect)
+	_frame_view = load("res://scripts/ui/FrameView.gd").new()
+	avatar_rect.add_child(_frame_view)
+	var lm0 = get_node_or_null("/root/LobbyManager")
+	if lm0 != null and not lm0.is_connected("my_frame_changed", self, "_on_my_frame"):
+		lm0.connect("my_frame_changed", self, "_on_my_frame")
 
 	var names := VBoxContainer.new()
 	names.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -95,6 +107,25 @@ func _ready():
 	head.add_child(names)
 	name_label = _label("Your Profile", 34)
 	names.add_child(name_label)
+	# Cards: your card's colours in the Spectate grid (scripts/ui/CardsMenu.gd);
+	# Frames: the frame round your picture (scripts/ui/FramesMenu.gd)
+	var pick_row := HBoxContainer.new()
+	pick_row.add_constant_override("separation", 8)
+	names.add_child(pick_row)
+	var cards_btn := Button.new()
+	cards_btn.text = "Cards"
+	cards_btn.theme = _theme
+	cards_btn.rect_min_size = Vector2(90, 30)
+	cards_btn.hint_tooltip = "Pick the card your player card shows in the Spectate grid"
+	cards_btn.connect("pressed", self, "_open_cards")
+	pick_row.add_child(cards_btn)
+	var frames_btn := Button.new()
+	frames_btn.text = "Frames"
+	frames_btn.theme = _theme
+	frames_btn.rect_min_size = Vector2(90, 30)
+	frames_btn.hint_tooltip = "Pick the frame round your profile picture"
+	frames_btn.connect("pressed", self, "_open_frames")
+	pick_row.add_child(frames_btn)
 	tag_label = _label("", 16)
 	tag_label.visible = false
 	names.add_child(tag_label)
@@ -280,7 +311,7 @@ func load_profile():
 	if profile is Dictionary:
 		_crumb("showing your profile")
 		_show_profile(profile)
-		av = Globals.s(profile.get("avatar_url", ""))
+		av = load("res://scripts/ui/AnimPic.gd").pic_url(profile) # (a moving GIF when it is)
 	_crumb("loading your scores")
 	var scores = yield(_get_json(API + "/player/%s/scores" % String(number).http_escape()), "completed")
 	if scores is Dictionary:
@@ -312,6 +343,12 @@ func _load_avatar(url: String):
 		_crumbs_done()
 		return
 	var format: String = Globals.imageLoader.get_format(body)
+	# a moving picture: the server's own small GIF (avatar_gif_url), decoded on
+	# a thread and rounded there (AnimPic.gd); other animations stay out
+	if format == "gif" and url.find("/savia-avatar/") != -1:
+		_crumb("decoding your moving avatar (%d bytes)" % body.size())
+		load("res://scripts/ui/AnimPic.gd").load_async(body, url, 128, true, self, "_on_gif_avatar")
+		return
 	# still images only: decoding animations here isn't worth the risk
 	if not format in ["png", "jpg"]:
 		_crumbs_done()
@@ -332,6 +369,12 @@ func _load_avatar(url: String):
 	avatar_rect.texture = tex
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
+	_crumbs_done()
+
+func _on_gif_avatar(tex):
+	if tex != null:
+		_crumb("drawing your moving avatar")
+		avatar_rect.texture = tex
 	_crumbs_done()
 
 # Cuts the avatar into a circle with a soft edge (instead of a custom shader).
@@ -357,6 +400,8 @@ func _fmt(n) -> String:
 
 func _show_profile(p: Dictionary):
 	name_label.text = Globals.s(p.get("name", "Player"))
+	if _frame_view != null:
+		_frame_view.set_frame(p.get("frame"))
 	var tag = p.get("tag")
 	if tag is Dictionary and Globals.s(tag.get("text", "")) != "":
 		tag_label.text = Globals.s(tag.text)
@@ -479,3 +524,13 @@ func _on_sign_out():
 	Rhythia.unlink_discord()
 	yield(Rhythia, "discord_login_changed")
 	load_profile()
+
+func _open_frames():
+	load("res://scripts/ui/FramesMenu.gd").open_on(self)
+
+func _on_my_frame(f):
+	if _frame_view != null:
+		_frame_view.set_frame(f)
+
+func _open_cards():
+	load("res://scripts/ui/CardsMenu.gd").open_on(self)

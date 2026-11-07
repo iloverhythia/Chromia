@@ -118,7 +118,9 @@ func _ready():
 	_label("In songs", f_title, ACCENT)
 	_label("How far away the grid is (where the notes come from and where you hit them). Closer fills more of your view, like a wider FOV; further fits it all in view. Changes from the next song you play. Default 2.25 m.", f_body, DIM, true)
 	_screen_row(GRID_ROW)
-	_button(box, "Reset grid distance", "_reset_grid")
+	_label("How big the grid is: the grid, the notes and the cursor all grow around the grid's middle, at the same distance (from the default 100 % up to 200 %; never smaller). Changes from the next song you play (and the grip calibration grid).", f_body, DIM, true)
+	_value_row(["Grid size", "vr_grid_size", 1.0, 2.0, 0.05, " %", 100.0])
+	_button(box, "Reset grid", "_reset_grid")
 	_label("Aim sensitivity: how far the cursor moves for how far you turn the controller. 1 = exactly where you point (like a laser); higher reaches the whole grid with smaller wrist turns, lower is steadier. The beam bends to end on the cursor.", f_body, DIM, true)
 	_value_row(["Aim sensitivity", "vr_sensitivity", 0.5, 3.0, 0.05, "x", 1.0])
 	box.add_child(HSeparator.new())
@@ -149,7 +151,7 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
-	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
+	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Cartoon glove", "glove"], ["Robot", "robot"], ["Skeleton", "skeleton"], ["Crystal", "crystal"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
 	box.add_child(HSeparator.new())
 	_label("Graphics", f_title, ACCENT)
 	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
@@ -227,6 +229,7 @@ func _grip_row(row: Array):
 	s.rect_min_size = Vector2(300, 28)
 	s.theme = load("res://uitheme.tres")
 	h.add_child(s)
+	_arrows(h, s)
 	var val := _label("", f_body, TEXT, false, h)
 	val.rect_min_size = Vector2(80, 0)
 	val.size_flags_horizontal = 0
@@ -249,6 +252,7 @@ func _screen_row(row: Array):
 	sl.rect_min_size = Vector2(300, 28)
 	sl.theme = load("res://uitheme.tres")
 	h.add_child(sl)
+	_arrows(h, sl)
 	var val := _label("", f_body, TEXT, false, h)
 	val.rect_min_size = Vector2(80, 0)
 	val.size_flags_horizontal = 0
@@ -318,6 +322,7 @@ func _value_row(row: Array):
 	sl.rect_min_size = Vector2(300, 28)
 	sl.theme = load("res://uitheme.tres")
 	h.add_child(sl)
+	_arrows(h, sl)
 	var val := _label("", f_body, TEXT, false, h)
 	val.rect_min_size = Vector2(80, 0)
 	val.size_flags_horizontal = 0
@@ -396,8 +401,57 @@ func _on_lock_area(on: bool):
 		Rhythia.vr_play_lock = on
 		_save_soon()
 
+# --- the - / + buttons beside each slider ---------------------------------------
+# One step down / up each press (held: again and again). Dragging a slider
+# with the VR pointer is fiddly (a shaky hand, or the trigger pulled with the
+# beam on the bar jumps it to there): these are exact.
+# The sliders also take no focus and ignore the scroll wheel: a slider that
+# kept the focus after a drag was moved by the thumbstick (it sends left /
+# right like the arrow keys), all the way to its end, and pointing at one
+# while scrolling with the stick changed it instead of scrolling the page.
+const HOLD_FIRST_MS := 400
+const HOLD_EVERY_MS := 70
+var _hold = null # [slider, direction, next time]
+
+func _arrows(h: HBoxContainer, sl: HSlider):
+	sl.focus_mode = FOCUS_NONE
+	sl.set("scrollable", false)
+	var at := sl.get_index()
+	for d in [-1, 1]:
+		var b := Button.new()
+		b.text = "-" if d < 0 else "+"
+		b.theme = load("res://uitheme.tres")
+		b.add_font_override("font", f_title)
+		b.rect_min_size = Vector2(40, 34)
+		b.size_flags_horizontal = 0
+		b.size_flags_vertical = SIZE_SHRINK_CENTER
+		b.focus_mode = FOCUS_NONE
+		b.hint_tooltip = "One step down" if d < 0 else "One step up"
+		b.connect("button_down", self, "_arrow_down", [sl, d])
+		b.connect("button_up", self, "_arrow_up")
+		b.connect("mouse_exited", self, "_arrow_up")
+		h.add_child(b)
+		h.move_child(b, at if d < 0 else at + 2)
+
+func _arrow_down(sl: HSlider, d: int):
+	_step(sl, d)
+	_hold = [sl, d, OS.get_ticks_msec() + HOLD_FIRST_MS]
+
+func _arrow_up():
+	_hold = null
+
+static func _step(sl: HSlider, d: int):
+	# (snapped, so a value off the step grid lands back on it)
+	sl.value = clamp(stepify(sl.value + d * sl.step, sl.step), sl.min_value, sl.max_value)
+
 # (the 5 presses can change it while this page is open)
 func _process(_d):
+	if _hold != null:
+		if not is_instance_valid(_hold[0]) or not is_visible_in_tree():
+			_hold = null
+		elif OS.get_ticks_msec() >= int(_hold[2]):
+			_step(_hold[0], int(_hold[1]))
+			_hold[2] = OS.get_ticks_msec() + HOLD_EVERY_MS
 	if _lock_area_box != null and _lock_area_box.pressed != Rhythia.vr_play_lock:
 		var was := _loading
 		_loading = true
@@ -494,6 +548,7 @@ func _reset_height():
 
 func _reset_grid():
 	Rhythia.vr_grid_distance = 2.25
+	Rhythia.vr_grid_size = 1.0
 	_load_values()
 	_save_soon()
 

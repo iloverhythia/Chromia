@@ -124,6 +124,16 @@ func _build():
 		close.add_font_override("font", title.get_font("font"))
 	top.add_child(close)
 
+	box.add_child(_heading("View", title, true))
+	var gv: CheckBox = tmpl.duplicate(0)
+	gv.name = "GridView"
+	gv.text = "grid"
+	gv.group = null
+	gv.pressed = bool(Rhythia.get("map_grid"))
+	gv.hint_tooltip = "show the maps as a grid of square covers (like Sound Space Plus) instead of a list"
+	gv.connect("toggled", self, "_on_grid_view")
+	Rhythia.connect("map_grid_changed", self, "_grid_changed", [gv])
+	box.add_child(gv)
 	box.add_child(_heading("Show", title, true))
 	for n in ["Broken", "Online", "XPOnly"]:
 		_move(n, box)
@@ -186,6 +196,15 @@ func _move(n: String, to: Control) -> Control:
 	if c is CheckBox:
 		c.clip_text = false
 	return c
+
+func _on_grid_view(on: bool):
+	if on != bool(Rhythia.get("map_grid")):
+		Rhythia.map_grid = on
+		Rhythia.save_settings()
+
+func _grid_changed(gv: CheckBox):
+	if is_instance_valid(gv):
+		gv.set_pressed_no_signal(bool(Rhythia.get("map_grid")))
 
 func _on_sort(key: String):
 	match key:

@@ -73,6 +73,37 @@ func warning_menu_exit():
 	yield(Globals.confirm_prompt, "done_closing")
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+const ReverseSong = preload("res://scripts/game/ReverseSong.gd")
+func _make_reverse():
+	var song = Rhythia.selected_song
+	var st: AudioStream = song.stream()
+	var total: float = ReverseSong.total_ms(song, st)
+	Rhythia.reverse_length_ms = total
+	var c = ReverseSong.cached(song, total)
+	if c == null:
+		var msg := Label.new()
+		msg.text = "Reversing the song..."
+		msg.align = Label.ALIGN_CENTER
+		msg.anchor_right = 1
+		msg.anchor_top = 0.5
+		msg.anchor_bottom = 0.5
+		msg.margin_top = -60
+		add_child(msg)
+		var r = ReverseSong.new()
+		add_child(r)
+		r.connect("progress", self, "progress")
+		r.start(song, st)
+		c = yield(r, "done")
+		r.queue_free()
+		msg.queue_free()
+		$P.visible = false
+		if c == null:
+			Globals.notify(Globals.NOTIFY_WARN, "Couldn't play this song backwards: the notes are reversed, the song isn't.", "Reverse")
+	else:
+		yield(get_tree(), "idle_frame")
+	Rhythia.reverse_stream = c
+	Rhythia.reverse_song_id = String(song.id)
+
 func progress(v):
 	$P.visible = true
 	$P.value = v * 100
@@ -115,6 +146,12 @@ func finish():
 		if not Rhythia.replay.loaded:
 			yield(Rhythia.replay, "done_loading")
 
+	# Reverse: the song backwards first (ReverseSong.gd; kept for next time)
+	Rhythia.reverse_stream = null
+	Rhythia.reverse_song_id = ""
+	if Rhythia.mod_reverse and Rhythia.selected_song != null:
+		yield(_make_reverse(), "completed")
+
 	black_fade_target = true
 	black_fade = 1
 	$BlackFade.color = Color(0, 0, 0, black_fade)
@@ -125,6 +162,10 @@ func finish():
 	var _read = Rhythia.selected_song.read_notes()
 	Rhythia.unlock_song_notes(Rhythia.selected_song) # (unlocked before anything that could fail on a broken map)
 	var _n_notes: int = _read.size() if _read is Array else 0
+	# (its fingerprint now, on the loading screen: the ranked check uses it
+	# right after the song starts)
+	if _n_notes > 0 and not Rhythia.replaying:
+		Rhythia.selected_song.compute_chart_hash()
 	# (VR: these questions are a flat-screen prompt the headset doesn't show, so
 	# the load waited for an answer nobody could give: a black screen. VR takes
 	# the answer that keeps going, or goes back to the menu.)
@@ -165,7 +206,10 @@ func finish():
 			yield(Globals.confirm_prompt, "done_closing")
 
 
-	if Rhythia.show_warnings and not Rhythia.vr:
+	var _lmw = get_node_or_null("/root/LobbyManager")
+	# (watching someone: the warnings are about their settings, not yours, and
+	# would hold the watch until clicked)
+	if Rhythia.show_warnings and not Rhythia.vr and not (_lmw != null and _lmw.watch_mode):
 		if (
 			(
 				Rhythia.smart_trail and

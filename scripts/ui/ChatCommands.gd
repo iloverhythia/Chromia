@@ -1,6 +1,7 @@
 extends Node
 
 # Chat commands for the global chat (Spectate page) and lobby chat:
+#   /share (your selected map), /share <map name>,
 #   /share map | settings | colorset | mesh | cursor | hitsound
 #   /profile <name or #number>   /report <name or #number>   /help
 # A share uploads the file to the Content Browser and sends a link in the
@@ -13,7 +14,7 @@ const KINDS := {"map": "map", "maps": "map", "song": "map", "settings": "profile
 const NOUN := {"map": "Map", "profile": "Settings", "colorset": "Colorset", "mesh": "Note mesh", "cursor": "Cursor", "hitsound": "Hit sound", "skin": "Skin"}
 const META := "chromia_share:"
 const LINK := Color(0.55, 0.85, 1.0)
-const HELP := "/share map | settings | colorset | skin | mesh | cursor | hitsound: shares it as a link\n/profile <name or #number>: their stats\n/report <name or #number>: report a player"
+const HELP := "/share: shares your selected map (/share <name> shares a map by its name)\n/share map | settings | colorset | skin | mesh | cursor | hitsound: shares it as a link\n/profile <name or #number>: their stats\n/report <name or #number>: report a player"
 
 var _send_target: Object
 var _send_method := ""
@@ -35,10 +36,15 @@ static func handle(host: Node, text: String, send_target: Object, send_method: S
 	var arg := String(parts[1]).strip_edges() if parts.size() > 1 else ""
 	match cmd:
 		"share":
-			var k: String = KINDS.get(arg.to_lower(), "")
+			# /share alone: your selected map; /share <name>: the map called that
+			var k: String = KINDS.get(arg.to_lower(), "") if arg != "" else "map"
 			if k == "":
-				_tell("Share what? /share map, /share settings, /share colorset, /share skin (also mesh, cursor, hitsound).")
-				return true
+				var found = _map_named(arg)
+				if found == null:
+					_tell("No map called '%s' in your list. /share alone shares your selected map; /share settings, colorset, skin, mesh, cursor or hitsound share those." % arg)
+					return true
+				Rhythia.selected_song = found
+				k = "map"
 			var d: Dictionary = load(CB).prepare_share(k)
 			if d.has("error"):
 				_tell(String(d.error))
@@ -71,6 +77,20 @@ static func handle(host: Node, text: String, send_target: Object, send_method: S
 		_:
 			_tell("Unknown command /%s. Commands:\n%s" % [cmd, HELP])
 	return true
+
+# a map in your list by its name (exact first, then the first that contains it)
+static func _map_named(arg: String):
+	var low := arg.to_lower()
+	var part = null
+	for s in Rhythia.registry_song.get_items():
+		if s == null or s.is_broken:
+			continue
+		var nm := String(s.name).to_lower()
+		if nm == low:
+			return s
+		if part == null and nm.find(low) != -1:
+			part = s
+	return part
 
 static func _tell(text: String):
 	Globals.notify(Globals.NOTIFY_INFO, text, "Chat")
@@ -215,8 +235,11 @@ static func add_text(rtl: RichTextLabel, text: String, size_px: int = 18):
 		rtl.push_meta(META + to_json(d))
 		rtl.push_color(LINK)
 		rtl.push_underline()
-		var label := "%s: %s" % [NOUN[d.kind], d.name if d.name != "" else "(no name)"]
-		rtl.add_text("[" + label + " - click to get]")
+		# a map: just its name in blue (click it to download and play it)
+		if d.kind == "map":
+			rtl.add_text(d.name if d.name != "" else "a map")
+		else:
+			rtl.add_text("[%s: %s - click to get]" % [NOUN[d.kind], d.name if d.name != "" else "(no name)"])
 		rtl.pop()
 		rtl.pop()
 		rtl.pop()
@@ -238,7 +261,7 @@ static func plain(text: String) -> String:
 		if d.empty():
 			from = b + 2
 			continue
-		var w := "[%s: %s]" % [NOUN[d.kind], d.name]
+		var w := String(d.name) if d.kind == "map" else "[%s: %s]" % [NOUN[d.kind], d.name]
 		text = text.substr(0, a) + w + text.substr(b + 2)
 		from = a + w.length()
 	return text
@@ -276,8 +299,8 @@ func _on_meta(meta):
 	if k == "map" and String(d.get("song_id", "")) != "" and Rhythia.registry_song != null:
 		var s = Rhythia.registry_song.get_song_loose(String(d.song_id))
 		if s and not s.is_online:
-			Rhythia.select_song(s)
-			Globals.notify(Globals.NOTIFY_SUCCEED, "Picked '%s' (you have it already)." % String(s.name), "Map")
+			_open_map(s)
+			Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is ready to play (you have it already)." % String(s.name), "Map")
 			return
 	_busy[id] = true
 	var r := HTTPRequest.new()
@@ -312,5 +335,25 @@ func _on_got(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, d:
 	f.store_buffer(body)
 	f.close()
 	var got = cb.install(get_tree(), k, path, String(d.get("name", "")))
-	if k == "map" and got != null and got is Object:
-		Rhythia.select_song(got)
+	if k == "map":
+		if got != null and got is Object:
+			_open_map(got)
+		else:
+			Globals.notify(Globals.NOTIFY_WARN, "The map downloaded but couldn't be added to your list.", "Map")
+
+# a shared map: picked and shown on its screen in the menu, ready to play
+# (watching someone or in a map: just picked; it's there in the menu after)
+func _open_map(song):
+	Rhythia.select_song(song)
+	var sb = Rhythia.menu_node("Sidebar")
+	if sb == null or Rhythia.in_map:
+		return
+	if sb.get("spectate") != null and sb.spectate.has_method("is_open") and sb.spectate.is_open():
+		sb.spectate.close()
+	sb.press(0, true)
+	var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
+	if list != null and list.has_method("scroll_to_song"):
+		list.scroll_to_song(String(song.id))
+	var res = Rhythia.menu_node("Main/Maps/Results")
+	if res != null:
+		res.visible = true

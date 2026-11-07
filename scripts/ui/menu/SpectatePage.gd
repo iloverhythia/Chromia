@@ -11,6 +11,7 @@ extends Control
 # LobbyManager.spectate_player. Settings > Online > Allow Spectators is the
 # other side: off, nobody can watch you. Made by Sidebar.gd.
 
+const AnimPic = preload("res://scripts/ui/AnimPic.gd")
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const ACCENT = Color(1, 0.756863, 0.960784)
 const ACCENT_HOVER = Color(0.913725, 0.74902, 0.94902)
@@ -321,6 +322,30 @@ func _ready():
 	set_process(true)
 	get_tree().create_timer(1.5).connect("timeout", self, "_prewarm")
 
+# an icon picture (assets/images/ui/modern), coloured
+static func _icon_tex(n: String, col: Color) -> Texture:
+	var src = load("res://assets/images/ui/modern/%s.png" % n)
+	if src == null:
+		return null
+	var img: Image = src.get_data()
+	img.convert(Image.FORMAT_RGBA8)
+	img.lock()
+	for y in img.get_height():
+		for x in img.get_width():
+			var c := img.get_pixel(x, y)
+			img.set_pixel(x, y, Color(col.r, col.g, col.b, c.a * col.a))
+	img.unlock()
+	var t := ImageTexture.new()
+	t.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
+	return t
+
+func _nunito(w: String, size: int) -> DynamicFont:
+	var f := DynamicFont.new()
+	f.font_data = load("res://assets/font/Nunito/Nunito-%s.ttf" % w)
+	f.size = size
+	f.use_filter = true
+	return f
+
 func _build_eye():
 	eye = EyeButton.new()
 	eye.name = "SpectateButton"
@@ -366,8 +391,13 @@ func _build_notice():
 func _notify_chat(client_id: String, name: String, text: String):
 	if not Rhythia.spectate_chat_notify or (client_id != "" and client_id == Rhythia.cid):
 		return
+	var m = _modern()
+	if m != null and m.online.is_open():
+		return
 	_unread += 1
 	badge.text = str(_unread) if _unread < 100 else "99+"
+	if _was_modern:
+		badge.text = "" # (a red dot, like the video)
 	_place_notice()
 	if not eye.visible:
 		return
@@ -602,7 +632,32 @@ func _resize():
 		# (the VR screen's resize handle is in that corner: the eye goes beside it)
 		eye.rect_position.x -= load("res://vr/MenuResize.gd").ICON + 12.0
 	var tpx := int(ceil(d * 2.0))
-	if tpx != _eye_px:
+	if _was_modern:
+		# (Modern UI: the people icon, no circle, like the video)
+		var md := 30.0 * _k
+		eye.rect_size = Vector2(md, md)
+		eye.rect_position = vp - Vector2(md + 24 * _k, md + 22 * _k)
+		if _eye_px != -1:
+			_eye_px = -1
+			eye.tex_normal = _icon_tex("users", Color(0.86, 0.86, 0.9))
+			eye.tex_hover = _icon_tex("users", Color(1, 1, 1))
+			eye.texture = eye.tex_normal
+		if _online_tip == null:
+			_online_tip = Label.new()
+			_online_tip.text = "Online"
+			_online_tip.mouse_filter = MOUSE_FILTER_IGNORE
+			add_child(_online_tip)
+		_online_tip.add_font_override("font", _nunito("ExtraBold", int(13 * _k)))
+		_online_tip.add_stylebox_override("normal", _pad(_flat(Color(0.06, 0.06, 0.07, 0.92), int(5 * _k)), 9 * _k, 4 * _k))
+		notice.add_stylebox_override("panel", _pad(_flat(Color(0.05, 0.05, 0.06, 0.82), int(5 * _k)), 10 * _k, 5 * _k))
+		badge.add_stylebox_override("normal", _flat(Color("#ff3b4a"), int(5 * _k)))
+		badge.rect_min_size = Vector2(9, 9) * _k
+	elif tpx != _eye_px:
+		if _eye_px == -1:
+			# (back from the Modern UI: the classic bubble and count)
+			notice.add_stylebox_override("panel", _pad(_flat(Color(0.07, 0.062, 0.095, 0.97), 3, Color(1, 1, 1, 0.12), 1), 12, 8))
+			badge.add_stylebox_override("normal", _pad(_flat(PINK, 2), 4, 1))
+			badge.rect_min_size = Vector2()
 		_eye_px = tpx
 		eye.tex_normal = eye_texture(tpx, LILAC)
 		eye.tex_hover = eye_texture(tpx, ACCENT)
@@ -626,9 +681,28 @@ func _resize():
 
 # the button hides where it would cover something (the map editor's own
 # controls sit in that corner) or while the window is open
+var _was_modern := false
+var _online_tip: Label
 func _process(delta):
+	var modern: bool = _modern() != null
+	if modern != _was_modern:
+		_was_modern = modern
+		_resize()
+	if modern:
+		var m = _modern()
+		if m.online.is_open() and eye.visible:
+			eye.visible = false
+			notice.visible = false
+			badge.visible = false
+			return
+	if _online_tip != null:
+		_online_tip.visible = modern and eye.visible and eye.get_global_rect().has_point(eye.get_global_mouse_position()) and not notice.visible
+		if _online_tip.visible:
+			var ts := _online_tip.get_combined_minimum_size()
+			_online_tip.rect_size = ts
+			_online_tip.rect_position = (eye.rect_position + Vector2(eye.rect_size.x - ts.x, -ts.y - 8 * _k)).floor()
 	var editor = get_node_or_null("../../../Main/MapEditor")
-	var show_eye: bool = not _open and not (editor != null and editor.visible and editor.get("ed") != null and editor.ed != null and editor.ed.is_visible_in_tree())
+	var show_eye: bool = not (modern and _modern().online.is_open()) and not _open and not (editor != null and editor.visible and editor.get("ed") != null and editor.ed != null and editor.ed.is_visible_in_tree())
 	if eye.visible != show_eye:
 		eye.visible = show_eye
 		if not show_eye:
@@ -724,8 +798,20 @@ func _prewarm():
 		window.modulate.a = 1.0
 		overlay.get_child(0).modulate.a = 1.0
 
+# the Modern UI (Settings > Experimental) has its own Online Players window
+func _modern():
+	if not Rhythia.modern_ui_on():
+		return null
+	var m = Rhythia.menu_node("ModernUI")
+	return m if m != null and m.get("online") != null else null
+
 func open():
 	if _open:
+		return
+	var m = _modern()
+	if m != null:
+		_clear_notice()
+		m.online.open()
 		return
 	_open = true
 	_animating = true
@@ -889,6 +975,21 @@ func _make_card() -> Dictionary:
 	var box := Control.new()
 	box.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_child(box)
+	# their card's own picture (profile > Cards, an admin's upload), behind
+	# everything, dimmed so the text reads
+	var bgimg := TextureRect.new()
+	bgimg.anchor_right = 1.0
+	bgimg.anchor_bottom = 1.0
+	bgimg.margin_left = -6 * _k
+	bgimg.margin_top = -6 * _k
+	bgimg.margin_right = 6 * _k
+	bgimg.margin_bottom = 6 * _k
+	bgimg.expand = true
+	bgimg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bgimg.mouse_filter = MOUSE_FILTER_IGNORE
+	bgimg.modulate = Color(0.62, 0.62, 0.62)
+	bgimg.visible = false
+	box.add_child(bgimg)
 	var v := VBoxContainer.new()
 	v.anchor_right = 1.0
 	v.anchor_bottom = 1.0
@@ -921,6 +1022,9 @@ func _make_card() -> Dictionary:
 	pic.mouse_filter = MOUSE_FILTER_IGNORE
 	pic.visible = false
 	av.add_child(pic)
+	# their frame round the picture (profile > Frames)
+	var fv = load("res://scripts/ui/FrameView.gd").new()
+	av.add_child(fv)
 	var name_l = _label("", font_name, TEXT)
 	name_l.align = Label.ALIGN_CENTER
 	name_l.clip_text = true
@@ -960,24 +1064,26 @@ func _make_card() -> Dictionary:
 
 	# bottom left: "..." opens the menu (View stats, Spectate, their profile),
 	# like right-clicking the card; a label, the card takes the click
-	var dots := _label("•••", font_bold, DIM)
+	var dots := _label("•••", font_tiny, DIM) # (small: the "watching" line sits under it)
 	dots.anchor_top = 1.0
 	dots.anchor_bottom = 1.0
 	dots.margin_left = 0
-	dots.margin_right = 28 * _k
-	dots.margin_top = -22 * _k
+	dots.margin_right = 22 * _k
+	dots.margin_top = -16 * _k
 	dots.align = Label.ALIGN_CENTER
 	dots.valign = Label.VALIGN_CENTER
 	dots.mouse_filter = MOUSE_FILTER_IGNORE
 	dots.hint_tooltip = "View stats, spectate, profile"
 	box.add_child(dots)
 
-	# bottom left: how many are watching them (hidden at 0)
+	# the very bottom left: how many are watching them (hidden at 0); the
+	# "..." moves up above it while it shows (_fill_card)
 	var watching := _label("", font_tiny, DIM)
 	watching.anchor_top = 1.0
 	watching.anchor_bottom = 1.0
 	watching.grow_vertical = GROW_DIRECTION_BEGIN
-	watching.margin_left = 32 * _k # (right of the "...")
+	watching.margin_left = 2 * _k
+	watching.margin_bottom = 1 * _k
 	watching.mouse_filter = MOUSE_FILTER_IGNORE
 	watching.visible = false
 	box.add_child(watching)
@@ -996,7 +1102,7 @@ func _make_card() -> Dictionary:
 	alt.visible = false
 	box.add_child(alt)
 
-	var c := {"dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+	var c := {"bgimg": bgimg, "img_url": "", "fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
@@ -1005,10 +1111,30 @@ func _make_card() -> Dictionary:
 	card.connect("mouse_exited", self, "_on_card_hover", [c, false])
 	return c
 
+# a card's picture (FrameImages.gd keeps it; it may still be coming)
+func _card_img(c: Dictionary):
+	var fi = load("res://scripts/ui/FrameImages.gd").instance()
+	if not fi.is_connected("loaded", self, "_on_art_loaded"):
+		fi.connect("loaded", self, "_on_art_loaded")
+	var tex = fi.pic(c.img_url) if c.img_url != "" else null
+	c.bgimg.texture = tex
+	c.bgimg.visible = tex != null
+
+func _on_art_loaded(url: String):
+	for c in _cards.values():
+		if c.img_url == url:
+			_card_img(c)
+
 func _card_style(c: Dictionary):
 	var lit: bool = c.hover and c.can
-	var border := ACCENT if c.is_you else (LILAC if lit else Color(1, 1, 1, 0.04))
-	var sb := _pad(_flat(CARD_HOVER if lit else CARD_BG, 3, border, 2 if (c.is_you or lit) else 1), 8 * _k, 8 * _k)
+	# (their card from profile > Cards: its background and border)
+	var cbg = c.get("card_bg")
+	var cbd = c.get("card_border")
+	var base: Color = cbg if cbg is Color else CARD_BG
+	var idle_border: Color = cbd if cbd is Color else Color(1, 1, 1, 0.04)
+	var border := ACCENT if c.is_you else (LILAC if lit else idle_border)
+	var wide: bool = c.is_you or lit or cbd is Color
+	var sb := _pad(_flat(base.lightened(0.06) if lit else base, 3, border, 2 if wide else 1), 8 * _k, 8 * _k)
 	c.card.add_stylebox_override("panel", sb)
 	c.card.mouse_default_cursor_shape = CURSOR_POINTING_HAND if c.can else CURSOR_ARROW
 	var fav := _is_fav(int(c.number))
@@ -1041,6 +1167,17 @@ func _card_alt() -> bool:
 	return bool(Engine.get_meta("card_alt"))
 
 func _fill_card(c: Dictionary, p: Dictionary):
+	var cd = p.get("card")
+	c["card_bg"] = Color(String(cd.get("bg", ""))) if cd is Dictionary and String(cd.get("bg", "")).is_valid_html_color() else null
+	c["card_border"] = Color(String(cd.get("border", ""))) if cd is Dictionary and String(cd.get("border", "")).is_valid_html_color() else null
+	var iu: String = String(cd.get("image_url", "")) if cd is Dictionary and cd.get("image_url") != null else ""
+	if iu != c.img_url:
+		c.img_url = iu
+		_card_img(c)
+	var fsig := var2str(p.get("frame"))
+	if fsig != c.frame_sig:
+		c.frame_sig = fsig
+		c.fv.set_frame(p.get("frame"))
 	var n := int(p.get("number", -1))
 	c.number = n
 	c.is_you = n == _you
@@ -1066,7 +1203,7 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var av_size: float = c.circle.get_parent().rect_min_size.x
 	c.circle.add_stylebox_override("panel", _flat(_name_color(nm), int(av_size / 2)))
 	c.initial.text = nm.substr(0, 1).to_upper()
-	var url := String(p.get("avatar_url", ""))
+	var url := AnimPic.pic_url(p) # (a moving GIF when they have one)
 	if url != c.url:
 		c.url = url
 		c.pic.visible = false
@@ -1088,6 +1225,9 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	var n_watch := int(p.get("watchers", 0))
 	c.watching.visible = n_watch > 0
 	c.watching.text = "%d watching" % n_watch
+	# (the "..." just above the watching line, so they never overlap)
+	c.dots.margin_bottom = -15 * _k if n_watch > 0 else 0.0
+	c.dots.margin_top = c.dots.margin_bottom - 16 * _k
 	c.device.text = DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")
 	# the rest in a tooltip
 	var tip := [nm]
@@ -1332,6 +1472,10 @@ func _on_avatar(result: int, code: int, _headers, data: PoolByteArray, r: HTTPRe
 	_img_waiting.erase(url)
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or data.empty():
 		return
+	if AnimPic.is_gif(data):
+		# a moving picture: decoded on a thread, round, then shown (AnimPic.gd)
+		AnimPic.load_async(data, url, 96, true, self, "_on_gif_avatar", [url, waiting])
+		return
 	var img := Image.new()
 	var err := img.load_png_from_buffer(data)
 	if err != OK:
@@ -1367,6 +1511,18 @@ func _on_avatar(result: int, code: int, _headers, data: PoolByteArray, r: HTTPRe
 			pic.texture = tex
 			pic.visible = true
 
+func _on_gif_avatar(tex, url: String, waiting: Array):
+	if tex == null:
+		return
+	_img_cache[url] = tex
+	_img_order.append(url)
+	while _img_order.size() > MAX_IMG_CACHE:
+		_img_cache.erase(_img_order.pop_front())
+	for pic in waiting:
+		if is_instance_valid(pic):
+			pic.texture = tex
+			pic.visible = true
+
 # --- right-click a card: View stats -------------------------------------------------
 # Their profile (the same as the website's: level, XP and SP with their places,
 # passes, bio, last online) and their best plays, in a box over the window.
@@ -1388,6 +1544,9 @@ func _card_menu(c: Dictionary, at: Vector2):
 	if c.can and not c.is_you:
 		_ctx.add_item("Spectate", 1)
 	_ctx.add_item("Open their profile on the website", 2)
+	# (you're in a lobby: bring them in)
+	if _lm != null and _lm.lobby_active and not _lm.watch_mode and not c.is_you:
+		_ctx.add_item("Invite to your lobby", 3)
 	_ctx_card = c
 	_ctx.popup(Rect2(at, Vector2(1, 1)))
 
@@ -1402,6 +1561,9 @@ func _on_card_menu(id: int):
 			_spectate(c)
 		2:
 			OS.shell_open(STATS_SITE + "/profile?id=%d" % int(c.number))
+		3:
+			if _lm != null:
+				_lm.invite_player(int(c.number))
 
 func _show_stats(number: int, nm: String):
 	if number <= 0:

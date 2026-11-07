@@ -188,6 +188,40 @@ func _add_page(node_name: String, script_path: String, icon_path: String, label:
 	smm_visibility[btn] = false
 	return btn
 
+# A pink dot on the Online button while lobby invites wait for you (the
+# Online page lists them: menu2.gd _fill_invites)
+var _invite_dot: Panel = null
+func _add_invite_dot():
+	var btn = get_node_or_null("L/OnlineTab")
+	var lm = get_node_or_null("/root/LobbyManager")
+	if btn == null or lm == null:
+		return
+	_invite_dot = Panel.new()
+	_invite_dot.name = "InviteDot"
+	_invite_dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.96, 0.6, 0.78)
+	sb.border_color = Color(0.05, 0.04, 0.07)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(7)
+	_invite_dot.add_stylebox_override("panel", sb)
+	_invite_dot.anchor_left = 1
+	_invite_dot.anchor_right = 1
+	_invite_dot.margin_left = -20
+	_invite_dot.margin_right = -6
+	_invite_dot.margin_top = 6
+	_invite_dot.margin_bottom = 20
+	btn.add_child(_invite_dot)
+	lm.connect("invites_changed", self, "_update_invite_dot")
+	_update_invite_dot()
+
+func _update_invite_dot():
+	var lm = get_node_or_null("/root/LobbyManager")
+	if _invite_dot != null and is_instance_valid(_invite_dot) and lm != null:
+		var n: int = lm.current_invites().size()
+		_invite_dot.visible = n > 0
+		_invite_dot.hint_tooltip = "%d lobby invite%s" % [n, "" if n == 1 else "s"]
+
 # (a moment after the menu opens: it picks its first page itself)
 func _reopen_spectate():
 	yield(get_tree().create_timer(0.3), "timeout")
@@ -232,6 +266,7 @@ func _add_extra_pages():
 
 func _ready():
 	_add_extra_pages()
+	_add_invite_dot()
 	var ft := Timer.new()
 	ft.name = "FlipCheck"
 	ft.wait_time = 1.0

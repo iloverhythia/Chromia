@@ -26,6 +26,10 @@ var _old_mode: int = 0
 var _old_max_layer: int = 0
 var _fill: ColorRect = null
 var _videos: Array = []
+# layers moved to the space (BgLayers.place_space): pictures in the world
+var _space_layers: Array = []
+var _space_meshes: Array = []
+var _space_root: Spatial = null
 
 func _ready():
 	pause_mode = PAUSE_MODE_INHERIT
@@ -42,22 +46,32 @@ func _ready():
 		if l.opacity <= 0.001:
 			continue
 		var v = BG.build_visual(l, _root, null, false)
-		if v.ok:
+		if v.ok and bool(l.get("space", false)):
+			# (the rect stays, unseen: it keeps a video playing for the picture)
+			v.rect.self_modulate = Color(1, 1, 1, 0)
+			v.rect.rect_size = Vector2(2, 2)
+			_space_layers.append(l)
+			_space_meshes.append(BG.space_mesh(l, v.rect.texture))
+			if v.video != null:
+				_videos.append(v.video)
+		elif v.ok:
 			_layers.append(l)
 			_rects.append(v.rect)
 			if v.video != null:
 				_videos.append(v.video)
 		else:
 			v.rect.queue_free()
-	if _rects.empty():
+	if _rects.empty() and _space_meshes.empty():
 		queue_free()
 		return
+	if not _space_meshes.empty():
+		call_deferred("_setup_space")
 	get_viewport().connect("size_changed", self, "_layout")
 	_layout()
 	set_process(false)
 	if not _videos.empty():
 		call_deferred("_start_videos")
-	if d.placement == BG.PLACE_BEHIND:
+	if d.placement == BG.PLACE_BEHIND and not _rects.empty():
 		# The world is added with call_deferred by Game.gd, so look for it after.
 		call_deferred("_setup_behind")
 
@@ -71,6 +85,32 @@ func _layout():
 		_fill.rect_size = screen
 	for i in _rects.size():
 		BG.apply_visual(_rects[i], _layers[i], screen)
+	_layout_space()
+
+# the space layers: in the song's world, next to it (the world scene is cached
+# and reused, so they aren't put inside it)
+func _setup_space():
+	if not is_inside_tree():
+		return
+	var song = get_parent().get_parent() if get_parent() != null else null
+	if not (song is Spatial):
+		return
+	_space_root = Spatial.new()
+	_space_root.name = "BgLayersSpace"
+	song.add_child(_space_root)
+	for mi in _space_meshes:
+		_space_root.add_child(mi)
+	_layout_space()
+
+func _layout_space():
+	if _space_root == null or not is_instance_valid(_space_root):
+		return
+	var screen = get_viewport().get_visible_rect().size
+	var aspect: float = screen.x / max(1.0, screen.y)
+	var cam = _space_root.get_parent().get_node_or_null("Camera")
+	var fov: float = cam.fov if cam is Camera else float(Rhythia.get("fov"))
+	for i in _space_meshes.size():
+		BG.place_space(_space_meshes[i], _space_layers[i], fov, aspect)
 
 # Started after the song scene is set up (Game.gd pauses the tree in _ready).
 func _start_videos():
@@ -163,6 +203,9 @@ func _process(_delta):
 		_fill.color = c
 
 func _exit_tree():
+	for mi in _space_meshes:
+		if is_instance_valid(mi) and not mi.is_inside_tree():
+			mi.free() # (never put in the world)
 	if get_tree() != null and get_tree().is_connected("node_added", self, "_on_node_added"):
 		get_tree().disconnect("node_added", self, "_on_node_added")
 	if _env != null:

@@ -563,6 +563,10 @@ func _build_profile_ui():
 	leaderboard_mode_additive_btn = _make_button("Additive", ui_theme)
 	leaderboard_mode_additive_btn.connect("pressed", self, "_on_leaderboard_mode_pressed", [0])
 	mode_hbox.add_child(leaderboard_mode_additive_btn)
+	# (the plays on one kind of device: LbModes.gd)
+	leaderboard_device = load("res://scripts/ui/LbModes.gd").make(self, "_on_leaderboard_device")
+	leaderboard_device.theme = ui_theme
+	mode_hbox.add_child(leaderboard_device)
 	lvbox.add_child(mode_hbox)
 	_update_leaderboard_mode_buttons()
 
@@ -601,6 +605,15 @@ func _on_profile_tab_changed(tab_index: int):
 		if not _leaderboard_weighted_loaded:
 			_leaderboard_weighted_loaded = true
 			Rhythia.fetch_leaderboard_sp()
+
+var leaderboard_device: OptionButton
+func _on_leaderboard_device():
+	_leaderboard_entries_additive = []
+	_leaderboard_entries_weighted = []
+	_leaderboard_weighted_loaded = true
+	_build_leaderboard_rows(leaderboard_list_box, [], "sp", "SP")
+	Rhythia.fetch_leaderboard()
+	Rhythia.fetch_leaderboard_sp()
 
 func _on_refresh_leaderboard_pressed():
 	if _leaderboard_mode == 1:
@@ -1681,6 +1694,8 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	lobby_map_label.text = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
 	lobby_selected_map_label.text = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
 	lobby_map_button.disabled = not is_host
+	if lobby_pick_button != null and is_instance_valid(lobby_pick_button):
+		lobby_pick_button.visible = is_host
 
 	_rebuild_player_list(lobby_manager.players, lobby_manager.local_peer_id)
 
@@ -1712,6 +1727,7 @@ func _format_mods(mods: Dictionary) -> String:
 	if mods.get("ghost", false): parts.append("Ghost")
 	if mods.get("nearsighted", false): parts.append("Nearsight")
 	if mods.get("hardrock", false): parts.append("Hard Rock")
+	if mods.get("harderrock", false): parts.append("Harder Rock")
 	if mods.get("hard_mode", false): parts.append("Hard Mode")
 	if mods.get("flashlight", false): parts.append("Flashlight")
 	if mods.get("mod_360", false): parts.append("360x%s" % mods.get("mod_360_speed", 1))
@@ -2227,6 +2243,14 @@ func _build_online_setup(S):
 		box.remove_child(c)
 	box.add_child(S.heading("Play together"))
 	box.add_child(S.label("Host a lobby and send your friends its code, or join theirs. Everyone plays the same map at the same time.", S.f_small, S.DIM, true))
+	# invites people sent you (LobbyManager.invites): Join / Decline
+	_invites_box = VBoxContainer.new()
+	_invites_box.add_constant_override("separation", 6)
+	box.add_child(_invites_box)
+	var lmi = _get_lobby_manager()
+	if lmi != null and not lmi.is_connected("invites_changed", self, "_fill_invites"):
+		lmi.connect("invites_changed", self, "_fill_invites")
+	_fill_invites()
 	var host_row := HBoxContainer.new()
 	host_row.add_constant_override("separation", 10)
 	box.add_child(host_row)
@@ -2272,6 +2296,52 @@ func _build_online_setup(S):
 	_lobby_public_scroll.rect_min_size = Vector2(0, 120)
 	lobby_public_list_box.add_constant_override("separation", 8)
 
+var lobby_pick_button: Button = null
+func _open_lobby_map_picker():
+	load("res://scripts/ui/LobbyMapPicker.gd").open_on(self)
+
+var _invites_box: VBoxContainer = null
+func _fill_invites():
+	if _invites_box == null or not is_instance_valid(_invites_box):
+		return
+	for c in _invites_box.get_children():
+		_invites_box.remove_child(c)
+		c.queue_free()
+	var lmi = _get_lobby_manager()
+	var list: Array = lmi.current_invites() if lmi != null else []
+	_invites_box.visible = not list.empty()
+	if list.empty():
+		return
+	var S = _online_style()
+	_invites_box.add_child(S.label("Invites", S.f_bold, S.PINK))
+	for inv in list:
+		var h: HBoxContainer = S.card(_invites_box)
+		h.add_constant_override("separation", 10)
+		var v := VBoxContainer.new()
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_constant_override("separation", 0)
+		h.add_child(v)
+		v.add_child(S.label("%s invited you" % String(inv.from_name), S.f_bold, S.TEXT))
+		var n := int(inv.lobby_size)
+		var info := "%d player%s" % [n, "" if n == 1 else "s"]
+		if String(inv.song_name) != "":
+			info = String(inv.song_name) + "  ·  " + info
+		var il: Label = S.label(info, S.f_small, S.DIM)
+		il.clip_text = true
+		v.add_child(il)
+		var no := Button.new()
+		no.text = "Decline"
+		S.button(no, false, true)
+		no.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		no.connect("pressed", lmi, "_drop_invite", [String(inv.code)])
+		h.add_child(no)
+		var yes := Button.new()
+		yes.text = "Join"
+		S.button(yes, true, true)
+		yes.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		yes.connect("pressed", lmi, "accept_invite", [String(inv.code)])
+		h.add_child(yes)
+
 # in a lobby: its code, map, players, then Start / Leave
 func _build_online_active(S, players_caption, player_scroll, footer):
 	var box = lobby_active_box
@@ -2314,7 +2384,16 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	map_texts.add_child(lobby_selected_map_label)
 	lobby_selected_map_label.add_font_override("font", S.f_small)
 	lobby_selected_map_label.add_color_override("font_color", S.DIM)
+	# Pick map: the lobby's own map picker (LobbyMapPicker.gd)
+	lobby_pick_button = Button.new()
+	lobby_pick_button.text = "Pick map"
+	lobby_pick_button.hint_tooltip = "Choose the lobby's map from a list of all your maps"
+	S.button(lobby_pick_button, true)
+	lobby_pick_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lobby_pick_button.connect("pressed", self, "_open_lobby_map_picker")
+	map_card.add_child(lobby_pick_button)
 	lobby_map_button.text = "Use selected"
+	lobby_map_button.hint_tooltip = "Use the map selected on the Maps page"
 	S.button(lobby_map_button)
 	lobby_map_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	map_card.add_child(lobby_map_button)
@@ -2340,10 +2419,23 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	S.button(lobby_leave_button)
 	lobby_leave_button.rect_min_size = Vector2(140, 44)
 	actions.add_child(lobby_leave_button)
+	# Invite players: a window listing everyone online, an Invite button each
+	var invite_btn := Button.new()
+	invite_btn.text = "Invite players"
+	invite_btn.hint_tooltip = "Pick someone online and invite them in"
+	S.button(invite_btn)
+	invite_btn.rect_min_size = Vector2(150, 44)
+	invite_btn.connect("pressed", self, "_open_invite_list")
+	actions.add_child(invite_btn)
+	actions.move_child(invite_btn, 1)
 	# (Back to Maps: the sidebar does that)
 	footer.get_parent().remove_child(footer)
 	footer.queue_free()
 	lobby_close_button = null
+
+# Invite players: its own window (InvitePlayers.gd), a list of everyone online
+func _open_invite_list():
+	load("res://scripts/ui/InvitePlayers.gd").open_on(self)
 
 func _style_chat_box(S, box: VBoxContainer, sc: ScrollContainer, input: LineEdit, send: Button, title_text: String):
 	box.add_constant_override("separation", 8)
@@ -2373,6 +2465,7 @@ func _on_online_page_shown():
 	if page == null or lobby_manager == null:
 		return
 	if page.is_visible_in_tree():
+		_fill_invites()
 		_refresh_public_lobbies()
 	elif _browsing_public:
 		_browsing_public = false
@@ -2776,6 +2869,10 @@ func idle_status():
 func _ready():
 	# the browser version opened as the website's game view of a replay
 	load("res://scripts/WebReplay.gd").menu_opened(get_tree())
+	# a lobby invite that came during the song: asked about now
+	var _lmi = get_node_or_null("/root/LobbyManager")
+	if _lmi != null and _lmi.has_method("ask_pending_invite"):
+		_lmi.call_deferred("ask_pending_invite")
 	# menu music lyric volume (Settings > Video & Audio)
 	var vocals = preload("res://scripts/ui/menu/MenuVocals.gd").new()
 	vocals.name = "MenuVocals"
@@ -2812,6 +2909,11 @@ func _ready():
 	_setup_folder_filters()
 	load("res://scripts/ui/menu/FiltersCollapse.gd").attach(self) # click "Filters" to collapse
 	load("res://scripts/ui/menu/MapFiltersPage.gd").attach(self) # the Filters button and its side page
+	# Experimental: the Modern UI over this menu (scripts/ui/modern/ModernUI.gd)
+	if not Rhythia.is_connected("modern_ui_changed", self, "_on_modern_ui"):
+		Rhythia.connect("modern_ui_changed", self, "_on_modern_ui")
+	if Rhythia.modern_ui_on():
+		call_deferred("_on_modern_ui")
 	_add_new_mod_checkboxes()
 	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
 	_center_mods()
@@ -3167,6 +3269,13 @@ func _union_visible(n, box):
 
 
 # Map folders also show up as filters under "stars" in the Filters column.
+func _on_modern_ui():
+	var M = load("res://scripts/ui/modern/ModernUI.gd")
+	if Rhythia.modern_ui_on(): # (staff only)
+		M.attach(self)
+	else:
+		M.detach(self)
+
 func _setup_folder_filters():
 	var stars = get_node_or_null("Main/Maps/Filters/StarSort")
 	if stars == null:
@@ -3205,12 +3314,18 @@ func _add_new_mod_checkboxes():
 	for n in ["HpModel", "360Speed", "GradeSystem"]:
 		var c = mods.get_node_or_null(n)
 		if c != null:
-			c.rect_position.y += row_h
-	mods.rect_min_size.y += row_h
+			c.rect_position.y += row_h * 2
+	mods.rect_min_size.y += row_h * 2
+	_mod_checkbox(mods, left, "ReverseMod", "Reverse", "mod_reverse", y + row_h,
+		"The map is played backwards, the song too (never ranked)")
 	_mod_checkbox(mods, left, "HardModeMod", "Hard Mode", "mod_hard_mode", y,
 		"Notes are smaller and so is their hitbox")
 	_mod_checkbox(mods, right, "FlashlightMod", "Flashlight", "mod_flashlight", y,
 		"Everything is dark except a circle around your cursor")
+	_mod_checkbox(mods, right, "HarderRockMod", "Harder Rock", "mod_harderrock", y + row_h,
+		"Hard Rock, but the notes spread even further out and the hit window is tighter")
+	# (more mods than fit: they're on pages now, ModPages.gd)
+	load("res://scripts/ui/menu/ModPages.gd").install(mods)
 
 func _mod_checkbox(parent: Control, like: CheckBox, node_name: String, text: String, prop: String, y: float, tip: String):
 	var cb: CheckBox = like.duplicate(0)

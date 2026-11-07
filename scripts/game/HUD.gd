@@ -966,6 +966,8 @@ func _spec_hand_look():
 	elif kind == "ball":
 		var b = load("res://vr/BallHand.gd").build()
 		meshes = [b, b]
+	elif load("res://vr/ExtraHands.gd").has(kind):
+		meshes = load("res://vr/ExtraHands.gd").pair(kind)
 	elif kind == "custom" and rpath != "":
 		var ObjParse = load("res://scripts/content/resources/ObjParse.gd")
 		var r = ObjParse.load_obj(rpath)
@@ -987,8 +989,9 @@ func _spec_hand_look():
 		var ray = hand.get_node_or_null("Ray")
 		if ray != null and "start_gap" in ray:
 			ray.start_gap = 0.0
-			if (kind == "paw" or kind == "ball") and meshes != null:
-				var tip: float = load("res://vr/PawHand.gd").TIP if kind == "paw" else load("res://vr/BallHand.gd").TIP
+			var XH = load("res://vr/ExtraHands.gd")
+			if (kind == "paw" or kind == "ball" or XH.has(kind)) and meshes != null:
+				var tip: float = load("res://vr/PawHand.gd").TIP if kind == "paw" else (load("res://vr/BallHand.gd").TIP if kind == "ball" else XH.tip(kind))
 				ray.start_gap = max(0.0, ray.transform.origin.z + tip * VRP.UNITS_PER_M)
 		if meshes == null:
 			mi.mesh = d[0]
@@ -1541,6 +1544,89 @@ const SPECTATORS_SHOWN := 8
 var _spectators_vr_vp: Viewport = null
 var _spectators_vr_sprite: Sprite3D = null
 
+# --- the multiplayer leaderboard in VR ------------------------------------------
+# A screen overlay only reaches the desktop window in VR, so the match's
+# leaderboard (LobbyBoard.gd, the same board as on the screen, at twice the
+# size) is drawn in its own viewport onto a panel standing beside the left grid
+# panel, on its outer side, turned a little towards you. Drawn again only when
+# the board changes.
+var _board_vr_vp: Viewport = null
+var _board_vr_sprite: Sprite3D = null
+var _board_vr = null
+const BOARD_VR_SIZE := Vector2(700, 1100)
+
+func update_leaderboard_vr(rows: Array, title: String, footer: String, show: bool):
+	if not Rhythia.vr:
+		return
+	if not show:
+		if _board_vr_sprite != null:
+			_board_vr_sprite.visible = false
+		return
+	if _board_vr_sprite == null and not _make_board_vr():
+		return
+	_place_board_vr()
+	_board_vr_sprite.visible = true
+	_board_vr.set_board(rows, title, footer, false)
+
+func _make_board_vr() -> bool:
+	var left = get_node_or_null("LeftHud")
+	if left == null:
+		return false
+	var vp := Viewport.new()
+	vp.name = "LobbyBoardVP"
+	vp.size = BOARD_VR_SIZE
+	vp.transparent_bg = true
+	vp.hdr = false
+	vp.usage = Viewport.USAGE_2D
+	vp.msaa = Viewport.MSAA_DISABLED
+	vp.render_target_update_mode = Viewport.UPDATE_ONCE
+	add_child(vp)
+	_board_vr = load("res://scripts/game/LobbyBoard.gd").new(2.0, false)
+	_board_vr.rect_min_size = Vector2(BOARD_VR_SIZE.x, 0)
+	vp.add_child(_board_vr)
+	_board_vr.connect("changed", self, "_redraw_board_vr")
+	var s: Sprite3D = left.duplicate(0)
+	s.name = "LobbyBoardHud"
+	s.pixel_size = left.pixel_size * 0.5 # (drawn at twice the size)
+	s.texture = vp.get_texture()
+	s.texture.flags = Texture.FLAG_FILTER # (smooth in the headset)
+	s.visible = false
+	add_child(s)
+	_board_vr_vp = vp
+	_board_vr_sprite = s
+	return true
+
+# beside the left panel (its final place: HudPanels / Sound Space mode move it)
+func _place_board_vr():
+	var left = get_node_or_null("LeftHud")
+	if left == null or _board_vr_sprite == null:
+		return
+	var s := _board_vr_sprite
+	var lw: float = 300.0 * left.pixel_size * left.scale.x
+	var lh: float = 900.0 * left.pixel_size * left.scale.y
+	var nw: float = BOARD_VR_SIZE.x * s.pixel_size
+	var nh: float = BOARD_VR_SIZE.y * s.pixel_size
+	# (the panel's +X points outward and its +Z up)
+	var t: Transform = left.transform
+	t.basis = t.basis.orthonormalized()
+	var out: Vector3 = t.basis.x
+	var up: Vector3 = t.basis.z
+	var origin: Vector3 = t.origin + out * (lw / 2.0 + 0.12 + nw / 2.0) + up * (lh / 2.0 - nh / 2.0)
+	# turned towards the middle, so it faces you
+	var basis := Basis(Vector3.UP, deg2rad(-14)) * t.basis
+	s.transform = Transform(basis, origin)
+
+func _redraw_board_vr():
+	if _board_vr_vp == null:
+		return
+	# (after the board lays itself out, and once more for late sizes)
+	_board_vr.rect_size = Vector2(BOARD_VR_SIZE.x, 0)
+	_board_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE
+	yield(get_tree(), "idle_frame")
+	if _board_vr_vp != null and is_instance_valid(_board_vr_vp):
+		_board_vr.rect_size = Vector2(BOARD_VR_SIZE.x, 0)
+		_board_vr_vp.render_target_update_mode = Viewport.UPDATE_ONCE
+
 func _make_spectators_vr(label: Label) -> bool:
 	var left = get_node_or_null("LeftHud")
 	if left == null:
@@ -1753,7 +1839,7 @@ func _ready():
 
 
 
-	if Rhythia.mod_hardrock and Rhythia.expand_hud_onhr:
+	if Rhythia.hr_on() and Rhythia.expand_hud_onhr:
 		var HUDScale: Array = [
 			$TimerHud,
 			$LeftHud,
@@ -1761,12 +1847,14 @@ func _ready():
 			$EnergyHud,
 			$ComboHud,
 		]
-		Spawn.get_node("Outer").scale *= 1.35
-		$TimerHud.transform.origin += Vector3(0, 0.385, 0)
-		$LeftHud.transform.origin += Vector3(-0.5, 0, 0)
-		$RightHud.transform.origin += Vector3(0.5, 0, 0)
-		$EnergyHud.transform.origin += Vector3(0, -0.45, 0)
-		$ComboHud.transform.origin += Vector3(0, 0.4, 0)
+		# (Harder Rock spreads further: the border and panels move out more)
+		var hr_k: float = (Rhythia.hr_spread() - 1.0) / (Rhythia.HARDROCK_SPREAD - 1.0)
+		Spawn.get_node("Outer").scale *= Rhythia.hr_spread()
+		$TimerHud.transform.origin += Vector3(0, 0.385, 0) * hr_k
+		$LeftHud.transform.origin += Vector3(-0.5, 0, 0) * hr_k
+		$RightHud.transform.origin += Vector3(0.5, 0, 0) * hr_k
+		$EnergyHud.transform.origin += Vector3(0, -0.45, 0) * hr_k
+		$ComboHud.transform.origin += Vector3(0, 0.4, 0) * hr_k
 
 		for l in HUDScale:
 			l.scale *= 0.85
@@ -1873,8 +1961,10 @@ func _ready():
 			mods.append(("%sx%s" % ["-360" if speed < 0 else "360", abs(speed)]) if abs(speed) != 1 else "-360")
 	if Rhythia.mod_strobe: _mod_icon("strobe")
 	if Rhythia.mod_hardrock: _mod_icon("hardrock")
+	if Rhythia.mod_harderrock: _mod_icon("harderrock")
 	if Rhythia.mod_hard_mode: _mod_icon("hard_mode")
 	if Rhythia.mod_flashlight: _mod_icon("flashlight")
+	if Rhythia.mod_reverse: _mod_icon("reverse")
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
 		ms += tr(" Vulnus Judgement ")

@@ -14,9 +14,12 @@ const TEXT = Color(0.898039, 0.94902, 1, 1)
 const DIM = Color(0.75, 0.75, 0.82, 1)
 const LEFT_W = 300.0
 
-enum { M_FRONT, M_BACK, M_FLIP, M_FULL, M_REMOVE, M_FIT_COVER = 10, M_FIT_STRETCH, M_FIT_CONTAIN }
+enum { M_FRONT, M_BACK, M_FLIP, M_FULL, M_REMOVE, M_FIT_COVER = 10, M_FIT_STRETCH, M_FIT_CONTAIN, M_SPACE = 20 }
 
 var data: Dictionary
+var depth_row: HBoxContainer
+var depth_slider: HSlider
+var depth_label: Label
 var layers: Array
 var visuals: Array = [] # build_visual() results, same order as layers
 
@@ -230,6 +233,22 @@ func _ready():
 	frow.add_child(flip_box)
 	props_box.add_child(frow)
 
+	# a layer moved to the space: how far away it stands (BgLayers.place_space)
+	depth_row = _row("Distance")
+	depth_row.hint_tooltip = "How far into the space the picture stands (the grid is about 3.5 away). Farther: it moves less with the camera"
+	depth_slider = HSlider.new()
+	depth_slider.min_value = BG.MIN_DEPTH
+	depth_slider.max_value = 200
+	depth_slider.step = 1
+	depth_slider.size_flags_horizontal = SIZE_EXPAND_FILL
+	depth_slider.size_flags_vertical = SIZE_SHRINK_CENTER
+	depth_slider.connect("value_changed", self, "_on_depth_changed")
+	depth_row.add_child(depth_slider)
+	depth_label = _label("60")
+	depth_label.rect_min_size = Vector2(44, 0)
+	depth_row.add_child(depth_label)
+	props_box.add_child(depth_row)
+
 	left.add_child(HSeparator.new())
 
 	enabled_box = CheckBox.new()
@@ -288,6 +307,7 @@ func _ready():
 	ctx.add_item("Move to Back", M_BACK)
 	ctx.add_check_item("Flip Horizontal", M_FLIP)
 	ctx.add_item("Make Fullscreen", M_FULL)
+	ctx.add_check_item("Move to Space", M_SPACE)
 	ctx.add_submenu_item("Fit", "FitMenu")
 	ctx.add_separator()
 	ctx.add_item("Remove", M_REMOVE)
@@ -331,6 +351,8 @@ func _layer_title(i: int) -> String:
 		n = "(missing) " + n
 	if BG.is_video_file(l.file):
 		n += "  [video]"
+	if bool(l.get("space", false)):
+		n += "  [in space]"
 	return n
 
 func _refresh_list():
@@ -371,6 +393,9 @@ func _update_props():
 		opacity_label.text = "%d%%" % int(round(l.opacity * 100.0))
 		fit_option.select({BG.FIT_STRETCH: 0, BG.FIT_COVER: 1, BG.FIT_CONTAIN: 2}.get(l.fit, 0))
 		flip_box.pressed = l.flip_h
+		depth_slider.value = float(l.get("depth", BG.DEFAULT_DEPTH))
+		depth_label.text = str(int(round(depth_slider.value)))
+	depth_row.visible = i >= 0 and bool(layers[i].get("space", false))
 	props_box.modulate.a = 1.0 if i >= 0 else 0.5
 	_updating_ui = false
 
@@ -429,6 +454,8 @@ func _open_ctx(pos: Vector2):
 		return
 	var l = layers[i]
 	ctx.set_item_checked(ctx.get_item_index(M_FLIP), l.flip_h)
+	ctx.set_item_checked(ctx.get_item_index(M_SPACE), bool(l.get("space", false)))
+	ctx.set_item_tooltip(ctx.get_item_index(M_SPACE), "In the song's world instead of flat on the screen: behind the grid, moving with the camera")
 	fit_menu.set_item_checked(fit_menu.get_item_index(M_FIT_COVER), l.fit == BG.FIT_COVER)
 	fit_menu.set_item_checked(fit_menu.get_item_index(M_FIT_STRETCH), l.fit == BG.FIT_STRETCH)
 	fit_menu.set_item_checked(fit_menu.get_item_index(M_FIT_CONTAIN), l.fit == BG.FIT_CONTAIN)
@@ -455,6 +482,13 @@ func _on_ctx_id(id: int):
 		M_FIT_STRETCH: _set_prop(i, "fit", BG.FIT_STRETCH)
 		M_FIT_CONTAIN: _set_prop(i, "fit", BG.FIT_CONTAIN)
 		M_REMOVE: _remove_layer(i)
+		M_SPACE:
+			l["space"] = not bool(l.get("space", false))
+			if not l.has("depth"):
+				l["depth"] = BG.DEFAULT_DEPTH
+			_changed(i)
+			_refresh_list()
+			_select(i)
 
 func _set_prop(i: int, key: String, value):
 	layers[i][key] = value
@@ -464,6 +498,12 @@ func _changed(i: int):
 	preview.refresh_layer(i)
 	_update_props()
 	_queue_save()
+
+func _on_depth_changed(v: float):
+	depth_label.text = str(int(round(v)))
+	if _updating_ui or _sel() < 0:
+		return
+	_set_prop(_sel(), "depth", float(v))
 
 func _on_tint_changed(c: Color):
 	if _updating_ui or _sel() < 0:

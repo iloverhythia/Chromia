@@ -330,6 +330,8 @@ func apply_hand():
 	elif want == "ball":
 		var ball = load("res://vr/BallHand.gd").build()
 		meshes = [ball, ball]
+	elif load("res://vr/ExtraHands.gd").has(want):
+		meshes = load("res://vr/ExtraHands.gd").pair(want) # (glove, robot, skeleton, crystal)
 	elif want == "custom":
 		meshes = _custom_hand_meshes()
 		if meshes == null:
@@ -339,8 +341,9 @@ func apply_hand():
 	for ray in [left_ray, right_ray]:
 		if "start_gap" in ray:
 			ray.start_gap = 0.0
-			if want == "paw" or want == "ball":
-				var tip: float = load("res://vr/PawHand.gd").TIP if want == "paw" else load("res://vr/BallHand.gd").TIP
+			var XH = load("res://vr/ExtraHands.gd")
+			if want == "paw" or want == "ball" or XH.has(want):
+				var tip: float = load("res://vr/PawHand.gd").TIP if want == "paw" else (load("res://vr/BallHand.gd").TIP if want == "ball" else XH.tip(want))
 				ray.start_gap = max(0.0, ray.transform.origin.z + tip * UNITS_PER_M)
 	for i in range(_hand_default.size()):
 		var d: Array = _hand_default[i]

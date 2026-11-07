@@ -178,7 +178,16 @@ func refresh():
 		c.queue_free()
 
 	var st: Dictionary = Rhythia.get_lifetime_stats()
-	var pb: Dictionary = Rhythia.get_pb_summary()
+	# (the records summary reads every personal-best file: worked out on a
+	# thread; until it's there these tiles show ..., then the page fills in)
+	var pb = Rhythia.pb_summary_async()
+	if not Rhythia.is_connected("pb_summary_ready", self, "_on_pb_summary"):
+		Rhythia.connect("pb_summary_ready", self, "_on_pb_summary")
+	var have_pb: bool = pb is Dictionary
+	if have_pb:
+		_pb_shown = pb
+	if not have_pb:
+		pb = {"maps_played": 0, "maps_passed": 0, "full_combos": 0, "avg_best_accuracy": 0.0}
 	var plays := int(st.plays)
 	var hit := int(st.notes_hit)
 	var missed := int(st.notes_missed)
@@ -198,16 +207,16 @@ func refresh():
 	_tile(Globals.comma_sep(missed), "Notes missed")
 	_tile(_pct(hit, hit + missed), "Overall accuracy")
 	_tile(Globals.comma_sep(int(st.best_combo)), "Best combo")
-	_tile(Globals.comma_sep(int(pb.maps_passed)), "Maps passed")
-	_tile(Globals.comma_sep(int(pb.full_combos)), "Full combos")
-	_tile(("%.2f%%" % (pb.avg_best_accuracy * 100.0)) if pb.maps_passed > 0 else "-", "Avg. best accuracy")
+	_tile(Globals.comma_sep(int(pb.maps_passed)) if have_pb else "...", "Maps passed")
+	_tile(Globals.comma_sep(int(pb.full_combos)) if have_pb else "...", "Full combos")
+	_tile((("%.2f%%" % (pb.avg_best_accuracy * 100.0)) if pb.maps_passed > 0 else "-") if have_pb else "...", "Avg. best accuracy")
 	_tile(Globals.comma_sep(int(Rhythia.jp)), "XP")
 	_tile(Globals.comma_sep(int(Rhythia.sp)), "SP")
-	_tile(Globals.comma_sep(int(pb.maps_played)), "Maps with a record")
+	_tile(Globals.comma_sep(int(pb.maps_played)) if have_pb else "...", "Maps with a record")
 
+	# the 10 most played (picked in one pass, not by sorting every map played)
 	var counts: Dictionary = st.get("map_plays", {})
-	var ids := counts.keys()
-	ids.sort_custom(self, "_by_count_desc")
+	var ids := _top_ids(counts, 10)
 	if ids.empty():
 		var none := Label.new()
 		none.text = "Nothing yet."
@@ -245,6 +254,33 @@ func refresh():
 		row.hint_tooltip = row.text
 		row.mouse_filter = MOUSE_FILTER_PASS
 		_most_played.add_child(row)
+
+static func _top_ids(counts: Dictionary, n: int) -> Array:
+	var top := [] # [count, id], most first
+	for id in counts:
+		var c := int(counts[id])
+		if top.size() >= n and c <= int(top[top.size() - 1][0]):
+			continue
+		var at := top.size()
+		while at > 0 and int(top[at - 1][0]) < c:
+			at -= 1
+		top.insert(at, [c, id])
+		if top.size() > n:
+			top.pop_back()
+	var out := []
+	for t in top:
+		out.append(t[1])
+	return out
+
+# the records summary arrived: shown if it changed (or wasn't there yet)
+var _pb_shown = null
+func _on_pb_summary(summary):
+	if not is_inside_tree() or not is_visible_in_tree():
+		return
+	if _pb_shown != null and var2str(_pb_shown) == var2str(summary):
+		return
+	_pb_shown = summary
+	refresh()
 
 func _by_count_desc(a, b) -> bool:
 	var counts: Dictionary = Rhythia.get_lifetime_stats().get("map_plays", {})
