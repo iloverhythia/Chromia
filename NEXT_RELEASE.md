@@ -27,3 +27,4 @@ in scripts/Savia.gd and empties this list.
 - Lobby invites: no more big popup. A small notice in the bottom right says who invited you (Join or Later), the Online tab gets a dot, and the Online page lists your invites
 - Invite players in a lobby opens its own list of everyone online with an Invite button each (no longer the Spectate window)
 - Multiplayer: the host has a new Pick map button in the lobby that opens its own map list (search, difficulty buttons, covers, stars) to choose the lobby's map
+- Chat: type /share to share the map you have selected (or /share and a map's name). It shows as the map's name in blue: click it to download the map and open it ready to play, also from the Spectate window while watching someone. /share colorset, settings, skin, mesh, cursor and hitsound work as before

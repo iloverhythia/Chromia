@@ -536,7 +536,15 @@ static func install(tree: SceneTree, k: String, path: String, title: String):
 	match k:
 		"map":
 			var run = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/Run")
-			var song = run._import_sspm(path) if run and run.has_method("_import_sspm") else null
+			var song = null
+			if run and run.has_method("_import_sspm"):
+				song = run._import_sspm(path)
+			else:
+				# (not in the menu, e.g. watching someone: the import works the
+				# same without the menu's button)
+				var tmp = load("res://scripts/ui/menu/buttons/RunMapButton.gd").new()
+				song = tmp._import_sspm(path)
+				tmp.free()
 			var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
 			if list and list.has_method("refresh_songs"):
 				list.refresh_songs()
