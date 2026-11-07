@@ -20,7 +20,7 @@ in scripts/Savia.gd and empties this list.
 - Spectating opens faster: the song starts loading as soon as you click, it no longer waits up to 4 seconds for the player's files (a custom border always made it wait the full time, and never showed), their background pictures and videos come in while you watch, and the setting warnings don't stop it
 - Multiplayer: invite people into your lobby. In a lobby, press Invite players (or open the Spectate window) and pick Invite to your lobby from someone's ••• menu; they're asked if they want to join (during a song, right after it). Settings > Online > Allow Lobby Invites turns invites to you off
 - VR: the first seconds of a map no longer lag. The hit and miss effects are ready before the first note (in VR they were made on the first hits, a stall every map), the music isn't restarted over small timing blips while the headset is busy loading, ranked maps no longer work out their fingerprint during the first seconds, and on PC VR the cheat scan waits until the song has settled
-- Cards: a Cards button under your name on your profile picks your card, the background and border colour of your player card in the Spectate grid (and the border of your website profile). Everyone has Default; special cards unlock in secret ways (Admin, Developer and DJ go to who they're named for). Got a secret code? Type it in the Cards menu
+- Cards: a Cards button under your name on your profile picks your card, the background and border colour of your player card in the Spectate grid. Everyone has Default; special cards unlock in secret ways (Admin, Developer and DJ go to who they're named for). Got a secret code? Type it in the Cards menu
 - New Grid Map List option (Settings, or Filters > View > grid): your maps as a grid of square covers, fast even with thousands of maps, switches on and off right away
 - Multiplayer: the leaderboard while playing is much smaller (top left corner), no longer glitches, and Tab hides or shows it
 - Multiplayer: less lag during matches (the leaderboard no longer rebuilds itself on every note)
@@ -28,17 +28,16 @@ in scripts/Savia.gd and empties this list.
 - Invite players in a lobby opens its own list of everyone online with an Invite button each (no longer the Spectate window)
 - Multiplayer: the host has a new Pick map button in the lobby that opens its own map list (search, difficulty buttons, covers, stars) to choose the lobby's map
 - Chat: type /share to share the map you have selected (or /share and a map's name). It shows as the map's name in blue: click it to download the map and open it ready to play, also from the Spectate window while watching someone. /share colorset, settings, skin, mesh, cursor and hitsound work as before
-- Frames: a new Frames button next to Cards on your profile. Pick a frame for your profile picture; it shows in the Spectate grid, Online players, profiles and on the website. Admin has a gold crown, Developer circuit lines, DJ headphones with moving sound bars; every card you unlock gives you its frame
+- Frames: a new Frames button next to Cards on your profile. Pick a frame for your profile picture; it shows in the Spectate grid, Online players and profiles. Admin has a gold crown, Developer circuit lines, DJ headphones with moving sound bars; every card you unlock gives you its frame
 - Badges on profiles (in the game and on the website) are now simple one-colour icons
 - VR: every slider in Settings > VR (grip, grid, menu screen, aim, haptics...) has - and + buttons beside it that move it one step (hold to keep going). The sliders no longer get pushed to the end by the thumbstick after you drag one
 - VR: new Grid size setting (Settings > VR > In songs): makes the grid, notes and cursor bigger, from the default size up to double
 - Menu Customizer (Settings > Menu Customizer): pick your own colours for the menu's buttons, text, text boxes and sidebar, button roundness and borders, and a background pattern (contour lines, grid, dots, waves, hexagons, stripes, stars or a plain colour) with your colours and speed. Exporting a skin now takes your menu with it
 - New modifier: Harder Rock. Like Hard Rock but the notes spread even further out, your cursor can go further past the grid and the hit window is tighter. Turning it on turns Hard Rock off (and the other way round)
-- The modifiers on the map screen are on pages now (3 rows at a time): the arrows or the mouse wheel turn the page, the dots jump to a page, and a page with a modifier on has a green dot
+- The modifiers on the map screen are on pages now (14 per page): the arrows or the mouse wheel turn the page, the dots jump to a page, and a page with a modifier on has a green dot
 - Moving profile pictures and banners: upload a GIF on the website and it moves in the game too (Spectate, Online players, profiles)
 - Website: you can now comment on maps on their map page (sign in with Discord); you can delete your own comments
 - Map icons load much faster everywhere (grid, map list, the multiplayer map picker, VR) and no longer make the menu stutter while they load
 - The grid map list no longer lags in VR
-- Modifiers show 14 per page
 - The Stats page opens instantly, even with a big map library (its records summary loads in the background)
 - Badges, cards and frames can now use custom pictures: badges with their own picture, cards with a background picture in the Spectate grid, and picture frames round profile pictures
