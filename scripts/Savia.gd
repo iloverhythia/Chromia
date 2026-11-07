@@ -176,6 +176,8 @@ func switch_account(new_id: String):
 	sp = 0
 	save_jp()
 	check_player_xp()
+	# (the account's level: the higher of this device's and its other devices')
+	report_level(true)
 
 func _on_move_progress(text: String):
 	emit_signal("init_stage_reached", text)
@@ -3527,9 +3529,12 @@ func record_play_stats():
 	_save_lifetime_stats()
 	_award_level_exp(play_ms)
 
-# Your level (PlayerLevel.gd) for the website (profile, leaderboards): sent
-# when it changes and once a little after the game starts. Levels are earned
-# offline, so the website only shows them.
+# Your level (PlayerLevel.gd) for the website (profile, leaderboards) and
+# your other devices: sent when it changes, once a little after the game
+# starts and after signing in. The server keeps the account's highest level
+# from any device (prestige first, then level, then progress) and answers
+# with it; when that's above this device's, this device takes it. So the
+# device with the higher level / prestige sets the others to the same.
 const LEVEL_URL = "https://savia.nysr.host/savia-level"
 var _level_hooked := false
 var _level_sent := ""
@@ -3541,27 +3546,40 @@ func _hook_level_reports():
 	store.connect("changed", self, "report_level")
 	get_tree().create_timer(15.0).connect("timeout", self, "report_level")
 
-func report_level():
+func report_level(force: bool = false):
 	if cid == "" or not ProjectSettings.get_setting("application/networking/enabled"):
 		return
 	var store = preload("res://scripts/PlayerLevel.gd").get_store()
-	var key := "%d/%d/%d/%d" % [store.level, store.prestige, store.total_exp, store.cur_exp]
-	if key == _level_sent:
+	var key := "%s/%d/%d/%d/%d" % [cid, store.level, store.prestige, store.total_exp, store.cur_exp]
+	if key == _level_sent and not force:
 		return
 	_level_sent = key
 	var r := HTTPRequest.new()
 	r.timeout = 10
 	add_child(r)
-	r.connect("request_completed", self, "_on_level_sent", [r])
+	r.connect("request_completed", self, "_on_level_sent", [r, cid])
 	# (exp: how far into this level, for the website's ring around the picture)
 	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d&exp=%d" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp, store.cur_exp], [], true, HTTPClient.METHOD_POST, "") != OK:
 		r.queue_free()
 		_level_sent = ""
 
-func _on_level_sent(_result, code, _headers, _body, r: HTTPRequest):
+func _on_level_sent(_result, code, _headers, body, r: HTTPRequest, for_cid: String):
 	r.queue_free()
 	if code != 200:
 		_level_sent = "" # (try again next time)
+		return
+	if for_cid != cid:
+		return # (signed in to another account meanwhile)
+	var res := JSON.parse(body.get_string_from_utf8())
+	if res.error != OK or not (res.result is Dictionary) or not (res.result.get("level") is Dictionary):
+		return
+	var L: Dictionary = res.result.level
+	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	if store.take_if_higher(int(L.get("level", 0)), int(L.get("prestige", 0)), int(L.get("exp", 0)), int(L.get("total_exp", 0))):
+		var txt: String = "Level %d" % store.level
+		if store.prestige > 0:
+			txt += ", prestige %d" % store.prestige
+		Globals.notify(Globals.NOTIFY_INFO, txt + " (from your other device)", "Level synced")
 
 # Level system (scripts/PlayerLevel.gd): experience for every play, even fails.
 func _award_level_exp(play_ms: int):

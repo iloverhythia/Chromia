@@ -92,6 +92,23 @@ func add_exp(amount: int) -> Dictionary:
 		emit_signal("changed")
 	return {"gained": amount, "levels_up": level - start_level, "level": level}
 
+# Your level from another device (the server's answer, Savia.report_level):
+# taken when it's above this one (prestige, then level, then progress).
+func take_if_higher(lvl: int, prest: int, xp: int, total: int) -> bool:
+	lvl = int(clamp(lvl, 0, MAX_LEVEL))
+	prest = int(clamp(prest, 0, MAX_PRESTIGE))
+	xp = int(max(0, xp))
+	var above: bool = prest > prestige or (prest == prestige and (lvl > level or (lvl == level and xp > cur_exp)))
+	if not above:
+		return false
+	prestige = prest
+	level = lvl
+	cur_exp = 0 if level >= MAX_LEVEL else xp
+	total_exp = int(max(total_exp, total))
+	save()
+	emit_signal("changed")
+	return true
+
 func do_prestige() -> bool:
 	if not can_prestige():
 		return false
