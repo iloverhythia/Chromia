@@ -2901,7 +2901,7 @@ var mod_reverse: bool = false setget set_mod_reverse
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
 var reverse_length_ms: float = 0.0
 var reverse_song_id: String = ""
-var lb_device: String = "" # the leaderboards' device dropdown (scripts/ui/LbModes.gd): "" all, pc, vr, quest, spin, mobile
+var lb_device: String = "" # the leaderboards' device dropdown (scripts/ui/LbModes.gd): "" all, pc, vr (Quest too), spin, mobile
 
 var start_offset: float = 0 setget _set_start_offset
 var note_hitbox_size: float = 1.14 setget _set_hitbox_size
@@ -4149,6 +4149,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			is_staff = bool(data.is_staff)
 		if data.has("lb_device"):
 			lb_device = String(data.lb_device)
+			if lb_device == "quest": # (Quest is VR now)
+				lb_device = "vr"
 		if data.has("friend_position"):
 			friend_position = data.friend_position
 		if data.has("show_hp_bar"):
