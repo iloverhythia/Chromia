@@ -3586,6 +3586,51 @@ func _award_level_exp(play_ms: int):
 		Globals.notify(Globals.NOTIFY_INFO, "%d / %d to level %d" % [store.cur_exp, store.required(), store.level + 1], "+%d EXP" % gained, 3)
 
 # Summary of personal bests across all maps (from user://bests).
+# The stats page's records summary. It reads every personal-best file, which
+# is slow with many maps, so: pb_summary_async() works it out on a thread and
+# sends pb_summary_ready; each file's result is kept with its modified time,
+# so later only the files that changed are read again.
+signal pb_summary_ready(summary)
+var _pb_file_cache := {} # file name -> [modified time, result]
+var _pb_cache_mutex := Mutex.new()
+var _pb_summary_last = null
+var _pb_summary_thread: Thread = null
+
+# the last summary worked out (null before the first) and a fresh one on its way
+func pb_summary_async():
+	if _pb_summary_thread == null:
+		_pb_summary_thread = Thread.new()
+		if not OS.can_use_threads() or _pb_summary_thread.start(self, "_pb_summary_work") != OK:
+			_pb_summary_thread = null
+			_pb_summary_last = get_pb_summary()
+			call_deferred("emit_signal", "pb_summary_ready", _pb_summary_last)
+	return _pb_summary_last
+
+func _pb_summary_work(_u = null):
+	var out := get_pb_summary()
+	call_deferred("_pb_summary_done", out)
+
+func _pb_summary_done(out: Dictionary):
+	if _pb_summary_thread != null and _pb_summary_thread.is_active():
+		_pb_summary_thread.wait_to_finish()
+	_pb_summary_thread = null
+	_pb_summary_last = out
+	emit_signal("pb_summary_ready", out)
+
+func _best_file_cached(fn: String) -> Dictionary:
+	var path := user_best_dir.plus_file(fn)
+	var mt := File.new().get_modified_time(path)
+	_pb_cache_mutex.lock()
+	var c = _pb_file_cache.get(fn)
+	_pb_cache_mutex.unlock()
+	if c != null and int(c[0]) == mt:
+		return c[1]
+	var best := _read_best_file(path)
+	_pb_cache_mutex.lock()
+	_pb_file_cache[fn] = [mt, best]
+	_pb_cache_mutex.unlock()
+	return best
+
 func get_pb_summary() -> Dictionary:
 	var out := {"maps_played": 0, "maps_passed": 0, "full_combos": 0, "avg_best_accuracy": 0.0}
 	var dir := Directory.new()
@@ -3596,7 +3641,7 @@ func get_pb_summary() -> Dictionary:
 	var fn := dir.get_next()
 	while fn != "":
 		if not dir.current_is_dir():
-			var best := _read_best_file(user_best_dir.plus_file(fn))
+			var best := _best_file_cached(fn)
 			if not best.empty():
 				out.maps_played += 1
 				if best.passed:

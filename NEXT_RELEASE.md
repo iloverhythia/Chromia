@@ -40,3 +40,4 @@ in scripts/Savia.gd and empties this list.
 - Map icons load much faster everywhere (grid, map list, the multiplayer map picker, VR) and no longer make the menu stutter while they load
 - The grid map list no longer lags in VR
 - Modifiers show 9 per page
+- The Stats page opens instantly, even with a big map library (its records summary loads in the background)
