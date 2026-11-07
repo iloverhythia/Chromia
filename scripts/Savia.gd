@@ -2040,11 +2040,20 @@ func _thumb_builder_worker(list: Array):
 			break
 		var wanted = _pop_priority_thumb()
 		if wanted != null:
-			if wanted.build_thumb_file(false) != null:
-				built += 1
+			# (shown in the list: its picture read here, off the main thread)
+			var had: bool = have.has(wanted._thumb_path().get_file())
+			var im = wanted.build_thumb_file(true)
+			if im != null:
+				if not had:
+					built += 1
+				_thumb_mutex.lock()
+				wanted._thumb_img = im
+				_thumb_mutex.unlock()
+			else:
+				wanted._thumb_failed = true
 			if wanted.has_method("build_gif_frames") and wanted.cover_is_gif():
 				wanted.build_gif_frames() # (a GIF cover: its frames, to move)
-			call_deferred("emit_signal", "thumbs_ready")
+			_thumbs_ready_soon()
 			continue
 		if not have.has(list[i]._thumb_path().get_file()):
 			if list[i].build_thumb_file(false) != null:
@@ -2052,6 +2061,22 @@ func _thumb_builder_worker(list: Array):
 		i += 1
 	_thumb_running = false
 	call_deferred("_thumb_builder_finished", built)
+
+# thumbs_ready once a frame at most (the list asks for its covers again on it)
+var _thumbs_signal_queued := false
+func _thumbs_ready_soon():
+	_thumb_mutex.lock()
+	var q := _thumbs_signal_queued
+	_thumbs_signal_queued = true
+	_thumb_mutex.unlock()
+	if not q:
+		call_deferred("_emit_thumbs_ready")
+
+func _emit_thumbs_ready():
+	_thumb_mutex.lock()
+	_thumbs_signal_queued = false
+	_thumb_mutex.unlock()
+	emit_signal("thumbs_ready")
 
 func _thumb_builder_finished(built: int):
 	if _thumb_thread and _thumb_thread.is_active():

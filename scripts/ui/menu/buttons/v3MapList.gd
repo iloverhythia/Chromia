@@ -772,7 +772,11 @@ func firstload():
 
 func update_clouds():
 	if grid != null:
-		grid.refresh_tiles()
+		# (the grid's covers come from CoverSq, not these thumbnails: only the
+		# clouds; refilling every tile here each time a thumbnail was made
+		# was what made the grid lag, worst in VR)
+		grid.update_clouds()
+		return
 	for btn in btns:
 		if is_instance_valid(btn) and btn.get("song"):
 			var map: Song = btn.song

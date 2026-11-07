@@ -37,3 +37,6 @@ in scripts/Savia.gd and empties this list.
 - The modifiers on the map screen are on pages now (3 rows at a time): the arrows or the mouse wheel turn the page, the dots jump to a page, and a page with a modifier on has a green dot
 - Moving profile pictures and banners: upload a GIF on the website and it moves in the game too (Spectate, Online players, profiles)
 - Website: you can now comment on maps on their map page (sign in with Discord); you can delete your own comments
+- Map icons load much faster everywhere (grid, map list, the multiplayer map picker, VR) and no longer make the menu stutter while they load
+- The grid map list no longer lags in VR
+- Modifiers show 9 per page

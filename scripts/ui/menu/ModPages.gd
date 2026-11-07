@@ -12,7 +12,8 @@ extends HBoxContainer
 # checkboxes alone. menu2.gd installs it (_add_new_mod_checkboxes), before
 # SSModPanel takes its snapshot of the layout.
 
-const ROWS := 3 # rows of two per page
+const PER_PAGE := 9 # modifiers on a page
+const ROWS := 5 # rows of two (the last one has one)
 const ROW_H := 30.0
 const ON_DOT := Color(0.45, 0.95, 0.5)
 const LABEL_YELLOW := Color(0.960784, 1, 0.478431)
@@ -22,15 +23,18 @@ const LABEL_YELLOW := Color(0.960784, 1, 0.478431)
 # here goes at the end. (Long names in the right column: the left one's
 # names reach towards the Best column next to it.)
 const ORDER := [
+	# page 1
 	"NoFail", "SuddenDeath",
 	"EasyMode", "HardMode",
 	"Ghost", "HardModeMod",
 	"HardRock", "HarderRockMod",
-	"MirrorX", "MirrorY",
-	"ReverseMod", "InvertMouse",
-	"Earthquake", "VisualMode",
-	"Chaos", "Strobe",
-	"360", "FlashlightMod",
+	"MirrorX",
+	# page 2
+	"MirrorY", "InvertMouse",
+	"ReverseMod", "VisualMode",
+	"Earthquake", "Strobe",
+	"Chaos", "FlashlightMod",
+	"360",
 ]
 
 var mods: Control
@@ -78,7 +82,7 @@ func _build():
 	for b in boxes:
 		_top_y = min(_top_y, b.rect_position.y)
 		old_bottom = max(old_bottom, b.rect_position.y + b.rect_size.y)
-	pages = int(ceil(boxes.size() / float(ROWS * 2)))
+	pages = int(ceil(boxes.size() / float(PER_PAGE)))
 
 	# the page bar
 	alignment = BoxContainer.ALIGN_CENTER
@@ -152,8 +156,8 @@ func _show_page():
 		var b: CheckBox = boxes[i]
 		if not is_instance_valid(b):
 			continue
-		var on_page: int = i / (ROWS * 2)
-		var k: int = i % (ROWS * 2)
+		var on_page: int = i / PER_PAGE
+		var k: int = i % PER_PAGE
 		b.visible = on_page == page
 		b.rect_position.y = _top_y + (k / 2) * ROW_H
 		# (the columns: whatever the menu shifted them to since, keep it)
@@ -175,7 +179,7 @@ func _col_x(col: int) -> float:
 	return base + (_right_dx if col == 1 else 0.0)
 
 func _page_has_on(i: int) -> bool:
-	for j in range(i * ROWS * 2, min(boxes.size(), (i + 1) * ROWS * 2)):
+	for j in range(i * PER_PAGE, min(boxes.size(), (i + 1) * PER_PAGE)):
 		if is_instance_valid(boxes[j]) and boxes[j].pressed:
 			return true
 	return false

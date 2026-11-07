@@ -105,6 +105,15 @@ func hold_scroll(dir: int):
 func refresh_tiles():
 	refresh()
 
+# online maps downloaded (or not): only the clouds on the tiles showing
+func update_clouds():
+	for t in _pool:
+		var i := int(t.get_meta("idx"))
+		if i >= 0 and i < list.disp.size():
+			var cloud = t.get_node_or_null("Cloud")
+			if cloud != null:
+				cloud.visible = list.disp[i].is_online
+
 # ---- layout
 
 func _max_off() -> float:
@@ -281,11 +290,19 @@ func _fill(t: Panel, i: int, map: Song):
 		sel.set_pressed_no_signal(map == Rhythia.selected_song)
 		sel.hint_tooltip = map.name + (("\n" + map.creator) if String(map.creator) != "" else "") + ("\nMap of the Day" if motd else "")
 
+# a cover arrived: just that tile's picture (not the whole tile again)
 func _on_cover_ready(song):
 	for t in _pool:
 		var i := int(t.get_meta("idx"))
 		if i >= 0 and i < list.disp.size() and list.disp[i] == song:
-			_fill(t, i, song)
+			var tex: Texture = covers.tex_for(song)
+			var cover = t.get_node_or_null("Cover")
+			if cover != null:
+				cover.texture = tex
+				cover.visible = tex != null
+			var nm = t.get_node_or_null("Name")
+			if nm != null:
+				nm.visible = tex == null
 
 func _on_selected(_s = null):
 	for t in _pool:

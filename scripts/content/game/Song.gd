@@ -210,6 +210,8 @@ const THUMB_W = 512
 const THUMB_H = 96
 const THUMB_VERSION = 2
 var _thumb: Texture = null
+var _thumb_img: Image = null # (read by the thumbnail thread, made a texture on the next ask; Rhythia._thumb_mutex)
+var _thumb_failed := false # (its cover couldn't be read: not asked for again)
 
 # Keyed on where the cover sits in the map file (no disk access needed).
 func _thumb_path() -> String:
@@ -283,14 +285,17 @@ func get_cover_thumb() -> Texture:
 	if is_online:
 		# Online maps keep using the normal cover path.
 		return cover
-	var path := _thumb_path()
-	if not File.new().file_exists(path):
-		# Not built yet: let the background builder make it next instead of
-		# decoding the full cover here (which stalls the map list).
-		Rhythia.request_thumb(self)
-		return null
-	var img := Image.new()
-	if img.load(path) != OK:
+	# The thumbnail thread reads the kept file (or makes it) and leaves the
+	# picture here; nothing is read from disk on the main thread (that made
+	# scrolling stutter, most of all on the Quest). Until then: none
+	# (thumbs_ready asks again).
+	Rhythia._thumb_mutex.lock()
+	var img: Image = _thumb_img
+	_thumb_img = null
+	Rhythia._thumb_mutex.unlock()
+	if img == null:
+		if not _thumb_failed:
+			Rhythia.request_thumb(self)
 		return null
 	var tex := ImageTexture.new()
 	tex.create_from_image(img, Texture.FLAG_FILTER)
