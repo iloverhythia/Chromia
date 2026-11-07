@@ -3,6 +3,11 @@ extends ColorRect
 # "Wave menu" (experimental setting): replaces the menu's dark background with
 # an animated contour-line shader, and gives the menu's text black outlines so
 # it stays readable on top of the lines.
+#
+# Settings > Menu Customizer (MenuStyle.gd) picks the pattern: the contour
+# lines (wave_menu.shader) or grid, dots, waves, hexagons, stripes, stars or a
+# plain colour (menu_patterns.shader), with your colours and speed. "Off" is
+# the Wave menu setting off (the 3D background shows).
 
 # Only light-coloured text gets an outline (black outlines on black button text
 # would make it unreadable). Outlined copies of each font are made once and
@@ -37,12 +42,64 @@ const COLOR_STEP_SECONDS = 3.0
 var _cs_colors: Array = []
 var _cs_phase: float = 0.0
 
+const MenuStyle = preload("res://scripts/ui/menu/MenuStyle.gd")
+const PATTERN_IDS := {"grid": 0, "dots": 1, "waves": 2, "hex": 3, "stripes": 4, "stars": 5, "solid": 6}
+var _pattern := ""
+var _mat_contour: ShaderMaterial
+var _mat_pattern: ShaderMaterial
+
+# the material for the picked pattern
+func _use_pattern():
+	_pattern = MenuStyle.bg_pattern()
+	if not PATTERN_IDS.has(_pattern):
+		_pattern = "contour"
+	if _pattern == "contour":
+		material = _mat_contour
+		_mat_contour.set_shader_param("speed", 0.05 * MenuStyle.bg_speed())
+	else:
+		material = _mat_pattern
+		_mat_pattern.set_shader_param("pattern", PATTERN_IDS[_pattern])
+		_mat_pattern.set_shader_param("speed", MenuStyle.bg_speed())
+
+# the three colours (background, lines, accent) of a pattern other than contour
+func _pattern_colors() -> Array:
+	var mine := MenuStyle.bg_colors()
+	if not mine.empty():
+		return mine
+	if Rhythia.wave_menu_colorset and Rhythia.selected_colorset != null and not Rhythia.selected_colorset.real_colors.empty():
+		var cs: Array = Rhythia.selected_colorset.real_colors
+		var a: Color = cs[0]
+		var b: Color = cs[min(1, cs.size() - 1)]
+		return [Color(a.r, a.g, a.b).darkened(0.88), Color(a.r, a.g, a.b).darkened(0.35), Color(b.r, b.g, b.b)]
+	if preload("res://scripts/ui/menu/Seasonal.gd").halloween():
+		return [Color(0.06, 0.02, 0.09), Color(0.42, 0.18, 0.55), Color(1.0, 0.52, 0.08)]
+	return MenuStyle.PATTERN_COLORS
+
 func _apply_colors(_v = null):
+	_use_pattern()
 	var mat: ShaderMaterial = material
 	if mat == null: return
+	_cs_colors = []
+	if _pattern != "contour":
+		var pc := _pattern_colors()
+		mat.set_shader_param("c_bg", pc[0])
+		mat.set_shader_param("c_line", pc[1])
+		mat.set_shader_param("c_accent", pc[2])
+		return
 	for k in DEFAULT_COLORS.keys():
 		mat.set_shader_param(k, DEFAULT_COLORS[k])
-	_cs_colors = []
+	# (your own colours: the background, the thin lines, the bright lines)
+	var mine := MenuStyle.bg_colors()
+	if not mine.empty():
+		mat.set_shader_param("bg_color", mine[0])
+		var minor: Color = mine[1]
+		minor.a = 0.75
+		mat.set_shader_param("minor_color", minor)
+		for k in ["major_a", "major_c"]:
+			mat.set_shader_param(k, mine[2])
+		for k in ["major_b", "major_d"]:
+			mat.set_shader_param(k, Color(mine[2]).linear_interpolate(Color(mine[1]).lightened(0.3), 0.5))
+		return
 	if not Rhythia.wave_menu_colorset and preload("res://scripts/ui/menu/Seasonal.gd").halloween():
 		for k in HALLOWEEN_COLORS.keys():
 			mat.set_shader_param(k, HALLOWEEN_COLORS[k])
@@ -123,11 +180,20 @@ func _remove_outlines():
 			n.set(_changed[n][0], _changed[n][1])
 	_changed.clear()
 
+# (Menu Customizer: the pattern or its colours changed)
+func restyle():
+	_apply_colors()
+
 func _ready():
 	mouse_filter = MOUSE_FILTER_IGNORE
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://assets/shaders/wave_menu.shader")
-	material = mat
+	add_to_group("menu_style")
+	_mat_contour = ShaderMaterial.new()
+	_mat_contour.shader = load("res://assets/shaders/wave_menu.shader")
+	_mat_pattern = ShaderMaterial.new()
+	_mat_pattern.shader = load("res://assets/shaders/menu_patterns.shader")
+	material = _mat_contour
+	# the rest of the Menu Customizer's look (buttons, sidebar, tint)
+	get_parent().call_deferred("add_child", MenuStyle.new())
 	Rhythia.connect("wave_menu_changed", self, "_apply")
 	Rhythia.connect("wave_menu_colorset_changed", self, "_apply_colors")
 	Rhythia.connect("selected_colorset_changed", self, "_apply_colors")

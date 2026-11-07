@@ -13,6 +13,8 @@ extends Reference
 #   / loading sounds, Custom Background picture and panorama, the Background
 #   Editor's layers with their pictures and videos, HUD font, HUD panel
 #   picture, custom VR hand models
+# - the menu's look (Settings > Menu Customizer, MenuStyle.gd): buttons,
+#   sidebar, text colours and the background pattern
 #
 # Importing puts it all on (and turns off what the skin doesn't have, e.g. your
 # custom cursor), after saving your look as "Before <skin>.cskin" in
@@ -22,7 +24,8 @@ extends Reference
 # File: "CHROMIASKIN1", u32 raw size, deflate(var2bytes({ v, kind: "cskin",
 #   name, author, version, made, settings: {key: value}, slots: {slot: {ext,
 #   data}}, content: {colorset|mesh|builder|border|hit_sound|miss_sound: {...}},
-#   bg: {layout, media: {file: data}} })) (read back without objects)
+#   bg: {layout, media: {file: data}}, menu: {style, bg} })) (read back without
+#   objects; skins from before the Menu Customizer have no menu and leave yours)
 
 const MAGIC := "CHROMIASKIN1"
 const EXT := "cskin"
@@ -253,6 +256,7 @@ static func build(skin_name: String) -> Dictionary:
 		"version": str(ProjectSettings.get_setting("application/config/version")),
 		"made": OS.get_unix_time(),
 		"settings": settings, "slots": slots, "content": content, "bg": bg,
+		"menu": load("res://scripts/ui/menu/MenuStyle.gd").data().duplicate(true),
 	}
 	var raw: PoolByteArray = var2bytes(data)
 	var packed := PoolByteArray()
@@ -294,6 +298,8 @@ static func read(bytes: PoolByteArray) -> Dictionary:
 		"version": String(data.get("version", "")).left(40),
 		"settings": {}, "slots": {}, "content": {}, "bg": {},
 	}
+	if data.get("menu") is Dictionary:
+		out.menu = load("res://scripts/ui/menu/MenuStyle.gd").clean(data.menu)
 	var allowed := setting_keys()
 	for k in data.settings:
 		var v = data.settings[k]
@@ -359,6 +365,8 @@ static func describe(d: Dictionary) -> String:
 		parts.append(slot_words(d.slots.keys()))
 	if d.bg.has("layout") and not d.bg.layout.layers.empty():
 		parts.append("%d background layer%s" % [d.bg.layout.layers.size(), "" if d.bg.layout.layers.size() == 1 else "s"])
+	if d.has("menu") and not (d.menu.style.empty() and d.menu.bg.empty()):
+		parts.append("a customized menu")
 	return PoolStringArray(parts).join(", ")
 
 static func _ext_ok(n: String, exts: Array) -> bool:
@@ -499,6 +507,10 @@ static func apply(d: Dictionary) -> Dictionary:
 				if _write(p, d.bg.media[file_name]):
 					written += 1
 	BG.save_data(layout)
+
+	# the menu's look (Menu Customizer), when the skin has one
+	if d.has("menu"):
+		load("res://scripts/ui/menu/MenuStyle.gd").put_on(d.menu, Engine.get_main_loop())
 
 	for path in [startup, Globals.p("user://settings.json")]:
 		if f.open(path, File.WRITE) == OK:
