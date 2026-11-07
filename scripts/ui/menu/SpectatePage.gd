@@ -993,7 +993,7 @@ func _make_card() -> Dictionary:
 	var v := VBoxContainer.new()
 	v.anchor_right = 1.0
 	v.anchor_bottom = 1.0
-	v.margin_top = 20 * _k # (under the corner tags)
+	v.margin_top = 12 * _k # (between the corner tags: the picture is in the middle)
 	v.alignment = BoxContainer.ALIGN_CENTER
 	v.add_constant_override("separation", int(2 * _k))
 	v.mouse_filter = MOUSE_FILTER_IGNORE
@@ -1003,6 +1003,12 @@ func _make_card() -> Dictionary:
 	av.size_flags_horizontal = SIZE_SHRINK_CENTER
 	av.mouse_filter = MOUSE_FILTER_IGNORE
 	v.add_child(av)
+	# (room under the picture for its frame: profile > Frames reaches about
+	# 1.45 x its radius, so the name doesn't sit under the frame)
+	var under := Control.new()
+	under.rect_min_size = Vector2(0, 10) * _k
+	under.mouse_filter = MOUSE_FILTER_IGNORE
+	v.add_child(under)
 	var circle := Panel.new()
 	circle.anchor_right = 1.0
 	circle.anchor_bottom = 1.0
