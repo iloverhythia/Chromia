@@ -65,7 +65,7 @@ const SETTINGS := [
 # mods saved with each play: the ones that change how notes look or move
 const MODS := [
 	"mod_ghost", "mod_nearsighted", "mod_flashlight", "mod_reverse", "mod_strobe", "mod_chaos",
-	"mod_earthquake", "mod_360", "mod_mirror_x", "mod_mirror_y", "mod_hardrock",
+	"mod_earthquake", "mod_360", "mod_mirror_x", "mod_mirror_y", "mod_hardrock", "mod_harderrock",
 	"mod_hard_mode", "mod_nofail", "mod_sudden_death", "invert_mouse",
 ]
 

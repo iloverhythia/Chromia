@@ -35,6 +35,7 @@ const TILES := [
 	["No Regen", "HardMode", "noregen", Color(0.95, 0.6, 0.3)],
 	["Hard Mode", "HardModeMod", "hard", Color(0.9, 0.55, 0.3)],
 	["Hard Rock", "HardRock", "bolt", Color(0.95, 0.4, 0.25)],
+	["Harder Rock", "HarderRockMod", "bolt", Color(1.0, 0.2, 0.45)],
 	["Strobe", "Strobe", "strobe", Color(0.85, 0.78, 0.3)],
 	["Mirror X", "MirrorX", "mirrorx", Color(0.4, 0.6, 1.0)],
 	["Mirror Y", "MirrorY", "mirrory", Color(0.4, 0.6, 1.0)],

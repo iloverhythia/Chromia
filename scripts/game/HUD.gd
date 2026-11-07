@@ -1839,7 +1839,7 @@ func _ready():
 
 
 
-	if Rhythia.mod_hardrock and Rhythia.expand_hud_onhr:
+	if Rhythia.hr_on() and Rhythia.expand_hud_onhr:
 		var HUDScale: Array = [
 			$TimerHud,
 			$LeftHud,
@@ -1847,12 +1847,14 @@ func _ready():
 			$EnergyHud,
 			$ComboHud,
 		]
-		Spawn.get_node("Outer").scale *= 1.35
-		$TimerHud.transform.origin += Vector3(0, 0.385, 0)
-		$LeftHud.transform.origin += Vector3(-0.5, 0, 0)
-		$RightHud.transform.origin += Vector3(0.5, 0, 0)
-		$EnergyHud.transform.origin += Vector3(0, -0.45, 0)
-		$ComboHud.transform.origin += Vector3(0, 0.4, 0)
+		# (Harder Rock spreads further: the border and panels move out more)
+		var hr_k: float = (Rhythia.hr_spread() - 1.0) / (Rhythia.HARDROCK_SPREAD - 1.0)
+		Spawn.get_node("Outer").scale *= Rhythia.hr_spread()
+		$TimerHud.transform.origin += Vector3(0, 0.385, 0) * hr_k
+		$LeftHud.transform.origin += Vector3(-0.5, 0, 0) * hr_k
+		$RightHud.transform.origin += Vector3(0.5, 0, 0) * hr_k
+		$EnergyHud.transform.origin += Vector3(0, -0.45, 0) * hr_k
+		$ComboHud.transform.origin += Vector3(0, 0.4, 0) * hr_k
 
 		for l in HUDScale:
 			l.scale *= 0.85
@@ -1959,6 +1961,7 @@ func _ready():
 			mods.append(("%sx%s" % ["-360" if speed < 0 else "360", abs(speed)]) if abs(speed) != 1 else "-360")
 	if Rhythia.mod_strobe: _mod_icon("strobe")
 	if Rhythia.mod_hardrock: _mod_icon("hardrock")
+	if Rhythia.mod_harderrock: _mod_icon("harderrock")
 	if Rhythia.mod_hard_mode: _mod_icon("hard_mode")
 	if Rhythia.mod_flashlight: _mod_icon("flashlight")
 	if Rhythia.mod_reverse: _mod_icon("reverse")

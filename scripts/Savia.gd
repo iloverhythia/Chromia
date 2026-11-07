@@ -416,6 +416,7 @@ func _get_active_mods_dict() -> Dictionary:
 		"360_speed": mod_360_speed,
 		"strobe": mod_strobe,
 		"hardrock": mod_hardrock,
+		"harderrock": mod_harderrock,
 		"hard_mode": mod_hard_mode,
 		"flashlight": mod_flashlight,
 		"reverse": mod_reverse,
@@ -2793,6 +2794,7 @@ func update_rpc_song():
 	if mod_ghost: mods.append("Ghost")
 	if mod_nearsighted: mods.append("Nearsight")
 	if mod_hardrock: mods.append("Hard Rock")
+	if mod_harderrock: mods.append("Harder Rock")
 	if mod_hard_mode: mods.append("Hard Mode")
 	if mod_flashlight: mods.append("Flashlight")
 	if mod_reverse: mods.append("Reverse")
@@ -2849,6 +2851,20 @@ var mod_360: bool = false setget set_mod_360
 var mod_360_speed: float = 1 setget _set_mod_360_speed
 var mod_strobe: bool = false setget _set_mod_strobe
 var mod_hardrock: bool = false setget set_mod_hardrock
+# Harder Rock: Hard Rock spread wider (notes further out, the cursor can go
+# further, a tighter hit window). Only one of the two is on at a time.
+var mod_harderrock: bool = false setget set_mod_harderrock
+const HARDROCK_SPREAD = 1.35
+const HARDERROCK_SPREAD = 1.7
+# either Hard Rock is on
+func hr_on() -> bool:
+	return mod_hardrock or mod_harderrock
+# how far the notes spread from the grid's middle (1: no Hard Rock)
+func hr_spread() -> float:
+	return HARDERROCK_SPREAD if mod_harderrock else (HARDROCK_SPREAD if mod_hardrock else 1.0)
+# how much further past the grid's edge the cursor can go (Hard Rock 0.6)
+func hr_reach() -> float:
+	return 0.6 * (hr_spread() - 1.0) / (HARDROCK_SPREAD - 1.0)
 # Hard Mode: notes are drawn smaller and their hitbox shrinks by the same amount.
 const HARD_MODE_SCALE = 0.75
 var mod_hard_mode: bool = false setget set_mod_hard_mode
@@ -2931,7 +2947,13 @@ func _set_mod_360_speed(v: float):
 func _set_mod_strobe(v: bool):
 	mod_strobe = v; emit_signal("mods_changed")
 func set_mod_hardrock(v: bool):
-	mod_hardrock = v; emit_signal("mods_changed")
+	mod_hardrock = v
+	if v: mod_harderrock = false
+	emit_signal("mods_changed")
+func set_mod_harderrock(v: bool):
+	mod_harderrock = v
+	if v: mod_hardrock = false
+	emit_signal("mods_changed")
 func set_mod_hard_mode(v: bool):
 	mod_hard_mode = v; emit_signal("mods_changed")
 func set_mod_flashlight(v: bool):
@@ -3647,6 +3669,7 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_360: pts.append("m_360")
 	if mod_strobe: pts.append("m_strobe")
 	if mod_hardrock: pts.append("m_hardrock")
+	if mod_harderrock: pts.append("m_harderrock")
 	if mod_hard_mode: pts.append("m_hardmode")
 	if mod_flashlight: pts.append("m_flashlight")
 	if mod_reverse: pts.append("m_reverse")
@@ -3679,6 +3702,7 @@ func parse_pb_str(txt: String):
 	data.invert_mouse = false
 	data.mod_earthquake = false
 	data.mod_hardrock = false
+	data.mod_harderrock = false
 	data.mod_hard_mode = false
 	data.mod_flashlight = false
 	data.mod_reverse = false
@@ -3718,6 +3742,7 @@ func parse_pb_str(txt: String):
 				"m_earthquake": data.mod_earthquake = true
 				"m_strobe": data.mod_strobe = true
 				"m_hardrock": data.mod_hardrock = true
+				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true
 				"m_flashlight": data.mod_flashlight = true
 				"m_reverse": data.mod_reverse = true

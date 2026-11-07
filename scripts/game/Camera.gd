@@ -51,8 +51,8 @@ func _process(delta):
 				var cx = centeroff.x
 				var cy = -centeroff.y
 				cursor.rpos = Vector2(cx, cy)
-				if Rhythia.mod_hardrock:
-					var hard_cock = edgec - 0.6
+				if Rhythia.hr_on():
+					var hard_cock = edgec - Rhythia.hr_reach()
 					cx = clamp(cx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 					cy = clamp(cy, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))
 				else:

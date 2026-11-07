@@ -32,8 +32,8 @@ func move_cursor(mdel: Vector2):
 	rx += mdel.x
 	ry += mdel.y
 
-	if Rhythia.mod_hardrock:
-		var hard_cock = edger - 0.6
+	if Rhythia.hr_on():
+		var hard_cock = edger - Rhythia.hr_reach()
 		rx = clamp(rx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 		ry = clamp(ry, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))
 	else:
@@ -46,8 +46,8 @@ func move_cursor(mdel: Vector2):
 	var cx = rx
 	var cy = ry
 
-	if Rhythia.mod_hardrock:
-		var hard_cock = edgec - 0.6
+	if Rhythia.hr_on():
+		var hard_cock = edgec - Rhythia.hr_reach()
 
 
 		cx = clamp(cx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
@@ -70,8 +70,8 @@ func move_cursor_abs(mdel: Vector2):
 	# drift had their cursor squashed onto the grid's edge)
 	if Rhythia.replaying:
 		pass
-	elif Rhythia.mod_hardrock:
-		var hard_cock = edger - 0.6
+	elif Rhythia.hr_on():
+		var hard_cock = edger - Rhythia.hr_reach()
 		rx = clamp(rx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 		ry = clamp(ry, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))
 	else:
@@ -84,8 +84,8 @@ func move_cursor_abs(mdel: Vector2):
 	var cx = rx
 	var cy = ry
 
-	if Rhythia.mod_hardrock:
-		var hard_cock = edgec - 0.6
+	if Rhythia.hr_on():
+		var hard_cock = edgec - Rhythia.hr_reach()
 		cx = clamp(cx, (0 + sh.x + hard_cock), (3 + sh.x - hard_cock))
 		cy = clamp(cy, (0 + sh.y + hard_cock), (3 + sh.y - hard_cock))
 	else:

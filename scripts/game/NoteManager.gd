@@ -477,7 +477,7 @@ func spawn_notes(note_array: Array):
 				Transform()
 			]
 
-			if Rhythia.mod_hardrock: note[0] = ((note[0] - Vector2(1, -1)) * 1.35) + Vector2(1, -1)
+			if Rhythia.hr_on(): note[0] = ((note[0] - Vector2(1, -1)) * Rhythia.hr_spread()) + Vector2(1, -1) # (Harder Rock: wider)
 			if Rhythia.mod_mirror_x: note[0].x = 2 - note[0].x
 			if Rhythia.mod_mirror_y: note[0].y = (-note[0].y) - 2
 			note[5] = note[5].scaled(note_transform_scale)
@@ -528,7 +528,9 @@ func _ready():
 	if Rhythia.speed_hitwindow:
 		hit_window = Rhythia.get("hitwindow_ms") * speed_multi
 
-	if Rhythia.mod_hardrock:
+	if Rhythia.mod_harderrock:
+		hit_window = hit_window * 0.7
+	elif Rhythia.mod_hardrock:
 		hit_window = hit_window * 0.8
 
 	$Note.speed_multi = speed_multi

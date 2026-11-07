@@ -186,6 +186,7 @@ static func current_mod_tags() -> Array:
 	if R.mod_chaos: m.append("CH")
 	if R.mod_earthquake: m.append("EQ")
 	if R.mod_hardrock: m.append("HR")
+	if R.get("mod_harderrock") == true: m.append("HHR")
 	if R.mod_hard_mode: m.append("HM")
 	if R.mod_flashlight: m.append("FL")
 	if R.get("mod_reverse") == true: m.append("RV")

@@ -1727,6 +1727,7 @@ func _format_mods(mods: Dictionary) -> String:
 	if mods.get("ghost", false): parts.append("Ghost")
 	if mods.get("nearsighted", false): parts.append("Nearsight")
 	if mods.get("hardrock", false): parts.append("Hard Rock")
+	if mods.get("harderrock", false): parts.append("Harder Rock")
 	if mods.get("hard_mode", false): parts.append("Hard Mode")
 	if mods.get("flashlight", false): parts.append("Flashlight")
 	if mods.get("mod_360", false): parts.append("360x%s" % mods.get("mod_360_speed", 1))
@@ -3321,6 +3322,10 @@ func _add_new_mod_checkboxes():
 		"Notes are smaller and so is their hitbox")
 	_mod_checkbox(mods, right, "FlashlightMod", "Flashlight", "mod_flashlight", y,
 		"Everything is dark except a circle around your cursor")
+	_mod_checkbox(mods, right, "HarderRockMod", "Harder Rock", "mod_harderrock", y + row_h,
+		"Hard Rock, but the notes spread even further out and the hit window is tighter")
+	# (more mods than fit: they're on pages now, ModPages.gd)
+	load("res://scripts/ui/menu/ModPages.gd").install(mods)
 
 func _mod_checkbox(parent: Control, like: CheckBox, node_name: String, text: String, prop: String, y: float, tip: String):
 	var cb: CheckBox = like.duplicate(0)

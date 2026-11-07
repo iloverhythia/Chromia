@@ -771,6 +771,7 @@ func _collect_current_mods() -> Dictionary:
 		"ghost": Rhythia.mod_ghost,
 		"nearsighted": Rhythia.mod_nearsighted,
 		"hardrock": Rhythia.mod_hardrock,
+		"harderrock": Rhythia.mod_harderrock,
 		"hard_mode": Rhythia.mod_hard_mode,
 		"flashlight": Rhythia.mod_flashlight,
 		"reverse": Rhythia.mod_reverse,
@@ -824,6 +825,7 @@ func _apply_mods_locally(mods: Dictionary):
 	Rhythia.mod_ghost = mods.get("ghost", Rhythia.mod_ghost)
 	Rhythia.mod_nearsighted = mods.get("nearsighted", Rhythia.mod_nearsighted)
 	Rhythia.mod_hardrock = mods.get("hardrock", Rhythia.mod_hardrock)
+	Rhythia.mod_harderrock = mods.get("harderrock", Rhythia.mod_harderrock if not mods.has("hardrock") else false)
 	Rhythia.mod_hard_mode = mods.get("hard_mode", Rhythia.mod_hard_mode)
 	Rhythia.mod_flashlight = mods.get("flashlight", Rhythia.mod_flashlight)
 	Rhythia.mod_reverse = mods.get("reverse", Rhythia.mod_reverse)
