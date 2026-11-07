@@ -128,6 +128,7 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Text and text boxes", f_title, ACCENT)
 	_color_row("Text", "text")
+	_color_row("Headings and highlights (the pink)", "accent")
 	_color_row("Text box", "field_bg")
 	_color_row("Text box text", "field_text")
 
