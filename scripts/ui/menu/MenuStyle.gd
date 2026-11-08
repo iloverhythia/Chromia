@@ -277,6 +277,16 @@ static func apply_theme():
 		return
 	var o := _orig(theme)
 	var s: Dictionary = data().style
+	# Each change to the theme makes every control in the menu redo its look
+	# and layout: all ~240 at once flooded the engine's message queue and the
+	# menu took seconds to open (black screen). So: nothing when the look on
+	# the theme is already this one (never anything without a look of your
+	# own), and the changes made quietly, the menu told once at the end.
+	var sig := to_json(s)
+	if String(theme.get_meta("menu_style_applied") if theme.has_meta("menu_style_applied") else "{}") == sig:
+		return
+	theme.set_meta("menu_style_applied", sig)
+	theme.set_block_signals(true)
 	for key in o:
 		var parts: Array = key.split("/")
 		var type: String = parts[0]
@@ -303,6 +313,8 @@ static func apply_theme():
 			elif (type == "LineEdit" or type == "TextEdit") and n == "font_color" and s.has("field_text"):
 				c = get_value("field_text")
 			theme.set_color(n, type, c)
+	theme.set_block_signals(false)
+	theme.emit_changed()
 
 # --- controls with their own colours (set in a scene or by code) -----------------
 
