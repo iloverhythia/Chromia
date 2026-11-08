@@ -122,15 +122,19 @@ func end(end_type: int):
 	Rhythia.song_end_type = end_type
 	Rhythia.song_end_combo = max_combo
 	print("song max combo: ", max_combo)
+	# (each step in the crash log: a crash after a song names the step)
 	if not Rhythia.replaying:
 		Rhythia.record_play_stats()
+	Rhythia.trail("song end: stats saved")
 	load("res://scripts/ScoreHistory.gd").record_attempt() # skips replays/autoplay itself
 	var tracker = get_node_or_null("Spawn/PlayTracker")
 	if tracker != null:
 		tracker.finish(end_type) # Settings Generator data
+	Rhythia.trail("song end: history saved")
 
 	if Rhythia.record_replays and not Rhythia.replaying:
 		Rhythia.replay.end_recording()
+		Rhythia.trail("song end: replay saved")
 
 	if end_type == Globals.END_PASS and not Rhythia.replaying and Rhythia.selected_song != null and not Rhythia.mod_reverse: # (Reverse: never ranked)
 		Rhythia.report_map_completion(String(Rhythia.selected_song.id))
@@ -209,6 +213,14 @@ func end(end_type: int):
 		black_fade_target = true
 		yield(get_tree().create_timer(0.35), "timeout")
 		Rhythia.arm_post_death_quick_restart()
+		# Back to the menu the same way as an auto retry: the song stopped and
+		# the game unpaused first. Leaving this song scene while paused crashed
+		# phones after a fail (the retry did the same until it was changed).
+		Rhythia.trail("song end: going to the menu")
+		$Spawn.active = false
+		if $Spawn.has_node("Music"):
+			$Spawn/Music.stop()
+		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
 func update_timer(ms: float, canSkip: bool = false):

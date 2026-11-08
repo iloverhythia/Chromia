@@ -1,12 +1,12 @@
 extends OptionButton
 
 # The leaderboards' device dropdown (every in-game leaderboard and the
-# website's): all plays, or only the ones played on PC / in VR / on Quest /
-# with Spin / on a phone. The server counts each device's plays on their own
+# website's): all plays, or only the ones played on PC / in VR (a Meta Quest
+# is VR too) / with Spin / on a phone. The server counts each device's plays on their own
 # (/savia-public/api/leaderboard/sp?device=, /map/<id>?device=). The choice is
 # shared by every board and kept (Rhythia.lb_device).
 
-const MODES := [["All devices", ""], ["PC", "pc"], ["VR", "vr"], ["Quest", "quest"], ["Spin", "spin"], ["Phone", "mobile"]]
+const MODES := [["All devices", ""], ["PC", "pc"], ["VR", "vr"], ["Spin", "spin"], ["Phone", "mobile"]]
 
 static func name_of(dev: String) -> String:
 	for m in MODES:
@@ -17,6 +17,9 @@ static func name_of(dev: String) -> String:
 # "&device=vr" / "?device=vr" for a request ("" for all devices)
 static func query(first: bool = false) -> String:
 	var d: String = String(Rhythia.get("lb_device")) if Rhythia.get("lb_device") != null else ""
+	if d == "quest": # (Quest was its own choice once: it's VR)
+		d = "vr"
+		Rhythia.lb_device = "vr"
 	if d == "":
 		return ""
 	return ("?" if first else "&") + "device=" + d.http_escape()

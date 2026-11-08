@@ -45,6 +45,7 @@ const KEYS := {
 	"sidebar_sel": Color(0.0588235, 0.0588235, 0.0588235),
 	"sidebar_icon": Color(1, 1, 1),
 	"menu_tint": Color(0.0156863, 0.0156863, 0.0156863, 0.392157),
+	"accent": Color(1, 0.756863, 0.960784),
 }
 
 # --- the saved look --------------------------------------------------------------
@@ -157,21 +158,104 @@ static func refresh(tree: SceneTree):
 
 # --- the theme (every button, text box and label using uitheme.tres) -------------
 
+# Every control type in the theme (buttons, dropdowns, preset buttons, tabs,
+# lists, popups...) and every control with its own colours set in the menu's
+# scenes or code follows the look: the menu's own colours are swapped for
+# yours wherever they're used (PALETTE: the button lilac, its hover, the text
+# box grey, the pink headings, the label text...), and buttons of every kind
+# get your roundness and border.
+
+const BUTTON_TYPES := ["Button", "MenuButton", "OptionButton", "ToolButton", "ColorPickerButton", "CheckButton", "CheckBox", "LinkButton"]
+const BTN_FONT := ["font_color", "font_color_hover", "font_color_pressed", "font_color_focus"]
+# backgrounds: the menu's colour -> [key, lighter (+) / darker (-)]
+const PALETTE_BG := [
+	[Color(0.764706, 0.65098, 0.8), "btn_bg", 0.0],
+	[Color(0.913725, 0.74902, 0.94902), "btn_hover", 0.0],
+	[Color(0.470588, 0.305882, 0.521569), "btn_bg", -0.35],
+	[Color(0.317647, 0.227451, 0.345098), "btn_bg", -0.55],
+	[Color(0.858824, 0.286275, 0.980392), "btn_hover", -0.2],
+	[Color(0.639216, 0.576471, 0.658824), "field_bg", 0.0],
+	[Color(1, 0.756863, 0.960784), "accent", 0.0],
+]
+# text: the menu's colour -> [key, lighter / darker]
+const PALETTE_TEXT := [
+	[Color(0.898039, 0.94902, 1), "text", 0.0],
+	[Color(1, 1, 1), "text", 0.0],
+	[Color(0.690196, 0.690196, 0.690196), "text", -0.25],
+	[Color(1, 0.756863, 0.960784), "accent", 0.0],
+	[Color(0.913725, 0.74902, 0.94902), "accent", 0.1],
+]
+
+static func _near(a: Color, b: Color) -> bool:
+	return abs(a.r - b.r) < 0.02 and abs(a.g - b.g) < 0.02 and abs(a.b - b.b) < 0.02
+
+static func _shade(c: Color, k: float) -> Color:
+	return c.lightened(k) if k > 0.0 else (c.darkened(-k) if k < 0.0 else c)
+
+static func _from(pal: Array, c: Color):
+	var s: Dictionary = data().style
+	for p in pal:
+		if _near(c, p[0]):
+			if not s.has(p[1]):
+				return null
+			var v: Color = _shade(get_value(p[1]), float(p[2]))
+			v.a = c.a * v.a
+			return v
+	return null
+
+# a background colour as it is with your look (or as it was)
+static func bg_color(c: Color) -> Color:
+	var v = _from(PALETTE_BG, c)
+	return v if v != null else c
+
+static func is_button_color(c: Color) -> bool:
+	for i in 5:
+		if _near(c, PALETTE_BG[i][0]):
+			return true
+	return false
+
+# a text colour: on a button, the button's black text becomes yours
+static func text_color(c: Color, on_button: bool) -> Color:
+	var s: Dictionary = data().style
+	if on_button and _near(c, Color(0, 0, 0)) and s.has("btn_text"):
+		var t: Color = get_value("btn_text")
+		t.a = c.a
+		return t
+	var v = _from(PALETTE_TEXT, c)
+	return v if v != null else c
+
+# a stylebox made from the original with your look
+static func styled(orig: StyleBoxFlat, button: bool, style_name: String) -> StyleBoxFlat:
+	var s: Dictionary = data().style
+	var sb: StyleBoxFlat = orig.duplicate()
+	var btn: bool = button and is_button_color(orig.bg_color)
+	if btn and style_name == "disabled" and s.has("btn_bg"):
+		sb.bg_color = Color(get_value("btn_bg")).darkened(0.45)
+	else:
+		sb.bg_color = bg_color(orig.bg_color)
+	if style_name == "focus" and s.has("focus"):
+		sb.border_color = get_value("focus")
+	else:
+		sb.border_color = bg_color(orig.border_color)
+	if (btn or (button and style_name == "focus")) and s.has("btn_radius"):
+		_radius(sb, int(get_value("btn_radius")))
+	if btn and s.has("btn_border_w") and int(get_value("btn_border_w")) > 0:
+		var bc: Color = get_value("btn_border")
+		_border(sb, int(get_value("btn_border_w")), bc if style_name != "hover" else bc.lightened(0.3))
+	return sb
+
 static func _orig(theme: Theme) -> Dictionary:
-	if theme.has_meta("menu_style_orig"):
-		return theme.get_meta("menu_style_orig")
+	if theme.has_meta("menu_style_orig2"):
+		return theme.get_meta("menu_style_orig2")
 	var o := {}
-	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var sb = theme.get_stylebox(st, "Button")
-		o["Button/" + st] = sb.duplicate() if sb != null else null
-	for st in ["normal", "focus"]:
-		var sb = theme.get_stylebox(st, "LineEdit")
-		o["LineEdit/" + st] = sb.duplicate() if sb != null else null
-	for c in ["font_color", "font_color_hover", "font_color_pressed", "font_color_focus"]:
-		o["Button/" + c] = theme.get_color(c, "Button")
-	o["Label/font_color"] = theme.get_color("font_color", "Label")
-	o["LineEdit/font_color"] = theme.get_color("font_color", "LineEdit")
-	theme.set_meta("menu_style_orig", o)
+	for type in theme.get_type_list(""):
+		for n in theme.get_stylebox_list(type):
+			var sb = theme.get_stylebox(n, type)
+			if sb is StyleBoxFlat:
+				o["%s/sb/%s" % [type, n]] = sb.duplicate()
+		for n in theme.get_color_list(type):
+			o["%s/c/%s" % [type, n]] = theme.get_color(n, type)
+	theme.set_meta("menu_style_orig2", o)
 	return o
 
 static func _radius(sb: StyleBoxFlat, r: int):
@@ -193,58 +277,114 @@ static func apply_theme():
 		return
 	var o := _orig(theme)
 	var s: Dictionary = data().style
-	var r: int = get_value("btn_radius")
-	var bw: int = get_value("btn_border_w")
-	var bc: Color = get_value("btn_border")
-	for st in ["normal", "hover", "pressed", "disabled"]:
-		var base = o["Button/" + st]
-		if not (base is StyleBoxFlat):
+	for key in o:
+		var parts: Array = key.split("/")
+		var type: String = parts[0]
+		var what: String = parts[1]
+		var n: String = parts[2]
+		var button: bool = BUTTON_TYPES.has(type)
+		if what == "sb":
+			var sb := styled(o[key], button, n)
+			if type == "LineEdit" or type == "TextEdit" or type == "SpinBox":
+				if s.has("field_bg") and n in ["normal", "read_only"]:
+					sb.bg_color = get_value("field_bg")
+				if s.has("focus") and n == "focus":
+					sb.border_color = get_value("focus")
+				if s.has("btn_radius"):
+					_radius(sb, int(min(int(get_value("btn_radius")), 12)))
+			theme.set_stylebox(n, type, sb)
+		else:
+			var c0: Color = o[key]
+			var c := text_color(c0, button)
+			if button and BTN_FONT.has(n) and s.has("btn_text"):
+				c = get_value("btn_text")
+			elif type == "Label" and n == "font_color" and s.has("text"):
+				c = get_value("text")
+			elif (type == "LineEdit" or type == "TextEdit") and n == "font_color" and s.has("field_text"):
+				c = get_value("field_text")
+			theme.set_color(n, type, c)
+
+# --- controls with their own colours (set in a scene or by code) -----------------
+
+const SB_NAMES := ["normal", "hover", "pressed", "disabled", "focus", "panel", "bg", "fg", "tab_fg", "tab_bg", "read_only", "grabber_area", "slider"]
+const COLOR_NAMES := ["font_color", "font_color_hover", "font_color_pressed", "font_color_focus", "font_color_disabled"]
+
+# (each override's original is kept with the one put on, so a control that
+# changes its own colours later, e.g. a selected tab, is followed too)
+static func restyle_control(c: Control):
+	var active: bool = not data().style.empty()
+	var button: bool = c is BaseButton
+	for n in SB_NAMES:
+		if not c.has_stylebox_override(n):
 			continue
-		var sb: StyleBoxFlat = base.duplicate()
-		if st == "hover" and s.has("btn_hover"):
-			sb.bg_color = get_value("btn_hover")
-		elif st in ["normal", "pressed"] and s.has("btn_bg"):
-			sb.bg_color = get_value("btn_bg")
-		elif st == "disabled" and s.has("btn_bg"):
-			sb.bg_color = Color(get_value("btn_bg")).darkened(0.45)
-		if s.has("btn_radius"):
-			_radius(sb, r)
-		if s.has("btn_border_w") and bw > 0:
-			_border(sb, bw, bc if st != "hover" else bc.lightened(0.3))
-		theme.set_stylebox(st, "Button", sb)
-	var focus = o["Button/focus"]
-	if focus is StyleBoxFlat:
-		var fs: StyleBoxFlat = focus.duplicate()
-		if s.has("focus"):
-			fs.border_color = get_value("focus")
-		if s.has("btn_radius"):
-			_radius(fs, r)
-		theme.set_stylebox("focus", "Button", fs)
-	var tc = get_value("btn_text") if s.has("btn_text") else null
-	for c in ["font_color", "font_color_hover", "font_color_pressed", "font_color_focus"]:
-		theme.set_color(c, "Button", tc if tc != null else o["Button/" + c])
-	theme.set_color("font_color", "Label", get_value("text") if s.has("text") else o["Label/font_color"])
-	theme.set_color("font_color", "LineEdit", get_value("field_text") if s.has("field_text") else o["LineEdit/font_color"])
-	var fn = o["LineEdit/normal"]
-	if fn is StyleBoxFlat:
-		var sb2: StyleBoxFlat = fn.duplicate()
-		if s.has("field_bg"):
-			sb2.bg_color = get_value("field_bg")
-		if s.has("btn_radius"):
-			_radius(sb2, int(min(r, 12)))
-		theme.set_stylebox("normal", "LineEdit", sb2)
-	var ff = o["LineEdit/focus"]
-	if ff is StyleBoxFlat:
-		var sb3: StyleBoxFlat = ff.duplicate()
-		if s.has("focus"):
-			sb3.border_color = get_value("focus")
-		if s.has("btn_radius"):
-			_radius(sb3, int(min(r, 12)))
-		theme.set_stylebox("focus", "LineEdit", sb3)
+		var mk: String = "ms_sb_" + n
+		var cur = c.get_stylebox(n)
+		var o = null
+		if c.has_meta(mk) and c.get_meta(mk)[1] == cur:
+			o = c.get_meta(mk)[0]
+		elif cur is StyleBoxFlat and active and (is_button_color(cur.bg_color) or bg_color(cur.bg_color) != cur.bg_color or bg_color(cur.border_color) != cur.border_color):
+			# (only the ones in the menu's colours: everything else keeps its own look)
+			o = cur
+		if o == null:
+			if c.has_meta(mk):
+				c.remove_meta(mk)
+			continue
+		var sb := styled(o, button, n)
+		c.add_stylebox_override(n, sb)
+		c.set_meta(mk, [o, sb])
+	for n in COLOR_NAMES:
+		if not c.has_color_override(n):
+			continue
+		var mk2: String = "ms_c_" + n
+		var cur2: Color = c.get_color(n)
+		var o2 = null
+		if c.has_meta(mk2) and c.get_meta(mk2)[1] == cur2:
+			o2 = c.get_meta(mk2)[0]
+		elif active and text_color(cur2, button) != cur2:
+			o2 = cur2
+		if o2 == null:
+			if c.has_meta(mk2):
+				c.remove_meta(mk2)
+			continue
+		var v := text_color(o2, button)
+		c.add_color_override(n, v)
+		c.set_meta(mk2, [o2, v])
+
+static func restyle_tree(n: Node):
+	if n is Control:
+		restyle_control(n)
+	for ch in n.get_children():
+		restyle_tree(ch)
 
 # --- the menu itself (one of these in it) ----------------------------------------
 
 var menu: Control
+
+var _pending := []
+
+func _enter_tree():
+	if not get_tree().is_connected("node_added", self, "_on_node_added"):
+		get_tree().connect("node_added", self, "_on_node_added")
+
+func _exit_tree():
+	if get_tree().is_connected("node_added", self, "_on_node_added"):
+		get_tree().disconnect("node_added", self, "_on_node_added")
+
+# controls made while the menu is open (pages, lists, popups) follow the look
+# too: looked at once, after they've set their own colours
+func _on_node_added(n: Node):
+	if not (n is Control) or data().style.empty():
+		return
+	if _pending.empty():
+		call_deferred("_restyle_pending")
+	_pending.append(n)
+
+func _restyle_pending():
+	var list := _pending
+	_pending = []
+	for n in list:
+		if is_instance_valid(n) and n.is_inside_tree():
+			restyle_control(n)
 
 func _ready():
 	name = "MenuStyle"
@@ -263,6 +403,7 @@ func _meta_orig(n: Object, key: String, v):
 func restyle():
 	if menu == null or not is_instance_valid(menu):
 		return
+	restyle_tree(get_tree().root)
 	var s: Dictionary = data().style
 	if menu is ColorRect:
 		var t0 = _meta_orig(menu, "ms_tint", menu.color)
