@@ -423,7 +423,11 @@ func apply_xr_settings():
 	if cfg.has_method("set_foveation_level"):
 		var lvl: int = int(clamp(Rhythia.vr_foveation, 0, 3))
 		cfg.set_foveation_level(lvl, lvl > 0)
-	if Rhythia.vr_refresh > 0.0 and cfg.has_method("set_refresh_rate"):
+	var unlocked := _unlocked_rate()
+	if unlocked > 0.0 and cfg.has_method("set_refresh_rate"):
+		cfg.set_refresh_rate(unlocked)
+		_watch_refresh()
+	elif Rhythia.vr_refresh > 0.0 and cfg.has_method("set_refresh_rate"):
 		var ok := true
 		if cfg.has_method("get_available_refresh_rates"):
 			ok = false
@@ -432,7 +436,37 @@ func apply_xr_settings():
 					ok = true
 		if ok:
 			cfg.set_refresh_rate(Rhythia.vr_refresh)
-	Rhythia.trail("VR graphics: foveation %d, refresh %s" % [Rhythia.vr_foveation, str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default"])
+	Rhythia.trail("VR graphics: foveation %d, refresh %s" % [Rhythia.vr_foveation, ("unlocked %s" % str(unlocked)) if unlocked > 0 else (str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default")])
+
+# Unlock refresh rate: the highest rate the headset offers (0: not on, or the
+# headset doesn't say)
+static func _unlocked_rate() -> float:
+	if not Rhythia.vr_refresh_unlock:
+		return 0.0
+	var rates: Array = refresh_rates()
+	return float(rates[-1]) if not rates.empty() else 0.0
+
+# Headsets can drop back to their default rate (after sleeping, the system
+# menu, a guardian / boundary pop-up): checked every few seconds and put back.
+var _refresh_timer: Timer = null
+func _watch_refresh():
+	if _refresh_timer != null:
+		return
+	_refresh_timer = Timer.new()
+	_refresh_timer.wait_time = 5.0
+	_refresh_timer.pause_mode = PAUSE_MODE_PROCESS
+	_refresh_timer.autostart = true
+	_refresh_timer.connect("timeout", self, "_check_refresh")
+	add_child(_refresh_timer)
+
+func _check_refresh():
+	var want := _unlocked_rate()
+	var cfg = Rhythia.vr_xr_config
+	if want <= 0.0 or cfg == null or not cfg.has_method("set_refresh_rate"):
+		return
+	if cfg.has_method("get_refresh_rate") and abs(float(cfg.get_refresh_rate()) - want) < 0.5:
+		return
+	cfg.set_refresh_rate(want)
 
 static func refresh_rates() -> Array:
 	var cfg = Rhythia.vr_xr_config

@@ -172,7 +172,17 @@ func _ready():
 		for r in rates:
 			items.append(["%d Hz" % int(round(r)), float(r)])
 		_rate_pick = _option_row("Refresh rate", items, "_on_rate")
+		_unlock_box = CheckBox.new()
+		_unlock_box.text = "Unlock refresh rate (always the highest your headset can do, e.g. 120 Hz, kept on even after the headset sleeps)"
+		_unlock_box.theme = load("res://uitheme.tres")
+		_unlock_box.add_font_override("font", f_bold)
+		_unlock_box.connect("toggled", self, "_on_unlock_rate")
+		box.add_child(_unlock_box)
+		if not rates.empty():
+			_label("Highest here: %d Hz. Quest 2: turn on 120 Hz in the headset's Settings > System > Display (or Experimental) first." % int(round(rates[-1])), f_body, DIM, true)
 		_value_row(["Render resolution", "vr_render_scale", 0.6, 1.4, 0.05, " %", 100.0])
+	else:
+		_label("Refresh rate: on PC VR it's set in SteamVR (or the Oculus app); the game never holds the frame rate back in VR.", f_body, DIM, true)
 	_glow_pick = _option_row("Glow", [["Auto (off on Quest)", -1], ["Off", 0], ["On", 1]], "_on_glow")
 	_simple_box = _check("Simple background in songs (fastest: the plain VOID background in VR, whatever background is picked)", "vr_simple_bg")
 	box.add_child(HSeparator.new())
@@ -294,6 +304,7 @@ var _miss_box: CheckBox
 var _hand_pick: OptionButton
 var _fov_pick: OptionButton
 var _rate_pick: OptionButton
+var _unlock_box: CheckBox = null
 var _glow_pick: OptionButton
 var _hide_beam_box: CheckBox = null
 var _simple_box: CheckBox
@@ -534,6 +545,14 @@ func _on_foveation(i: int):
 	Rhythia.vr_foveation = int(_fov_pick.get_item_metadata(i))
 	_apply_xr()
 
+func _on_unlock_rate(on: bool):
+	if _loading:
+		return
+	Rhythia.vr_refresh_unlock = on
+	if _rate_pick:
+		_rate_pick.disabled = on
+	_apply_xr()
+
 func _on_rate(i: int):
 	if _loading:
 		return
@@ -619,6 +638,9 @@ func _load_values():
 	_show_env()
 	_select_meta(_fov_pick, Rhythia.vr_foveation)
 	_select_meta(_rate_pick, Rhythia.vr_refresh)
+	if _unlock_box:
+		_unlock_box.pressed = bool(Rhythia.vr_refresh_unlock)
+		_rate_pick.disabled = bool(Rhythia.vr_refresh_unlock)
 	_select_meta(_glow_pick, Rhythia.vr_glow)
 	if _simple_box:
 		_simple_box.pressed = bool(Rhythia.vr_simple_bg)

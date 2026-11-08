@@ -2290,6 +2290,9 @@ var vr_play_lock_pitch: float = 0.0
 # resolution (applies when VR starts) and glow (-1 = off on Quest, on on PC)
 var vr_foveation: int = 1 # (was 2: the edges of the view looked pixelated)
 var vr_refresh: float = 0.0
+# Settings > VR > Graphics > Unlock refresh rate: always the highest rate the
+# headset offers, put back if the headset drops it (VRPlayer.apply_xr_settings)
+var vr_refresh_unlock: bool = false
 var vr_render_scale: float = 1.0
 var vr_glow: int = -1
 var vr_simple_bg: bool = false # VR songs on the plain VOID background
@@ -4509,6 +4512,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			# pixelated: low instead, once (a level picked after this stays)
 			if vr_foveation == 2 and not data.has("vr_foveation_v2"):
 				vr_foveation = 1
+		if data.has("vr_refresh_unlock"):
+			vr_refresh_unlock = bool(data.vr_refresh_unlock)
 		if data.has("vr_refresh"):
 			vr_refresh = clamp(float(data.vr_refresh), 0.0, 144.0)
 		if data.has("vr_render_scale"):
@@ -5089,6 +5094,7 @@ func _write_settings_file(saveFile: String):
 			vr_foveation = vr_foveation,
 			vr_foveation_v2 = true,
 			vr_refresh = vr_refresh,
+			vr_refresh_unlock = vr_refresh_unlock,
 			vr_render_scale = vr_render_scale,
 			vr_glow = vr_glow,
 			vr_simple_bg = vr_simple_bg,
