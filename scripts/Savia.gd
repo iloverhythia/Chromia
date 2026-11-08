@@ -507,10 +507,11 @@ func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, conten
 	if not show_xp_notifications:
 		return
 	if reasons.size() > 0:
-		Globals.notify(Globals.NOTIFY_WARN, "Won't count for XP — %s" % reasons.join(", "), "XP Not Valid")
+		Globals.notify(Globals.NOTIFY_WARN, "Won't count for SP — %s" % reasons.join(", "), "SP Not Valid")
 	else:
-		var scaled_xp = int(round(xp * current_xp_speed_multiplier()))
-		Globals.notify(Globals.NOTIFY_INFO, "This map is ranked for %d XP." % scaled_xp, "XP Valid")
+		# the SP a full pass gives at this speed (server passSp: speed at most 3x)
+		var s: float = min(current_speed_multiplier(), 3.0)
+		Globals.notify(Globals.NOTIFY_INFO, "This map is ranked for %d SP." % int(round(xp * s * s)), "SP Valid")
 
 var _hwid_computed: bool = false
 var _cached_hwid: String = ""
