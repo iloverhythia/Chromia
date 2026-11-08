@@ -317,6 +317,8 @@ func _ready():
 		_lm.connect("chat_ban_changed", self, "_on_chat_ban")
 		if _lm.has_signal("chat_reactions_changed"):
 			_lm.connect("chat_reactions_changed", self, "_on_chat_reactions")
+		if _lm.has_signal("chat_message_deleted"):
+			_lm.connect("chat_message_deleted", self, "_on_chat_deleted")
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -1378,6 +1380,12 @@ func _on_chat_reactions(mid: String):
 			call_deferred("_redraw_for_reactions")
 			return
 
+# a message deleted by staff: the chat drawn again without it
+func _on_chat_deleted(_mid):
+	if _open and not _react_redraw:
+		_react_redraw = true
+		call_deferred("_redraw_for_reactions")
+
 func _redraw_for_reactions():
 	_react_redraw = false
 	if chat != null and _open:
@@ -1407,11 +1415,13 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float, mi
 	chat.add_text(_clock(ts) + "  ")
 	chat.pop()
 	var is_you := client_id != "" and client_id == Rhythia.cid
+	var who: bool = preload("res://scripts/ui/ChatReactions.gd").name_start(chat, mid, name, _lm) # (staff: right-click)
 	chat.push_font(font_chat_bold)
 	chat.push_color(ACCENT if is_you else _name_color(name))
 	chat.add_text(name + ": ")
 	chat.pop()
 	chat.pop()
+	preload("res://scripts/ui/ChatReactions.gd").name_end(chat, who)
 	# @mentions stand out (yours most); names with spaces count too
 	for part in preload("res://scripts/ui/ChatMention.gd").split(text, _lm):
 		if part[1]:

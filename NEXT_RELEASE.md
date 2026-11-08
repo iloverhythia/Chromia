@@ -7,3 +7,4 @@ in scripts/Savia.gd and empties this list.
 - Speed keys in the map list: press Ctrl+S, then A / D (or the arrow keys) to go through the speeds, Esc when done
 - Your bests and score history are now kept in Chromia's own folder, so opening Rhythia Nightly no longer deletes them (they're copied over the first time you start this version)
 - Spectating maps with lots of notes no longer drops frames when you start watching or their game catches up
+- Staff can right-click a name in chat to delete that message for everyone or ban the player from chat

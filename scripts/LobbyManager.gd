@@ -915,6 +915,27 @@ var ranked_map_info := {} # song id -> {xp, ranked_at} (the map list sorts)
 var last_chat_id := ""
 var chat_reactions := {} # line id -> {counts: {emoji: n}, mine: [emoji]}
 
+# Staff (Owner / Admin tag): right-click a name in chat (ChatReactions.gd)
+# to delete that message for everyone, or chat ban whoever wrote it.
+signal chat_message_deleted(mid)
+func staff_delete_chat(mid: String):
+	if mid != "" and _connected():
+		_send({"type": "staff_chat_delete", "id": mid})
+
+func staff_chat_ban(mid: String):
+	if mid != "" and _connected():
+		_send({"type": "staff_chat_ban", "id": mid})
+
+func _on_chat_deleted(mid: String):
+	if mid == "":
+		return
+	for hist in [global_chat_history, lobby_chat_history]:
+		for i in range(hist.size() - 1, -1, -1):
+			if hist[i] is Dictionary and String(hist[i].get("mid", "")) == mid:
+				hist.remove(i)
+	chat_reactions.erase(mid)
+	emit_signal("chat_message_deleted", mid)
+
 func send_chat_reaction(mid: String, emoji: String):
 	if mid == "" or not _connected():
 		return
@@ -1907,6 +1928,10 @@ func _handle_message(msg: Dictionary):
 			_chat_translated(msg)
 		"chat_reactions":
 			_on_chat_reactions(msg)
+		"chat_deleted":
+			_on_chat_deleted(Globals.s(msg.get("id", "")))
+		"staff_result":
+			Globals.notify(Globals.NOTIFY_SUCCEED if bool(msg.get("ok", false)) else Globals.NOTIFY_WARN, Globals.s(msg.get("text", "")), "Chat")
 		"announcement":
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))

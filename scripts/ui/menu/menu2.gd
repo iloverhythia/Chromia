@@ -1859,7 +1859,9 @@ func _draw_lobby_line(line: RichTextLabel):
 	var lf = lobby_chat_input.get_font("font") if lobby_chat_input != null else null
 	var px: int = int(lf.get_height()) if lf != null else 18
 	line.clear()
+	var who: bool = preload("res://scripts/ui/ChatReactions.gd").name_start(line, String(d[2]), String(d[0]), _get_lobby_manager()) # (staff: right-click)
 	line.add_text(String(d[0]) + ": ")
+	preload("res://scripts/ui/ChatReactions.gd").name_end(line, who)
 	preload("res://scripts/ui/ChatCommands.gd").add_text(line, String(d[1]), px) # (emoji, share links)
 	preload("res://scripts/ui/ChatReactions.gd").add(line, String(d[2]), _get_lobby_manager(), int(px * 0.85)) # (reactions)
 
@@ -1870,6 +1872,20 @@ func _on_lobby_chat_reactions(mid: String):
 	for line in lobby_chat_log_box.get_children():
 		if line is RichTextLabel and line.has_meta("chat") and String(line.get_meta("chat")[2]) == mid:
 			_draw_lobby_line(line)
+
+# a message deleted by staff: its line goes (lobby chat and the small global chat)
+func _on_chat_deleted(mid: String):
+	for box in [lobby_chat_log_box, global_chat_log_box]:
+		if box == null or not is_instance_valid(box):
+			continue
+		for line in box.get_children():
+			var lm_id := ""
+			if line.has_meta("chat"):
+				lm_id = String(line.get_meta("chat")[2])
+			elif line.has_meta("chat_mid"):
+				lm_id = String(line.get_meta("chat_mid"))
+			if lm_id != "" and lm_id == mid:
+				line.queue_free()
 
 func _clear_lobby_chat():
 	if lobby_chat_log_box == null:
@@ -1909,6 +1925,9 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 	elif preload("res://scripts/ui/ChatMention.gd").mentions_me(text, _get_lobby_manager()):
 		line.add_color_override("font_color", Color(1.0, 0.55, 0.75)) # (you're mentioned)
 	global_chat_log_box.add_child(line)
+	var glm = _get_lobby_manager()
+	if glm != null:
+		preload("res://scripts/ui/ChatReactions.gd").moderate_label(line, String(glm.get("last_chat_id")) if glm.get("last_chat_id") != null else "", name, glm) # (staff: right-click)
 	while global_chat_log_box.get_child_count() > GLOBAL_CHAT_MAX_LINES:
 		global_chat_log_box.get_child(0).queue_free()
 	if global_chat_scroll != null:
@@ -2957,6 +2976,8 @@ func _ready():
 		lobby_manager.connect("chat_message_received", self, "_on_chat_message_received")
 		if lobby_manager.has_signal("chat_reactions_changed") and not lobby_manager.is_connected("chat_reactions_changed", self, "_on_lobby_chat_reactions"):
 			lobby_manager.connect("chat_reactions_changed", self, "_on_lobby_chat_reactions")
+		if lobby_manager.has_signal("chat_message_deleted") and not lobby_manager.is_connected("chat_message_deleted", self, "_on_chat_deleted"):
+			lobby_manager.connect("chat_message_deleted", self, "_on_chat_deleted")
 		lobby_manager.connect("global_chat_message_received", self, "_on_global_chat_message_received")
 		if lobby_manager.has_admin_key():
 			_build_admin_ui()

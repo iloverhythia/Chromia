@@ -16,6 +16,7 @@ const PICKER := [
 	"❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "💔", "✨", "🔥", "💯", "⭐",
 	"🎉", "🎵", "🎶", "🎮", "🏆", "🥇", "⚡", "🌈", "🐱", "🐶", "🦊", "🐸",
 ]
+const META_W := "chromia_who:" # (a writer's name: <line id>:<name>)
 const META_R := "chromia_react:"
 const META_P := "chromia_reactpick:"
 const DIM := Color(0.6, 0.57, 0.68)
@@ -78,6 +79,33 @@ static func _plus(rtl: RichTextLabel, mid: String):
 	rtl.pop()
 	rtl.pop()
 
+# Staff (Owner / Admin tag) right-click a name in chat: delete that message
+# for everyone, or ban its writer from chat (the server checks it's staff).
+# Chat boxes put the name between name_start and name_end.
+static func name_start(rtl: RichTextLabel, mid: String, name: String, lm) -> bool:
+	if mid == "" or lm == null or not lm.has_method("staff_delete_chat"):
+		return false
+	_hook(rtl, lm)
+	rtl.push_meta(META_W + mid + ":" + name)
+	return true
+
+static func name_end(rtl: RichTextLabel, started: bool):
+	if started:
+		rtl.pop()
+
+# a plain Label line (the menu's small global chat): right-click it
+static func moderate_label(label: Control, mid: String, name: String, lm):
+	if mid == "" or lm == null or not lm.has_method("staff_delete_chat"):
+		return
+	label.set_meta("chat_mid", mid)
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	var h = load("res://scripts/ui/ChatReactions.gd").new()
+	h.name = "Moderate"
+	h._lm = lm
+	h._hover_who = mid + ":" + name
+	label.add_child(h)
+	label.connect("gui_input", h, "_on_input", [label])
+
 static func _hook(rtl: RichTextLabel, lm):
 	if rtl.has_meta("_reactions"):
 		return
@@ -91,13 +119,62 @@ static func _hook(rtl: RichTextLabel, lm):
 	rtl.connect("meta_clicked", h, "_on_meta")
 	rtl.connect("meta_hover_started", h, "_on_hover", [true])
 	rtl.connect("meta_hover_ended", h, "_on_hover", [false])
+	rtl.connect("gui_input", h, "_on_input", [rtl])
 
 var _lm
 var _rtl: RichTextLabel
 var _pop: PopupPanel
 
+var _hover_who := "" # (the name under the mouse: <line id>:<name>)
+var _menu: PopupMenu
+
+func _is_staff() -> bool:
+	return is_instance_valid(_lm) and bool(_lm.get("i_am_staff"))
+
+func _on_input(ev, ctl: Control):
+	if _hover_who == "" or not (ev is InputEventMouseButton) or not ev.pressed or ev.button_index != BUTTON_RIGHT or not _is_staff():
+		return
+	ctl.accept_event()
+	var at := _hover_who.find(":")
+	var mid := _hover_who.substr(0, at)
+	var who := _hover_who.substr(at + 1)
+	if _menu == null or not is_instance_valid(_menu):
+		_menu = PopupMenu.new()
+		ctl.add_child(_menu) # (on its owner's layer: above the Spectate window)
+		_menu.connect("id_pressed", self, "_on_mod_pick")
+	_menu.clear()
+	_menu.add_item("Delete message", 0)
+	_menu.add_item("Chat ban %s" % who, 1)
+	_menu.set_meta("mid", mid)
+	_menu.set_meta("who", who)
+	var vp := ctl.get_viewport()
+	var pos: Vector2 = vp.get_mouse_position()
+	_menu.rect_size = Vector2()
+	_menu.popup(Rect2(pos, Vector2(1, 1)))
+	var sz: Vector2 = _menu.get_combined_minimum_size()
+	var vs: Vector2 = vp.get_visible_rect().size
+	_menu.rect_global_position = Vector2(clamp(pos.x, 4, vs.x - sz.x - 4), clamp(pos.y, 4, vs.y - sz.y - 4))
+
+func _on_mod_pick(id: int):
+	if not is_instance_valid(_lm):
+		return
+	var mid := String(_menu.get_meta("mid"))
+	if id == 0:
+		_lm.staff_delete_chat(mid)
+	elif id == 1:
+		Globals.confirm_prompt.open("Ban %s from chat? Undo it in the admin panel (Bans)." % String(_menu.get_meta("who")), "Chat ban", [{text = "Cancel"}, {text = "Ban"}])
+		var option = yield(Globals.confirm_prompt, "option_selected")
+		Globals.confirm_prompt.close()
+		if option == 1 and is_instance_valid(_lm):
+			_lm.staff_chat_ban(mid)
+
 func _on_hover(meta, on: bool):
 	var m := String(meta)
+	if m.begins_with(META_W):
+		_hover_who = m.substr(META_W.length()) if on else ""
+		if _is_staff():
+			_rtl.hint_tooltip = "Right-click: delete / chat ban" if on else ""
+		return
 	if m.begins_with(META_R) or m.begins_with(META_P):
 		_rtl.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if on else Control.CURSOR_ARROW
 		if on:
