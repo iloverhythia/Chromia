@@ -645,6 +645,32 @@ const XP_REJECT_REASONS := {
 	"debounced": "you already scored this map recently",
 }
 
+const UNRANKED_MAP_URL = "https://savia.nysr.host/savia-unranked-map"
+func _send_unranked_map(song_id: String):
+	var song = registry_song.get_item(song_id) if registry_song != null else null
+	if song == null or String(song.get("filePath")) == "":
+		return
+	var f := File.new()
+	if f.open(String(song.filePath), File.READ) != OK:
+		return
+	var n := f.get_len()
+	if n < 16 or n > 32 * 1024 * 1024 or f.get_buffer(4).get_string_from_ascii() != "SS+m":
+		f.close()
+		return # (only .sspm maps, up to 32 MB)
+	f.seek(0)
+	var bytes := f.get_buffer(n)
+	f.close()
+	var r := HTTPRequest.new()
+	r.timeout = 120
+	r.use_threads = OS.can_use_threads()
+	add_child(r)
+	r.connect("request_completed", self, "_on_unranked_map_sent", [r])
+	if r.request_raw("%s?client_id=%s&song_id=%s" % [UNRANKED_MAP_URL, cid.http_escape(), song_id.http_escape()], ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, bytes) != OK:
+		r.queue_free()
+
+func _on_unranked_map_sent(_result, _code, _h, _body, r: HTTPRequest):
+	r.queue_free()
+
 func _on_report_completion_received(result, response_code, headers, body, http_request: HTTPRequest, song_id: String, replay_id_snapshot: String, sent_replay: bool = false):
 	http_request.queue_free()
 	if response_code != 200:
@@ -655,6 +681,11 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 		Globals.notify(Globals.NOTIFY_ERROR, "Couldn't reach the server to submit your score.", "Score Not Submitted")
 		return
 	var data = json_result.result
+	# an unranked map's pass is kept for your website profile (Recent); the
+	# server asks for the map when it doesn't have it, so the replay can play
+	# there (not when you turned off sharing your maps)
+	if bool(data.get("want_map", false)) and share_maps_with_spectators:
+		_send_unranked_map(song_id)
 	var before = jp
 	var before_sp = sp
 	var awarded = int(data.get("awarded", 0))

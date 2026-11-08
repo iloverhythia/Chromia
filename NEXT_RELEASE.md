@@ -18,3 +18,4 @@ in scripts/Savia.gd and empties this list.
 - VR: menus stay smooth: the animated menu background is drawn at lower cost in the headset, and two things that made the menu stutter every few seconds are gone (also on PC and phones)
 - The popup when you start a ranked map now shows the SP a full pass gives instead of XP
 - VR: switching settings profiles (or putting on a skin) no longer leaves the headset black until you restart: a profile's window settings (fullscreen, maximise, max FPS mode) aren't applied while VR runs
+- Website: passes on unranked maps now show in your profile's Recent list with their replay, marked Unranked (no SP or XP)
