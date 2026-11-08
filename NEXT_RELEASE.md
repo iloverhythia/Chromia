@@ -17,3 +17,4 @@ in scripts/Savia.gd and empties this list.
 - VR (Quest): Settings > VR > Graphics > Unlock refresh rate: always runs at the highest refresh rate your headset offers (like 120 Hz) and keeps it after the headset sleeps
 - VR: menus stay smooth: the animated menu background is drawn at lower cost in the headset, and two things that made the menu stutter every few seconds are gone (also on PC and phones)
 - The popup when you start a ranked map now shows the SP a full pass gives instead of XP
+- VR: switching settings profiles (or putting on a skin) no longer leaves the headset black until you restart: a profile's window settings (fullscreen, maximise, max FPS mode) aren't applied while VR runs

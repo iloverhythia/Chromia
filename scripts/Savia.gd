@@ -3291,6 +3291,8 @@ func no_delay_end():
 	Input.use_accumulated_input = bool(s[3])
 
 func apply_max_fps_mode():
+	if vr:
+		return # (the headset sets the pace and the picture: apply_vr_pacing)
 	var vp = get_viewport()
 	if max_fps_mode:
 		Engine.target_fps = 0
@@ -4050,7 +4052,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 				OS.vsync_enabled = data.vsync_enabled
 
 
-		OS.vsync_via_compositor = false
+		if not vr:
+			OS.vsync_via_compositor = false
 		if data.has("window_fullscreen") and not vr:
 			OS.window_fullscreen = data.window_fullscreen
 		if data.has("selected_colorset"):
@@ -4218,7 +4221,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			realistic_autoplay = bool(data.realistic_autoplay)
 		if data.has("max_fps_mode"):
 			max_fps_mode = bool(data.max_fps_mode)
-			if max_fps_mode: call_deferred("apply_max_fps_mode")
+			if max_fps_mode and not vr: call_deferred("apply_max_fps_mode")
 		if data.has("pc_no_delay"):
 			pc_no_delay = bool(data.pc_no_delay)
 		if data.has("legacy_mouse"):
@@ -4303,14 +4306,17 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			music_offset = data.music_offset
 		if data.has("auto_maximize"):
 			auto_maximize = data.auto_maximize
-			if auto_maximize: OS.window_maximized = true
+			if auto_maximize and not vr: OS.window_maximized = true
 		if data.has("window_fullscreen") and not vr:
 			OS.window_fullscreen = data.window_fullscreen
 		if data.has("window_borderless") and not vr:
 			set_borderless_windowed(data.window_borderless)
 		# (a test build had a second, non-exclusive "Fullscreen" for a day: it
 		# felt different, so it's the one Fullscreen again)
-		if data.has("normal_fullscreen") and bool(data.normal_fullscreen) and not OS.window_fullscreen:
+		# (none of the window settings while VR runs: on the Quest a fullscreen
+		# change mid-game left the headset black until the game restarted, after
+		# switching to a settings profile or putting on a skin)
+		if data.has("normal_fullscreen") and bool(data.normal_fullscreen) and not OS.window_fullscreen and not vr:
 			OS.window_borderless = false
 			OS.window_fullscreen = true
 		if data.has("cursor_face_velocity"):
@@ -4604,9 +4610,13 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if sv >= 4: auto_preview_song = bool(file.get_8())
 		if file.get_8() != 0:
 			print("integ 1"); return 3
-		OS.vsync_enabled = bool(file.get_8())
-		OS.vsync_via_compositor = bool(file.get_8()) and false
-		OS.window_fullscreen = bool(file.get_8())
+		var old_vsync := bool(file.get_8())
+		var _old_comp := file.get_8()
+		var old_full := bool(file.get_8())
+		if not vr:
+			OS.vsync_enabled = old_vsync
+			OS.vsync_via_compositor = false
+			OS.window_fullscreen = old_full
 
 		var cset = registry_colorset.get_item(file.get_line())
 		if cset: select_colorset(cset)
