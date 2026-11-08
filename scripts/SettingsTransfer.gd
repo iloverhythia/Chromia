@@ -22,7 +22,7 @@ const ALPHABET := "0123456789ABCDEFGHJKMNPQRSTVWXYZ" # Crockford base 32
 
 # top-level folders / files of the user folder that never go
 const SKIP_DIRS := ["maps", "vmaps", "packs", "mods", "replays", "logs", "caches", "cache",
-	"editor", "pack_update", "savia", "score_history", "play_tracking", "bests", "friend",
+	"editor", "pack_update", "savia", "score_history", "play_tracking", "bests", "chromia", "friend",
 	"temp", "imported", "_picked_content", "chromia_upload", "chromia_export", "transfer",
 	"crashes", "downloads"]
 const SKIP_FILES := ["settings.json", "settings", "settings.cfg", "active_profile.txt",

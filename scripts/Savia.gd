@@ -1289,7 +1289,9 @@ var user_pack_dir: String = Globals.p("user://packs")
 var user_mod_dir: String = Globals.p("user://mods")
 var user_vmap_dir: String = Globals.p("user://vmaps")
 var user_map_dir: String = Globals.p("user://maps")
-var user_best_dir: String = Globals.p("user://bests")
+# (Chromia's own folder: Rhythia Nightly shares the user folder, and opening it
+# threw away Chromia's bests)
+var user_best_dir: String = Globals.p("user://chromia/bests")
 var user_colorset_dir: String = Globals.p("user://colorsets")
 var user_friend_dir: String = Globals.p("user://friend")
 var user_mesh_dir: String = Globals.p("user://meshes")
@@ -3606,7 +3608,7 @@ func _award_level_exp(play_ms: int):
 	else:
 		Globals.notify(Globals.NOTIFY_INFO, "%d / %d to level %d" % [store.cur_exp, store.required(), store.level + 1], "+%d EXP" % gained, 3)
 
-# Summary of personal bests across all maps (from user://bests).
+# Summary of personal bests across all maps (from user://chromia/bests).
 # The stats page's records summary. It reads every personal-best file, which
 # is slow with many maps, so: pb_summary_async() works it out on a thread and
 # sends pb_summary_ready; each file's result is kept with its modified time,
@@ -3860,6 +3862,32 @@ func convert_song_pbs(song: Song):
 			"has_passed": pb.has_passed
 		}
 		song.set_pb_if_better(generate_pb_str(true), npb)
+# Bests and score history used to sit in the user folder Rhythia Nightly
+# shares, and Nightly deleted Chromia's. The first start with the chromia folder
+# copies them in (Nightly keeps the old ones).
+static func _copy_tree(from: String, to: String):
+	var d := Directory.new()
+	if d.open(from) != OK:
+		return
+	d.make_dir_recursive(to)
+	d.list_dir_begin(true, true)
+	var fn := d.get_next()
+	while fn != "":
+		if d.current_is_dir():
+			_copy_tree(from.plus_file(fn), to.plus_file(fn))
+		else:
+			d.copy(from.plus_file(fn), to.plus_file(fn))
+		fn = d.get_next()
+	d.list_dir_end()
+
+func _move_to_chromia_folder(dir: Directory):
+	if not dir.dir_exists(user_best_dir) and dir.dir_exists(Globals.p("user://bests")):
+		_copy_tree(Globals.p("user://bests"), user_best_dir)
+		trail("bests copied to the chromia folder")
+	var sh: String = load("res://scripts/ScoreHistory.gd").DIR
+	if not dir.dir_exists(sh) and dir.dir_exists("user://score_history"):
+		_copy_tree("user://score_history", sh)
+
 func load_pbs():
 	var file: File = File.new()
 	if file.file_exists(Globals.p("user://pb.json")):
@@ -6238,9 +6266,10 @@ func do_init(_ud = null):
 			file.store_line("In blender, the mesh should face towards the positive Y direction.")
 			file.close()
 		if not dir.dir_exists(Globals.p("user://replays")): dir.make_dir(Globals.p("user://replays"))
+		_move_to_chromia_folder(dir)
 		if not dir.dir_exists(user_best_dir):
 			convert_pb_format = true
-			dir.make_dir(user_best_dir)
+			dir.make_dir_recursive(user_best_dir)
 		err = file.open(Globals.p("user://install_path.txt"), File.WRITE)
 		if err == OK:
 			file.store_string(OS.get_executable_path())

@@ -494,8 +494,8 @@ func load_pbs():
 	if Rhythia.single_map_mode:
 		return
 	var file: File = File.new()
-	if file.file_exists(Globals.p("user://bests/%s" % id)):
-		var err: int = file.open(Globals.p("user://bests/%s" % id), File.READ)
+	if file.file_exists(Rhythia.user_best_dir + "/" + id):
+		var err: int = file.open(Rhythia.user_best_dir + "/" + id, File.READ)
 		if err != OK:
 			return
 
@@ -544,7 +544,7 @@ func save_pbs():
 	if Rhythia.single_map_mode:
 		return
 	var file: File = File.new()
-	var err: int = file.open(Globals.p("user://bests/%s") % id, File.WRITE)
+	var err: int = file.open(Rhythia.user_best_dir + "/" + id, File.WRITE)
 	if err != OK:
 		print("error writing pb file for %s:  %s" % [id, String(err)])
 		return
