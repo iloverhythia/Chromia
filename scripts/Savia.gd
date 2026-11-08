@@ -3070,9 +3070,15 @@ var spawn_distance: float = 40 setget , get_spawn_distance
 func get_spawn_distance():
 	if replaying and replay.settings.has("spawn_distance"): return replay.settings.get("spawn_distance")
 	return spawn_distance
-var lead_in_ms: float = 3000 setget _set_lead_in_ms
+var lead_in_ms: float = 3000 setget _set_lead_in_ms, _get_lead_in_ms
 func _set_lead_in_ms(v: float):
 	lead_in_ms = v
+# a replay plays with the lead-in it was played with (Replay.gd lead_in_ms),
+# not yours: its clock starts with it (saving still keeps yours)
+func _get_lead_in_ms() -> float:
+	if replaying and replay != null and replay.lead_in_ms > 0:
+		return replay.lead_in_ms
+	return lead_in_ms
 
 const LOBBY_LEAD_IN_MS: float = 3000.0
 var _lobby_lead_in_backup: float = -1

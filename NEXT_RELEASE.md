@@ -13,3 +13,4 @@ in scripts/Savia.gd and empties this list.
 - Settings > Transfer: Include maps sends all your maps too (with the code over Wi-Fi or in the file); maps the other device already has are skipped
 - VR: putting on a skin no longer leaves a black screen until you restart the game
 - Map browser (Content Browser > Maps) is much smoother, especially in VR: covers are loaded in the background at card size and the cards appear a few at a time
+- Replays (in the game and the website's Game view) now play with the lead-in the player used, so the cursor no longer drifts off the notes when your Lead-In Time is different
