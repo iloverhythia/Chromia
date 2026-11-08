@@ -183,10 +183,21 @@ func _same_name_song(m: Dictionary):
 	if s == null:
 		return null
 	var oid := str(m.get("id", ""))
-	for k in _record.keys():
-		if k != oid and String(_record[k]) == id:
+	# (which rhythia.com maps became which local map: kept the other way round
+	# too, so this stays instant however many maps you've downloaded)
+	for k in _by_local.get(id, []):
+		if k != oid:
 			return null # that file is a different rhythia.com map
 	return s
+
+var _by_local := {} # local map id -> [rhythia.com ids]
+func _index_record():
+	_by_local = {}
+	for k in _record.keys():
+		var l := String(_record[k])
+		if not _by_local.has(l):
+			_by_local[l] = []
+		_by_local[l].append(k)
 
 func _load_record():
 	var f = File.new()
@@ -195,8 +206,10 @@ func _load_record():
 		f.close()
 		if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
 			_record = p.result
+			_index_record()
 
 func _save_record():
+	_index_record()
 	var f = File.new()
 	if f.open(Globals.p(RECORD_PATH), File.WRITE) == OK:
 		f.store_string(to_json(_record))
