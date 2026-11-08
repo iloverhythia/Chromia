@@ -15,3 +15,4 @@ in scripts/Savia.gd and empties this list.
 - Map browser (Content Browser > Maps) is much smoother, especially in VR: covers are loaded in the background at card size and the cards appear a few at a time
 - Replays (in the game and the website's Game view) now play with the lead-in the player used, so the cursor no longer drifts off the notes when your Lead-In Time is different
 - VR (Quest): Settings > VR > Graphics > Unlock refresh rate: always runs at the highest refresh rate your headset offers (like 120 Hz) and keeps it after the headset sleeps
+- VR: menus stay smooth: the animated menu background is drawn at lower cost in the headset, and two things that made the menu stutter every few seconds are gone (also on PC and phones)
