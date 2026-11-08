@@ -6,3 +6,4 @@ in scripts/Savia.gd and empties this list.
 - Quick restart: the map comes back in right away instead of fading in from black (the wait before the first note is Settings > Gameplay > Lead-In Time)
 - Speed keys in the map list: press Ctrl+S, then A / D (or the arrow keys) to go through the speeds, Esc when done
 - Your bests and score history are now kept in Chromia's own folder, so opening Rhythia Nightly no longer deletes them (they're copied over the first time you start this version)
+- Spectating maps with lots of notes no longer drops frames when you start watching or their game catches up

@@ -809,7 +809,9 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 func _spec_speed() -> float:
 	return max(Spawn.speed_multi, 0.05) if Spawn != null else 1.0
 
+var _spec_stats_ms := -INF # (the update whose numbers are on the HUD)
 func _spec_reset_clock():
+	_spec_stats_ms = -INF
 	_spec_samples.clear()
 	_spec_offsets.clear()
 	_spec_clock_set = false
@@ -854,8 +856,13 @@ func _update_spectate_render(delta: float):
 	spectate_cursor.transform.origin = _spec_cursor_at(_spec_ms)
 	_update_spectate_drift(_spec_ms)
 	_update_spectate_vr(_spec_ms)
-	_apply_spectate_stats(_spec_sample_before(_spec_ms))
-	update_static_values()
+	# (the numbers only when a newer update of theirs is reached: redone every
+	# frame, the HUD's texts were laid out again each frame)
+	var sample: Dictionary = _spec_sample_before(_spec_ms)
+	if float(sample.ms) != _spec_stats_ms:
+		_spec_stats_ms = float(sample.ms)
+		_apply_spectate_stats(sample)
+		update_static_values()
 	Spawn.ms = _spec_ms # NoteManager moves the notes and keeps the music with it
 
 # --- watching someone in VR: their hands, beam and (with their settings) view ---

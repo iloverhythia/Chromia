@@ -331,6 +331,18 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 	last_reposition_ms = ms
 
+	# Watching someone: their clock can jump ahead (joining late, after their
+	# pause, catching up). The notes it jumped over go at once, quietly (their
+	# hits and misses come from them). Gone through below, they grew the note
+	# list ten at a time and redid the whole pass each time: a freeze on maps
+	# with many notes.
+	if Grid != null and Grid.spectating:
+		var gone: float = ms - hit_window - 100
+		while current_note < notes.size() and notes[current_note][1] < gone:
+			if notes[current_note][2] == Globals.NSTATE_ACTIVE:
+				notes[current_note][2] = Globals.NSTATE_MISS
+			current_note += 1
+
 	for i in range(max(current_note, rerun_start), notes.size()):
 		var notems: float = notes[i][1]
 		next_ms = notems
@@ -348,9 +360,11 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					if notes[i][2] == Globals.NSTATE_ACTIVE:
 						return note_passed
 
-		if (i - current_note + 2) > _mm_count:
+		if (i - current_note + 2) > _mm_count and _mm_count < notes.size(): # (already all the notes: no use growing)
 			rerun_required = true
-			_mm_count = int(min(_mm_count + 10, notes.size()))
+			# (doubled, not ten more: each change clears the list and the pass
+			# starts over, so a dense map's first seconds redid it again and again)
+			_mm_count = int(min(max(_mm_count * 2, i - current_note + 12), notes.size()))
 			_n_notes.multimesh.instance_count = _mm_count
 			if asq: _n_asq.multimesh.instance_count = _mm_count
 			if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = _mm_count
