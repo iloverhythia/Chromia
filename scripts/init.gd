@@ -41,7 +41,6 @@ func _ready():
 	if ProjectSettings.get_setting("application/config/auto_maximize") and Rhythia.auto_maximize: OS.window_maximized = true
 
 
-	Rhythia.warm_scripts() # (the menu's scripts, compiled on the loading thread while the maps load)
 	if not Rhythia.is_init:
 		stage("", true)
 		return
