@@ -95,6 +95,10 @@ func to_top():
 	_target = 0
 	_vel = 0
 
+func to_bottom():
+	_target = _max_off()
+	_vel = 0
+
 func scroll_rows(n: float):
 	_target += n * (CELL + GAP)
 	_clamp_target()

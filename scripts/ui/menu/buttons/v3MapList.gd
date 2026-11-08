@@ -790,33 +790,57 @@ func update_clouds():
 
 # The empty square above UP (it lines UP up with the filters) is a "back to
 # the top" button: same look as UP / DOWN, a small TOP label. It jumps to the
-# first map without changing which map is selected.
+# first map without changing which map is selected. A BOTTOM one, the same,
+# under DOWN jumps to the last map.
 func _make_top_button(sc: Node):
 	var b = sc.get_node_or_null("bump")
 	var up = sc.get_node_or_null("M")
 	if not (b is Button) or not (up is Button):
 		return
+	if sc.get_node_or_null("bottom") == null:
+		var bottom := Button.new()
+		bottom.name = "bottom"
+		bottom.rect_min_size = Vector2(0, b.rect_min_size.y)
+		bottom.theme = b.theme
+		bottom.action_mode = b.action_mode
+		sc.add_child(bottom)
+		_style_jump_button(bottom, up, "BOTTOM", "To the bottom of the map list", "go_to_bottom", 11)
+	_style_jump_button(b, up, "TOP", "Back to the top of the map list", "go_to_top", 14)
+
+func _style_jump_button(b: Button, up: Button, text: String, tip: String, method: String, size: int):
 	b.modulate = Color(1, 1, 1, 1)
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_stylebox_override(st, up.get_stylebox(st))
 	b.focus_mode = Control.FOCUS_NONE
-	b.hint_tooltip = "Back to the top of the map list"
+	b.hint_tooltip = tip
 	var src: Label = up.get_node_or_null("Label")
 	if src != null:
 		var l: Label = src.duplicate()
-		l.text = "TOP"
+		l.text = text
 		l.margin_top = 0
 		l.margin_bottom = 0
 		var f = src.get_font("font")
 		if f is DynamicFont:
 			f = f.duplicate()
-			f.size = 14
+			f.size = size
 			f.outline_size = 2
 			f.extra_spacing_char = 0
 			l.add_font_override("font", f)
 		b.add_child(l)
-	if not b.is_connected("pressed", self, "go_to_top"):
-		b.connect("pressed", self, "go_to_top")
+	if not b.is_connected("pressed", self, method):
+		b.connect("pressed", self, method)
+
+func go_to_bottom():
+	if disp.size() == 0:
+		return
+	if grid != null:
+		grid.to_bottom()
+		return
+	scroll_up = false
+	scroll_down = false
+	momentum = 0
+	cur_map = disp.size() - 1
+	load_pg()
 
 func go_to_top():
 	if disp.size() == 0:
