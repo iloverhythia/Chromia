@@ -16,6 +16,12 @@ const DIM := Color(0.62, 0.6, 0.68, 1)
 const ACCENT := Color(1, 0.756863, 0.960784)
 const NONE_ID := 1000 # the "(none)" item (an id of -1 would become 0)
 
+# the hand model's direction (Rhythia.vr_hand_rot), same layout
+const HAND_ROWS := [
+	["Hand tilt (nose up / down)", "hand", 0, -90.0, 90.0, 1.0, "°"],
+	["Hand turn (left / right)", "hand", 1, -90.0, 90.0, 1.0, "°"],
+	["Hand roll", "hand", 2, -180.0, 180.0, 1.0, "°"],
+]
 # [label, which value, axis, min, max, step, unit]
 const GRIP_ROWS := [
 	["Tilt (up / down)", "rot", 0, -90.0, 90.0, 1.0, "°"],
@@ -152,6 +158,10 @@ func _ready():
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
 	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Cartoon glove", "glove"], ["Robot", "robot"], ["Skeleton", "skeleton"], ["Crystal", "crystal"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
+	_label("Hand direction: turn the hand itself on the controller (nose up or down, left or right, or roll it) so it lines up with your beam. The beam stays where it is (that's Controller grip, below). For the right hand; the left hand gets the mirror image.", f_body, DIM, true)
+	for row in HAND_ROWS:
+		_grip_row(row)
+	_button(box, "Reset hand direction", "_reset_hand_rot")
 	box.add_child(HSeparator.new())
 	_label("Graphics", f_title, ACCENT)
 	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
@@ -630,7 +640,7 @@ func _load_values():
 		_curve_box.pressed = bool(Rhythia.vr_menu_curve)
 	for e in _sliders:
 		var row: Array = e[2]
-		var v: Vector3 = Rhythia.vr_grip_rot if row[1] == "rot" else Rhythia.vr_grip_pos
+		var v: Vector3 = Rhythia.vr_grip_rot if row[1] == "rot" else (Rhythia.vr_hand_rot if row[1] == "hand" else Rhythia.vr_grip_pos)
 		e[0].value = v[row[2]]
 		e[1].text = _fmt(v[row[2]], row)
 	for action in _pickers:
@@ -653,6 +663,10 @@ func _on_grip(v: float, i: int):
 		var r: Vector3 = Rhythia.vr_grip_rot
 		r[row[2]] = v
 		Rhythia.vr_grip_rot = r
+	elif row[1] == "hand":
+		var hr: Vector3 = Rhythia.vr_hand_rot
+		hr[row[2]] = v
+		Rhythia.vr_hand_rot = hr
 	else:
 		var p: Vector3 = Rhythia.vr_grip_pos
 		p[row[2]] = v
@@ -690,6 +704,11 @@ func _on_calibrated(_applied: bool):
 func _reset_grip():
 	Rhythia.vr_grip_rot = Vector3.ZERO
 	Rhythia.vr_grip_pos = Vector3.ZERO
+	_load_values()
+	_save_soon()
+
+func _reset_hand_rot():
+	Rhythia.vr_hand_rot = Vector3.ZERO
 	_load_values()
 	_save_soon()
 

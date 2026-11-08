@@ -2251,6 +2251,10 @@ var vr_player = null # VRPlayer (vr/VRPlayer.tscn), made by start_vr
 # hand is mirrored
 var vr_grip_rot := Vector3.ZERO
 var vr_grip_pos := Vector3.ZERO
+# Settings > VR > Hands > Hand direction: the hand model turned on the
+# controller (tilt, turn, roll in degrees; the left hand mirrored), so it lines
+# up with the beam (VRPlayer._apply_hand_rot)
+var vr_hand_rot := Vector3.ZERO
 # the VR menu screen (vr/MenuPointer.gd, Settings > VR)
 var vr_menu_size: float = 100.0    # degrees of your view it spans
 var vr_menu_distance: float = 1.6  # metres away
@@ -4506,6 +4510,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			touch_style = data.touch_style
 		if data.has("vr_grip_rot") and data.vr_grip_rot is Array and data.vr_grip_rot.size() == 3:
 			vr_grip_rot = Vector3(float(data.vr_grip_rot[0]), float(data.vr_grip_rot[1]), float(data.vr_grip_rot[2]))
+		if data.has("vr_hand_rot") and data.vr_hand_rot is Array and data.vr_hand_rot.size() == 3:
+			vr_hand_rot = Vector3(clamp(float(data.vr_hand_rot[0]), -90, 90), clamp(float(data.vr_hand_rot[1]), -90, 90), clamp(float(data.vr_hand_rot[2]), -180, 180))
 		if data.has("vr_grip_pos") and data.vr_grip_pos is Array and data.vr_grip_pos.size() == 3:
 			vr_grip_pos = Vector3(float(data.vr_grip_pos[0]), float(data.vr_grip_pos[1]), float(data.vr_grip_pos[2]))
 		if data.has("vr_menu_size"):
@@ -5112,6 +5118,7 @@ func _write_settings_file(saveFile: String):
 			touch_style = touch_style,
 			vr_grip_rot = [vr_grip_rot.x, vr_grip_rot.y, vr_grip_rot.z],
 			vr_grip_pos = [vr_grip_pos.x, vr_grip_pos.y, vr_grip_pos.z],
+			vr_hand_rot = [vr_hand_rot.x, vr_hand_rot.y, vr_hand_rot.z],
 			vr_menu_size = vr_menu_size,
 			vr_menu_distance = vr_menu_distance,
 			vr_menu_curve = vr_menu_curve,

@@ -9,3 +9,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating maps with lots of notes no longer drops frames when you start watching or their game catches up
 - Staff can right-click a name in chat to delete that message for everyone or ban the player from chat
 - Menus open faster on every device: the menu opens about twice as fast after a song, the Map Editor and Update Log open almost instantly, and the Settings page no longer waits for its preview window
+- VR: Settings > VR > Hands > Hand direction: tilt, turn or roll your hand model so it lines up with your beam (the left hand is mirrored)

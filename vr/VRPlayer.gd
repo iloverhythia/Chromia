@@ -54,6 +54,7 @@ func _process(delta):
 	_haptics_tick(delta)
 	_watch_for_reset(delta)
 	_apply_grip()
+	_apply_hand_rot()
 	if not Rhythia.fake_vr:
 		_place_eye()
 	primary_ray.force_raycast_update()
@@ -353,6 +354,7 @@ func apply_hand():
 		if meshes == null:
 			mi.mesh = d[1]
 			mi.transform = d[2]
+			mi.set_meta("hand_base", d[2])
 			mi.set_surface_material(0, d[3])
 			if outline:
 				outline.visible = true
@@ -362,6 +364,7 @@ func apply_hand():
 		var mesh: Mesh = meshes[i]
 		mi.mesh = mesh
 		mi.transform = Transform(Basis().scaled(Vector3(UNITS_PER_M, UNITS_PER_M, UNITS_PER_M)), Vector3.ZERO)
+		mi.set_meta("hand_base", mi.transform)
 		for k in range(mesh.get_surface_count()):
 			# its own material (paw, .mtl colour / texture), or the default hand look
 			mi.set_surface_material(k, null if mesh.surface_get_material(k) != null else d[3])
@@ -370,6 +373,23 @@ func apply_hand():
 		if trail:
 			trail.transform = Transform(Basis().scaled(Vector3(0.02, 0.02, 0.06)), Vector3.ZERO)
 	Rhythia.trail("VR hands: " + want)
+	_hand_rot_applied = null # (the model changed: turned again)
+
+# Settings > VR > Hands > Hand direction: the hand model turned around the
+# controller (the beam isn't moved: that's Controller grip). The left hand gets
+# the mirror image of the right hand's setting.
+var _hand_rot_applied = null
+func _apply_hand_rot():
+	if _hand_rot_applied == Rhythia.vr_hand_rot:
+		return
+	_hand_rot_applied = Rhythia.vr_hand_rot
+	var r: Vector3 = Rhythia.vr_hand_rot
+	for i in range(_hand_default.size()):
+		var mi: MeshInstance = _hand_default[i][0]
+		var base: Transform = mi.get_meta("hand_base") if mi.has_meta("hand_base") else _hand_default[i][2]
+		var left := i == 0
+		var rot := Basis(Vector3(deg2rad(r.x), deg2rad(-r.y if left else r.y), deg2rad(-r.z if left else r.z)))
+		mi.transform = Transform(rot, Vector3.ZERO) * base
 
 func _custom_hand_meshes():
 	var right_path: String = Globals.p("user://vr_hand.obj")
