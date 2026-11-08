@@ -55,6 +55,15 @@ var _client_hello_sent = false
 var _got = PoolByteArray()
 var _want = -1
 var _received = null # bundle data waiting for Apply
+# maps (Include maps): sent after the settings, a file at a time
+var _include_maps: CheckBox
+var _map_src = null # ST.MapSource while sending
+var _out := PoolByteArray() # (what the connection didn't take yet)
+var _sink = null # ST.MapSink while receiving
+var _maps_total := 0
+var _file_out: File = null # saving a file with maps
+var _file_in: File = null # opening one
+var _file_in_left := 0
 
 static func web() -> bool:
 	return OS.get_name() == "HTML5"
@@ -92,7 +101,13 @@ func _ready():
 	m.add_child(box)
 
 	_label("Transfer settings", f_title, ACCENT)
-	_label("Copy your settings and custom content (colorsets, meshes, sounds, backgrounds, profiles, keybinds) to another device. Maps and scores aren't included.", f_body, DIM, true)
+	_label("Copy your settings and custom content (colorsets, meshes, sounds, backgrounds, profiles, keybinds) to another device. Scores aren't included; maps are if you tick Include maps.", f_body, DIM, true)
+	_include_maps = CheckBox.new()
+	_include_maps.text = "Include maps (all of them: can take a while)"
+	_include_maps.theme = load("res://uitheme.tres")
+	_include_maps.add_font_override("font", f_bold)
+	_include_maps.connect("toggled", self, "_on_include_maps")
+	box.add_child(_include_maps)
 
 	if not web():
 		box.add_child(HSeparator.new())
@@ -170,6 +185,16 @@ func _say(l: Label, text: String, col: Color = TEXT):
 	l.add_color_override("font_color", col)
 
 # --- Sending -----------------------------------------------------------------
+func _on_include_maps(on: bool):
+	if on:
+		var maps: Array = ST.list_maps()
+		_include_maps.text = "Include maps (%d, %s)" % [maps.size(), ST.human_size(ST.maps_size(maps))]
+	else:
+		_include_maps.text = "Include maps (all of them: can take a while)"
+
+func _maps_wanted() -> Array:
+	return ST.list_maps() if _include_maps != null and _include_maps.pressed else []
+
 func _start_send():
 	_stop_send()
 	var ip: String = ST.local_ip()
@@ -180,8 +205,12 @@ func _start_send():
 	_send_btn.disabled = true
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
-	var b: Dictionary = ST.build_bundle()
+	var maps: Array = _maps_wanted()
+	var b: Dictionary = ST.build_bundle(maps)
 	_payload = b.bytes
+	_map_src = ST.MapSource.new(maps) if not maps.empty() else null
+	_maps_total = maps.size()
+	_out = PoolByteArray()
 	_server = TCP_Server.new()
 	var idx = -1
 	for i in range(ST.PORTS.size()):
@@ -203,7 +232,10 @@ func _start_send():
 	var extra = ""
 	if not b.skipped.empty():
 		extra = "\nLeft out %d file(s), too big: %s" % [b.skipped.size(), PoolStringArray(b.skipped).join(", ")]
-	_say(_send_status, "Code ready (%d files, %s). Enter it on the other device.%s" % [b.files, ST.human_size(b.size), extra])
+	var with_maps := ""
+	if not maps.empty():
+		with_maps = " and %d maps (%s)" % [maps.size(), ST.human_size(ST.maps_size(maps))]
+	_say(_send_status, "Code ready (%d files, %s%s). Enter it on the other device.%s" % [b.files, ST.human_size(b.size), with_maps, extra])
 	Rhythia.trail("transfer: sending from %s port %d" % [ip, ST.PORTS[idx]])
 	set_process(true)
 
@@ -216,6 +248,8 @@ func _stop_send(text: String = ""):
 	_peer = null
 	_sending = false
 	_payload = PoolByteArray()
+	_map_src = null
+	_out = PoolByteArray()
 	if _code_l:
 		_code_l.visible = false
 	if _stop_btn:
@@ -279,21 +313,32 @@ func _process_send():
 			_peer.disconnect_from_host()
 			_peer = null
 		return
-	# send a piece each frame
+	# send a piece each frame: the settings, then the maps
 	var budget = 8
-	while budget > 0 and _sent < _payload.size():
+	while budget > 0:
+		if _out.empty():
+			if _sent < _payload.size():
+				var end: int = min(_sent + CHUNK, _payload.size())
+				_out = _payload.subarray(_sent, end - 1)
+				_sent = end
+			elif _map_src != null:
+				_out = _map_src.next(CHUNK)
+			if _out.empty():
+				break
 		budget -= 1
-		var end: int = min(_sent + CHUNK, _payload.size())
-		var r = _peer.put_partial_data(_payload.subarray(_sent, end - 1))
+		var r = _peer.put_partial_data(_out)
 		if r[0] != OK:
 			break
 		var n: int = int(r[1])
-		_sent += n
-		if n < end - (_sent - n):
+		_out = _out.subarray(n, _out.size() - 1) if n < _out.size() else PoolByteArray()
+		if not _out.empty():
 			break # the connection is full: more next frame
-	_say(_send_status, "Sending... %d %%" % int(100.0 * _sent / max(1, _payload.size())))
-	if _sent >= _payload.size():
-		Rhythia.trail("transfer: sent")
+	if _map_src != null and _sent >= _payload.size():
+		_say(_send_status, "Sending maps... %d / %d" % [_map_src.sent_maps, _maps_total])
+	else:
+		_say(_send_status, "Sending... %d %%" % int(100.0 * _sent / max(1, _payload.size())))
+	if _sent >= _payload.size() and _out.empty() and (_map_src == null or _map_src.ended):
+		Rhythia.trail("transfer: sent%s" % ((" with %d maps" % _maps_total) if _map_src != null else ""))
 		var p = _peer
 		_peer = null
 		_stop_send("Sent! Apply it on the other device.")
@@ -327,6 +372,7 @@ func _start_receive():
 	_client_hello_sent = false
 	_got = PoolByteArray()
 	_want = -1
+	_sink = null
 	set_meta("pin", c.pin)
 	_say(_recv_status, "Connecting to %s..." % c.ip)
 	Rhythia.trail("transfer: receiving from %s:%d" % [c.ip, c.port])
@@ -348,6 +394,9 @@ func _process_receive():
 		return
 	if st != StreamPeerTCP.STATUS_CONNECTED:
 		_stop_receive()
+		if _sink != null:
+			_maps_done(_recv_status) # (says how many came)
+			return
 		_say(_recv_status, "The connection was lost%s." % (" (wrong or used code?)" if _want < 0 else ""), BAD)
 		return
 	if not _client_hello_sent:
@@ -376,11 +425,45 @@ func _process_receive():
 			_stop_receive()
 			_say(_recv_status, "No answer. Try again.", BAD)
 		return
+	if _sink != null:
+		# the maps after the settings
+		_sink.feed(_got)
+		_got = PoolByteArray()
+		_say(_recv_status, "Receiving maps... %d / %d" % [_sink.got, _maps_total])
+		if _sink.done or _sink.failed:
+			_stop_receive()
+			_maps_done(_recv_status)
+		return
 	_say(_recv_status, "Receiving... %d %%  (%s)" % [int(100.0 * _got.size() / max(1, _want)), ST.human_size(_want)])
 	if _got.size() >= _want:
-		_stop_receive()
-		_got_bundle(_got.subarray(0, _want - 1) if _want > 0 else PoolByteArray(), _recv_status)
+		var rest: PoolByteArray = _got.subarray(_want, _got.size() - 1) if _got.size() > _want else PoolByteArray()
+		var bundle: PoolByteArray = _got.subarray(0, _want - 1) if _want > 0 else PoolByteArray()
 		_got = PoolByteArray()
+		if _start_maps(bundle, _recv_status):
+			_got = rest # (the first maps' bytes, if they came already)
+			return
+		_stop_receive()
+		_got_bundle(bundle, _recv_status)
+
+# true: the settings came and maps follow (received into the maps folder as
+# they come; Apply is offered once they're all here)
+func _start_maps(bytes: PoolByteArray, status: Label) -> bool:
+	var r: Dictionary = ST.read_bundle(bytes)
+	if r.has("error") or int(r.data.get("maps", 0)) <= 0:
+		return false
+	_received = r.data
+	_maps_total = int(r.data.maps)
+	_sink = ST.MapSink.new()
+	_say(status, "Receiving maps... 0 / %d (%s)" % [_maps_total, ST.human_size(int(r.data.get("maps_size", 0)))])
+	return true
+
+func _maps_done(status: Label):
+	var s = _sink
+	_sink = null
+	if s.failed or not s.done:
+		_say(status, "The maps stopped coming (%d of %d arrived and were added)." % [s.added, _maps_total], BAD)
+	Rhythia.trail("transfer: maps %d added, %d already here, %d failed" % [s.added, s.kept, s.errors])
+	_show_apply(status, "\nMaps: %d added%s%s." % [s.added, (", %d you had already" % s.kept) if s.kept > 0 else "", (", %d couldn't be saved" % s.errors) if s.errors > 0 else ""])
 
 func _got_bundle(bytes: PoolByteArray, status: Label):
 	var r: Dictionary = ST.read_bundle(bytes)
@@ -388,8 +471,11 @@ func _got_bundle(bytes: PoolByteArray, status: Label):
 		_say(status, r.error, BAD)
 		return
 	_received = r.data
+	_show_apply(status, "")
+
+func _show_apply(status: Label, maps_note: String):
 	var from: String = str(_received.get("from", "another device"))
-	_say(status, "Got %d files (%s) from %s. Apply them? Your current settings are kept as the profile 'before transfer'." % [_received.files.size(), ST.human_size(int(_received.size)), from], GOOD)
+	_say(status, "Got %d files (%s) from %s.%s Apply them? Your current settings are kept as the profile 'before transfer'." % [_received.files.size(), ST.human_size(int(_received.size)), from, maps_note], GOOD)
 	if _apply_box == null:
 		# browser: no apply row in the code part, so ask here
 		_apply_box = HBoxContainer.new()
@@ -432,14 +518,38 @@ func _save_picked(path: String):
 		return
 	if path.get_extension() != "chromiasettings":
 		path += ".chromiasettings"
-	var b: Dictionary = ST.build_bundle()
+	var maps: Array = _maps_wanted()
+	var b: Dictionary = ST.build_bundle(maps, not maps.empty())
 	var f = File.new()
 	if f.open(path, File.WRITE) != OK:
 		_say(_file_status, "Couldn't write %s." % path, BAD)
 		return
 	f.store_buffer(b.bytes)
-	f.close()
-	_say(_file_status, "Saved %d files (%s) to %s" % [b.files, ST.human_size(b.size), path], GOOD)
+	if maps.empty():
+		f.close()
+		_say(_file_status, "Saved %d files (%s) to %s" % [b.files, ST.human_size(b.size), path], GOOD)
+		return
+	# the maps after it, a piece each frame (_process)
+	_file_out = f
+	_map_src = ST.MapSource.new(maps)
+	_maps_total = maps.size()
+	set_meta("file_note", "Saved %d files (%s) and %d maps (%s) to %s" % [b.files, ST.human_size(b.size), maps.size(), ST.human_size(ST.maps_size(maps)), path])
+	set_process(true)
+
+func _process_file_out():
+	if _file_out == null:
+		return
+	var until := OS.get_ticks_msec() + 12
+	while OS.get_ticks_msec() < until:
+		var piece: PoolByteArray = _map_src.next(CHUNK * 4)
+		if piece.empty() and _map_src.ended:
+			_file_out.close()
+			_file_out = null
+			_map_src = null
+			_say(_file_status, String(get_meta("file_note")), GOOD)
+			return
+		_file_out.store_buffer(piece)
+	_say(_file_status, "Saving maps... %d / %d" % [_map_src.sent_maps, _maps_total])
 
 func _load_file():
 	Globals.file_sel.open_file(self, "_load_picked", PoolStringArray(["*.chromiasettings ; Chromia settings"]), false)
@@ -451,16 +561,51 @@ func _load_picked(files: PoolStringArray):
 	if f.open(files[0], File.READ) != OK:
 		_say(_file_status, "Couldn't open %s." % files[0], BAD)
 		return
-	var bytes = f.get_buffer(f.get_len())
+	var head: PoolByteArray = f.get_buffer(min(64, f.get_len()))
+	var blen: int = ST.bundle_length(head, f.get_len())
+	if blen <= 0 or blen > f.get_len():
+		f.close()
+		_got_bundle(head, _file_status) # (says what's wrong)
+		return
+	f.seek(0)
+	var bytes = f.get_buffer(blen)
+	if blen < f.get_len() and _start_maps(bytes, _file_status):
+		# the maps after it, a piece each frame (_process)
+		_file_in = f
+		_file_in_left = f.get_len() - blen
+		set_process(true)
+		return
 	f.close()
 	_got_bundle(bytes, _file_status)
+
+func _process_file_in():
+	if _file_in == null:
+		return
+	var until := OS.get_ticks_msec() + 12
+	while OS.get_ticks_msec() < until and _file_in_left > 0 and not _sink.done and not _sink.failed:
+		var n: int = min(CHUNK * 4, _file_in_left)
+		_sink.feed(_file_in.get_buffer(n))
+		_file_in_left -= n
+	_say(_file_status, "Adding maps... %d / %d" % [_sink.got, _maps_total])
+	if _sink.done or _sink.failed or _file_in_left <= 0:
+		_file_in.close()
+		_file_in = null
+		_maps_done(_file_status)
 
 func _process(_d):
 	_process_send()
 	_process_receive()
-	if _server == null and _client == null:
+	_process_file_out()
+	_process_file_in()
+	if _server == null and _client == null and _file_out == null and _file_in == null:
 		set_process(false)
 
 func _exit_tree():
 	_stop_send()
 	_stop_receive()
+	if _file_out != null:
+		_file_out.close()
+		_file_out = null
+	if _file_in != null:
+		_file_in.close()
+		_file_in = null
