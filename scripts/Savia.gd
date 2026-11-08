@@ -1253,13 +1253,17 @@ func _notify_latest_update(current_ver: String):
 	)
 
 func get_update_log_text() -> String:
+	return "\n\n".join(update_log_entries())
+
+# every version's notes, newest first (the Update Log shows them a few at a time)
+func update_log_entries() -> Array:
 	var entries = []
 	for i in range(VERSION_SEQUENCE.size() - 1, -1, -1):
 		var v = VERSION_SEQUENCE[i]
 		if VERSION_NOTES.has(v):
 			entries.append("[%s]\n%s" % [v, VERSION_NOTES[v]])
 	entries.append("[Legacy Updates]\n" + VERSION_NOTES["LEGACY"])
-	return "\n\n".join(entries)
+	return entries
 
 
 signal mods_changed
@@ -2345,6 +2349,76 @@ var def_menu_bgm: AudioStream
 # repeats, and a new round never starts with the song that just played. The
 # order carries on when you come back to the menu after a song. A custom menu
 # song (user://menu.ogg / .mp3 / .wav) replaces them and loops, as before.
+# The scripts of everything in the menu, kept loaded once it has been open.
+# Without this they were freed with the menu and read and compiled again every
+# time it opened (after each song): about half of the menu's opening time.
+var _kept_scripts := {}
+func keep_scripts(root: Node):
+	if root == null or not is_instance_valid(root):
+		return
+	var stack := [root]
+	while not stack.empty():
+		var n: Node = stack.pop_back()
+		var sc = n.get_script()
+		if sc != null and not _kept_scripts.has(sc):
+			_kept_scripts[sc] = true
+		for c in n.get_children():
+			stack.append(c)
+	if _kept_scripts.size() > _kept_saved:
+		_kept_saved = _kept_scripts.size()
+		var lines := PoolStringArray()
+		for sc in _kept_scripts:
+			var p: String = sc.resource_path
+			if p.begins_with("res://") and p.ends_with(".gd") and p.find("::") == -1:
+				lines.append(p)
+		Directory.new().make_dir_recursive(Globals.p("user://caches"))
+		var f := File.new()
+		if f.open(Globals.p(KEPT_SCRIPTS_FILE), File.WRITE) == OK:
+			f.store_string(lines.join("\n"))
+			f.close()
+
+# The game starting: the scripts the menu had last time are read and compiled
+# on the loading thread while the maps load, instead of while the menu opens.
+const KEPT_SCRIPTS_FILE := "user://caches/menu_scripts.txt"
+var _kept_saved := 0
+func warm_scripts():
+	if not OS.can_use_threads() or OS.has_feature("JavaScript"):
+		return
+	var f := File.new()
+	if f.open(Globals.p(KEPT_SCRIPTS_FILE), File.READ) != OK:
+		return
+	var paths := f.get_as_text().split("\n", false)
+	f.close()
+	var todo := []
+	for p in paths:
+		p = String(p).strip_edges()
+		if p.begins_with("res://") and p.ends_with(".gd") and not ResourceLoader.has_cached(p) and ResourceLoader.exists(p):
+			todo.append(p)
+	if RQueue.thread_started and not vr:
+		# (computers: on the loading thread, one after another before the menu)
+		for p in todo:
+			RQueue.queue_resource(p, false, true)
+	else:
+		# phones and VR load on the main thread only: a few each frame while
+		# the loading screen shows
+		_warm_todo = todo
+		if not _warm_todo.empty() and not get_tree().is_connected("idle_frame", self, "_warm_step"):
+			get_tree().connect("idle_frame", self, "_warm_step")
+
+var _warm_todo := []
+func _warm_step():
+	var until := OS.get_ticks_usec() + 8000
+	while not _warm_todo.empty() and OS.get_ticks_usec() < until:
+		var p: String = _warm_todo.pop_front()
+		if not ResourceLoader.has_cached(p):
+			var sc = ResourceLoader.load(p)
+			if sc != null:
+				_kept_scripts[sc] = true
+	# (done, or the menu is opening: what's left loads with it as before)
+	if _warm_todo.empty() or (get_tree().current_scene != null and get_tree().current_scene.filename != "res://scenes/init.tscn"):
+		_warm_todo = []
+		get_tree().disconnect("idle_frame", self, "_warm_step")
+
 var _menu_bag: Array = []
 var _menu_last: String = ""
 var _menu_seeded: bool = false

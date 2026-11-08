@@ -353,13 +353,8 @@ func _project_row(p: Dictionary) -> Control:
 	cov.expand = true
 	cov.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	if p.has_cover:
-		var img = Image.new()
-		if img.load(EditorProject.root_dir().plus_file(p.pid).plus_file("cover.png")) == OK:
-			if img.get_width() > 96:
-				img.resize(96, int(96.0 * img.get_height() / max(img.get_width(), 1)))
-			var t = ImageTexture.new()
-			t.create_from_image(img)
-			cov.texture = t
+		_cover_queue.append([cov, p.pid])
+		_start_cover_queue()
 	h.add_child(cov)
 	var v = VBoxContainer.new()
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -385,6 +380,46 @@ func _project_row(p: Dictionary) -> Control:
 	db.size_flags_vertical = SIZE_SHRINK_CENTER
 	h.add_child(db)
 	return row
+
+# The rows' covers: filled in after the page shows, a few each frame, from a
+# small copy (cover_96.png, made from cover.png the first time). Each row read
+# and shrank the whole cover before: opening the Map Editor took seconds.
+var _cover_queue := []
+func _start_cover_queue():
+	if not get_tree().is_connected("idle_frame", self, "_fill_covers"):
+		get_tree().connect("idle_frame", self, "_fill_covers")
+
+func _fill_covers():
+	var budget := OS.get_ticks_usec() + 6000 # (6 ms a frame)
+	while not _cover_queue.empty() and OS.get_ticks_usec() < budget:
+		var job: Array = _cover_queue.pop_front()
+		if is_instance_valid(job[0]):
+			job[0].texture = _cover_thumb(job[1])
+	if _cover_queue.empty() and get_tree().is_connected("idle_frame", self, "_fill_covers"):
+		get_tree().disconnect("idle_frame", self, "_fill_covers")
+
+func _exit_tree():
+	_cover_queue.clear()
+	if get_tree() and get_tree().is_connected("idle_frame", self, "_fill_covers"):
+		get_tree().disconnect("idle_frame", self, "_fill_covers")
+
+static func _cover_thumb(pid: String) -> Texture:
+	var dir: String = EditorProject.root_dir().plus_file(pid)
+	var f := File.new()
+	var full := dir.plus_file("cover.png")
+	var small := dir.plus_file("cover_96.png")
+	if not f.file_exists(full):
+		return null
+	var img := Image.new()
+	if not (f.file_exists(small) and f.get_modified_time(small) >= f.get_modified_time(full) and img.load(small) == OK):
+		if img.load(full) != OK:
+			return null
+		if img.get_width() > 96:
+			img.resize(96, int(96.0 * img.get_height() / max(img.get_width(), 1)), Image.INTERPOLATE_BILINEAR)
+		img.save_png(small)
+	var t := ImageTexture.new()
+	t.create_from_image(img)
+	return t
 
 var _confirm: ConfirmationDialog
 func _ask(text: String, method: String, args: Array = []):

@@ -51,7 +51,8 @@ func _init():
 	_f_value = _font(bold, 15)
 	_f_combo = _font(bold, 22)
 	_make_map()
-	_make_view()
+	# (the 3D view is made the first time the preview shows: not while the
+	# menu opens, where nobody sees it)
 
 func _font(data, size: int) -> DynamicFont:
 	var f := DynamicFont.new()
@@ -133,6 +134,12 @@ func _process(delta):
 		visible = on
 	if not on or not is_visible_in_tree():
 		return
+	if _vc == null:
+		# (a couple of frames after the page shows: the page doesn't wait for it)
+		_view_wait += 1
+		if _view_wait < 8:
+			return
+		_make_view()
 	_follow_map()
 	var heard = _heard_time()
 	if heard != null:
@@ -333,6 +340,7 @@ func _draw():
 # --- the song, in 3D (SettingsPreviewWorld.gd), and the stats over it ----------
 
 var _vc: ViewportContainer
+var _view_wait := 0
 var _vp: Viewport
 var _world: Spatial
 var _ov: Control

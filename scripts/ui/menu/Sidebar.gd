@@ -274,6 +274,8 @@ func _ready():
 	ft.connect("timeout", self, "_flip_check")
 	add_child(ft)
 	Rhythia.trail("menu open")
+	# (once the pages have made what they make a moment later)
+	get_tree().create_timer(2.0).connect("timeout", Rhythia, "keep_scripts", [get_tree().root])
 	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
 	load("res://scripts/PackGuard.gd").ok()
 	if OS.get_environment("CHROMIA_BOOT_CHECK") == "1":

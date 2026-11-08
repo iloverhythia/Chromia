@@ -8,3 +8,4 @@ in scripts/Savia.gd and empties this list.
 - Your bests and score history are now kept in Chromia's own folder, so opening Rhythia Nightly no longer deletes them (they're copied over the first time you start this version)
 - Spectating maps with lots of notes no longer drops frames when you start watching or their game catches up
 - Staff can right-click a name in chat to delete that message for everyone or ban the player from chat
+- Menus open faster on every device: the menu opens about twice as fast after a song, the Map Editor and Update Log open almost instantly, and the Settings page no longer waits for its preview window

@@ -28,7 +28,7 @@ func _wait(_caller):
 	semaphore.wait()
 
 
-func queue_resource(path, p_in_front = false):
+func queue_resource(path, p_in_front = false, quiet = false):
 	if Input.is_key_pressed(KEY_CONTROL) and Input.is_key_pressed(KEY_P): return ERR_SKIP
 	_lock("queue_resource")
 	if path in pending:
@@ -45,7 +45,9 @@ func queue_resource(path, p_in_front = false):
 			_unlock("queue_resource") # still locked here: the loader thread would wait on it forever
 			return FAILED
 		res.set_meta("path", path)
-		Rhythia.trail("loading %s" % path)
+		res.set_meta("quiet", quiet)
+		if not quiet:
+			Rhythia.trail("loading %s" % path)
 		if p_in_front:
 			queue.insert(0, res)
 		else:
@@ -143,7 +145,8 @@ func thread_process(wait_for_signal: bool = true):
 			if path in pending:
 				if ret == ERR_FILE_EOF:
 					pending[res.get_meta("path")] = res.get_resource()
-					Rhythia.trail("loaded %s" % path)
+					if not res.get_meta("quiet"):
+						Rhythia.trail("loaded %s" % path)
 				else: pending[res.get_meta("path")] = false
 
 

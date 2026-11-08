@@ -197,8 +197,21 @@ static func _to_tex(img: Image) -> ImageTexture:
 	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
 	return tex
 
+static func _tex_cache() -> Dictionary:
+	if not Engine.has_meta("spectate_tex_cache"):
+		Engine.set_meta("spectate_tex_cache", {})
+	return Engine.get_meta("spectate_tex_cache")
+
 # heart (Inigo Quilez's heart distance), filled or as an outline
 static func heart_texture(px: int, filled: bool, col: Color) -> ImageTexture:
+	# (drawn pixel by pixel: once per size and colour, then kept)
+	var key := "heart_texture|" + str([px, filled, col])
+	var c: Dictionary = _tex_cache()
+	if not c.has(key):
+		c[key] = _heart_texture_make(px, filled, col)
+	return c[key]
+
+static func _heart_texture_make(px: int, filled: bool, col: Color) -> ImageTexture:
 	var img := Image.new()
 	img.create(px, px, false, Image.FORMAT_RGBA8)
 	img.lock()
@@ -222,6 +235,14 @@ static func heart_texture(px: int, filled: bool, col: Color) -> ImageTexture:
 
 # the eye button: a dark circle with a thin ring, an eye outline and pupil
 static func eye_texture(px: int, ring: Color) -> ImageTexture:
+	# (drawn pixel by pixel: once per size and colour, then kept)
+	var key := "eye_texture|" + str([px, ring])
+	var c: Dictionary = _tex_cache()
+	if not c.has(key):
+		c[key] = _eye_texture_make(px, ring)
+	return c[key]
+
+static func _eye_texture_make(px: int, ring: Color) -> ImageTexture:
 	var img := Image.new()
 	img.create(px, px, false, Image.FORMAT_RGBA8)
 	img.lock()
