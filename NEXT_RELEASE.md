@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - Menus open faster on every device: the menu opens about twice as fast after a song, the Map Editor and Update Log open almost instantly, and the Settings page no longer waits for its preview window
 - VR: Settings > VR > Hands > Hand direction: tilt, turn or roll your hand model so it lines up with your beam (the left hand is mirrored)
 - Settings > Transfer: Include maps sends all your maps too (with the code over Wi-Fi or in the file); maps the other device already has are skipped
+- VR: putting on a skin no longer leaves a black screen until you restart the game
