@@ -661,7 +661,7 @@ func _process(delta):
 		black_fade = min(black_fade + (delta / 0.3), 1)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	elif not black_fade_target and black_fade != 0:
-		black_fade = max(black_fade - (delta / (0.25 if _watching_from_tab() else 0.75)), 0) # (watching: in quickly)
+		black_fade = max(black_fade - (delta / (0.12 if _quick_in else (0.25 if _watching_from_tab() else 0.75))), 0) # (watching or a retry: in quickly)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	$BlackFade.visible = (black_fade != 0)
 
@@ -783,8 +783,12 @@ func _exit_tree():
 		Rhythia.disable_desync = _desync_to_restore
 		_desync_to_restore = null
 
+var _quick_in := false # (a retry: the black fade goes quickly)
 func _ready():
 	Rhythia.start_log("game")
+	if Rhythia.has_meta("quick_retry"):
+		_quick_in = true
+		Rhythia.remove_meta("quick_retry")
 	# Settings > VR > Grid size: the grid, notes and cursor bigger (never
 	# smaller than the default), around the grid's middle (the world's centre);
 	# the VR cursor works in the grid's own space (NoteManager.do_vr_cursor),

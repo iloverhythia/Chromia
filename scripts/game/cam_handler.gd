@@ -77,6 +77,7 @@ func _process(delta):
 		var lobby_manager = get_node_or_null("/root/LobbyManager")
 		if lobby_manager == null or not lobby_manager.lobby_active:
 			get_tree().paused = false
+			Rhythia.set_meta("quick_retry", true) # (Game.gd: fades in quickly)
 			get_tree().reload_current_scene()
 
 func _exit_tree():
