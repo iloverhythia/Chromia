@@ -679,6 +679,25 @@ func _my_names() -> Array:
 			names.append(String(n).strip_edges().to_lower())
 	return names
 
+# a leaderboard row's level, as "Lv 32" or "P1 Lv 32" with a prestige. The
+# server sends {level, prestige, exp, need, progress} (older ones: a number)
+static func _lb_int(v) -> int:
+	return int(v) if (v is int or v is float) else (int(String(v)) if v is String else 0)
+
+static func _lb_level_text(v) -> String:
+	var lvl := 0
+	var prestige := 0
+	if v is Dictionary:
+		var l = v.get("level", 0)
+		var p = v.get("prestige", 0)
+		lvl = int(l) if (l is int or l is float) else 0
+		prestige = int(p) if (p is int or p is float) else 0
+	elif v is int or v is float:
+		lvl = int(v)
+	if lvl <= 0 and prestige <= 0:
+		return ""
+	return ("P%d Lv %d" % [prestige, lvl]) if prestige > 0 else ("Lv %d" % lvl)
+
 const LB_MEDALS = [Color(1, 0.84, 0.3), Color(0.8, 0.84, 0.9), Color(0.87, 0.6, 0.38)]
 func _build_leaderboard_rows(list_box: VBoxContainer, entries: Array, value_key: String = "xp", unit: String = "XP"):
 	if list_box == null:
@@ -693,9 +712,8 @@ func _build_leaderboard_rows(list_box: VBoxContainer, entries: Array, value_key:
 	for i in range(entries.size()):
 		var e = entries[i]
 		var nm: String = Globals.s(e.get("name", "Player"))
-		var lvl := int(e.get("level", 0)) if e.get("level") != null else 0
-		var row: HBoxContainer = S.row(list_box, "#%d" % (i + 1), nm, ("Lv %d" % lvl) if lvl > 0 else "",
-			"%s %s" % [Globals.comma_sep(int(e.get(value_key, 0))), unit], me.has(nm.strip_edges().to_lower()))
+		var row: HBoxContainer = S.row(list_box, "#%d" % (i + 1), nm, _lb_level_text(e.get("level")),
+			"%s %s" % [Globals.comma_sep(_lb_int(e.get(value_key, 0))), unit], me.has(nm.strip_edges().to_lower()))
 		if i < LB_MEDALS.size():
 			row.get_child(0).add_color_override("font_color", LB_MEDALS[i])
 
