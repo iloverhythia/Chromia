@@ -196,7 +196,34 @@ func _transition_to_list():
 	if list:
 		list.switch_to_play_screen()
 
+# Save video, under Play: the play just made as a video on the website, with
+# your settings (VideoExport.gd); also for a part of a map (a fail / give-up)
+func _add_video_button():
+	var info = get_node_or_null("../../H1/Info")
+	var run = info.get_node_or_null("Run") if info != null else null
+	if run == null or info.get_node_or_null("SaveVideo") != null or OS.has_feature("JavaScript") or Rhythia.vr:
+		return
+	var file: String = load("res://scripts/VideoExport.gd").last_replay_file()
+	if file == "":
+		return
+	var b := Button.new()
+	b.name = "SaveVideo"
+	b.text = "Save video"
+	b.hint_tooltip = "Make a video of this play on the website, with your settings (opens your browser)"
+	b.theme = run.theme
+	b.rect_min_size = Vector2(0, max(run.rect_min_size.y * 0.7, 32))
+	b.focus_mode = Control.FOCUS_NONE
+	var song = Rhythia.selected_song
+	var what := "%s · %s" % ["Passed" if Rhythia.song_end_type == Globals.END_PASS else "Part of the map", Rhythia.song_end_time_str]
+	b.connect("pressed", self, "_on_save_video", [file, song, what])
+	info.add_child(b)
+	info.move_child(b, run.get_index() + 1)
+
+func _on_save_video(file: String, song, what: String):
+	load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
+
 func _handle_post_game_results():
+	_add_video_button()
 	var is_best: bool = Rhythia.do_pb_check_and_set()
 	if is_best: $NewBest.play()
 

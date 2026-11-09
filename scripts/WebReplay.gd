@@ -23,7 +23,8 @@ static func params() -> Dictionary:
 		for part in q.trim_prefix("?").split("&", false):
 			var kv: PoolStringArray = part.split("=", true, 1)
 			out[kv[0].percent_decode()] = kv[1].replace("+", " ").percent_decode() if kv.size() > 1 else ""
-		if not (out.has("replay") and out.has("player") and out.has("map")):
+		# (or a private video link: ?render=<link>, made by the game's Save video)
+		if not (out.has("replay") and out.has("player") and out.has("map")) and not out.has("render"):
 			out = {}
 	Engine.set_meta(META, out)
 	return out
@@ -165,6 +166,9 @@ func _fail(text: String):
 
 func _run():
 	var p := params()
+	if p.has("render"):
+		_run_render(String(p.render))
+		return
 	var info = _json(yield(_fetch("/savia-public/api/map/" + String(p.map).http_escape()), "completed"))
 	if not (info is Dictionary) or String(info.get("slug", "")) == "":
 		return _fail("This map isn't on the server, so its replay can't be shown.")
@@ -200,6 +204,87 @@ func _run():
 	ready_to_play = true
 	_status.text = ""
 	_buttons.visible = true
+
+# ── a private video (the game's Save video: VideoExport.gd) ──
+# The map, the replay and the player's settings come from the link; their
+# settings are put on (SpectateSettings.apply, as when watching someone with
+# theirs) before it plays, with their own pictures downloaded first.
+func _run_render(t: String):
+	if t.length() != 32 or not t.is_valid_hex_number():
+		return _fail("This video link isn't right.")
+	var info = _json(yield(_fetch("/savia-render/%s" % t), "completed"))
+	if not (info is Dictionary) or not bool(info.get("ok", false)):
+		return _fail("This video link has expired.")
+	_title.text = String(info.get("song_name", "")) if String(info.get("song_name", "")) != "" else "Your play"
+	var who = info.get("player")
+	var name := String(who.get("name", "")) if who is Dictionary else ""
+	_sub.text = ("played by %s" % name) if name != "" else ""
+	title = "%s - %s" % [name if name != "" else "Chromia", _title.text]
+	_status.text = "Getting the map..."
+	var map_bytes = yield(_fetch("/savia-render/%s/map" % t), "completed")
+	if map_bytes == null:
+		return _fail("The map couldn't be downloaded.")
+	var map_path := "user://maps/web_render.sspm"
+	if not _save(map_path, map_bytes):
+		return _fail("The map couldn't be saved in the browser.")
+	var song = Song.new()
+	var res = song.load_from_sspm(Globals.p(map_path))
+	if res is String:
+		return _fail("The map couldn't be read (%s)." % res)
+	if Rhythia.registry_song:
+		Rhythia.registry_song.check_and_remove_id(song.id)
+		Rhythia.registry_song.add_item(song)
+	Engine.set_meta("web_replay_song", song)
+	var rep = yield(_fetch("/savia-render/%s/replay" % t), "completed")
+	if rep == null:
+		return _fail("The replay couldn't be downloaded.")
+	replay_path = "user://web_replay.sspre"
+	if not _save(replay_path, rep):
+		return _fail("The replay couldn't be saved in the browser.")
+	_status.text = "Putting on their settings..."
+	var settings = _json(yield(_fetch("/savia-render/%s/settings" % t), "completed"))
+	if settings is Dictionary and not settings.empty():
+		yield(_apply_settings(settings), "completed")
+	ready_to_play = true
+	_status.text = ""
+	_buttons.visible = true
+
+func _apply_settings(s: Dictionary):
+	yield(get_tree(), "idle_frame")
+	# their border, note mesh, font and backgrounds (this site has them: the
+	# game sends them when it makes the video, as for spectators)
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null and lm.has_method("fetch_spectate_assets"):
+		lm.fetch_spectate_assets(s)
+		var waited := 0.0
+		while waited < 12.0 and lm.has_method("spectate_assets_ready") and not lm.spectate_assets_ready():
+			yield(get_tree().create_timer(0.25), "timeout")
+			waited += 0.25
+	# their cursor picture (the game's own when they have none); this browser's
+	# game (only used for these videos) takes it as its own
+	for ext in ["png", "jpg", "jpeg", "webp", "gif"]:
+		Directory.new().remove(Globals.p("user://cursor." + ext))
+	var sha := String(s.get("cursor_image", "")).to_lower()
+	if sha.length() == 64 and sha.is_valid_hex_number():
+		var pic = yield(_fetch("/savia-cursor/%s.png" % sha), "completed")
+		if pic != null:
+			_save("user://cursor.png", pic)
+	_render_settings = s
+
+# Their settings, put on just before each play (the menu clears their
+# backgrounds and font when it opens), as this browser game's own: put on as
+# "someone else's" (SpectateSettings' backup), the song's load would put
+# "yours" back, so the backup is dropped
+var _render_settings := {}
+func _put_render_settings():
+	if _render_settings.empty():
+		return
+	var spec = load("res://scripts/SpectateSettings.gd")
+	spec.apply(_render_settings, -1)
+	for k in ["spec_backup", "spec_for"]:
+		if Rhythia.has_meta(k):
+			Rhythia.remove_meta(k)
+	Directory.new().remove(Globals.p(spec.BACKUP_FILE))
 
 # ── playing ──
 func _on_watch():
@@ -238,6 +323,7 @@ func _play():
 	_waiting = true
 	_seen_loader = false
 	_ending = false
+	_put_render_settings() # (a private video: the player's settings)
 	Rhythia.replay = Replay.new()
 	Rhythia.replaying = true
 	Rhythia.replay_path = Globals.p(replay_path)
