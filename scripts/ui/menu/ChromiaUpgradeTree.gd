@@ -458,7 +458,7 @@ func _ready():
 	_info_label.anchor_bottom = 1.0
 	_info_label.anchor_right = 1.0
 	_info_label.margin_left = 112
-	_info_label.margin_right = -24
+	_info_label.margin_right = -262 # (Import / Export on the right)
 	_info_label.margin_top = -90
 	_info_label.margin_bottom = -16
 	_info_label.text = "Click the Chromia logo for chrome coins. Click an upgrade to buy it. Drag to move, scroll (or - / +) to zoom, as far out as you like. New Feature upgrades find one of 110,000 features, kept for good."
@@ -466,6 +466,22 @@ func _ready():
 	_info_label.autowrap = true
 	_info_label.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(_info_label)
+	# your tree as a file, and a file back (bottom right, clear of the eye button)
+	for e in [["Import", -252, -166, "_import_tree", "Load a tree from a file (yours is kept as furry_tree.before_import.json)"], ["Export", -160, -74, "_export_tree", "Save your whole tree to a file"]]:
+		var b := Button.new()
+		b.text = e[0]
+		b.hint_tooltip = e[4]
+		b.theme = preload("res://uitheme.tres")
+		b.anchor_left = 1.0
+		b.anchor_right = 1.0
+		b.anchor_top = 1.0
+		b.anchor_bottom = 1.0
+		b.margin_left = e[1]
+		b.margin_right = e[2]
+		b.margin_top = -54
+		b.margin_bottom = -18
+		b.connect("pressed", self, e[3])
+		add_child(b)
 
 	_build_prestige_panel()
 	_build_feature_panel()
@@ -876,6 +892,76 @@ func _highest_reached() -> int:
 		if _reached(k):
 			h = k
 	return h
+
+# --- Import / Export: the whole tree (its save file) as a .chromiatree file ------
+const TREE_FILTER := "*.chromiatree ; Chromia upgrade tree"
+# (the file picker is drawn with the menu, under this screen's layer: this
+# screen steps behind while it's open, and comes back after)
+var _layer_before = null
+func _picker_open():
+	var cl = get_parent()
+	if cl is CanvasLayer and _layer_before == null:
+		_layer_before = cl.layer
+		cl.layer = -1
+
+func _picker_closed():
+	var cl = get_parent()
+	if cl is CanvasLayer and _layer_before != null:
+		cl.layer = _layer_before
+	_layer_before = null
+
+func _export_tree():
+	_save()
+	_picker_open()
+	Globals.file_sel.save_file(self, "_export_picked", PoolStringArray([TREE_FILTER]), "user://my_tree.chromiatree")
+
+func _export_picked(path: String):
+	_picker_closed()
+	if path == "":
+		return
+	if path.get_extension().to_lower() != "chromiatree":
+		path += ".chromiatree"
+	var d := Directory.new()
+	if d.copy(SAVE_PATH, path) == OK:
+		_info_label.text = "Your tree is saved to %s. Import it on another device (or later) to carry on from here." % path
+	else:
+		_info_label.text = "Couldn't save the tree to %s." % path
+
+func _import_tree():
+	_picker_open()
+	Globals.file_sel.open_file(self, "_import_picked", PoolStringArray([TREE_FILTER, "*.json ; Tree save (furry_tree.json)"]), false)
+
+func _import_picked(files):
+	_picker_closed()
+	var path := ""
+	if files is PoolStringArray or files is Array:
+		path = String(files[0]) if files.size() > 0 else ""
+	elif files is String:
+		path = files
+	if path == "":
+		return # (cancelled)
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		_info_label.text = "Couldn't open %s." % path
+		return
+	var text := f.get_as_text()
+	f.close()
+	var p := JSON.parse(text)
+	if p.error != OK or not (p.result is Dictionary) or not (p.result.get("nodes") is Array) or p.result.nodes.empty():
+		_info_label.text = "That file isn't an upgrade tree."
+		return
+	_save()
+	var d := Directory.new()
+	d.remove(IMPORT_BACKUP)
+	d.copy(SAVE_PATH, IMPORT_BACKUP)
+	if f.open(SAVE_PATH, File.WRITE) != OK:
+		_info_label.text = "Couldn't write the tree."
+		return
+	f.store_string(text)
+	f.close()
+	Rhythia.trail("upgrade tree: imported %s" % path.get_file())
+	reload_from_save("Tree imported from %s. Your tree from before is kept as furry_tree.before_import.json." % path.get_file())
+const IMPORT_BACKUP := "user://furry_tree.before_import.json"
 
 # How far this tree has got, for your other devices (TreeSync.gd): the highest
 # layer reached, its best points, all chrome coins ever, features found.
@@ -2074,5 +2160,10 @@ func _bought_any() -> bool:
 
 # Save if the menu goes away while the tree is still open.
 func _exit_tree():
+	# (a file picker still open for this screen: it doesn't call back into it)
+	var fs = Globals.file_sel
+	if fs != null and is_instance_valid(fs) and fs.get("target_object") == self:
+		fs.target_object = fs
+		fs.visible = false
 	if visible:
 		_save()
