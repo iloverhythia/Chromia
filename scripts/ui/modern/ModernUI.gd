@@ -953,7 +953,7 @@ func _refresh_play():
 	var stars: float = s.star_rating_cached() if s != null else -1.0
 	play_btn.text = "PLAY" if ok else "PRACTICE"
 	var speed: float = Rhythia.current_speed_multiplier() if Rhythia.has_method("current_speed_multiplier") else 1.0
-	if ok and stars > 0 and Rhythia.show_map_rp: # (Settings > Experimental > Show RP on Maps)
+	if ok and stars > 0 and Rhythia.map_rp_shown(): # (Settings > Experimental > Show RP on Maps, or the servers are down)
 		play_sub.text = "MAX %d RP" % int(round(preload("res://scripts/RhythiaPoints.gd").max_rp(stars, speed)))
 	else:
 		play_sub.text = ""

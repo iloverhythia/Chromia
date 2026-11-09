@@ -196,6 +196,7 @@ func _process(_delta):
 	_process_map_upload_step()
 	_process_map_publish_step()
 	_presence_tick(_delta)
+	_offline_tick(_delta)
 	_chat_wait(_delta)
 
 	_update_stop_bar()
@@ -2149,6 +2150,32 @@ func _set_presence_supported(v: int):
 
 func _connected() -> bool:
 	return _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_CONNECTED
+
+# The servers can't be reached: the game's connection to them (it's kept open
+# all the time, and tried again when it's lost) has been down for a while, or
+# this is a page that can't reach them at all. Maps show their offline RP
+# then, whatever the Show RP on Maps setting says (Savia.map_rp_shown).
+const OFFLINE_AFTER := 12.0
+var servers_offline := false
+var _unreached_t := 0.0
+var _embedded := -1
+func _offline_tick(delta: float):
+	var off := false
+	if _connected():
+		_unreached_t = 0.0
+	elif presence_supported == 0:
+		_unreached_t = 0.0 # (an older server: only connected to when needed, so no telling)
+	else:
+		_unreached_t += delta
+		off = _unreached_t >= OFFLINE_AFTER
+	if not off:
+		if _embedded < 0: # (asked of the page once)
+			_embedded = 1 if Online.is_embedded() else 0
+		off = _embedded == 1
+	if off != servers_offline:
+		servers_offline = off
+		if Rhythia != null:
+			Rhythia.emit_signal("show_map_rp_changed") # (the map's screen redoes its RP line)
 
 func _presence_tick(delta: float):
 	if Rhythia == null or String(Rhythia.cid) == "":

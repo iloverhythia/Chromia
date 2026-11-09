@@ -97,7 +97,7 @@ func _add_show_map_rp():
 	cb.name = "ShowMapRP"
 	cb.target = "show_map_rp"
 	cb.text = "Show RP on Maps"
-	cb.hint_tooltip = "Shows on each map how much RP a perfect pass gives at your speed, and your best RP on it. Off: maps don't show RP. You earn RP either way, and your total and top plays stay in the Profile tab."
+	cb.hint_tooltip = "Shows on each map how much RP a perfect pass gives at your speed, and your best RP on it. Off: maps only show RP while the servers can't be reached. You earn RP either way, and your total and top plays stay in the Profile tab."
 	parent.add_child(cb)
 	var at: Node = parent.get_node_or_null("MapGrid")
 	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)

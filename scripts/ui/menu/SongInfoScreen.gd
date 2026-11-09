@@ -56,8 +56,9 @@ func _rebuild_data_label(map: Song):
 		if _my_stats_song_id == map.id and _my_stats_has_passed:
 			lines.append("PB: %d XP / %d SP" % [_my_stats_best_xp, _my_stats_best_sp])
 	# Offline RP: what a 100% pass at the current speed gives, and your best
-	# (only with Settings > Experimental > Show RP on Maps; it's earned either way)
-	if stars > 0.0 and Rhythia.show_map_rp:
+	# (with Settings > Experimental > Show RP on Maps, and always while the
+	# servers can't be reached; it's earned either way)
+	if stars > 0.0 and Rhythia.map_rp_shown():
 		var rp_line = "RP: %d" % int(round(RhythiaPoints.max_rp(stars, Rhythia.current_speed_multiplier())))
 		var best = RhythiaPoints.get_store().plays.get(String(map.id))
 		if best != null:

@@ -3283,12 +3283,21 @@ func _set_modern_ui(v: bool):
 var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd: the first version's mouse code)
 # Experimental: "Show RP on Maps". Offline RP (RhythiaPoints.gd) is always
 # earned and kept (the Profile tab has the total and the top plays); this only
-# says whether a map's screen shows what it gives and your best on it. Off by default.
+# says whether a map's screen shows what it gives and your best on it. Off by
+# default; while the servers can't be reached it shows either way (map_rp_shown).
 signal show_map_rp_changed
 var show_map_rp: bool = false setget _set_show_map_rp
 func _set_show_map_rp(v: bool):
 	show_map_rp = v
 	emit_signal("show_map_rp_changed")
+# Whether maps show their RP right now: with the setting on, and always while
+# the servers can't be reached (LobbyManager.servers_offline), when RP is the
+# only thing a pass can give.
+func map_rp_shown() -> bool:
+	if show_map_rp:
+		return true
+	var lm = get_node_or_null("/root/LobbyManager")
+	return lm != null and bool(lm.get("servers_offline"))
 var pc_no_delay: bool = false # Experimental: No Delay (PC mouse), no_delay_begin / no_delay_end
 # Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
 var realistic_autoplay: bool = false
