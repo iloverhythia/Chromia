@@ -586,9 +586,12 @@ func _build_profile_ui():
 	lvbox.add_child(leaderboard_scroll)
 
 	leaderboard_list_box = VBoxContainer.new()
-	leaderboard_list_box.add_constant_override("separation", 3)
+	leaderboard_list_box.add_constant_override("separation", 6)
 	leaderboard_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	leaderboard_scroll.add_child(leaderboard_list_box)
+	# (profile pictures load for the rows in view: _lb_load_pics)
+	leaderboard_scroll.get_v_scrollbar().connect("value_changed", self, "_lb_pics_soon")
+	leaderboard_list_box.connect("visibility_changed", self, "_lb_pics_soon")
 	_build_leaderboard_rows(leaderboard_list_box, [], "sp", "SP")
 
 	# Stats (used to be its own sidebar page)
@@ -699,23 +702,198 @@ static func _lb_level_text(v) -> String:
 	return ("P%d Lv %d" % [prestige, lvl]) if prestige > 0 else ("Lv %d" % lvl)
 
 const LB_MEDALS = [Color(1, 0.84, 0.3), Color(0.8, 0.84, 0.9), Color(0.87, 0.6, 0.38)]
+const LB_SITE := "https://savia.nysr.host"
+const LB_RANKED_TEAM := Color(1, 0.431, 0.29) # (the website's "Ranked Team" orange)
+
+# a country's flag from its two letters ("US"), from the emoji pack; null when unknown
+static func _lb_flag(code) -> Texture:
+	var c := String(code).to_upper() if code is String else ""
+	if c.length() != 2:
+		return null
+	var a := c.ord_at(0) - 65
+	var b := c.ord_at(1) - 65
+	if a < 0 or a > 25 or b < 0 or b > 25:
+		return null
+	return load("res://scripts/ui/Emoji.gd")._texture("%x-%x" % [0x1F1E6 + a, 0x1F1E6 + b])
+
+# The leaderboard's rows, with what the website's leaderboard shows: place,
+# country, profile picture, name with their tag and Ranked Team, level and
+# ranked plays, the XP / SP and the lead over the next player. A click opens
+# their profile on the website.
+var _lb_pics := [] # [row, slot, name, url]: pictures still to load (as their rows come into view)
 func _build_leaderboard_rows(list_box: VBoxContainer, entries: Array, value_key: String = "xp", unit: String = "XP"):
 	if list_box == null:
 		return
 	var S = _online_style()
 	for child in list_box.get_children():
+		list_box.remove_child(child)
 		child.queue_free()
+	_lb_pics.clear()
+	if list_box.get_parent() is ScrollContainer:
+		list_box.get_parent().scroll_vertical = 0 # (a new list starts at its top)
 	if entries.size() == 0:
 		list_box.add_child(S.label("No leaderboard data yet.", S.f_regular, S.DIM))
 		return
 	var me := _my_names()
+	# (no empty flag slots before any country is known)
+	var flags := false
+	for e in entries:
+		if e is Dictionary and _lb_flag(e.get("country")) != null:
+			flags = true
+			break
 	for i in range(entries.size()):
-		var e = entries[i]
-		var nm: String = Globals.s(e.get("name", "Player"))
-		var row: HBoxContainer = S.row(list_box, "#%d" % (i + 1), nm, _lb_level_text(e.get("level")),
-			"%s %s" % [Globals.comma_sep(_lb_int(e.get(value_key, 0))), unit], me.has(nm.strip_edges().to_lower()))
-		if i < LB_MEDALS.size():
-			row.get_child(0).add_color_override("font_color", LB_MEDALS[i])
+		if entries[i] is Dictionary:
+			_lb_row(list_box, entries, i, value_key, unit, me, flags)
+	_lb_pics_soon()
+
+func _lb_row(list_box: VBoxContainer, entries: Array, i: int, value_key: String, unit: String, me: Array, flags: bool):
+	var S = _online_style()
+	var e: Dictionary = entries[i]
+	var nm: String = Globals.s(e.get("name", "Player"))
+	var mine: bool = me.has(nm.strip_edges().to_lower())
+	var number := _lb_int(e.get("number", 0))
+
+	var p = PanelContainer.new()
+	var normal = S.flat(S.CARD_HOVER if mine else S.CARD_BG, 4, S.LILAC if mine else Color(1, 1, 1, 0.04), 1, 10, 6)
+	var hover = S.flat(S.CARD_HOVER, 4, S.LILAC if mine else Color(1, 1, 1, 0.14), 1, 10, 6)
+	p.add_stylebox_override("panel", normal)
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if number > 0 and not Rhythia.vr:
+		p.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		p.hint_tooltip = "Open %s's profile on the website" % nm
+		p.connect("mouse_entered", p, "add_stylebox_override", ["panel", hover])
+		p.connect("mouse_exited", p, "add_stylebox_override", ["panel", normal])
+		p.connect("gui_input", self, "_on_lb_row_input", [number])
+	list_box.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_constant_override("separation", 8)
+	p.add_child(h)
+
+	var rk = S.label("#%d" % (i + 1), S.f_bold, LB_MEDALS[i] if i < LB_MEDALS.size() else S.DIM)
+	rk.rect_min_size = Vector2(32, 0)
+	h.add_child(rk)
+
+	if flags:
+		var fl = TextureRect.new()
+		fl.expand = true
+		fl.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fl.rect_min_size = Vector2(22, 22)
+		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		fl.texture = _lb_flag(e.get("country"))
+		if fl.texture != null:
+			fl.hint_tooltip = String(e.get("country")).to_upper()
+			fl.mouse_filter = Control.MOUSE_FILTER_PASS
+		else:
+			fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(fl)
+
+	# their picture: the initial for now, the picture once the row is in view
+	var slot = Control.new()
+	slot.rect_min_size = Vector2(36, 36)
+	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(S.initial(nm))
+	h.add_child(slot)
+	var url = e.get("avatar_url")
+	if url is String and url != "":
+		_lb_pics.append([p, slot, nm, url])
+
+	# (name and details take the room that's left and are cut off at its end:
+	# a long line never makes the row, and the panel with it, wider)
+	var clip = Control.new()
+	clip.rect_min_size = Vector2(0, 38)
+	clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	clip.rect_clip_content = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(clip)
+	var mid = VBoxContainer.new()
+	mid.add_constant_override("separation", 0)
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.add_child(mid)
+	var line = HBoxContainer.new()
+	line.add_constant_override("separation", 6)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mid.add_child(line)
+	line.add_child(S.label(nm if nm.length() <= 20 else nm.left(19) + "…", S.f_bold, S.TEXT))
+	var tag = e.get("tag")
+	if tag is Dictionary and String(tag.get("text", "")).strip_edges() != "":
+		var tc := String(tag.get("color", "")) if tag.get("color") is String else ""
+		line.add_child(S.badge(Globals.s(tag.get("text")), Color(tc) if tc.is_valid_html_color() else S.LILAC))
+	if e.get("is_ranker") == true:
+		var rt = S.label("Ranked Team", S.f_small, LB_RANKED_TEAM)
+		rt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.add_child(rt)
+	var sub = HBoxContainer.new()
+	sub.add_constant_override("separation", 6)
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mid.add_child(sub)
+	var bits := PoolStringArray()
+	var lv := _lb_level_text(e.get("level"))
+	if lv != "":
+		bits.append(lv)
+	if e.has("pass_count"):
+		var pc := _lb_int(e.get("pass_count"))
+		bits.append("%s ranked %s" % [Globals.comma_sep(pc), "play" if pc == 1 else "plays"])
+	if bits.size() > 0:
+		sub.add_child(S.label(bits.join("  ·  "), S.f_small, S.DIM))
+
+	var right = VBoxContainer.new()
+	right.add_constant_override("separation", 0)
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(right)
+	var value := _lb_int(e.get(value_key, 0))
+	var val = S.label("%s %s" % [Globals.comma_sep(value), unit], S.f_bold, S.ACCENT)
+	val.align = Label.ALIGN_RIGHT
+	right.add_child(val)
+	# (the lead over the next player, as on the website)
+	if i + 1 < entries.size() and entries[i + 1] is Dictionary:
+		var lead = S.label("+%s" % Globals.comma_sep(int(max(value - _lb_int(entries[i + 1].get(value_key, 0)), 0))), S.f_small, S.DIM)
+		lead.align = Label.ALIGN_RIGHT
+		right.add_child(lead)
+
+var _lb_press_at := Vector2(-1000, -1000)
+func _on_lb_row_input(ev: InputEvent, number: int):
+	if not (ev is InputEventMouseButton) or ev.button_index != BUTTON_LEFT:
+		return
+	if ev.pressed:
+		_lb_press_at = ev.global_position
+	elif _lb_press_at.distance_to(ev.global_position) < 8.0: # (a click, not the end of a drag)
+		_lb_press_at = Vector2(-1000, -1000)
+		OS.shell_open(LB_SITE + "/profile?id=%d" % number)
+
+# Pictures are loaded for the rows you can see (a few at a time), and the rest
+# as you scroll to them: not a hundred downloads when the list opens
+var _lb_pics_queued := false
+func _lb_pics_soon(_v = null):
+	if _lb_pics_queued or _lb_pics.empty() or not is_inside_tree():
+		return
+	_lb_pics_queued = true
+	get_tree().create_timer(0.08).connect("timeout", self, "_lb_load_pics")
+
+func _lb_load_pics():
+	_lb_pics_queued = false
+	if _lb_pics.empty() or leaderboard_list_box == null or not leaderboard_list_box.is_visible_in_tree():
+		return
+	var S = _online_style()
+	var sc: Control = leaderboard_list_box.get_parent()
+	var view := Rect2(sc.rect_global_position, sc.rect_size).grow(160)
+	var left := []
+	var started := 0
+	for it in _lb_pics:
+		if not is_instance_valid(it[0]):
+			continue
+		if started < 6 and view.intersects(Rect2(it[0].rect_global_position, it[0].rect_size)):
+			for c in it[1].get_children():
+				c.queue_free()
+			it[1].add_child(S.avatar(it[2], it[3], self))
+			started += 1
+		else:
+			left.append(it)
+	_lb_pics = left
+	if started >= 6:
+		_lb_pics_soon() # (more of them are in view)
 
 func _on_leaderboard_received(entries: Array):
 	_leaderboard_entries_additive = entries
