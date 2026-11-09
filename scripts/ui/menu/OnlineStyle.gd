@@ -49,7 +49,11 @@ static func flat(bg: Color, radius: int = 4, border: Color = Color(0, 0, 0, 0), 
 	var s = StyleBoxFlat.new()
 	s.bg_color = bg
 	s.set_corner_radius_all(radius)
+	# (round corners drawn as a smooth curve: with the defaults a corner is a
+	# few straight pieces and its thin outline looks stepped)
 	s.anti_aliasing = true
+	s.anti_aliasing_size = 1.0
+	s.corner_detail = 16 if radius >= 6 else 12
 	if bw > 0:
 		s.border_color = border
 		s.set_border_width_all(bw)
@@ -116,42 +120,73 @@ func card(parent: Control) -> HBoxContainer:
 # number over what it counts. Returns the number's Label
 func tile(parent: Control, value: String, caption: String, tip: String = "") -> Label:
 	var p = PanelContainer.new()
-	p.add_stylebox_override("panel", flat(CARD_BG, 4, Color(1, 1, 1, 0.04), 1, 12, 7))
+	p.add_stylebox_override("panel", flat(CARD_BG, 4, Color(1, 1, 1, 0.04), 1, 12, 9))
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.hint_tooltip = tip
 	parent.add_child(p)
 	var v = VBoxContainer.new()
-	v.add_constant_override("separation", 0)
+	v.add_constant_override("separation", 1)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(v)
 	var val = label(value, f_bold, TEXT)
 	val.clip_text = true
 	v.add_child(val)
-	var cap = label(caption, f_small, DIM)
-	cap.clip_text = true
-	v.add_child(cap)
+	v.add_child(fit_label(caption, f_small, DIM))
 	return val
+
+# a one-line label that ends in "…" when it has no room for its text
+# (never cut off mid-letter; the whole text is then its tooltip)
+func fit_label(text: String, f: Font = null, col: Color = TEXT) -> Label:
+	var l = load("res://scripts/ui/EllipsisLabel.gd").new()
+	l.add_font_override("font", f if f != null else f_regular)
+	l.add_color_override("font_color", col)
+	l.full = text
+	return l
 
 # a thin row card of a numbered list (top plays, the leaderboard, most played):
 # "#1  name  detail  value". Returns the HBox inside (rank first, value last)
 func row(parent: Control, rank: String, name: String, detail: String, value: String, mine: bool = false) -> HBoxContainer:
 	var p = PanelContainer.new()
-	p.add_stylebox_override("panel", flat(CARD_HOVER if mine else CARD_BG, 4, LILAC if mine else Color(1, 1, 1, 0.04), 1, 10, 4))
+	p.add_stylebox_override("panel", flat(CARD_HOVER if mine else CARD_BG, 4, LILAC if mine else Color(1, 1, 1, 0.04), 1, 12, 7))
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parent.add_child(p)
 	var h = HBoxContainer.new()
-	h.add_constant_override("separation", 8)
+	h.add_constant_override("separation", 10)
 	p.add_child(h)
 	var rk = label(rank, f_bold, DIM)
 	rk.rect_min_size = Vector2(32, 0)
 	h.add_child(rk)
-	var nm = label(name, f_regular, TEXT)
-	nm.clip_text = true
+	var nm = fit_label(name, f_regular, TEXT)
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nm.hint_tooltip = name
-	nm.mouse_filter = Control.MOUSE_FILTER_PASS
 	h.add_child(nm)
 	if detail != "":
 		h.add_child(label(detail, f_small, DIM))
+	var val = label(value, f_bold, ACCENT)
+	val.align = Label.ALIGN_RIGHT
+	h.add_child(val)
+	return h
+
+# the same row with its detail on a second line under the name (top RP plays):
+# "#1  name            value"
+# "    detail"
+func row2(parent: Control, rank: String, name: String, detail: String, value: String) -> HBoxContainer:
+	var p = PanelContainer.new()
+	p.add_stylebox_override("panel", flat(CARD_BG, 4, Color(1, 1, 1, 0.04), 1, 12, 6))
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_constant_override("separation", 10)
+	p.add_child(h)
+	var rk = label(rank, f_bold, DIM)
+	rk.rect_min_size = Vector2(32, 0)
+	h.add_child(rk)
+	var v = VBoxContainer.new()
+	v.add_constant_override("separation", 0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	v.add_child(fit_label(name, f_regular, TEXT))
+	v.add_child(fit_label(detail, f_small, DIM))
 	var val = label(value, f_bold, ACCENT)
 	val.align = Label.ALIGN_RIGHT
 	h.add_child(val)
@@ -286,22 +321,33 @@ func check(c: CheckBox) -> CheckBox:
 func scroll(sc: ScrollContainer) -> ScrollContainer:
 	sc.scroll_horizontal_enabled = false
 	var bar = sc.get_v_scrollbar()
-	var track = flat(Color(1, 1, 1, 0.04), 2)
-	track.content_margin_left = 3
-	track.content_margin_right = 3
-	var grab = flat(Color(LILAC.r, LILAC.g, LILAC.b, 0.45), 2)
-	var grab_hi = flat(Color(LILAC.r, LILAC.g, LILAC.b, 0.75), 2)
+	# (the bar is 6 px wide with 6 px of nothing on its left, so the rows end
+	# clear of it instead of touching or sliding under it)
+	var track = _bar_part(Color(1, 1, 1, 0.04))
+	var grab = _bar_part(Color(LILAC.r, LILAC.g, LILAC.b, 0.45))
+	var grab_hi = _bar_part(Color(LILAC.r, LILAC.g, LILAC.b, 0.75))
 	bar.add_stylebox_override("scroll", track)
 	bar.add_stylebox_override("scroll_focus", track)
 	bar.add_stylebox_override("grabber", grab)
 	bar.add_stylebox_override("grabber_highlight", grab_hi)
 	bar.add_stylebox_override("grabber_pressed", grab_hi)
-	bar.rect_min_size.x = 8
+	bar.rect_min_size.x = 12
 	# (the list is laid out before the bar decides to show: laid out again when
 	# it does, so the rows end beside the bar and not under it)
 	if not bar.is_connected("visibility_changed", sc, "queue_sort"):
 		bar.connect("visibility_changed", sc, "queue_sort")
 	return sc
+
+static func _bar_part(col: Color) -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = col
+	s.set_corner_radius_all(3)
+	s.anti_aliasing = true
+	s.border_width_left = 6 # (see-through: the gap)
+	s.border_color = Color(col.r, col.g, col.b, 0)
+	s.content_margin_left = 6
+	s.content_margin_right = 6
+	return s
 
 # a small coloured tag ("HOST", "IN GAME")
 func badge(text: String, col: Color) -> PanelContainer:

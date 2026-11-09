@@ -229,9 +229,9 @@ func _build_lobby_ui():
 	code_row.add_child(lobby_copy_code_button)
 	lobby_active_box.add_child(code_row)
 
-	lobby_map_label = Label.new()
-	lobby_map_label.text = "Map: none"
-	lobby_map_label.autowrap = true
+	# (one line each, ending in "…" when the name is long: EllipsisLabel.gd)
+	lobby_map_label = load("res://scripts/ui/EllipsisLabel.gd").new()
+	lobby_map_label.full = "Map: none"
 	lobby_map_label.theme = ui_theme
 	lobby_active_box.add_child(lobby_map_label)
 
@@ -239,9 +239,8 @@ func _build_lobby_ui():
 	lobby_map_button.connect("pressed", self, "_on_use_current_map_pressed")
 	lobby_active_box.add_child(lobby_map_button)
 
-	lobby_selected_map_label = Label.new()
-	lobby_selected_map_label.text = "Selected: none"
-	lobby_selected_map_label.autowrap = true
+	lobby_selected_map_label = load("res://scripts/ui/EllipsisLabel.gd").new()
+	lobby_selected_map_label.full = "Selected: none"
 	lobby_selected_map_label.theme = ui_theme
 	lobby_active_box.add_child(lobby_selected_map_label)
 
@@ -488,7 +487,7 @@ func _build_profile_ui():
 	tabs.add_child(pscroll)
 	var pvbox = VBoxContainer.new()
 	pvbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pvbox.add_constant_override("separation", 10)
+	pvbox.add_constant_override("separation", 12)
 	pscroll.add_child(pvbox)
 
 	var discord_hbox = HBoxContainer.new()
@@ -543,7 +542,7 @@ func _build_profile_ui():
 	rp_head.add_child(rp_reset)
 	pvbox.add_child(rp_head)
 	rp_top_box = VBoxContainer.new()
-	rp_top_box.add_constant_override("separation", 3)
+	rp_top_box.add_constant_override("separation", 6)
 	pvbox.add_child(rp_top_box)
 	var rp_store = preload("res://scripts/RhythiaPoints.gd").get_store()
 	rp_store.connect("changed", self, "_refresh_rp")
@@ -551,7 +550,7 @@ func _build_profile_ui():
 
 	var lvbox = VBoxContainer.new()
 	lvbox.name = "Leaderboard"
-	lvbox.add_constant_override("separation", 10)
+	lvbox.add_constant_override("separation", 12)
 	tabs.add_child(lvbox)
 
 	var lb_head = HBoxContainer.new()
@@ -586,7 +585,7 @@ func _build_profile_ui():
 	lvbox.add_child(leaderboard_scroll)
 
 	leaderboard_list_box = VBoxContainer.new()
-	leaderboard_list_box.add_constant_override("separation", 6)
+	leaderboard_list_box.add_constant_override("separation", 8)
 	leaderboard_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	leaderboard_scroll.add_child(leaderboard_list_box)
 	# (profile pictures load for the rows in view: _lb_load_pics)
@@ -754,8 +753,8 @@ func _lb_row(list_box: VBoxContainer, entries: Array, i: int, value_key: String,
 	var number := _lb_int(e.get("number", 0))
 
 	var p = PanelContainer.new()
-	var normal = S.flat(S.CARD_HOVER if mine else S.CARD_BG, 4, S.LILAC if mine else Color(1, 1, 1, 0.04), 1, 10, 6)
-	var hover = S.flat(S.CARD_HOVER, 4, S.LILAC if mine else Color(1, 1, 1, 0.14), 1, 10, 6)
+	var normal = S.flat(S.CARD_HOVER if mine else S.CARD_BG, 4, S.LILAC if mine else Color(1, 1, 1, 0.04), 1, 12, 8)
+	var hover = S.flat(S.CARD_HOVER, 4, S.LILAC if mine else Color(1, 1, 1, 0.14), 1, 12, 8)
 	p.add_stylebox_override("panel", normal)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if number > 0 and not Rhythia.vr:
@@ -766,7 +765,7 @@ func _lb_row(list_box: VBoxContainer, entries: Array, i: int, value_key: String,
 		p.connect("gui_input", self, "_on_lb_row_input", [number])
 	list_box.add_child(p)
 	var h = HBoxContainer.new()
-	h.add_constant_override("separation", 8)
+	h.add_constant_override("separation", 10)
 	p.add_child(h)
 
 	var rk = S.label("#%d" % (i + 1), S.f_bold, LB_MEDALS[i] if i < LB_MEDALS.size() else S.DIM)
@@ -798,45 +797,31 @@ func _lb_row(list_box: VBoxContainer, entries: Array, i: int, value_key: String,
 	if url is String and url != "":
 		_lb_pics.append([p, slot, nm, url])
 
-	# (name and details take the room that's left and are cut off at its end:
-	# a long line never makes the row, and the panel with it, wider)
-	var clip = Control.new()
-	clip.rect_min_size = Vector2(0, 38)
-	clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	clip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	clip.rect_clip_content = true
-	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(clip)
-	var mid = VBoxContainer.new()
-	mid.add_constant_override("separation", 0)
-	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	clip.add_child(mid)
-	var line = HBoxContainer.new()
-	line.add_constant_override("separation", 6)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mid.add_child(line)
-	line.add_child(S.label(nm if nm.length() <= 20 else nm.left(19) + "…", S.f_bold, S.TEXT))
+	# name, tag and Ranked Team over level and ranked plays; it fits the room
+	# that's left without cutting anything in half (LbRowText.gd)
+	var tag_node: Control = null
 	var tag = e.get("tag")
 	if tag is Dictionary and String(tag.get("text", "")).strip_edges() != "":
 		var tc := String(tag.get("color", "")) if tag.get("color") is String else ""
-		line.add_child(S.badge(Globals.s(tag.get("text")), Color(tc) if tc.is_valid_html_color() else S.LILAC))
-	if e.get("is_ranker") == true:
-		var rt = S.label("Ranked Team", S.f_small, LB_RANKED_TEAM)
-		rt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		line.add_child(rt)
-	var sub = HBoxContainer.new()
-	sub.add_constant_override("separation", 6)
-	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mid.add_child(sub)
-	var bits := PoolStringArray()
+		tag_node = S.badge(Globals.s(tag.get("text")), Color(tc) if tc.is_valid_html_color() else S.LILAC)
 	var lv := _lb_level_text(e.get("level"))
+	var long_bits := PoolStringArray()
+	var short_bits := PoolStringArray()
 	if lv != "":
-		bits.append(lv)
+		long_bits.append(lv)
+		short_bits.append(lv)
 	if e.has("pass_count"):
 		var pc := _lb_int(e.get("pass_count"))
-		bits.append("%s ranked %s" % [Globals.comma_sep(pc), "play" if pc == 1 else "plays"])
-	if bits.size() > 0:
-		sub.add_child(S.label(bits.join("  ·  "), S.f_small, S.DIM))
+		long_bits.append("%s ranked %s" % [Globals.comma_sep(pc), "play" if pc == 1 else "plays"])
+		short_bits.append("%s %s" % [Globals.comma_sep(pc), "play" if pc == 1 else "plays"])
+	var variants := [long_bits.join("  ·  "), short_bits.join("  ·  ")]
+	if lv != "":
+		variants.append(lv)
+	var text = load("res://scripts/ui/menu/LbRowText.gd").new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text.setup(S, nm, tag_node, e.get("is_ranker") == true, LB_RANKED_TEAM, variants)
+	h.add_child(text)
 
 	var right = VBoxContainer.new()
 	right.add_constant_override("separation", 0)
@@ -1931,8 +1916,8 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	var state = lobby_manager.lobby_state
 	lobby_status_label.text = "Hosting a lobby" if is_host else "In a lobby"
 	lobby_code_label.text = lobby_manager.lobby_code
-	lobby_map_label.text = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
-	lobby_selected_map_label.text = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
+	lobby_map_label.full = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
+	lobby_selected_map_label.full = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
 	lobby_map_button.disabled = not is_host
 	if lobby_pick_button != null and is_instance_valid(lobby_pick_button):
 		lobby_pick_button.visible = is_host
@@ -2013,7 +1998,8 @@ func _rebuild_player_list(players: Array, local_peer_id: int):
 		texts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(texts)
 		var you: bool = int(p.get("peer_id", -1)) == local_peer_id
-		texts.add_child(S.label(pname + ("  (you)" if you else ""), S.f_bold, S.TEXT))
+		# (a long name ends in "…" instead of pushing the card's buttons out)
+		texts.add_child(S.fit_label(pname + ("  (you)" if you else ""), S.f_bold, S.TEXT))
 		var state := "Ready"
 		var col: Color = S.PLAYING
 		if p.get("missing_map", false):
@@ -2630,7 +2616,9 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	lobby_copy_code_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	code_card.add_child(lobby_copy_code_button)
 	code_row.queue_free()
-	# the map
+	# the map: its name and yours over the two buttons. (Beside the names the
+	# buttons left them a few pixels at the default window size, and a name
+	# came out one letter a line.)
 	var map_card = S.card(top)
 	map_card.get_parent().size_flags_stretch_ratio = 1.4
 	var map_texts := VBoxContainer.new()
@@ -2643,19 +2631,21 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	map_texts.add_child(lobby_selected_map_label)
 	lobby_selected_map_label.add_font_override("font", S.f_small)
 	lobby_selected_map_label.add_color_override("font_color", S.DIM)
+	var map_btns := HBoxContainer.new()
+	map_btns.add_constant_override("separation", 8)
+	map_texts.add_child(S.spacer(false))
+	map_texts.add_child(map_btns)
 	# Pick map: the lobby's own map picker (LobbyMapPicker.gd)
 	lobby_pick_button = Button.new()
 	lobby_pick_button.text = "Pick map"
 	lobby_pick_button.hint_tooltip = "Choose the lobby's map from a list of all your maps"
-	S.button(lobby_pick_button, true)
-	lobby_pick_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	S.button(lobby_pick_button, true, true)
 	lobby_pick_button.connect("pressed", self, "_open_lobby_map_picker")
-	map_card.add_child(lobby_pick_button)
+	map_btns.add_child(lobby_pick_button)
 	lobby_map_button.text = "Use selected"
 	lobby_map_button.hint_tooltip = "Use the map selected on the Maps page"
-	S.button(lobby_map_button)
-	lobby_map_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	map_card.add_child(lobby_map_button)
+	S.button(lobby_map_button, false, true)
+	map_btns.add_child(lobby_map_button)
 	box.add_child(S.rule())
 	# players
 	players_caption.queue_free()
@@ -2711,8 +2701,16 @@ func _style_chat_box(S, box: VBoxContainer, sc: ScrollContainer, input: LineEdit
 		var row = input.get_parent()
 		for c in row.get_children():
 			if c is Button:
-				S.button(c, true)
-				c.rect_min_size.x = 90
+				# Send is the wide lilac one; the emoji button a small dark square
+				# (it was as wide as Send, and cut the box's hint text short)
+				var is_send: bool = c.text.strip_edges() == "Send"
+				S.button(c, is_send)
+				c.rect_min_size.x = 90 if is_send else 44
+				if not is_send:
+					# (little padding, so its picture keeps its size in the small button)
+					c.add_stylebox_override("normal", S.flat(S.BTN_BG, 3, Color(0, 0, 0, 0), 0, 9, 7))
+					c.add_stylebox_override("hover", S.flat(S.BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 9, 7))
+					c.add_stylebox_override("pressed", S.flat(S.BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 9, 7))
 
 func _on_code_entered(_t: String):
 	_on_join_lobby_pressed()
@@ -2891,8 +2889,8 @@ func _refresh_rp():
 		return
 	for i in range(top.size()):
 		var p: Dictionary = top[i]
-		S.row(rp_top_box, "#%d" % (i + 1), Globals.s(p.get("name", p.id)),
-			"%.2f*  %sx  %.2f%%" % [float(p.stars), String(stepify(float(p.speed), 0.01)), float(p.acc) * 100.0],
+		S.row2(rp_top_box, "#%d" % (i + 1), Globals.s(p.get("name", p.id)),
+			"%.2f stars  ·  %sx speed  ·  %.2f%%" % [float(p.stars), String(stepify(float(p.speed), 0.01)), float(p.acc) * 100.0],
 			"%s RP" % Globals.comma_sep(int(round(float(p.rp)))))
 
 func _exit_tree():

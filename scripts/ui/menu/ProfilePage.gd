@@ -52,6 +52,10 @@ func _panel_style(inner: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = CARD_BG if inner else PANEL_BG
 	sb.set_corner_radius_all(4 if inner else 8)
+	# (a smooth curve: the default few straight pieces look stepped with a thin outline)
+	sb.anti_aliasing = true
+	sb.anti_aliasing_size = 1.0
+	sb.corner_detail = 12 if inner else 16
 	sb.set_border_width_all(1)
 	sb.border_color = Color(1, 1, 1, 0.04) if inner else PANEL_EDGE
 	sb.content_margin_left = 16
@@ -504,10 +508,12 @@ func _show_scores(scores: Array):
 		rank.rect_min_size = Vector2(36, 0)
 		rank.autowrap = false
 		row.add_child(rank)
-		var nm := _label(Globals.s(s.get("song_name", s.get("song_id", "?"))))
+		# (a long name ends in "…", not cut off mid-letter: EllipsisLabel.gd)
+		var nm: Label = load("res://scripts/ui/EllipsisLabel.gd").new()
+		nm.theme = _theme
+		nm.add_color_override("font_color", Color(0.9, 0.95, 1))
 		nm.size_flags_horizontal = SIZE_EXPAND_FILL
-		nm.autowrap = false
-		nm.clip_text = true
+		nm.full = Globals.s(s.get("song_name", s.get("song_id", "?")))
 		row.add_child(nm)
 		var val := _label(_play_line(s), 0, Color(1, 0.8, 0.9))
 		val.autowrap = false

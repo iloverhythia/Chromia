@@ -55,7 +55,7 @@ func _ready():
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
 	v.rect_clip_content = true
-	v.add_constant_override("separation", 10 if compact else 18)
+	v.add_constant_override("separation", 12 if compact else 18)
 	scroll.add_child(v)
 
 	var title := Label.new()
@@ -76,8 +76,13 @@ func _ready():
 	_grid = GridContainer.new()
 	_grid.columns = 3 if compact else 4
 	_grid.size_flags_horizontal = SIZE_EXPAND_FILL
-	_grid.add_constant_override("hseparation", 8 if compact else 14)
-	_grid.add_constant_override("vseparation", 8 if compact else 14)
+	_grid.add_constant_override("hseparation", 10 if compact else 14)
+	_grid.add_constant_override("vseparation", 10 if compact else 14)
+	if compact:
+		# (two wide tiles a row in a narrow panel, three when there's room, so a
+		# caption like "Maps with a record" always has its room)
+		connect("resized", self, "_fit_columns")
+		_fit_columns()
 	v.add_child(_grid)
 
 	var mp_title: Label = style.heading("Most played") if compact else Label.new()
@@ -88,7 +93,7 @@ func _ready():
 
 	_most_played = VBoxContainer.new()
 	_most_played.size_flags_horizontal = SIZE_EXPAND_FILL
-	_most_played.add_constant_override("separation", 3 if compact else 2)
+	_most_played.add_constant_override("separation", 6 if compact else 2)
 	v.add_child(_most_played)
 
 	connect("visibility_changed", self, "_on_visibility_changed")
@@ -119,6 +124,10 @@ func _delayed_refresh(t):
 		return
 	_refresh_timer = null
 	refresh()
+
+func _fit_columns():
+	if _grid != null:
+		_grid.columns = 3 if rect_size.x >= 560.0 else 2
 
 func _tile(value: String, label: String):
 	if compact:
