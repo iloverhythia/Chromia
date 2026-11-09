@@ -1211,7 +1211,7 @@ func _card_style(c: Dictionary):
 		c.rank.add_color_override("font_color", FAINT)
 
 # a card's progress line and bar, moved on by the clock between lists
-static func _clock(s: float) -> String:
+static func _mmss(s: float) -> String:
 	var t := int(max(s, 0.0))
 	return "%d:%02d" % [t / 60, t % 60]
 
@@ -1225,11 +1225,11 @@ static func _prog_now(d: Dictionary) -> float:
 
 static func _prog_text(d: Dictionary, long: bool) -> String:
 	var pos := _prog_now(d)
-	var into := _clock(max(pos, 0.0) / d.speed / 1000.0)
+	var into := _mmss(max(pos, 0.0) / d.speed / 1000.0)
 	var sp := _speed_text(d.speed)
 	if d.dur <= 0:
 		return "%s  ·  %s in" % [sp, into]
-	var left := _clock(max(d.dur - pos, 0.0) / d.speed / 1000.0)
+	var left := _mmss(max(d.dur - pos, 0.0) / d.speed / 1000.0)
 	if d.paused:
 		return ("%s  ·  Paused  ·  %s left" if long else "%s · Paused · %s") % [sp, left]
 	return ("%s  ·  %s in  ·  %s left" if long else "%s · %s · -%s") % [sp, into, left]
