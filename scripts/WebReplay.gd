@@ -346,6 +346,7 @@ func _process(_delta):
 		_game_scene = cur
 		_layer.visible = false
 		if recording:
+			_show_logo(true)
 			var js = Engine.get_singleton("JavaScript")
 			if js != null:
 				js.eval("window.__chromiaRec && window.__chromiaRec.start(60)", true)
@@ -368,7 +369,40 @@ func _process(_delta):
 		_buttons.visible = true
 		_layer.visible = true
 
+# The Chromia mark in the bottom right corner of every video (not while just watching)
+var _logo_layer: CanvasLayer = null
+func _show_logo(on: bool):
+	if not on:
+		if _logo_layer != null and is_instance_valid(_logo_layer):
+			_logo_layer.queue_free()
+		_logo_layer = null
+		return
+	if _logo_layer != null and is_instance_valid(_logo_layer):
+		return
+	_logo_layer = CanvasLayer.new()
+	_logo_layer.layer = 125 # (over the song, under this screen)
+	add_child(_logo_layer)
+	var h: float = get_viewport().get_visible_rect().size.y
+	var side := round(h * 0.075)
+	var margin := round(h * 0.03)
+	var logo := TextureRect.new()
+	logo.texture = load("res://assets/images/branding/icon.png")
+	logo.expand = true
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.anchor_left = 1.0
+	logo.anchor_top = 1.0
+	logo.anchor_right = 1.0
+	logo.anchor_bottom = 1.0
+	logo.margin_left = -side - margin
+	logo.margin_top = -side - margin
+	logo.margin_right = -margin
+	logo.margin_bottom = -margin
+	logo.modulate = Color(1, 1, 1, 0.8)
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_logo_layer.add_child(logo)
+
 func _stop_recording():
+	_show_logo(false)
 	if not recording:
 		return
 	recording = false
