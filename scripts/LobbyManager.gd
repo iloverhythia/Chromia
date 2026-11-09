@@ -1,6 +1,7 @@
 extends Node
 
 signal lobby_created(code)
+signal perms_changed() # (what your staff permissions allow changed: the admin tools)
 signal lobby_joined(code)
 signal lobby_closed()
 signal lobby_state_changed()
@@ -100,8 +101,27 @@ var _pending_send_after_connect: Array = []
 const _SETTINGS_PATH: String = "user://settings.cfg"
 var _admin_key: String = ""
 
-func has_admin_key() -> bool:
-	return _admin_key != ""
+# Staff permissions (the server's src/perms.js), from the Discord account
+# linked to your player: "view", "chat", "bans", "profiles", "ranking",
+# "announce", ... The admin tools show when there's any; the server checks
+# each action again. (The old admin key isn't used any more.)
+var my_perms: Array = []
+func has_perm(p: String) -> bool:
+	return my_perms.has(p)
+
+func has_admin_key() -> bool: # (the old name: "may use the admin tools")
+	return not my_perms.empty()
+
+func _set_perms(v):
+	var list := []
+	if v is Array:
+		for p in v:
+			list.append(String(p))
+	list.sort()
+	if list == my_perms:
+		return
+	my_perms = list
+	emit_signal("perms_changed")
 
 func set_admin_key(key: String):
 	_admin_key = key
@@ -1683,6 +1703,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
+			if msg.has("perms"):
+				_set_perms(msg.get("perms"))
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
@@ -1871,6 +1893,8 @@ func _handle_message(msg: Dictionary):
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
 			i_am_staff = bool(msg.get("you_staff", false))
 			Rhythia.is_staff = i_am_staff
+			if msg.has("you_perms"):
+				_set_perms(msg.get("you_perms"))
 			emit_signal("online_players_received", online_players, my_player_number)
 			_check_follow(online_players)
 		"spectate_denied":
@@ -1990,6 +2014,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff
+			if msg.has("perms"):
+				_set_perms(msg.get("perms"))
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
 		"map_rank_info":
 			emit_signal("map_rank_info_received", Globals.s(msg.get("song_id", "")), bool(msg.get("ranked", false)), int(msg.get("xp", 0)), Globals.s(msg.get("content_hash", "")))

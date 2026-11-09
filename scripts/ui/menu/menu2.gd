@@ -1200,7 +1200,7 @@ func _unhandled_input(event: InputEvent):
 				ranker_canvas.visible = admin_canvas.visible
 			_save_admin_ui_hidden(not admin_canvas.visible)
 		else:
-			_toggle_admin_key_prompt()
+			Globals.notify(Globals.NOTIFY_INFO, "The admin tools are for staff: link the Discord account the owner gave permissions to (Settings > Online), then they show here.", "Admin")
 
 	if event.is_action_pressed("toggle_profile") and not event.echo and profile_canvas != null:
 		profile_canvas.visible = not profile_canvas.visible
@@ -1330,6 +1330,20 @@ func _set_action_key(action: String, event: InputEventKey):
 	config.save("user://settings.cfg")
 	if _rebinding_button != null:
 		_rebinding_button.text = _get_action_key_text(action)
+
+func _on_perms_changed():
+	var lm = _get_lobby_manager()
+	if lm == null:
+		return
+	if lm.has_admin_key() and admin_canvas == null:
+		_build_admin_ui()
+		for pair in [["admin_bans_received", "_on_admin_bans_received"], ["admin_all_lobbies_received", "_on_admin_lobbies_received"],
+				["admin_live_bans_received", "_on_admin_live_bans_received"], ["admin_rankers_received", "_on_admin_rankers_received"]]:
+			if not lm.is_connected(pair[0], self, pair[1]):
+				lm.connect(pair[0], self, pair[1])
+	elif not lm.has_admin_key() and admin_canvas != null:
+		admin_canvas.visible = false # (permissions taken away: hidden; the server refuses anything anyway)
+	_update_motd_button()
 
 func _toggle_admin_key_prompt():
 	if admin_key_canvas != null:
@@ -2988,6 +3002,9 @@ func _ready():
 			lobby_manager.connect("admin_all_lobbies_received", self, "_on_admin_lobbies_received")
 			lobby_manager.connect("admin_live_bans_received", self, "_on_admin_live_bans_received")
 			lobby_manager.connect("admin_rankers_received", self, "_on_admin_rankers_received")
+		# (staff permissions come after signing in: the admin tools then)
+		if lobby_manager.has_signal("perms_changed") and not lobby_manager.is_connected("perms_changed", self, "_on_perms_changed"):
+			lobby_manager.connect("perms_changed", self, "_on_perms_changed")
 		lobby_manager.connect("admin_player_tags_received", self, "_on_admin_player_tags_received")
 
 

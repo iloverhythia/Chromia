@@ -28,3 +28,4 @@ in scripts/Savia.gd and empties this list.
 - The Profile, Leaderboard and Stats tabs on the Profile page have a new look that matches the Online page: bigger tabs, stat cards, tidy numbered rows, and your own row lit up on the leaderboard.
 - Spectate: each player's card shows their speed, how far into the map they are and the time they have left, with a progress bar
 - Profile page: both panels (Your Profile, and Profile / Leaderboard / Stats) are much less see-through, as solid as the Online page, so they're easy to read over any background.
+- Staff: the in-game admin tools now come from the permissions the owner gave your linked Discord account (no admin key any more)
