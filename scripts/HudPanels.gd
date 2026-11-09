@@ -14,9 +14,33 @@ const STYLES := [
 	["soundspace", "Sound Space"],
 	["outlined", "Outlined"],
 	["glass", "Glass"],
+	["neon", "Neon glow"],
+	["tinted", "Tinted (panel text colour)"],
+	["solid", "Solid dark"],
+	["sharp", "Sharp corners"],
+	["pill", "Pill"],
+	["double", "Double border"],
+	["sidebar", "Side stripe"],
+	["minimal", "Thin outline"],
+	["shadow", "Floating (shadow)"],
+	["gradient", "Gradient"],
+	["glow", "Soft glow"],
+	["sunset", "Sunset"],
+	["ocean", "Ocean"],
+	["aurora", "Aurora (moving)"],
+	["rainbow", "Rainbow border (moving)"],
+	["hologram", "Hologram (moving)"],
+	["brackets", "Corner brackets"],
+	["stripes", "Stripes"],
+	["dots", "Dots"],
+	["scanlines", "CRT scanlines"],
+	["carbon", "Carbon fibre"],
 	["none", "No background"],
 	["image", "Your own picture"],
 ]
+# the looks drawn by assets/shaders/hud_panel.shader (its "mode")
+const SHADER_MODES := {"gradient": 1, "sunset": 2, "ocean": 3, "rainbow": 4, "brackets": 5,
+	"stripes": 6, "scanlines": 7, "dots": 8, "hologram": 9, "carbon": 10, "glow": 11, "aurora": 12}
 const IMAGE_BASE := "user://hud_panel"
 const IMAGE_EXTS := ["png", "jpg", "jpeg", "webp"]
 const PANELS := ["LeftVP", "RightVP"]
@@ -58,7 +82,7 @@ static func apply(hud: Node):
 		for vp_name in PANELS:
 			var bg = hud.get_node_or_null(vp_name + "/Control")
 			if bg is ColorRect:
-				_restyle(bg, style, accent, tex)
+				_restyle(bg, style, accent, tex, vp_name == "LeftVP")
 	_resize(hud)
 	_place(hud)
 	_brighten(hud)
@@ -117,27 +141,71 @@ static func _brighten(hud: Node):
 				if k is CanvasItem:
 					k.modulate = Color(b, b, b, k.modulate.a)
 
-static func _restyle(bg: ColorRect, style: String, accent: Color, tex: Texture):
+static func _box(bg_col: Color, radius: int, border := 0, border_col := Color(0, 0, 0, 0)) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.anti_aliasing = true
+	sb.bg_color = bg_col
+	sb.set_corner_radius_all(radius)
+	if border > 0:
+		sb.border_color = border_col
+		sb.set_border_width_all(border)
+	return sb
+
+static func _panel(sb: StyleBox, inset := 0.0) -> Panel:
+	var p := Panel.new()
+	p.add_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.anchor_right = 1.0
+	p.anchor_bottom = 1.0
+	p.margin_left = inset
+	p.margin_top = inset
+	p.margin_right = -inset
+	p.margin_bottom = -inset
+	return p
+
+static func _restyle(bg: ColorRect, style: String, accent: Color, tex: Texture, left := true):
 	var col: Color = bg.color
 	bg.color = Color(0, 0, 0, 0) # the look comes from what's put behind it
+	var a := Color(accent.r, accent.g, accent.b, 1.0)
 	var under: Control = null
 	match style:
-		"outlined", "glass":
-			var p := Panel.new()
-			var sb := StyleBoxFlat.new()
-			sb.anti_aliasing = true
-			if style == "outlined":
-				sb.bg_color = col
-				sb.border_color = Color(accent.r, accent.g, accent.b, 1.0)
-				sb.set_border_width_all(6)
-				sb.set_corner_radius_all(28)
+		"outlined":
+			under = _panel(_box(col, 28, 6, a))
+		"glass":
+			under = _panel(_box(Color(col.r, col.g, col.b, col.a * 0.45), 22, 3, Color(1, 1, 1, 0.35)))
+		"neon":
+			var sb := _box(Color(0.015, 0.015, 0.03, 1.0), 18, 3, a) # (solid: the glow is drawn under it)
+			sb.shadow_color = Color(a.r, a.g, a.b, 0.85)
+			sb.shadow_size = 18
+			under = _panel(sb, 22) # (room for the glow inside the panel)
+		"tinted":
+			under = _panel(_box(Color(a.r * 0.35, a.g * 0.35, a.b * 0.35, 0.7), 16, 2, Color(a.r, a.g, a.b, 0.6)))
+		"solid":
+			under = _panel(_box(Color(0.05, 0.05, 0.08, 0.95), 10))
+		"sharp":
+			under = _panel(_box(col, 0, 4, Color(1, 1, 1, 0.85)))
+		"pill":
+			under = _panel(_box(col, 150))
+		"double":
+			under = _panel(_box(col, 24, 4, a))
+			under.add_child(_panel(_box(Color(0, 0, 0, 0), 14, 2, Color(1, 1, 1, 0.45)), 14))
+		"sidebar":
+			var sb := _box(col, 6)
+			# (the stripe on the side that faces the grid)
+			if left:
+				sb.border_width_right = 12
 			else:
-				sb.bg_color = Color(col.r, col.g, col.b, col.a * 0.45)
-				sb.border_color = Color(1, 1, 1, 0.35)
-				sb.set_border_width_all(3)
-				sb.set_corner_radius_all(22)
-			p.add_stylebox_override("panel", sb)
-			under = p
+				sb.border_width_left = 12
+			sb.border_color = a
+			under = _panel(sb)
+		"minimal":
+			under = _panel(_box(Color(0, 0, 0, 0.15), 6, 2, Color(1, 1, 1, 0.6)))
+		"shadow":
+			var sb := _box(col, 20)
+			sb.shadow_color = Color(0, 0, 0, 0.8)
+			sb.shadow_size = 26
+			sb.shadow_offset = Vector2(0, 10)
+			under = _panel(sb, 30)
 		"image":
 			if tex == null:
 				bg.color = col # (no picture: as it was)
@@ -146,16 +214,30 @@ static func _restyle(bg: ColorRect, style: String, accent: Color, tex: Texture):
 			tr.texture = tex
 			tr.expand = true
 			tr.stretch_mode = TextureRect.STRETCH_SCALE
+			tr.anchor_right = 1.0
+			tr.anchor_bottom = 1.0
 			under = tr
 		"none":
 			return
+		_:
+			if SHADER_MODES.has(style):
+				var r := ColorRect.new()
+				var m := ShaderMaterial.new()
+				m.shader = load("res://assets/shaders/hud_panel.shader")
+				m.set_shader_param("mode", float(SHADER_MODES[style]))
+				m.set_shader_param("accent", a)
+				m.set_shader_param("base", col)
+				m.set_shader_param("size", bg.rect_size if bg.rect_size.x > 1 else Vector2(300, 900))
+				r.material = m
+				r.anchor_right = 1.0
+				r.anchor_bottom = 1.0
+				under = r
 	if under == null:
+		bg.color = col
 		return
 	under.name = "PanelStyle"
 	under.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	under.show_behind_parent = true
-	under.anchor_right = 1.0
-	under.anchor_bottom = 1.0
 	bg.add_child(under)
 	bg.move_child(under, 0)
 

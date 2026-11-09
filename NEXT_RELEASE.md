@@ -21,3 +21,5 @@ in scripts/Savia.gd and empties this list.
 - Website: passes on unranked maps now show in your profile's Recent list with their replay, marked Unranked (no SP or XP)
 - Map list: a BOTTOM button under DOWN jumps to the last map, like TOP does for the first
 - VR: a snow leopard paw hand, only for breck (player #3)
+- Settings > Fonts: 37 more fonts for the song HUD, grouped by look (clean, tall and narrow, sci-fi, pixel and monospace, fun), e.g. Poppins, Montserrat, Bebas Neue, Orbitron, Silkscreen, VT323, Bungee and Comic Neue
+- Background Editor > HUD panels: 21 more panel styles, e.g. Neon glow, Pill, Double border, Gradient, Sunset, Ocean, Aurora, Rainbow border, Hologram, Corner brackets, Stripes, Dots, CRT scanlines and Carbon fibre (some of them move)
