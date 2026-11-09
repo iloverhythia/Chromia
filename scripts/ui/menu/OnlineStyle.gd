@@ -112,6 +112,65 @@ func card(parent: Control) -> HBoxContainer:
 	p.add_child(h)
 	return h
 
+# a small stat card (the profile panel's XP / SP / RP, the Stats tab): the
+# number over what it counts. Returns the number's Label
+func tile(parent: Control, value: String, caption: String, tip: String = "") -> Label:
+	var p = PanelContainer.new()
+	p.add_stylebox_override("panel", flat(CARD_BG, 4, Color(1, 1, 1, 0.04), 1, 12, 7))
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p.hint_tooltip = tip
+	parent.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_constant_override("separation", 0)
+	p.add_child(v)
+	var val = label(value, f_bold, TEXT)
+	val.clip_text = true
+	v.add_child(val)
+	var cap = label(caption, f_small, DIM)
+	cap.clip_text = true
+	v.add_child(cap)
+	return val
+
+# a thin row card of a numbered list (top plays, the leaderboard, most played):
+# "#1  name  detail  value". Returns the HBox inside (rank first, value last)
+func row(parent: Control, rank: String, name: String, detail: String, value: String, mine: bool = false) -> HBoxContainer:
+	var p = PanelContainer.new()
+	p.add_stylebox_override("panel", flat(CARD_HOVER if mine else CARD_BG, 4, LILAC if mine else Color(1, 1, 1, 0.04), 1, 10, 4))
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_constant_override("separation", 8)
+	p.add_child(h)
+	var rk = label(rank, f_bold, DIM)
+	rk.rect_min_size = Vector2(32, 0)
+	h.add_child(rk)
+	var nm = label(name, f_regular, TEXT)
+	nm.clip_text = true
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.hint_tooltip = name
+	nm.mouse_filter = Control.MOUSE_FILTER_PASS
+	h.add_child(nm)
+	if detail != "":
+		h.add_child(label(detail, f_small, DIM))
+	var val = label(value, f_bold, ACCENT)
+	val.align = Label.ALIGN_RIGHT
+	h.add_child(val)
+	return h
+
+# a dropdown as a small dark button (its list keeps the theme's look)
+func dropdown(ob: OptionButton) -> OptionButton:
+	ob.focus_mode = Control.FOCUS_NONE
+	ob.add_font_override("font", f_bold)
+	for k in ["font_color", "font_color_hover", "font_color_pressed"]:
+		ob.add_color_override(k, TEXT)
+	ob.add_stylebox_override("normal", flat(BTN_BG, 3, Color(0, 0, 0, 0), 0, 12, 4))
+	ob.add_stylebox_override("hover", flat(BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 12, 4))
+	ob.add_stylebox_override("pressed", flat(BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 12, 4))
+	ob.add_stylebox_override("focus", StyleBoxEmpty.new())
+	ob.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	ob.rect_min_size = Vector2(0, 30)
+	return ob
+
 func button(b: Button, accent: bool = false, small: bool = false) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.theme = null
@@ -238,6 +297,10 @@ func scroll(sc: ScrollContainer) -> ScrollContainer:
 	bar.add_stylebox_override("grabber_highlight", grab_hi)
 	bar.add_stylebox_override("grabber_pressed", grab_hi)
 	bar.rect_min_size.x = 8
+	# (the list is laid out before the bar decides to show: laid out again when
+	# it does, so the rows end beside the bar and not under it)
+	if not bar.is_connected("visibility_changed", sc, "queue_sort"):
+		bar.connect("visibility_changed", sc, "queue_sort")
 	return sc
 
 # a small coloured tag ("HOST", "IN GAME")

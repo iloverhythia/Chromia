@@ -70,9 +70,21 @@ func _ready():
 	prestige_btn.connect("pressed", self, "_on_prestige")
 	h.add_child(prestige_btn)
 
+	if _style != null:
+		use_style(_style)
 	store.connect("changed", self, "_refresh")
 	_refresh()
 	_shown = store.progress()
+
+# the Online page's fonts and button (OnlineStyle.gd), for the profile panel
+var _style = null
+func use_style(S):
+	_style = S
+	if not is_instance_valid(prestige_label):
+		return # not built yet: _ready applies it
+	prestige_label.add_font_override("font", S.f_bold)
+	level_label.add_font_override("font", S.f_bold)
+	S.button(prestige_btn, true, true)
 
 func _refresh():
 	if not is_instance_valid(prestige_label):

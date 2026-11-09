@@ -25,3 +25,4 @@ in scripts/Savia.gd and empties this list.
 - Background Editor > HUD panels: 21 more panel styles, e.g. Neon glow, Pill, Double border, Gradient, Sunset, Ocean, Aurora, Rainbow border, Hologram, Corner brackets, Stripes, Dots, CRT scanlines and Carbon fibre (some of them move)
 - Content Browser: maps from Chromia players show their cover picture.
 - Content Browser: new "GitHub" choice next to rhythia.com and Chromia players. Paste a link to any GitHub repository (or a folder, release or map file in one) and every .sspm and .rhm map there is listed to download, one by one or all at once.
+- The Profile, Leaderboard and Stats tabs on the Profile page have a new look that matches the Online page: bigger tabs, stat cards, tidy numbered rows, and your own row lit up on the leaderboard.
