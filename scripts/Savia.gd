@@ -1658,9 +1658,37 @@ func _star_req_done(song):
 		_star_req_pending = null
 		request_star_rating(next)
 
+# Computers: switching to another window while the game holds the mouse (in a
+# map) gives it back to Windows, and coming back takes it again from scratch.
+# Godot doesn't re-take it by itself after the window was left (setting the
+# same mode again does nothing), and remote desktop programs or games in the
+# background could then leave the cursor stuck or gone.
+var _focus_mouse_mode := -1
+func _desktop_mouse() -> bool:
+	return dev == "pc" and not vr and not OS.has_feature("JavaScript")
+
+func _restore_mouse_mode():
+	var m := _focus_mouse_mode
+	_focus_mouse_mode = -1
+	# (only while still in the map, and nothing else changed the mouse meanwhile)
+	if m == -1 or not in_map or Input.get_mouse_mode() != Input.MOUSE_MODE_VISIBLE:
+		return
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	Input.set_mouse_mode(m)
+
 func _notification(what):
 	if what == MainLoop.NOTIFICATION_WM_FOCUS_OUT:
 		_alt_down = false # (Alt-Tab: the game never sees Alt let go)
+		if _desktop_mouse():
+			trail("window lost focus")
+			var mm := Input.get_mouse_mode()
+			if in_map and (mm == Input.MOUSE_MODE_CAPTURED or mm == Input.MOUSE_MODE_CONFINED):
+				_focus_mouse_mode = mm
+				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_IN and _desktop_mouse():
+		trail("window focused")
+		if _focus_mouse_mode != -1:
+			call_deferred("_restore_mouse_mode")
 	if what == MainLoop.NOTIFICATION_WM_QUIT_REQUEST:
 		quit_game()
 	elif what == MainLoop.NOTIFICATION_APP_PAUSED:
