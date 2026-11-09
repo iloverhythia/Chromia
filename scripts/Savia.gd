@@ -4527,7 +4527,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_haptics = clamp(float(data.vr_haptics), 0.0, 1.0)
 		if data.has("vr_haptic_miss"):
 			vr_haptic_miss = bool(data.vr_haptic_miss)
-		if data.has("vr_hand") and ["default", "paw", "ball", "glove", "robot", "skeleton", "crystal", "custom"].has(str(data.vr_hand)):
+		if data.has("vr_hand") and ["default", "paw", "ball", "glove", "robot", "skeleton", "crystal", "snowleopard", "custom"].has(str(data.vr_hand)):
 			vr_hand = str(data.vr_hand)
 		if data.has("vr_menu_env") and load("res://vr/MenuEnvs.gd").is_valid(str(data.vr_menu_env)):
 			vr_menu_env = str(data.vr_menu_env)

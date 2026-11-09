@@ -634,6 +634,14 @@ func _load_values():
 		e[1].text = _value_fmt(v, e[2])
 	if _miss_box:
 		_miss_box.pressed = bool(Rhythia.vr_haptic_miss)
+	# breck's own hand (player #3 only: SnowLeopardPaw.gd)
+	if _hand_pick != null and load("res://vr/SnowLeopardPaw.gd").allowed():
+		var has_it := false
+		for i in range(_hand_pick.get_item_count()):
+			has_it = has_it or str(_hand_pick.get_item_metadata(i)) == "snowleopard"
+		if not has_it:
+			_hand_pick.add_item("Snow leopard paw (yours, breck)")
+			_hand_pick.set_item_metadata(_hand_pick.get_item_count() - 1, "snowleopard")
 	_select_meta(_hand_pick, Rhythia.vr_hand)
 	_show_env()
 	_select_meta(_fov_pick, Rhythia.vr_foveation)

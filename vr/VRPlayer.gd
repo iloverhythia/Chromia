@@ -55,6 +55,7 @@ func _process(delta):
 	_watch_for_reset(delta)
 	_apply_grip()
 	_apply_hand_rot()
+	_check_own_hand()
 	if not Rhythia.fake_vr:
 		_place_eye()
 	primary_ray.force_raycast_update()
@@ -322,6 +323,10 @@ var _hand_shown := ""
 
 func apply_hand():
 	var want: String = Rhythia.vr_hand
+	# (breck's snow leopard paw: player #3 only; the Furry paws until the game
+	# knows who you are, _check_own_hand puts it on then)
+	if want == "snowleopard" and not load("res://vr/SnowLeopardPaw.gd").allowed():
+		want = "paw"
 	if want == _hand_shown:
 		return
 	var meshes = null # [left, right]
@@ -374,6 +379,19 @@ func apply_hand():
 			trail.transform = Transform(Basis().scaled(Vector3(0.02, 0.02, 0.06)), Vector3.ZERO)
 	Rhythia.trail("VR hands: " + want)
 	_hand_rot_applied = null # (the model changed: turned again)
+
+# A hand only one player has (SnowLeopardPaw.gd): put on once the game knows
+# it's them (checked every 2 s while it isn't on).
+var _own_hand_at := 0
+func _check_own_hand():
+	if Rhythia.vr_hand != "snowleopard" or _hand_shown == "snowleopard":
+		return
+	var now := OS.get_ticks_msec()
+	if now < _own_hand_at:
+		return
+	_own_hand_at = now + 2000
+	if load("res://vr/SnowLeopardPaw.gd").allowed():
+		apply_hand()
 
 # Settings > VR > Hands > Hand direction: the hand model turned around the
 # controller (the beam isn't moved: that's Controller grip). The left hand gets
