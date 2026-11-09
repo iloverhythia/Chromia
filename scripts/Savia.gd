@@ -3281,6 +3281,14 @@ func _set_modern_ui(v: bool):
 	modern_ui = v
 	emit_signal("modern_ui_changed")
 var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd: the first version's mouse code)
+# Experimental: "Show RP on Maps". Offline RP (RhythiaPoints.gd) is always
+# earned and kept (the Profile tab has the total and the top plays); this only
+# says whether a map's screen shows what it gives and your best on it. Off by default.
+signal show_map_rp_changed
+var show_map_rp: bool = false setget _set_show_map_rp
+func _set_show_map_rp(v: bool):
+	show_map_rp = v
+	emit_signal("show_map_rp_changed")
 var pc_no_delay: bool = false # Experimental: No Delay (PC mouse), no_delay_begin / no_delay_end
 # Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
 var realistic_autoplay: bool = false
@@ -4257,6 +4265,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			pc_no_delay = bool(data.pc_no_delay)
 		if data.has("legacy_mouse"):
 			legacy_mouse = bool(data.legacy_mouse)
+		if data.has("show_map_rp"):
+			show_map_rp = bool(data.show_map_rp)
 		if data.has("modern_ui"):
 			modern_ui = bool(data.modern_ui)
 		if data.has("map_grid"):
@@ -5029,6 +5039,7 @@ func _write_settings_file(saveFile: String):
 			max_fps_mode = max_fps_mode,
 			pc_no_delay = pc_no_delay,
 			legacy_mouse = legacy_mouse,
+			show_map_rp = show_map_rp,
 			modern_ui = modern_ui,
 			map_grid = map_grid,
 			is_staff = is_staff,

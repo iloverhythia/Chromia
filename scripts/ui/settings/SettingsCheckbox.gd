@@ -22,6 +22,7 @@ func _ready():
 	if target == "wave_menu":
 		call_deferred("_add_xp_boost_toggle")
 		call_deferred("_add_map_grid")
+		call_deferred("_add_show_map_rp")
 	if target == "map_grid":
 		Rhythia.connect("map_grid_changed", self, "upd")
 	if target == "realistic_autoplay":
@@ -86,6 +87,20 @@ func _add_map_grid():
 	cb.hint_tooltip = "Shows your maps as a grid of square covers (like Sound Space Plus's grid menu) instead of a list. Works right away, no restart."
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
+
+# Experimental: "Show RP on Maps" (off by default). RP is earned either way
+func _add_show_map_rp():
+	var parent = get_parent()
+	if parent == null or parent.has_node("ShowMapRP"):
+		return
+	var cb = duplicate()
+	cb.name = "ShowMapRP"
+	cb.target = "show_map_rp"
+	cb.text = "Show RP on Maps"
+	cb.hint_tooltip = "Shows on each map how much RP a perfect pass gives at your speed, and your best RP on it. Off: maps don't show RP. You earn RP either way, and your total and top plays stay in the Profile tab."
+	parent.add_child(cb)
+	var at: Node = parent.get_node_or_null("MapGrid")
+	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
 
 # Experimental: "10x EXP" (your level), only there for one Discord account (Savia.gd XP_BOOST_DISCORD_ID)
 func _add_xp_boost_toggle():

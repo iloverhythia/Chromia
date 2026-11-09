@@ -55,8 +55,9 @@ func _rebuild_data_label(map: Song):
 		lines.append("XP: %d" % effective)
 		if _my_stats_song_id == map.id and _my_stats_has_passed:
 			lines.append("PB: %d XP / %d SP" % [_my_stats_best_xp, _my_stats_best_sp])
-	# Offline RP: what a 100% pass at the current speed gives, and your best.
-	if stars > 0.0:
+	# Offline RP: what a 100% pass at the current speed gives, and your best
+	# (only with Settings > Experimental > Show RP on Maps; it's earned either way)
+	if stars > 0.0 and Rhythia.show_map_rp:
 		var rp_line = "RP: %d" % int(round(RhythiaPoints.max_rp(stars, Rhythia.current_speed_multiplier())))
 		var best = RhythiaPoints.get_store().plays.get(String(map.id))
 		if best != null:
@@ -74,6 +75,10 @@ func _rebuild_data_label(map: Song):
 		lines.append(line)
 	$RS/H1/Info/XP.text = lines.join("\n")
 	$RS/H1/Info/XP.visible = lines.size() > 0
+
+func _on_show_map_rp_changed():
+	if Rhythia.selected_song != null:
+		_rebuild_data_label(Rhythia.selected_song)
 
 func _on_star_rating_ready(song):
 	if is_instance_valid(self) and Rhythia.selected_song != null and Rhythia.selected_song == song:
@@ -216,6 +221,7 @@ func _ready():
 	Rhythia.connect("selected_song_changed", self, "_cover_clip_roll")
 	Rhythia.connect("mods_changed", self, "update")
 	RhythiaPoints.get_store().connect("changed", self, "update")
+	Rhythia.connect("show_map_rp_changed", self, "_on_show_map_rp_changed")
 	Rhythia.connect("star_rating_ready", self, "_on_star_rating_ready")
 	Rhythia.connect("favorite_songs_changed", self, "update")
 	var lobby_manager = get_node_or_null("/root/LobbyManager")

@@ -178,6 +178,7 @@ func _ready():
 	_build()
 	get_viewport().connect("size_changed", self, "_on_resize")
 	Rhythia.connect("selected_song_changed", self, "_on_song")
+	Rhythia.connect("show_map_rp_changed", self, "_refresh_play")
 	if Rhythia.has_signal("mods_changed"):
 		Rhythia.connect("mods_changed", self, "_refresh_mods")
 	if Rhythia.has_signal("speed_mod_changed"):
@@ -952,7 +953,7 @@ func _refresh_play():
 	var stars: float = s.star_rating_cached() if s != null else -1.0
 	play_btn.text = "PLAY" if ok else "PRACTICE"
 	var speed: float = Rhythia.current_speed_multiplier() if Rhythia.has_method("current_speed_multiplier") else 1.0
-	if ok and stars > 0:
+	if ok and stars > 0 and Rhythia.show_map_rp: # (Settings > Experimental > Show RP on Maps)
 		play_sub.text = "MAX %d RP" % int(round(preload("res://scripts/RhythiaPoints.gd").max_rp(stars, speed)))
 	else:
 		play_sub.text = ""
