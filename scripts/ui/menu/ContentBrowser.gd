@@ -1,8 +1,9 @@
 extends ReferenceRect
 # "Content Browser" sidebar page (it was the Map Browser): tabs for Maps,
 # Colorsets, Note Meshes, Settings Profiles and Cursors. Maps can come from
-# rhythia.com (the old Map Browser, MapBrowser.gd, unchanged) or from what
-# Chromia players uploaded; the other tabs list players' uploads. Anything can
+# rhythia.com (the old Map Browser, MapBrowser.gd, unchanged), from what
+# Chromia players uploaded, or from any GitHub repository you paste the link
+# of (GithubMaps.gd); the other tabs list players' uploads. Anything can
 # be downloaded straight into the game (handy on a standalone VR headset), and
 # you can upload your own files or share the colorset / mesh / cursor /
 # settings you use now. The server checks each file and its size
@@ -32,7 +33,7 @@ const CARD_W := 250
 const HEAD_H := 104
 
 var kind := "map"
-var source := "rhythia" # Maps tab: "rhythia" (rhythia.com) or "players"
+var source := "rhythia" # Maps tab: "rhythia" (rhythia.com), "players" or "github"
 var page := 1
 var pages := 1
 var sort_idx := 0
@@ -48,6 +49,7 @@ var src_buttons := {}
 var src_box: HBoxContainer
 var rhythia_page: ReferenceRect
 var community: VBoxContainer
+var github_page: VBoxContainer
 var search: LineEdit
 var sort_pick: OptionButton
 var mine_box: CheckBox
@@ -104,7 +106,7 @@ func _label(text: String, font: Font, col := TEXT) -> Label:
 	l.add_color_override("font_color", col)
 	return l
 
-func _button(text: String, method: String, args := [], toggle := false) -> Button:
+func _button(text: String, method: String, args := [], toggle := false, target: Object = null) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = FOCUS_NONE
@@ -119,7 +121,7 @@ func _button(text: String, method: String, args := [], toggle := false) -> Butto
 	b.add_color_override("font_color_pressed", ACCENT)
 	b.add_color_override("font_color_hover", TEXT)
 	b.add_color_override("font_color_disabled", DIM)
-	b.connect("pressed", self, method, args)
+	b.connect("pressed", target if target != null else self, method, args)
 	return b
 
 func _build():
@@ -148,7 +150,7 @@ func _build():
 	src_box.add_constant_override("separation", 4)
 	top.add_child(src_box)
 	src_box.add_child(_label("Maps from", f_reg, DIM))
-	for s in [["rhythia", "rhythia.com"], ["players", "Chromia players"]]:
+	for s in [["rhythia", "rhythia.com"], ["players", "Chromia players"], ["github", "GitHub"]]:
 		var b := _button(s[1], "_on_source", [s[0]], true)
 		src_box.add_child(b)
 		src_buttons[s[0]] = b
@@ -231,6 +233,19 @@ func _build():
 	pager.add_child(page_label)
 	next_btn = _button("Next >", "_go_page", [1])
 	pager.add_child(next_btn)
+	# Maps from GitHub: any repository you paste the link of (GithubMaps.gd)
+	github_page = VBoxContainer.new()
+	github_page.name = "GithubMaps"
+	github_page.anchor_right = 1.0
+	github_page.anchor_bottom = 1.0
+	github_page.margin_left = 76
+	github_page.margin_right = -24
+	github_page.margin_top = HEAD_H
+	github_page.margin_bottom = -56
+	github_page.visible = false
+	github_page.set_script(load("res://scripts/ui/menu/GithubMaps.gd"))
+	add_child(github_page)
+	github_page.setup(self)
 	connect("resized", self, "_relayout")
 	_build_name_dialog()
 
@@ -251,8 +266,12 @@ func _show_tab(k: String):
 	for s in src_buttons:
 		src_buttons[s].pressed = s == source
 	var players := k != "map" or source == "players"
-	rhythia_page.visible = not players
+	var github := k == "map" and source == "github"
+	rhythia_page.visible = not players and not github
 	community.visible = players
+	github_page.visible = github
+	if github:
+		github_page.opened()
 	if players:
 		share_btn.visible = k != "map"
 		share_btn.hint_tooltip = "Upload the %s you use now" % NOUN[k]
