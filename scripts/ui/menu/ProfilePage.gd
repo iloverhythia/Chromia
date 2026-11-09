@@ -43,10 +43,17 @@ func _label(text: String, size: int = 0, color: Color = Color(0.9, 0.95, 1)) -> 
 	l.add_color_override("font_color", color)
 	return l
 
-func _panel_style(alpha: float = 0.55) -> StyleBoxFlat:
+# The page's two panels are as solid as the Online page's (OnlineStyle.gd's
+# WINDOW_BG and its faint outline), so the text reads over any background.
+const PANEL_BG = Color(0.035, 0.03, 0.05, 0.94)
+const PANEL_EDGE = Color(1, 1, 1, 0.07)
+const CARD_BG = Color(0.075, 0.068, 0.1, 1)
+func _panel_style(inner: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.04, 0.07, alpha)
-	sb.set_corner_radius_all(8)
+	sb.bg_color = CARD_BG if inner else PANEL_BG
+	sb.set_corner_radius_all(4 if inner else 8)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.04) if inner else PANEL_EDGE
 	sb.content_margin_left = 16
 	sb.content_margin_right = 16
 	sb.content_margin_top = 14
@@ -482,7 +489,7 @@ func _show_scores(scores: Array):
 		return
 	var best: Dictionary = sorted[0]
 	var card := PanelContainer.new()
-	card.add_stylebox_override("panel", _panel_style(0.75))
+	card.add_stylebox_override("panel", _panel_style(true))
 	var cv := VBoxContainer.new()
 	card.add_child(cv)
 	cv.add_child(_label(Globals.s(best.get("song_name", best.get("song_id", "?"))), 22))

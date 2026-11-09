@@ -460,7 +460,8 @@ func _build_profile_ui():
 	profile_panel.margin_top = -420
 	profile_panel.margin_bottom = -60
 	profile_panel.theme = ui_theme
-	profile_panel.add_stylebox_override("panel", S.flat(S.WINDOW_BG, 8, Color(1, 1, 1, 0.06), 1, 16, 14))
+	# (as solid as the Online page's panel, and "Your Profile" beside it: ProfilePage.gd)
+	profile_panel.add_stylebox_override("panel", S.flat(S.WINDOW_BG, 8, Color(1, 1, 1, 0.07), 1, 16, 14))
 	profile_panel.visible = false
 	profile_canvas.add_child(profile_panel)
 
@@ -1997,8 +1998,6 @@ func _embed_panels_in_pages():
 	profile_canvas.remove_child(profile_panel)
 	slot.add_child(profile_panel)
 	_fill_page(profile_panel, 0, 0, 0, 0)
-	# (in the page: the same see-through panel as "Your Profile" beside it)
-	profile_panel.add_stylebox_override("panel", _online_style().flat(Color(0.05, 0.04, 0.07, 0.55), 8, Color(0, 0, 0, 0), 0, 16, 14))
 	profile_panel.visible = true
 	profile_toggle_button.visible = false
 
