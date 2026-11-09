@@ -26,3 +26,4 @@ in scripts/Savia.gd and empties this list.
 - Content Browser: maps from Chromia players show their cover picture.
 - Content Browser: new "GitHub" choice next to rhythia.com and Chromia players. Paste a link to any GitHub repository (or a folder, release or map file in one) and every .sspm and .rhm map there is listed to download, one by one or all at once.
 - The Profile, Leaderboard and Stats tabs on the Profile page have a new look that matches the Online page: bigger tabs, stat cards, tidy numbered rows, and your own row lit up on the leaderboard.
+- Spectate: each player's card shows their speed, how far into the map they are and the time they have left, with a progress bar

@@ -2204,7 +2204,35 @@ func _presence_now() -> Dictionary:
 		var d = s.get("difficulty")
 		p["difficulty"] = clamp(float(d), -1.0, 100.0) if d != null else -1.0
 		p["mods"] = _collect_current_mods()
+		_presence_progress(p, game, s)
 	return p
+
+# Where you are in the map, for others' Spectate tab: your map time is sent
+# only when it isn't where the clock says (a start, a pause, a skip, a
+# restart), with the map's length and the speed; the server works out the rest.
+var _pos_ms := 0.0
+var _pos_t := 0
+var _pos_paused := false
+var _pos_song := ""
+func _presence_progress(p: Dictionary, game, s):
+	var nm = game.get_node_or_null("Spawn") if game != null else null
+	if nm == null or nm.get("ms") == null or nm.get("speed_multi") == null:
+		return
+	var ms: float = float(nm.ms)
+	var spd: float = max(float(nm.speed_multi), 0.01)
+	var paused: bool = nm.get("pause_state") != null and float(nm.pause_state) < 0.0
+	var now := OS.get_ticks_msec()
+	var guess: float = _pos_ms + (0.0 if _pos_paused else float(now - _pos_t) * spd)
+	var sid := String(s.id)
+	if sid != _pos_song or paused != _pos_paused or abs(ms - guess) > 1500.0:
+		_pos_ms = ms
+		_pos_t = now
+		_pos_paused = paused
+		_pos_song = sid
+	p["pos_ms"] = round(_pos_ms)
+	p["len_ms"] = max(float(s.last_ms), 0.0) if s.get("last_ms") != null else 0.0
+	p["speed"] = stepify(spd, 0.0001)
+	p["paused"] = _pos_paused
 
 func _send_presence(force: bool):
 	if presence_supported != 1 or not _connected():
