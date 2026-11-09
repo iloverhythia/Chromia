@@ -23,3 +23,4 @@ in scripts/Savia.gd and empties this list.
 - VR: a snow leopard paw hand, only for breck (player #3)
 - Settings > Fonts: 40 more fonts for the song HUD, grouped by look (clean, tall and narrow, sci-fi, pixel and monospace, fun), e.g. Poppins, Montserrat, Bebas Neue, Orbitron, Silkscreen, VT323, Bungee and Comic Neue
 - Background Editor > HUD panels: 21 more panel styles, e.g. Neon glow, Pill, Double border, Gradient, Sunset, Ocean, Aurora, Rainbow border, Hologram, Corner brackets, Stripes, Dots, CRT scanlines and Carbon fibre (some of them move)
+- Content Browser: maps from Chromia players show their cover picture.

@@ -408,29 +408,90 @@ func _preview(it: Dictionary) -> Control:
 		l.align = Label.ALIGN_CENTER
 		l.valign = Label.VALIGN_CENTER
 		box.add_child(l)
+		if k == "map" and String(it.get("preview", "")).begins_with("/"):
+			# the map's cover (a small picture from the server), over the note
+			# sign, which stays for a map with none
+			var t := TextureRect.new()
+			t.expand = true
+			t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			t.mouse_filter = MOUSE_FILTER_IGNORE
+			box.rect_clip_content = true
+			var edge := _flat(Color(0.06, 0.055, 0.08, 1), 3)
+			for m in [MARGIN_LEFT, MARGIN_TOP, MARGIN_RIGHT, MARGIN_BOTTOM]:
+				edge.set_default_margin(m, 0) # (the cover fills the box)
+			box.add_stylebox_override("panel", edge)
+			box.add_child(t)
+			_show_pic(SITE + String(it.preview), t)
 	return box
+
+# pictures are fetched a few at a time (a page of maps is 30 of them)
+const MAX_PICS := 4
+var _pic_queue := [] # [url, TextureRect]
+var _pic_active := 0
+var _no_pic := {} # url -> true (the server has none)
 
 func _show_pic(url: String, t: TextureRect):
 	if _pics.has(url):
 		t.texture = _pics[url]
 		return
-	var r := HTTPRequest.new()
-	r.timeout = 15
-	add_child(r)
-	r.connect("request_completed", self, "_on_pic", [r, url, t])
-	if r.request(url) != OK:
-		r.queue_free()
-
-func _on_pic(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, url: String, t: TextureRect):
-	r.queue_free()
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+	if _no_pic.has(url):
 		return
+	_pic_queue.append([url, t])
+	_next_pic()
+
+func _next_pic():
+	while _pic_active < MAX_PICS and not _pic_queue.empty():
+		var q: Array = _pic_queue.pop_front()
+		var url: String = q[0]
+		var t = q[1]
+		if not is_instance_valid(t):
+			continue # (its card is gone: another page or search)
+		if _pics.has(url):
+			t.texture = _pics[url]
+			continue
+		var r := HTTPRequest.new()
+		r.timeout = 15
+		r.use_threads = OS.can_use_threads()
+		add_child(r)
+		r.connect("request_completed", self, "_on_pic", [r, url, t])
+		if r.request(url) != OK:
+			r.queue_free()
+			continue
+		_pic_active += 1
+
+# png, jpg or webp, told by its first bytes
+static func _decode_pic(body: PoolByteArray) -> Image:
+	if body.size() < 12:
+		return null
 	var img := Image.new()
-	if img.load_png_from_buffer(body) != OK:
+	var err := ERR_FILE_UNRECOGNIZED
+	if body[0] == 0x89 and body[1] == 0x50:
+		err = img.load_png_from_buffer(body)
+	elif body[0] == 0xff and body[1] == 0xd8:
+		err = img.load_jpg_from_buffer(body)
+	elif body[0] == 0x52 and body[1] == 0x49 and body[8] == 0x57 and body[9] == 0x45:
+		err = img.load_webp_from_buffer(body)
+	return img if err == OK and not img.is_empty() else null
+
+func _on_pic(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, url: String, t):
+	r.queue_free()
+	_pic_active = int(max(0, _pic_active - 1))
+	call_deferred("_next_pic")
+	if result != HTTPRequest.RESULT_SUCCESS:
+		return
+	if code != 200:
+		if code == 404:
+			_no_pic[url] = true
+		return
+	var img := _decode_pic(body)
+	if img == null:
+		_no_pic[url] = true
 		return
 	var tex := ImageTexture.new()
 	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
 	_pics[url] = tex
+	if _pics.size() > 400:
+		_pics.erase(_pics.keys()[0])
 	if is_instance_valid(t):
 		t.texture = tex
 
