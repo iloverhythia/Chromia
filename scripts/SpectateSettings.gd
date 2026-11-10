@@ -709,7 +709,7 @@ static func _dec(v, cur):
 				# the touch indicator's look (its keys only), else the avatar's
 				# (only colours and known items get through)
 				var touch: Dictionary = load("res://scripts/ui/TouchIndicator.gd").DEFAULTS
-				var is_touch := not v.empty()
+				var is_touch: bool = not v.empty()
 				for k in v:
 					if not touch.has(k):
 						is_touch = false
