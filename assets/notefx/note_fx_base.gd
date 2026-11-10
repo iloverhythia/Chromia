@@ -21,6 +21,7 @@ var _life: float = 0.0
 var _max_life: float = 2.0
 var _free_in: int = 0 # frames left before a finished copy is freed
 var _pool = null # (NoteManager's Array of finished copies, when it keeps them)
+var _live = null # (NoteManager's count of copies playing, [n]: it starts no more past a limit)
 const POOL_MAX := 32
 
 func _ready():
@@ -36,6 +37,8 @@ func _process(delta):
 			# never deleted while the render thread may still be using them.
 			active = false
 			visible = false
+			if _live is Array:
+				_live[0] -= 1
 			if _pool is Array and _pool.size() < POOL_MAX:
 				set_process(false)
 				_pool.append(self)
@@ -99,6 +102,8 @@ func spawn(parent: Node, pos: Vector3, col: Color, id: String, miss: bool):
 			get_parent().remove_child(self)
 		parent.add_child(self)
 	visible = true
+	if not active and _live is Array:
+		_live[0] += 1
 	_life = 0.0
 	_free_in = 0
 	_max_life = $Particles.lifetime / max($Particles.speed_scale, 0.01) * 2.0 + 0.5

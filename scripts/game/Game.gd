@@ -61,7 +61,8 @@ func loadMapFile():
 			song = Rhythia.reverse_stream
 
 
-	$Spawn.spawn_notes(notes)
+	# (a .sspm map's notes as read are already in the order the song wants)
+	$Spawn.spawn_notes(notes, map.songType == Globals.MAP_SSPM2 and notes == got)
 
 	get_node("Spawn/Music").stream = song
 
@@ -75,7 +76,20 @@ var max_energy: float = 6
 var energy_per_hit: float = 1
 var max_combo: int = 0
 
+# The HUD's numbers are redrawn once a frame however many notes were hit or
+# missed in it (each redraw sets a dozen texts; on a map with thousands of
+# notes a second, one per note froze the game). The score, combo and the
+# rest are still counted note by note, right away: only the drawing waits for
+# the end of the same frame.
+var _hud_pending := false
 func update_hud():
+	if _hud_pending:
+		return
+	_hud_pending = true
+	call_deferred("_draw_hud")
+
+func _draw_hud():
+	_hud_pending = false
 	$HUD.update_static_values()
 
 var ending: bool = false
@@ -112,7 +126,7 @@ func end(end_type: int):
 		_desync_to_restore = null
 	get_tree().paused = true
 	if total_notes == 0: total_notes = 1
-	update_hud()
+	_draw_hud() # (now: the end screen reads the accuracy text this sets)
 	Rhythia.just_ended_song = true
 	Rhythia.song_end_hits = hits
 	Rhythia.song_end_misses = misses

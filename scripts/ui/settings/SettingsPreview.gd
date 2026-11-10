@@ -163,7 +163,9 @@ func _follow_map():
 	_map_key = key
 	_notes = []
 	_loop = LOOP_S
-	if song != null:
+	# (a map with tens of thousands of notes would freeze the settings page
+	# while it's read and put in order here: the made-up minute plays instead)
+	if song != null and int(song.note_count) <= 50000:
 		Rhythia.lock_song_notes(song)
 		var got = song.read_notes()
 		Rhythia.unlock_song_notes(song)

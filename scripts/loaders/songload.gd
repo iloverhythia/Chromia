@@ -166,7 +166,7 @@ func finish():
 	# (its fingerprint now, on the loading screen: the ranked check uses it
 	# right after the song starts)
 	if _n_notes > 0 and not Rhythia.replaying:
-		Rhythia.selected_song.compute_chart_hash()
+		Rhythia.selected_song.start_chart_hash() # (big maps: on a thread, the load goes on)
 	# (VR: these questions are a flat-screen prompt the headset doesn't show, so
 	# the load waited for an answer nobody could give: a black screen. VR takes
 	# the answer that keeps going, or goes back to the menu.)
