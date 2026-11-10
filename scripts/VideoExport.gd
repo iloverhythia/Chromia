@@ -98,7 +98,7 @@ func _go():
 		var r3 = yield(_request("%s/%s/map?%s" % [RENDER_URL, token, _auth()], HTTPClient.METHOD_POST, ["Content-Type: application/octet-stream"], _read(map_file)), "completed")
 		if not (r3 is Dictionary) or not r3.get("ok", false):
 			return _fail(String(r3.get("error", "")) if r3 is Dictionary else "")
-	Globals.notify(Globals.NOTIFY_SUCCEED, "Opened in your browser: press Record video there, then Save video.", "Save video")
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Opened in your browser: pick Website viewer or Game view there and press Make video.", "Save video")
 	_busy = false
 
 func _fail(why: String):

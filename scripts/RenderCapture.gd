@@ -1,7 +1,7 @@
 extends Node
 
-# Making a video one frame at a time (Save video: the website's renderer,
-# WebReplay.gd, and the game's own, GameRender.gd). Recording the screen as
+# Making a video one frame at a time (Save video's link, the game view:
+# WebReplay.gd). Recording the screen as
 # it plays dropped frames whenever the computer fell behind (smooth, then
 # 40 fps for a few seconds). Here the song moves exactly 1/fps of a second
 # each frame however long the frame takes (Rhythia.render_fps: NoteManager's
@@ -42,9 +42,9 @@ func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
 	process_priority = 1000 # after the game's own scripts, so this frame's sounds are seen
 
-# fixed_engine: false in the game's own renderer (it can't fix the engine's
-# clock once running): the rest of the engine (effects, particles) is kept
-# close to 1/fps a frame with its time scale
+# fixed_engine: false when the engine's own clock isn't fixed (--fixed-fps):
+# the rest of the engine (effects, particles) is then kept close to 1/fps a
+# frame with its time scale
 func begin(p_fps: int, fixed_engine: bool):
 	fps = p_fps
 	_fixed_engine = fixed_engine

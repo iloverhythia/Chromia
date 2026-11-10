@@ -240,35 +240,10 @@ func _remove_video_button():
 		b.get_parent().remove_child(b)
 		b.queue_free()
 
-# where it's made: on the website (VideoExport.gd) or, on PC, in the game
-# itself (GameRender.gd); a small menu under the button asks
+# made on the website, where its page lets you pick the website's viewer or
+# the game itself to make it (VideoExport.gd)
 func _on_save_video(file: String, song, what: String):
-	var gr = load("res://scripts/GameRender.gd")
-	if not gr.available():
-		load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
-		return
-	var b = get_node_or_null("../../H1/Info/Control/SaveVideo")
-	var menu = b.get_node_or_null("Where") if b != null else null
-	if b == null:
-		return
-	if menu == null:
-		menu = PopupMenu.new()
-		menu.name = "Where"
-		menu.theme = b.theme
-		b.add_child(menu)
-		menu.connect("id_pressed", self, "_on_video_where", [file, song, what])
-	menu.clear()
-	menu.add_item("On the website (opens your browser)", 0)
-	menu.add_item("In the game, on this PC" + (" (downloads ffmpeg once, ~30 MB)" if gr.needs_download() else ""), 1)
-	menu.rect_size = Vector2.ZERO
-	menu.popup(Rect2(b.rect_global_position + Vector2(0, b.rect_size.y + 4), Vector2.ZERO))
-
-func _on_video_where(id: int, file: String, song, what: String):
-	if id == 0:
-		load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
-	else:
-		var name_part := String(song.name) if song != null and song.get("name") != null else "Chromia"
-		load("res://scripts/GameRender.gd").start(get_tree(), file, song, "%s - %s" % [name_part, what])
+	load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
 
 func _handle_post_game_results():
 	_add_video_button()
