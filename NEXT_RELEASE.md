@@ -61,3 +61,4 @@ in scripts/Savia.gd and empties this list.
 - Save video's Game view (and the website's Game view) now loads the player's own note mesh, hit sounds and HUD panel picture: their downloads never finished in the browser version, so it fell back to the default rounded notes
 - Spectating someone and their Save video links show their touch indicator style (the rings under their fingers in replays)
 - Save video: no more stuttering sound at the very end of videos of a fail or give-up, and hit sounds are no longer doubled (they were louder than in the game)
+- Test builds: Settings > Online > Send Passes to the Main Server makes your passes count on the real leaderboards (off by default: they go to the test server)

@@ -251,7 +251,10 @@ func _handle_post_game_results():
 	if is_best: $NewBest.play()
 
 	if Rhythia.song_end_type == Globals.END_PASS and not Rhythia.was_replay and Online.build_channel() == "test":
-		Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Test build: this score went to the TEST leaderboards, not the real ones.", "Test build", 3.0)
+		if Rhythia.passes_to_main:
+			Globals.call_deferred("notify", Globals.NOTIFY_INFO, "Test build: this score went to the main server (Send Passes to the Main Server is on).", "Test build", 3.0)
+		else:
+			Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Test build: this score went to the TEST leaderboards, not the real ones (Settings > Online can send them to the main server).", "Test build", 3.0)
 
 	if Rhythia.song_end_type == Globals.END_PASS:
 		if Rhythia.was_replay: $Result.text = "Replay passed"

@@ -45,6 +45,15 @@ func _add_lobby_invites():
 	cb.hint_tooltip = "On: people can invite you into their multiplayer lobby (you choose to join or not). Off: nobody can invite you"
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
+	# (test builds only) where your passes go
+	if Online.build_channel() == "test" and not parent.has_node("PassesToMain"):
+		var pm = duplicate()
+		pm.name = "PassesToMain"
+		pm.target = "passes_to_main"
+		pm.text = "Send Passes to the Main Server"
+		pm.hint_tooltip = "On: your passes on this test build go to the main server and count on the real leaderboards (SP, XP, your profile). Off: they go to the test server."
+		parent.add_child(pm)
+		parent.move_child(pm, cb.get_index() + 1)
 
 # Experimental: Legacy Mouse Movement (Cursor.gd), under Realistic Autoplay
 func _add_legacy_mouse():

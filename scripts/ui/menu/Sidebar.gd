@@ -311,7 +311,7 @@ func _ready():
 	if Online.build_channel() == "test" and not Rhythia.has_meta("test_build_warned"):
 		Rhythia.set_meta("test_build_warned", true)
 		Globals.call_deferred("notify", Globals.NOTIFY_WARN,
-			"Test build: scores go to the TEST leaderboards, not the real ones.",
+			"Test build: scores go to the main server (Settings > Online)." if Rhythia.passes_to_main else "Test build: scores go to the TEST leaderboards, not the real ones (Settings > Online can send them to the main server).",
 			"Test build", 4.0)
 	# (Quest: shown once the VR menu is up; the first, flat menu isn't visible)
 	# (not in the website's game view: closing the browser tab counts as a crash there)

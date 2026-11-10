@@ -584,6 +584,15 @@ func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
 		return false
 	return is_equal_approx(note_hitbox_size, 1.14) and health_model == Globals.HP_SOUNDSPACE
 
+# A pass's address: on a test build with Send Passes to the Main Server on,
+# the main server's (the test build's addresses all point at the test server:
+# the main one is put together here so the build's swap leaves it alone)
+func pass_url(url: String) -> String:
+	if not passes_to_main or Online.build_channel() != "test":
+		return url
+	var path_at := url.find("/", 8)
+	return "https://" + "savia" + "." + "nysr.host" + (url.substr(path_at) if path_at > 0 else "")
+
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
 		return
@@ -602,7 +611,7 @@ func report_map_completion(song_id: String):
 	http_request.connect("request_completed", self, "_on_report_completion_received", [http_request, song_id, replay_id_snapshot, replay_b64 != ""])
 	var mods_json = JSON.print(_get_active_mods_dict())
 	var url = "%s?client_id=%s&song_id=%s&speed=%s&content_hash=%s&misses=%s&note_count=%s&hitwindow=%s&mods=%s&hwid=%s" % [
-		SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL, cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
+		pass_url(SUBMIT_PASS_URL if replay_b64 != "" else REPORT_COMPLETION_URL), cid.http_escape(), song_id.http_escape(), str(current_speed_multiplier()), content_hash.http_escape(),
 		str(song_end_misses), str(song_end_total_notes), str(hitwindow_ms), mods_json.http_escape(), get_hardware_id().http_escape()
 	]
 	if replay_b64 != "":
@@ -633,7 +642,7 @@ func _send_pass_env(for_cid: String):
 	var req := HTTPRequest.new()
 	req.timeout = 6
 	add_child(req)
-	var err = req.request("%s?client_id=%s" % [PASS_ENV_URL, for_cid.http_escape()], ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(s.env()))
+	var err = req.request("%s?client_id=%s" % [pass_url(PASS_ENV_URL), for_cid.http_escape()], ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(s.env()))
 	if err == OK:
 		yield(req, "request_completed")
 	req.queue_free()
@@ -670,7 +679,7 @@ func _send_unranked_map(song_id: String):
 	r.use_threads = OS.can_use_threads()
 	add_child(r)
 	r.connect("request_completed", self, "_on_unranked_map_sent", [r])
-	if r.request_raw("%s?client_id=%s&song_id=%s" % [UNRANKED_MAP_URL, cid.http_escape(), song_id.http_escape()], ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, bytes) != OK:
+	if r.request_raw("%s?client_id=%s&song_id=%s" % [pass_url(UNRANKED_MAP_URL), cid.http_escape(), song_id.http_escape()], ["Content-Type: application/octet-stream"], true, HTTPClient.METHOD_POST, bytes) != OK:
 		r.queue_free()
 
 func _on_unranked_map_sent(_result, _code, _h, _body, r: HTTPRequest):
@@ -3176,6 +3185,9 @@ var mute_global_chat: bool = false
 # refuses anyone when this is off; LobbyManager sends it with your presence)
 var allow_spectators: bool = true
 var allow_lobby_invites: bool = true # Settings > Online: others can invite you into their lobby (LobbyManager.invite_player)
+# Settings > Online (test builds only): your passes go to the main server, so
+# they count there (pass_url); a test build otherwise sends them to the test server
+var passes_to_main: bool = false
 # Settings > Online > Share My Maps With Spectators: off, a spectator without
 # the map isn't sent it (unreleased maps); they can still watch on maps they have
 var share_maps_with_spectators: bool = true
@@ -4239,6 +4251,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mute_global_chat = data.mute_global_chat
 		if data.has("allow_lobby_invites"):
 			allow_lobby_invites = bool(data.allow_lobby_invites)
+		if data.has("passes_to_main"):
+			passes_to_main = bool(data.passes_to_main)
 		if data.has("allow_spectators"):
 			allow_spectators = bool(data.allow_spectators)
 		if data.has("share_maps_with_spectators"):
@@ -5126,6 +5140,7 @@ func _write_settings_file(saveFile: String):
 			is_staff = is_staff,
 			lb_device = lb_device,
 			allow_lobby_invites = allow_lobby_invites,
+			passes_to_main = passes_to_main,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
 			show_hp_bar = show_hp_bar,
