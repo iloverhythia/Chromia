@@ -82,22 +82,46 @@ func _find_ffmpeg():
 		if first != "" and _runs(first):
 			return first
 	_set_title("downloading ffmpeg (once)")
-	Globals.notify(Globals.NOTIFY_INFO, "Downloading ffmpeg (about 30 MB, only this once)...", "Save video")
+	Globals.notify(Globals.NOTIFY_INFO, "Downloading ffmpeg (about 29 MB, only this once). The window's title shows how far it is.", "Save video")
 	Directory.new().make_dir_recursive(TOOLS)
 	var gz := _abs(TOOLS + "/ffmpeg.gz")
-	var http := HTTPRequest.new()
-	http.use_threads = true
-	http.download_file = gz
-	http.timeout = 300
-	add_child(http)
-	if http.request(FFMPEG_URL) != OK:
-		http.queue_free()
-		return ""
-	var res: Array = yield(http, "request_completed")
-	http.queue_free()
-	if res[0] != HTTPRequest.RESULT_SUCCESS or res[1] != 200:
+	Directory.new().remove(gz)
+	# Windows' own curl (much faster than the engine's downloader, which
+	# crawled on a file this big), on a thread; the engine's as a fallback
+	var curl := OS.get_environment("SystemRoot") + "\\System32\\curl.exe"
+	var got := false
+	if File.new().file_exists(curl):
+		_thread_done = false
+		_thread_result = []
+		_thread = Thread.new()
+		_thread.start(self, "_thread_run", [curl, ["-L", "--fail", "-s", "--retry", "2", "-o", gz, FFMPEG_URL]])
+		while not _thread_done:
+			_download_title(_file_size(gz))
+			yield(get_tree().create_timer(0.25), "timeout")
+		_thread.wait_to_finish()
+		_thread = null
+		got = int(_thread_result[0]) == 0 and File.new().file_exists(gz)
+	if not got:
 		Directory.new().remove(gz)
-		return ""
+		var http := HTTPRequest.new()
+		http.use_threads = true
+		http.download_file = gz
+		http.download_chunk_size = 4 * 1024 * 1024
+		http.timeout = 600
+		add_child(http)
+		_http_res = []
+		http.connect("request_completed", self, "_on_http_done")
+		if http.request(FFMPEG_URL) != OK:
+			http.queue_free()
+			return ""
+		while _http_res.empty():
+			_download_title(http.get_downloaded_bytes())
+			yield(get_tree().create_timer(0.25), "timeout")
+		http.queue_free()
+		if _http_res[0] != HTTPRequest.RESULT_SUCCESS or _http_res[1] != 200:
+			Directory.new().remove(gz)
+			return ""
+	_set_title("checking ffmpeg")
 	# only the expected file is ever run
 	if File.new().get_sha256(gz) != FFMPEG_GZ_SHA256:
 		Directory.new().remove(gz)
@@ -123,22 +147,38 @@ func _find_ffmpeg():
 	Directory.new().remove(gz)
 	return own if _runs(own) else ""
 
+var _http_res := []
+func _on_http_done(result, code, _headers, _body):
+	_http_res = [result, code]
+
+func _file_size(path: String) -> int:
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return 0
+	var n := f.get_len()
+	f.close()
+	return n
+
+func _download_title(bytes: int):
+	_set_title("downloading ffmpeg %.1f / 27.6 MB" % (float(bytes) / 1048576.0))
+
 # ffmpeg with these arguments, on a thread (it can take a while) -> [exit code, its messages]. Always yields.
 func _ffmpeg_run(args: Array):
 	yield(get_tree(), "idle_frame")
 	_thread_done = false
 	_thread_result = []
 	_thread = Thread.new()
-	_thread.start(self, "_thread_run", args)
+	_thread.start(self, "_thread_run", [_ffmpeg, args])
 	while not _thread_done:
 		yield(get_tree(), "idle_frame")
 	_thread.wait_to_finish()
 	_thread = null
 	return _thread_result
 
-func _thread_run(args: Array):
+# [program, arguments], run on a thread
+func _thread_run(job: Array):
 	var out := []
-	var code := OS.execute(_ffmpeg, PoolStringArray(args), true, out, true)
+	var code := OS.execute(String(job[0]), PoolStringArray(job[1]), true, out, true)
 	_thread_result = [code, PoolStringArray(out).join("\n")]
 	_thread_done = true
 
@@ -175,7 +215,7 @@ func _go():
 	_thread_done = false
 	_thread_result = []
 	_thread = Thread.new()
-	_thread.start(self, "_thread_run", args)
+	_thread.start(self, "_thread_run", [_ffmpeg, args])
 	_tcp = StreamPeerTCP.new()
 	var t0 := OS.get_ticks_msec()
 	var connected := false
