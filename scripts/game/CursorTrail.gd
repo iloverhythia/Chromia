@@ -29,13 +29,14 @@ func _grad_apply(age: float, alpha: float):
 	grad_mat.albedo_color = Color(c.r, c.g, c.b, alpha * c.a)
 
 
-func respawn(t_override=null,rot=0):
+func respawn(t_override=null,rot=0,late=0.0):
 	if t_override:
 		visible = true
 		global_transform.origin = t_override
 		$Mesh.rotation_degrees.x = rot
 	else:
-		var here: Vector3 = cursor.global_transform.origin - Vector3(0,0,0.001)
+		# (where the cursor was when this piece was due, between two frames)
+		var here: Vector3 = (cursor.trail_point(late) if late > 0.0 and cursor.has_method("trail_point") else cursor.global_transform.origin) - Vector3(0,0,0.001)
 		visible = here != last_origin # nothing piles up where the cursor stands still
 		last_origin = here
 		global_transform.origin = here
@@ -63,7 +64,8 @@ func upd_dumb(delta):
 		$Mesh.scale = Vector3(a*Rhythia.cursor_scale,1,a*Rhythia.cursor_scale)
 	if !Rhythia.smart_trail and t >= 1:
 		t -= 1
-		respawn()
+		if t >= 1: t = fmod(t, 1.0) # (a long frame)
+		respawn(null, 0, t * Rhythia.trail_time)
 
 func update(delta):
 	t -= (delta/Rhythia.trail_time)

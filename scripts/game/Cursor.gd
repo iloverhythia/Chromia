@@ -100,47 +100,42 @@ func move_cursor_abs(mdel: Vector2):
 
 onready var absCamera = get_node("../../../AbsCamera")
 
-# Touch prediction (phones, Settings > No Touch Delay): what's on screen is a
-# frame or so behind your finger, so the cursor is put one frame ahead of it
-# along the way it's moving (like phones do for pens). When the finger stops,
-# it's back on the real spot the next frame.
+# Touch prediction (phones, Settings > No Touch Delay; TouchPredictor.gd):
+# what's on screen is behind your finger, and touch samples don't line up with
+# drawn frames, so every drawn frame the cursor is put where the finger has got
+# to since the last sample, plus the chosen lead. When the finger stops it
+# eases onto the real spot. Works for the absolute cursor (the finger's place)
+# and the relative one (the finger's movement).
 var _pred := false
-var _pred_vel := Vector2.ZERO # px/s, smoothed
-var _pred_last := Vector2.ZERO
-var _pred_t := 0
-var _pred_ahead := false
+var _tp = null # TouchPredictor
+var _rel_px := Vector2.ZERO # relative mode: the finger's movements added up, px
+var _rel_true := Vector2.ZERO # relative mode: the cursor without the lead
+var _rel_shown := Vector2.ZERO # ...and where it was put with it
+var _rel_has := false
+
 func _predict_input(p: Vector2):
-	var now := OS.get_ticks_usec()
-	var dt := float(now - _pred_t) / 1000000.0
-	if _pred_t > 0 and dt > 0.0005 and dt < 0.1:
-		var v := (p - _pred_last) / dt
-		_pred_vel = _pred_vel.linear_interpolate(v, 0.6)
-	else:
-		_pred_vel = Vector2.ZERO
-	_pred_last = p
-	_pred_t = now
+	_tp.add(p, OS.get_ticks_usec())
+
+func _predict_offset() -> Vector2:
+	if not _pred:
+		return Vector2.ZERO
+	var cap: float = get_viewport().get_visible_rect().size.y * 0.04 # (the lead is never far off)
+	return _tp.offset(OS.get_ticks_usec(), Rhythia.mobile_predict_ms / 1000.0, cap)
 
 func _predicted_mouse() -> Vector2:
-	var m := get_viewport().get_mouse_position()
-	if not _pred:
-		return m
-	# The touch sample is a little behind your finger, so lead the cursor by the
-	# chosen time. We also add however long it's been since the last sample, so
-	# the cursor keeps gliding between samples instead of freezing until the next
-	# one (smooth on 120 Hz screens). A real touch event snaps it back to truth,
-	# and once the finger pauses or lifts we sit on the real spot and don't drift.
-	var fr: float = 1.0 / max(Engine.get_frames_per_second(), 30.0)
-	var lead: float = Rhythia.mobile_predict_ms / 1000.0
-	var age: float = (float(OS.get_ticks_usec() - _pred_t) / 1000000.0) if _pred_t > 0 else 1.0
-	if age > 1.5 * fr:
-		_pred_ahead = false
-		return m
-	var ahead := _pred_vel * (age + lead)
-	var cap: float = get_viewport().get_visible_rect().size.y * 0.04 # never far off
-	if ahead.length() > cap:
-		ahead = ahead.normalized() * cap
-	_pred_ahead = ahead.length_squared() > 0.25
-	return m + ahead
+	return get_viewport().get_mouse_position() + _predict_offset()
+
+# relative mode, one finger movement: the cursor moves from where it really is
+# (not from where the lead drew it)
+func _move_rel_predicted(mdel: Vector2, rel_px: Vector2):
+	if _rel_has and rpos == _rel_shown:
+		rpos = _rel_true
+	move_cursor(mdel)
+	_rel_true = rpos
+	_rel_shown = rpos
+	_rel_has = true
+	_rel_px += rel_px
+	_predict_input(_rel_px)
 
 func get_absolute_position():
 	absCamera.fov = Rhythia.get("fov")
@@ -192,9 +187,11 @@ func _input(event: InputEvent):
 			visible = true
 			if (event is InputEventMouseMotion):
 				_face_accum += event.relative
-				if _pred:
+				if _pred and Rhythia.absolute_mode:
 					_predict_input(event.position)
-				if Rhythia.invert_mouse:
+				if _pred and not Rhythia.absolute_mode:
+					_move_rel_predicted(event.relative * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1), event.relative)
+				elif Rhythia.invert_mouse:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position() * -1)
 					else:
@@ -259,8 +256,13 @@ func _process(delta):
 	# touch prediction: re-place the cursor every drawn frame so it keeps gliding
 	# between touch samples and settles on the real spot when your finger stops
 	# (get_absolute_position() leads while moving and snaps back once it pauses).
-	if _pred and Rhythia.absolute_mode and not Rhythia.replaying:
-		move_cursor_abs(get_absolute_position() * (-1 if Rhythia.invert_mouse else 1))
+	if _pred and not Rhythia.replaying and move_mode == C_MOUSE and not Rhythia.spin_now():
+		if Rhythia.absolute_mode:
+			move_cursor_abs(get_absolute_position() * (-1 if Rhythia.invert_mouse else 1))
+		elif _rel_has and rpos == _rel_shown:
+			var off: Vector2 = _predict_offset() * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1)
+			move_cursor_abs(_rel_true + off)
+			_rel_shown = rpos
 	check_debug_mouse_toggle()
 	frame = Engine.get_frames_drawn()
 	if Rhythia.cursor_spin != 0 and not Rhythia.cursor_face_velocity:
@@ -338,10 +340,35 @@ func _process(delta):
 				$L.text = "amount this frame: %s\nalive: %s" % [amt, _trail_mm.live() if _trail_mm != null else 0]
 		prev_pos = global_transform.origin
 		prev_rot = $Mesh.rotation_degrees.x
+	_tr_prev = _tr_now
+	_tr_now = global_transform.origin
+	_tr_dt = delta
+	_tr_frame = Engine.get_frames_drawn()
+
+# The classic trail (CursorTrail.gd) puts a piece down every so often. The
+# moment a piece is due falls between two drawn frames: this is where the
+# cursor was `late` seconds ago, on the line from its last frame's place to
+# this frame's, so pieces are spread evenly along the path at any frame rate
+# (at 60 FPS they used to bunch up on the frames' own spots).
+var _tr_now := Vector3.ZERO
+var _tr_prev := Vector3.ZERO
+var _tr_dt := 0.016
+var _tr_frame := -1
+func trail_point(late: float) -> Vector3:
+	var now_p: Vector3 = global_transform.origin
+	# (asked before this frame's _process here: the last one kept is last frame's)
+	var prev_p: Vector3 = _tr_prev if _tr_frame == Engine.get_frames_drawn() else _tr_now
+	if late <= 0.0 or (now_p - prev_p).length() > 2.5:
+		return now_p # (a jump, like the start of a song: no line across the grid)
+	return now_p.linear_interpolate(prev_p, clamp(late / max(_tr_dt, 0.0005), 0.0, 1.0))
 
 func _ready():
+	_tr_now = global_transform.origin
+	_tr_prev = _tr_now
 	if not Rhythia.show_cursor: visible = false
-	_pred = Rhythia.device("mobile") and bool(Rhythia.get("mobile_no_delay")) and Rhythia.absolute_mode and not Rhythia.replaying
+	_pred = Rhythia.device("mobile") and bool(Rhythia.get("mobile_no_delay")) and not Rhythia.replaying and not Rhythia.vr
+	if _pred:
+		_tp = load("res://scripts/game/TouchPredictor.gd").new()
 	if _legacy and not Rhythia.replaying:
 		Input.use_accumulated_input = true # (as it was then)
 
