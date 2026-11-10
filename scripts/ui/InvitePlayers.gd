@@ -39,7 +39,7 @@ static func open_on(parent: Node):
 
 func _init():
 	S = OnlineStyle.new()
-	add_stylebox_override("panel", OnlineStyle.flat(OnlineStyle.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 20, 16))
+	add_stylebox_override("panel", OnlineStyle.flat(S.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 20, 16))
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 10)
 	add_child(v)
@@ -53,7 +53,7 @@ func _init():
 	S.button(x, false, true)
 	x.connect("pressed", self, "close")
 	head.add_child(x)
-	v.add_child(S.label("They get a notice with your name and can join with one click.", S.f_small, OnlineStyle.DIM, true))
+	v.add_child(S.label("They get a notice with your name and can join with one click.", S.f_small, S.DIM, true))
 	_search = LineEdit.new()
 	_search.placeholder_text = "Search players"
 	_search.clear_button_enabled = true
@@ -69,7 +69,7 @@ func _init():
 	_list.size_flags_horizontal = SIZE_EXPAND_FILL
 	_list.add_constant_override("separation", 6)
 	sc.add_child(_list)
-	_empty = S.label("Loading who's online...", S.f_small, OnlineStyle.DIM)
+	_empty = S.label("Loading who's online...", S.f_small, S.DIM)
 	_list.add_child(_empty)
 
 func _ready():
@@ -146,7 +146,7 @@ func _refill(_t = null):
 		_list.add_child(_row(p, n, nm, bool(p.get("in_lobby", false)) and mine.has(nm)))
 		shown += 1
 	if shown == 0:
-		_empty = S.label("Nobody to invite right now." if q == "" else "Nobody online is called that.", S.f_small, OnlineStyle.DIM)
+		_empty = S.label("Nobody to invite right now." if q == "" else "Nobody online is called that.", S.f_small, S.DIM)
 		_list.add_child(_empty)
 
 # the names in your lobby (they're already there)
@@ -173,7 +173,7 @@ func _row(p: Dictionary, n: int, nm: String, here: bool) -> Control:
 	v.alignment = BoxContainer.ALIGN_CENTER
 	v.add_constant_override("separation", 0)
 	h.add_child(v)
-	var l: Label = S.label(nm, S.f_bold, OnlineStyle.TEXT)
+	var l: Label = S.label(nm, S.f_bold, S.TEXT)
 	l.clip_text = true
 	v.add_child(l)
 	var st := String(p.get("status", ""))
@@ -182,7 +182,7 @@ func _row(p: Dictionary, n: int, nm: String, here: bool) -> Control:
 		what = "Playing " + String(p.get("song_name", "a map"))
 	elif bool(p.get("in_lobby", false)):
 		what = "In a lobby"
-	var sub: Label = S.label(what, S.f_small, OnlineStyle.DIM)
+	var sub: Label = S.label(what, S.f_small, S.DIM)
 	sub.clip_text = true
 	v.add_child(sub)
 	var b := Button.new()

@@ -133,6 +133,7 @@ func _font_row(id: String, title: String) -> Control:
 	sample.clip_text = true
 	sample.add_color_override("font_color", TEXT)
 	sample.name = "Sample"
+	sample.set_meta("nsu_keep", true) # (the new Settings look leaves it in its own font: SettingsNewUI.gd)
 	sample.rect_min_size = Vector2(0, 30) # (same height before its font is in)
 	v.add_child(sample)
 	_rows[id] = row

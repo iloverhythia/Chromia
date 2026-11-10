@@ -4,23 +4,93 @@ extends Reference
 # window's colours, cards and buttons, with the Profile page's big title,
 # pink section headings and thin rules.
 
-const LILAC = Color(0.764706, 0.65098, 0.8)
-const ACCENT = Color(1, 0.756863, 0.960784)
-const ACCENT_HOVER = Color(0.913725, 0.74902, 0.94902)
-const TEXT = Color(0.898039, 0.94902, 1, 1)
-const DIM = Color(0.62, 0.6, 0.68, 1)
-const PLAYING = Color(0.55, 0.9, 0.65)
-const WAITING = Color(1, 0.85, 0.45)
-const BAD = Color(1, 0.55, 0.5)
-const WINDOW_BG = Color(0.035, 0.03, 0.05, 0.94)
-const SECTION_BG = Color(1, 1, 1, 0.025)
-const CARD_BG = Color(0.075, 0.068, 0.1, 1)
-const CARD_HOVER = Color(0.11, 0.1, 0.145, 1)
-const FIELD_BG = Color(0.13, 0.125, 0.165, 1)
-const BTN_BG = Color(0.1, 0.095, 0.125, 1)
-const BTN_HOVER = Color(0.14, 0.13, 0.18, 1)
-const PINK = Color(0.96, 0.6, 0.78)
-const RULE = Color(1, 1, 1, 0.16)
+# The colours. These are the game's own; with a look made in Settings > Menu
+# Customizer (MenuStyle.gd) they follow it (retint(), below): the buttons'
+# colour, the accent, the text, and the dark panels in the buttons' hue.
+var LILAC := Color(0.764706, 0.65098, 0.8)
+var ACCENT := Color(1, 0.756863, 0.960784)
+var ACCENT_HOVER := Color(0.913725, 0.74902, 0.94902)
+var TEXT := Color(0.898039, 0.94902, 1, 1)
+var DIM := Color(0.62, 0.6, 0.68, 1)
+var PLAYING := Color(0.55, 0.9, 0.65)
+var WAITING := Color(1, 0.85, 0.45)
+var BAD := Color(1, 0.55, 0.5)
+var WINDOW_BG := Color(0.035, 0.03, 0.05, 0.94)
+var SECTION_BG := Color(1, 1, 1, 0.025)
+var CARD_BG := Color(0.075, 0.068, 0.1, 1)
+var CARD_HOVER := Color(0.11, 0.1, 0.145, 1)
+var FIELD_BG := Color(0.13, 0.125, 0.165, 1)
+var FIELD_TEXT := Color(0.898039, 0.94902, 1, 1)
+var BTN_BG := Color(0.1, 0.095, 0.125, 1)
+var BTN_HOVER := Color(0.14, 0.13, 0.18, 1)
+var PINK := Color(0.96, 0.6, 0.78)
+var RULE := Color(1, 1, 1, 0.16)
+var ON_ACCENT := Color(0.1, 0.07, 0.12) # text on a filled (lilac) button
+
+const DEFAULTS := {
+	"LILAC": Color(0.764706, 0.65098, 0.8), "ACCENT": Color(1, 0.756863, 0.960784),
+	"ACCENT_HOVER": Color(0.913725, 0.74902, 0.94902), "TEXT": Color(0.898039, 0.94902, 1, 1),
+	"DIM": Color(0.62, 0.6, 0.68, 1), "WINDOW_BG": Color(0.035, 0.03, 0.05, 0.94),
+	"CARD_BG": Color(0.075, 0.068, 0.1, 1), "CARD_HOVER": Color(0.11, 0.1, 0.145, 1),
+	"FIELD_BG": Color(0.13, 0.125, 0.165, 1), "FIELD_TEXT": Color(0.898039, 0.94902, 1, 1),
+	"BTN_BG": Color(0.1, 0.095, 0.125, 1), "BTN_HOVER": Color(0.14, 0.13, 0.18, 1),
+	"PINK": Color(0.96, 0.6, 0.78), "ON_ACCENT": Color(0.1, 0.07, 0.12),
+}
+const SURFACES := ["WINDOW_BG", "CARD_BG", "CARD_HOVER", "FIELD_BG", "BTN_BG", "BTN_HOVER"]
+
+# For a page with colours of its own (the Profile page): its own colour while
+# the look is the game's, the customized one once this colour follows a look.
+func pick(key: String, own: Color) -> Color:
+	var now: Color = get(key)
+	return own if now == DEFAULTS[key] else Color(now.r, now.g, now.b, own.a if key in SURFACES else now.a)
+
+# a dark panel colour in another hue: as dark and as see-through as it was,
+# as colourful as the colour it follows (grey buttons give grey panels)
+static func tinted(panel: Color, from: Color) -> Color:
+	var sat: float = clamp(panel.s * from.s / 0.19, 0.0, 0.62)
+	return Color.from_hsv(from.h, sat, panel.v, panel.a)
+
+# The Menu Customizer's look, where one is set (anything not set stays as it is
+# in the game): buttons -> the filled buttons, tabs and outlines; hover -> their
+# hover; button text -> the text on them; accent -> headings and values; text ->
+# the text (and a dimmer one for captions); the panels, cards and dark buttons
+# take the buttons' hue; a text box colour of your own is used as it is.
+func retint():
+	for k in DEFAULTS:
+		set(k, DEFAULTS[k])
+	var MS = load("res://scripts/ui/menu/MenuStyle.gd")
+	var st: Dictionary = MS.data().style
+	if st.has("btn_bg"):
+		var c: Color = MS.get_value("btn_bg")
+		LILAC = Color(c.r, c.g, c.b)
+		ACCENT_HOVER = LILAC.lightened(0.25)
+		for k in SURFACES:
+			set(k, tinted(DEFAULTS[k], LILAC))
+	if st.has("btn_hover"):
+		var c: Color = MS.get_value("btn_hover")
+		ACCENT_HOVER = Color(c.r, c.g, c.b)
+	if st.has("btn_text"):
+		var c: Color = MS.get_value("btn_text")
+		ON_ACCENT = Color(c.r, c.g, c.b)
+	if st.has("accent"):
+		var c: Color = MS.get_value("accent")
+		ACCENT = Color(c.r, c.g, c.b)
+		PINK = ACCENT
+	if st.has("text"):
+		var c: Color = MS.get_value("text")
+		TEXT = Color(c.r, c.g, c.b)
+		DIM = TEXT.linear_interpolate(Color(0.42, 0.42, 0.46), 0.5) if TEXT.v > 0.5 else TEXT.lightened(0.3)
+		FIELD_TEXT = TEXT
+	if st.has("field_bg"):
+		var c: Color = MS.get_value("field_bg")
+		FIELD_BG = Color(c.r, c.g, c.b)
+		var ft: Color = MS.get_value("field_text")
+		FIELD_TEXT = Color(ft.r, ft.g, ft.b)
+	elif st.has("field_text"):
+		var c: Color = MS.get_value("field_text")
+		# (on the dark box only if it can be read there)
+		if c.v > 0.45:
+			FIELD_TEXT = Color(c.r, c.g, c.b)
 
 var f_regular: DynamicFont
 var f_bold: DynamicFont
@@ -30,6 +100,7 @@ var f_title: DynamicFont
 var f_code: DynamicFont
 
 func _init():
+	retint()
 	f_regular = font("res://assets/font/Lato/Lato-Regular.ttf", 16)
 	f_bold = font("res://assets/font/Lato/Lato-Bold.ttf", 16)
 	f_small = font("res://assets/font/Lato/Lato-Regular.ttf", 14)
@@ -210,7 +281,7 @@ func button(b: Button, accent: bool = false, small: bool = false) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.theme = null
 	b.add_font_override("font", f_bold)
-	var dark = Color(0.1, 0.07, 0.12)
+	var dark = ON_ACCENT
 	for k in ["font_color", "font_color_hover", "font_color_pressed"]:
 		b.add_color_override(k, dark if accent else TEXT)
 	b.add_color_override("font_color_disabled", Color(DIM.r, DIM.g, DIM.b, 0.6))
@@ -297,9 +368,9 @@ func make_button(text: String, target: Object, method: String, binds: Array = []
 func field(e: LineEdit) -> LineEdit:
 	e.theme = null
 	e.add_font_override("font", f_regular)
-	e.add_color_override("font_color", TEXT)
-	e.add_color_override("font_color_uneditable", DIM)
-	e.add_color_override("cursor_color", ACCENT)
+	e.add_color_override("font_color", FIELD_TEXT)
+	e.add_color_override("font_color_uneditable", Color(FIELD_TEXT.r, FIELD_TEXT.g, FIELD_TEXT.b, 0.6))
+	e.add_color_override("cursor_color", ACCENT if FIELD_BG.v < 0.5 else FIELD_TEXT)
 	e.add_stylebox_override("normal", flat(FIELD_BG, 3, Color(0, 0, 0, 0), 0, 14, 8))
 	e.add_stylebox_override("focus", flat(FIELD_BG, 3, LILAC, 1, 14, 8))
 	e.add_stylebox_override("read_only", flat(FIELD_BG, 3, Color(0, 0, 0, 0), 0, 14, 8))

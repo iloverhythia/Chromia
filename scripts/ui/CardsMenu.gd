@@ -36,7 +36,7 @@ static func open_on(parent: Node):
 
 func _init():
 	S = OnlineStyle.new()
-	add_stylebox_override("panel", OnlineStyle.flat(OnlineStyle.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 22, 18))
+	add_stylebox_override("panel", OnlineStyle.flat(S.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 22, 18))
 	rect_min_size = Vector2(560, 0)
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 10)
@@ -51,14 +51,14 @@ func _init():
 	S.button(x)
 	x.connect("pressed", self, "close")
 	head.add_child(x)
-	v.add_child(S.label("The colours of your card in the Spectate grid, and the border of your website profile. Some cards are unlocked by what you do; how is a secret.", S.f_small, OnlineStyle.DIM, true))
+	v.add_child(S.label("The colours of your card in the Spectate grid, and the border of your website profile. Some cards are unlocked by what you do; how is a secret.", S.f_small, S.DIM, true))
 	v.add_child(S.rule())
 	_grid = GridContainer.new()
 	_grid.columns = 3
 	_grid.add_constant_override("hseparation", 10)
 	_grid.add_constant_override("vseparation", 10)
 	v.add_child(_grid)
-	_msg = S.label("Loading your cards...", S.f_small, OnlineStyle.DIM)
+	_msg = S.label("Loading your cards...", S.f_small, S.DIM)
 	v.add_child(_msg)
 	v.add_child(S.rule())
 	var row := HBoxContainer.new()
@@ -122,7 +122,7 @@ func _on_cards(cards: Array, chosen: String):
 func _card(c: Dictionary) -> Control:
 	var id := String(c.get("id", ""))
 	var have := bool(c.get("unlocked", false))
-	var bg := Color(String(c.get("bg", "#13111a"))) if String(c.get("bg", "")).is_valid_html_color() else OnlineStyle.CARD_BG
+	var bg := Color(String(c.get("bg", "#13111a"))) if String(c.get("bg", "")).is_valid_html_color() else S.CARD_BG
 	var border := Color(String(c.get("border", "#2b2734"))) if String(c.get("border", "")).is_valid_html_color() else Color(1, 1, 1, 0.1)
 	var b := Button.new()
 	b.rect_min_size = Vector2(160, 92)
@@ -130,7 +130,7 @@ func _card(c: Dictionary) -> Control:
 	b.toggle_mode = false
 	var picked := id == _chosen
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var sb = OnlineStyle.flat(bg.lightened(0.06) if st == "hover" else bg, 6, OnlineStyle.TEXT if picked else border, 3 if picked else 2)
+		var sb = OnlineStyle.flat(bg.lightened(0.06) if st == "hover" else bg, 6, S.TEXT if picked else border, 3 if picked else 2)
 		b.add_stylebox_override(st, sb)
 	# the card's own picture (an admin's upload), dimmed behind its name
 	var iu := String(c.get("image_url", "")) if c.get("image_url") != null else ""
@@ -161,11 +161,11 @@ func _card(c: Dictionary) -> Control:
 	v.alignment = BoxContainer.ALIGN_CENTER
 	v.mouse_filter = MOUSE_FILTER_IGNORE
 	b.add_child(v)
-	var nm: Label = S.label(String(c.get("name", "Card")), S.f_bold, OnlineStyle.TEXT)
+	var nm: Label = S.label(String(c.get("name", "Card")), S.f_bold, S.TEXT)
 	nm.align = Label.ALIGN_CENTER
 	nm.mouse_filter = MOUSE_FILTER_IGNORE
 	v.add_child(nm)
-	var sub: Label = S.label("Showing" if picked else ("" if have else "Locked"), S.f_small, OnlineStyle.DIM)
+	var sub: Label = S.label("Showing" if picked else ("" if have else "Locked"), S.f_small, S.DIM)
 	sub.align = Label.ALIGN_CENTER
 	sub.mouse_filter = MOUSE_FILTER_IGNORE
 	v.add_child(sub)

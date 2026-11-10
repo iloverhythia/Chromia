@@ -154,6 +154,9 @@ static func put_on(raw, tree: SceneTree):
 static func refresh(tree: SceneTree):
 	apply_theme()
 	if tree != null:
+		# (the Online and Profile pages are built once with the look: the menu
+		# is loaded again when one of them is opened next, Sidebar.gd)
+		Engine.set_meta("menu_style_dirty", true)
 		tree.call_group("menu_style", "restyle")
 
 # --- the theme (every button, text box and label using uitheme.tres) -------------

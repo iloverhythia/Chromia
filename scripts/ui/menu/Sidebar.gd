@@ -95,10 +95,22 @@ func press_page(page: Node):
 func press(bi: int, q: bool = false):
 	if bi < 0 or bi >= pages.size():
 		return
+	# The Menu Customizer's look was changed since the menu was built, and this
+	# page was made with the old one (the Profile and Online pages are built
+	# once): the menu is loaded again and opens on it.
+	if not q and Engine.has_meta("menu_style_dirty") and pages[bi].name in ["Profile", "Online", "Stats"] and not Rhythia.in_map:
+		Engine.remove_meta("menu_style_dirty")
+		Rhythia.set_meta("reopen_page", String(pages[bi].name))
+		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+		return
 	if not q: get_node("../Press").play()
 	for i in range(pages.size()):
 		pages[i].visible = i == bi
 		buttons[i].pressed = i == bi
+	# (the version label's place for this page now, so the old one isn't drawn
+	# over the new page for a frame; and again after the page has settled)
+	get_node("../VersionNumber").visible = not use_ver_b[bi] and not Rhythia.device("mobile")
+	get_node("../VersionNumberB").visible = use_ver_b[bi] and not Rhythia.device("mobile")
 	yield(get_tree(), "idle_frame")
 
 	get_node("../VersionNumber").visible = not use_ver_b[bi]

@@ -41,6 +41,10 @@ var search: LineEdit
 var results_scroll: ScrollContainer
 var results: VBoxContainer
 var top_buttons: Control = null
+var _bg: Panel = null
+var _title: Label = null
+var _restyle_timer: Timer = null
+var _closed_ticks := 0
 var _sig := ""
 var _style_next := 0
 var _index := []
@@ -80,6 +84,8 @@ func _ready():
 	bg.mouse_filter = MOUSE_FILTER_IGNORE
 	bg.add_stylebox_override("panel", S.flat(S.WINDOW_BG, 0, Color(0, 0, 0, 0), 0)) # (the whole screen, edge to edge)
 	add_child(bg)
+	_bg = bg
+	add_to_group("menu_style") # (restyle(): the Menu Customizer's colours, as they change)
 
 	header = VBoxContainer.new()
 	header.name = "Header"
@@ -92,7 +98,8 @@ func _ready():
 	var top := HBoxContainer.new()
 	top.add_constant_override("separation", 14)
 	header.add_child(top)
-	top.add_child(S.title("Settings"))
+	_title = S.title("Settings")
+	top.add_child(_title)
 	top.add_child(S.spacer())
 	search = LineEdit.new()
 	search.name = "Search"
@@ -125,6 +132,7 @@ func _ready():
 			row.add_constant_override("separation", 6)
 		top_buttons = buttons
 		buttons.connect("resized", self, "_fit_top", [hs])
+		hs.connect("resized", self, "_fit_top", [hs])
 	header.add_child(S.rule())
 
 	cats_scroll = S.scroll(ScrollContainer.new())
@@ -162,6 +170,7 @@ func _ready():
 	hb.rect_min_size.y = 8
 	header.connect("resized", self, "_fit")
 	connect("resized", self, "_fit")
+	settings.connect("visibility_changed", self, "_on_shown")
 	var t := Timer.new()
 	t.wait_time = 0.4
 	t.autostart = true
@@ -224,6 +233,15 @@ func _on_cat(i: int):
 
 func _on_page_tab(_i: int):
 	_mark_cat()
+	# (right away, not at the next tick: no moment of the old look)
+	if tc.get_tab_count() > 0:
+		_style(tc.get_tab_control(tc.current_tab), true)
+
+# Settings is opened: everything is in the new look before it's drawn
+func _on_shown():
+	if is_visible_in_tree():
+		_tick()
+		_fit()
 
 func _mark_cat():
 	for i in range(cat_btns.size()):
@@ -248,13 +266,20 @@ func _tick():
 		_mark_cat()
 	if tc.tabs_visible:
 		tc.tabs_visible = false
-	if not is_visible_in_tree():
-		return
 	var n: int = tc.get_tab_count()
 	if n == 0:
 		return
+	# The page that shows is styled first, the others one at a time (so nothing
+	# hitches). This also runs while Settings is closed: by the time it's
+	# opened the pages have the new look already, with no moment of the old one.
+	# (Closed, once every page has had its turn there's nothing left to do.)
+	if not is_visible_in_tree():
+		_closed_ticks += 1
+		if _closed_ticks > n + 3:
+			return
+	else:
+		_closed_ticks = n # (a few more passes after closing, for pages filled late)
 	_style(tc.get_tab_control(tc.current_tab), true)
-	# (the other pages one at a time, so opening Settings never hitches)
 	_style_next = (_style_next + 1) % n
 	_style(tc.get_tab_control(_style_next), true)
 	if top_buttons != null and is_instance_valid(top_buttons):
@@ -283,10 +308,49 @@ func _style_top(n: Node):
 
 # (a bar under the row only shows when the buttons don't fit: room for it then)
 func _fit_top(hs: ScrollContainer):
+	if hs.rect_size.x < 8:
+		return # (not laid out yet: no room is made for a bar that may not be needed)
 	var over: bool = top_buttons.rect_size.x > hs.rect_size.x + 1
 	var h: float = 46.0 if over else 34.0
 	if hs.rect_min_size.y != h:
 		hs.rect_min_size.y = h
+
+# The Menu Customizer's colours changed (MenuStyle.refresh calls this on the
+# "menu_style" group, many times while a colour is dragged): a moment after the
+# last change everything is styled again with the new colours.
+func restyle():
+	if _restyle_timer == null:
+		_restyle_timer = Timer.new()
+		_restyle_timer.one_shot = true
+		_restyle_timer.wait_time = 0.2
+		_restyle_timer.connect("timeout", self, "_restyle_now")
+		add_child(_restyle_timer)
+	_restyle_timer.start()
+
+func _restyle_now():
+	S.retint()
+	_bg.add_stylebox_override("panel", S.flat(S.WINDOW_BG, 0, Color(0, 0, 0, 0), 0))
+	_title.add_color_override("font_color", S.TEXT)
+	var keep: Vector2 = search.rect_min_size
+	S.field(search)
+	search.rect_min_size = keep
+	_sig = "" # (the categories are made again)
+	if top_buttons != null and is_instance_valid(top_buttons):
+		_unmark(top_buttons)
+	for i in range(tc.get_tab_count()):
+		_unmark(tc.get_tab_control(i))
+	_closed_ticks = 0
+	_tick()
+	if results_scroll.visible:
+		_on_search(search.text)
+
+func _unmark(n: Node):
+	if n.has_meta("nsu"):
+		n.remove_meta("nsu")
+	if n is CanvasItem and (n.has_meta("nsu_group") or n.has_meta("nsu_page")):
+		n.update() # (its card is drawn with the colours of the moment)
+	for c in n.get_children():
+		_unmark(c)
 
 # --- the look ---------------------------------------------------------------------
 
@@ -402,14 +466,24 @@ func _style_node(n: Node):
 		var l: Label = n
 		var f: Font = l.get_font("font")
 		var size: int = f.size if f is DynamicFont else 16
-		if size >= 21:
+		if l.has_meta("nsu_keep"):
+			pass # (asked to be left as it is)
+		elif not _own_font(f):
+			# text shown in a typeface of its own (the samples in Fonts, a
+			# preview): that typeface is the point, it stays
+			if not l.has_color_override("font_color") or l.has_meta("nsu_fc"):
+				l.add_color_override("font_color", S.TEXT)
+				l.set_meta("nsu_fc", true)
+		elif size >= 21:
 			l.add_font_override("font", S.f_head)
-			if not l.has_color_override("font_color"):
+			if not l.has_color_override("font_color") or l.has_meta("nsu_fc"):
 				l.add_color_override("font_color", S.PINK)
+				l.set_meta("nsu_fc", true)
 		else:
 			l.add_font_override("font", S.f_small if size <= 14 else S.f_regular)
-			if not l.has_color_override("font_color"):
+			if not l.has_color_override("font_color") or l.has_meta("nsu_fc"):
 				l.add_color_override("font_color", S.TEXT)
+				l.set_meta("nsu_fc", true)
 		# (one long line made the whole page wider than the screen: it wraps)
 		if not l.autowrap and l.get_combined_minimum_size().x > 560:
 			l.autowrap = true
@@ -425,13 +499,20 @@ func _style_node(n: Node):
 	for c in n.get_children():
 		_style_node(c)
 
+# the game's own typeface (Lato), or no particular one: its text takes the
+# page's fonts. Anything else was put there to be seen in that typeface.
+static func _own_font(f: Font) -> bool:
+	if not (f is DynamicFont) or f.font_data == null:
+		return true
+	return String(f.font_data.font_path).find("/Lato/") != -1
+
 func _field(e: LineEdit):
 	if e == null:
 		return
 	e.add_font_override("font", S.f_regular)
-	e.add_color_override("font_color", S.TEXT)
-	e.add_color_override("font_color_uneditable", S.DIM)
-	e.add_color_override("cursor_color", S.ACCENT)
+	e.add_color_override("font_color", S.FIELD_TEXT)
+	e.add_color_override("font_color_uneditable", Color(S.FIELD_TEXT.r, S.FIELD_TEXT.g, S.FIELD_TEXT.b, 0.6))
+	e.add_color_override("cursor_color", S.ACCENT if S.FIELD_BG.v < 0.5 else S.FIELD_TEXT)
 	e.add_stylebox_override("normal", S.flat(S.FIELD_BG, 3, Color(1, 1, 1, 0.05), 1, 10, 4))
 	e.add_stylebox_override("focus", S.flat(S.FIELD_BG, 3, S.LILAC, 1, 10, 4))
 	e.add_stylebox_override("read_only", S.flat(S.FIELD_BG, 3, Color(0, 0, 0, 0), 0, 10, 4))

@@ -58,7 +58,7 @@ static func open_on(parent: Node):
 func _init():
 	S = OnlineStyle.new()
 	covers = CoverSq.get_cache()
-	add_stylebox_override("panel", OnlineStyle.flat(OnlineStyle.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 20, 16))
+	add_stylebox_override("panel", OnlineStyle.flat(S.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 20, 16))
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 10)
 	add_child(v)
@@ -90,7 +90,7 @@ func _init():
 		S.button(b, false, true)
 		b.rect_min_size.x = 34 if d[0] != "All" else 44
 		# (the chosen one stands out)
-		b.add_stylebox_override("pressed", OnlineStyle.flat(OnlineStyle.ACCENT, 4, Color(0, 0, 0, 0), 0, 8, 4))
+		b.add_stylebox_override("pressed", OnlineStyle.flat(S.ACCENT, 4, Color(0, 0, 0, 0), 0, 8, 4))
 		b.add_color_override("font_color_pressed", Color(0.08, 0.06, 0.1))
 		b.connect("pressed", self, "_set_diff", [d[1]])
 		row.add_child(b)
@@ -114,7 +114,7 @@ func _init():
 	var foot := HBoxContainer.new()
 	foot.add_constant_override("separation", 10)
 	v.add_child(foot)
-	_picked_label = S.label("Pick a map", S.f_small, OnlineStyle.DIM)
+	_picked_label = S.label("Pick a map", S.f_small, S.DIM)
 	_picked_label.size_flags_horizontal = SIZE_EXPAND_FILL
 	_picked_label.clip_text = true
 	foot.add_child(_picked_label)
@@ -277,7 +277,7 @@ func _make_row() -> Button:
 	pic.rect_position = Vector2(12, 7)
 	pic.rect_size = Vector2(44, 44)
 	b.add_child(pic)
-	var nm: Label = S.label("", S.f_bold, OnlineStyle.TEXT)
+	var nm: Label = S.label("", S.f_bold, S.TEXT)
 	nm.name = "Name"
 	nm.clip_text = true
 	nm.mouse_filter = MOUSE_FILTER_IGNORE
@@ -286,7 +286,7 @@ func _make_row() -> Button:
 	nm.margin_right = -90
 	nm.margin_top = 9
 	b.add_child(nm)
-	var sub: Label = S.label("", S.f_small, OnlineStyle.DIM)
+	var sub: Label = S.label("", S.f_small, S.DIM)
 	sub.name = "Sub"
 	sub.clip_text = true
 	sub.mouse_filter = MOUSE_FILTER_IGNORE
@@ -295,7 +295,7 @@ func _make_row() -> Button:
 	sub.margin_right = -90
 	sub.margin_top = 30
 	b.add_child(sub)
-	var st: Label = S.label("", S.f_bold, OnlineStyle.TEXT)
+	var st: Label = S.label("", S.f_bold, S.TEXT)
 	st.name = "Stars"
 	st.align = Label.ALIGN_RIGHT
 	st.mouse_filter = MOUSE_FILTER_IGNORE
@@ -310,10 +310,10 @@ func _make_row() -> Button:
 
 func _style(b: Button, picked: bool):
 	for stn in ["normal", "hover", "pressed", "focus"]:
-		var bg := OnlineStyle.CARD_BG
+		var bg: Color = S.CARD_BG
 		if stn == "hover":
 			bg = bg.lightened(0.05)
-		b.add_stylebox_override(stn, OnlineStyle.flat(bg, 4, OnlineStyle.ACCENT if picked else Color(1, 1, 1, 0.04), 2 if picked else 1))
+		b.add_stylebox_override(stn, OnlineStyle.flat(bg, 4, S.ACCENT if picked else Color(1, 1, 1, 0.04), 2 if picked else 1))
 
 func _fill(b: Button, i: int):
 	var s = _shown[i]

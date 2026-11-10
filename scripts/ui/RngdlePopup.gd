@@ -29,14 +29,14 @@ func _init():
 	mouse_filter = MOUSE_FILTER_STOP
 
 func _ready():
-	_sb = OnlineStyle.flat(OnlineStyle.WINDOW_BG, 10, Color(1, 1, 1, 0.15), 2, 24, 18)
+	_sb = OnlineStyle.flat(S.WINDOW_BG, 10, Color(1, 1, 1, 0.15), 2, 24, 18)
 	_sb.shadow_color = Color(0, 0, 0, 0.55)
 	_sb.shadow_size = 16
 	add_stylebox_override("panel", _sb)
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 12)
 	add_child(v)
-	var title: Label = S.label("RNGdle", OnlineStyle.font("res://assets/font/Nunito/Nunito-Bold.ttf", 26), OnlineStyle.ACCENT)
+	var title: Label = S.label("RNGdle", OnlineStyle.font("res://assets/font/Nunito/Nunito-Bold.ttf", 26), S.ACCENT)
 	title.align = Label.ALIGN_CENTER
 	v.add_child(title)
 	var row := HBoxContainer.new()
@@ -48,16 +48,16 @@ func _ready():
 		var box := PanelContainer.new()
 		box.rect_min_size = Vector2(58, 78)
 		box.add_stylebox_override("panel", OnlineStyle.flat(Color(0.1, 0.095, 0.13), 8, Color(1, 1, 1, 0.12), 1))
-		var l: Label = S.label("0", big, OnlineStyle.TEXT)
+		var l: Label = S.label("0", big, S.TEXT)
 		l.align = Label.ALIGN_CENTER
 		l.valign = Label.VALIGN_CENTER
 		box.add_child(l)
 		row.add_child(box)
 		_reels.append({"box": box, "label": l, "stopped": false})
-	_rarity = S.label(" ", OnlineStyle.font("res://assets/font/Nunito/Nunito-Bold.ttf", 22), OnlineStyle.TEXT)
+	_rarity = S.label(" ", OnlineStyle.font("res://assets/font/Nunito/Nunito-Bold.ttf", 22), S.TEXT)
 	_rarity.align = Label.ALIGN_CENTER
 	v.add_child(_rarity)
-	_what = S.label("Rolling...", S.f_small, OnlineStyle.DIM)
+	_what = S.label("Rolling...", S.f_small, S.DIM)
 	_what.align = Label.ALIGN_CENTER
 	v.add_child(_what)
 	_close = Button.new()

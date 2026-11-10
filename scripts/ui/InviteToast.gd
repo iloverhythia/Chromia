@@ -36,7 +36,7 @@ func _init():
 	S = OnlineStyle.new()
 	pause_mode = PAUSE_MODE_PROCESS
 	mouse_filter = MOUSE_FILTER_STOP
-	var sb = OnlineStyle.flat(OnlineStyle.WINDOW_BG, 6, Color(OnlineStyle.ACCENT.r, OnlineStyle.ACCENT.g, OnlineStyle.ACCENT.b, 0.45), 1, 14, 10)
+	var sb = OnlineStyle.flat(S.WINDOW_BG, 6, Color(S.ACCENT.r, S.ACCENT.g, S.ACCENT.b, 0.45), 1, 14, 10)
 	sb.shadow_color = Color(0, 0, 0, 0.45)
 	sb.shadow_size = 10
 	add_stylebox_override("panel", sb)
@@ -56,19 +56,19 @@ func _ready():
 	texts.add_constant_override("separation", 0)
 	texts.size_flags_horizontal = SIZE_EXPAND_FILL
 	top.add_child(texts)
-	texts.add_child(S.label("LOBBY INVITE", S.f_small, OnlineStyle.PINK))
-	var who: Label = S.label("%s invited you" % String(inv.from_name), S.f_bold, OnlineStyle.TEXT)
+	texts.add_child(S.label("LOBBY INVITE", S.f_small, S.PINK))
+	var who: Label = S.label("%s invited you" % String(inv.from_name), S.f_bold, S.TEXT)
 	who.clip_text = true
 	texts.add_child(who)
 	var n := int(inv.lobby_size)
 	var info := "%d player%s" % [n, "" if n == 1 else "s"]
 	if String(inv.song_name) != "":
 		info = String(inv.song_name) + "  ·  " + info
-	var il: Label = S.label(info, S.f_small, OnlineStyle.DIM)
+	var il: Label = S.label(info, S.f_small, S.DIM)
 	il.clip_text = true
 	texts.add_child(il)
 	if in_map:
-		v.add_child(S.label("Join it from the Online tab after this song.", S.f_small, OnlineStyle.DIM, true))
+		v.add_child(S.label("Join it from the Online tab after this song.", S.f_small, S.DIM, true))
 	else:
 		var row := HBoxContainer.new()
 		row.add_constant_override("separation", 8)

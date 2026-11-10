@@ -46,3 +46,6 @@ in scripts/Savia.gd and empties this list.
 - Cursor trail (the normal one, Smart Trail off): its pieces are spread evenly along the path at any frame rate. At 60 FPS (phones) they bunched up in clumps with gaps between.
 - Phones: the file browser has a Sort button (top right): Name, Largest first, Smallest first, Newest first or Oldest first. Folders stay on top, the date shows next to the size when sorting by date, and your choice is kept for next time.
 - Settings > Colorsets: the colorset you have selected is marked with an outline and a tick, in your menu's accent colour.
+- The new Settings, the Online page, the Profile page with its Profile / Leaderboard / Stats panel, and their windows (Cards, Frames, invites, the lobby map picker) take the colours of your Menu Customizer look: your button colour for filled buttons, tabs and outlines, your accent for headings and values, your text colour, and the dark panels in your button colour's hue. Settings changes as you pick colours; Online and Profile load the menu again once when you next open them. Nothing changes if you have no look of your own.
+- New Settings: it no longer shows the old look for a moment when you open it or switch category.
+- New Settings > Fonts: every font is shown in its own typeface again (they all looked the same).

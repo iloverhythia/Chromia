@@ -3162,6 +3162,10 @@ func _ready():
 		load("res://scripts/ui/settings/SettingsNewUI.gd").install(get_node_or_null("Main/Settings"))
 	else:
 		load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings"))
+	Engine.remove_meta("menu_style_dirty") # (this menu is built with the look as it is now)
+	if Rhythia.has_meta("reopen_page"):
+		call_deferred("_reopen_page", String(Rhythia.get_meta("reopen_page")))
+		Rhythia.remove_meta("reopen_page")
 	if Rhythia.has_meta("reopen_settings_tab"):
 		call_deferred("_reopen_settings", String(Rhythia.get_meta("reopen_settings_tab")))
 		Rhythia.remove_meta("reopen_settings_tab")
@@ -3264,6 +3268,12 @@ func _on_mods_changed_for_lobby():
 
 # back in Settings on a category after the menu was loaded again (a setting
 # that changes the menu itself, like New Settings UI)
+func _reopen_page(page_name: String):
+	var page = get_node_or_null("Main/" + page_name)
+	var sidebar = get_node_or_null("Sidebar")
+	if page != null and sidebar != null:
+		sidebar.press_page(page)
+
 func _reopen_settings(tab: String):
 	var page = get_node_or_null("Main/Settings")
 	var sidebar = get_node_or_null("Sidebar")
