@@ -58,3 +58,5 @@ in scripts/Savia.gd and empties this list.
 - Replays line the cursor up with the notes more reliably: the lead-in is worked out from the hits themselves (exact, not to the nearest 100 ms), and used over the saved one when that is clearly off
 - Cursor trail: much lighter, mostly for phones. The trail's pieces now fade, shrink and take their gradient colour on the graphics card instead of being updated one by one every frame, for both the normal trail and Smart Trail. Having the trail on no longer drags the frame rate down or makes the cursor feel off (long or detailed trails gain the most). It looks the same.
 - Phones: Settings has an Old Cursor Movement option (under No Touch Delay and 120 Hz). Turn it on if you preferred how the cursor moved before the smoother prediction; it takes effect in the next song.
+- Save video's Game view (and the website's Game view) now loads the player's own note mesh, hit sounds and HUD panel picture: their downloads never finished in the browser version, so it fell back to the default rounded notes
+- Spectating someone and their Save video links show their touch indicator style (the rings under their fingers in replays)

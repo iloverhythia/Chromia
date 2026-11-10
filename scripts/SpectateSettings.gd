@@ -37,6 +37,7 @@ const VIEW_KEYS := [
 	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity", "note_brightness",
 	"note_spin_x", "note_spin_y", "note_spin_z", "half_ghost", "half_ghost_strength",
 	"note_visual_approach", "visual_approach_follow", "do_note_pushback", "note_spawn_effect",
+	"show_touch_indicator", "touch_style", # (phones: the rings under the fingers, shown in replays too)
 	"hitwindow_ms", "note_hitbox_size", "speed_hitwindow",
 	"cursor_scale", "cursor_trail", "trail_detail", "trail_time", "trail_opacity",
 	"trail_mode_scale", "trail_mode_opacity", "trail_gradient_enabled", "trail_gradient",
@@ -637,7 +638,43 @@ static func _enc(v):
 		TYPE_OBJECT:
 			if v != null and is_instance_valid(v) and "id" in v:
 				return str(v.id)
+		TYPE_DICTIONARY:
+			# (one level: the touch indicator's look, the avatar's)
+			var out := {}
+			for k in v:
+				if out.size() >= 40:
+					break
+				var e = _enc(v[k])
+				if typeof(e) != TYPE_NIL and typeof(e) != TYPE_ARRAY and typeof(e) != TYPE_DICTIONARY:
+					out[String(k).left(40)] = e
+			return out
 	return null
+
+# their touch indicator look: only its own keys, each the type of its default
+# (a custom picture isn't sent: the ring then)
+static func _touch_style(v: Dictionary, defaults: Dictionary) -> Dictionary:
+	var out := {}
+	var shapes: Array = load("res://scripts/ui/TouchIndicator.gd").SHAPES
+	for k in v:
+		if not defaults.has(k):
+			continue
+		var d = defaults[k]
+		var x = v[k]
+		var num := typeof(x) == TYPE_INT or typeof(x) == TYPE_REAL or typeof(x) == TYPE_BOOL
+		match typeof(d):
+			TYPE_BOOL:
+				if num: out[k] = bool(x)
+			TYPE_REAL, TYPE_INT:
+				if num: out[k] = clamp(float(x), -1000.0, 1000.0)
+			TYPE_STRING:
+				if typeof(x) != TYPE_STRING:
+					continue
+				if k == "shape":
+					if x in shapes and x != "image":
+						out[k] = x
+				elif String(x).is_valid_html_color():
+					out[k] = String(x).trim_prefix("#").left(8)
+	return out
 
 # Their value read as the type of yours; {"__skip": true} if it doesn't fit.
 static func _dec(v, cur):
@@ -668,7 +705,15 @@ static func _dec(v, cur):
 					out.append([clamp(float(x[0]), 0.0, 1.0), x[1]])
 				return out
 		TYPE_DICTIONARY:
-			# (the avatar's look: only colours and known items get through)
 			if typeof(v) == TYPE_DICTIONARY:
+				# the touch indicator's look (its keys only), else the avatar's
+				# (only colours and known items get through)
+				var touch: Dictionary = load("res://scripts/ui/TouchIndicator.gd").DEFAULTS
+				var is_touch := not v.empty()
+				for k in v:
+					if not touch.has(k):
+						is_touch = false
+				if is_touch:
+					return _touch_style(v, touch)
 				return load("res://scripts/avatar/AvatarLook.gd").normalized(v)
 	return {"__skip": true}
