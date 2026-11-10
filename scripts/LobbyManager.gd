@@ -1066,7 +1066,8 @@ func upload_spectate_assets():
 	for a in spec.own_background_assets():
 		for u in a.uploads:
 			_upload_asset_file(u[0], u[1], u[2])
-	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()], ["font", "font", spec.own_font_file(String(Rhythia.hud_font))]]
+	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()], ["font", "font", spec.own_font_file(String(Rhythia.hud_font))],
+		["hit_sound", "sound", spec.own_sound_file("hit")], ["miss_sound", "sound", spec.own_sound_file("miss")]]
 	if String(Rhythia.vr_hand) == "custom":
 		for hf in spec.own_hand_files():
 			sends.append([hf[0], "mesh", hf[1]]) # (VR hand models: .obj like a note mesh)
@@ -1141,6 +1142,10 @@ func fetch_spectate_assets(settings):
 		var v: String = String(settings.get(k, "")).to_lower()
 		if v.find(".") == 64:
 			wanted.append(["media", v.left(64), v.right(65)])
+	for sk in ["hit_sound_file", "miss_sound_file"]:
+		var sp: Array = spec.sound_file_parts(String(settings.get(sk, "")))
+		if not sp.empty():
+			wanted.append(["sound", sp[0], sp[1]])
 	var lv: String = String(settings.get("bg_layers", "")).to_lower()
 	if lv != "none" and lv != "":
 		wanted.append(["bglayers", lv, "json"])

@@ -153,16 +153,31 @@ static func collect() -> Dictionary:
 			out[k] = e
 	# your colorset's colours themselves: a custom / imported one isn't in the
 	# spectator's list (and the notes' alpha is these colours' alpha x opacity)
+	# (read with get(): `"real_colors" in cs` was never true here, so a custom
+	# colorset never reached spectators or videos)
 	var cs = backup.get("selected_colorset", Rhythia.selected_colorset)
-	if cs != null and is_instance_valid(cs) and "real_colors" in cs:
+	if cs is Object and is_instance_valid(cs):
+		var list = cs.get("real_colors")
+		if not (list is Array) or list.empty():
+			list = cs.get("colors")
 		var cols := []
-		for c in cs.real_colors:
+		for c in (list if list is Array else []):
 			if c is Color:
 				cols.append("#" + c.to_html(true))
+			elif typeof(c) == TYPE_STRING and String(c).is_valid_html_color():
+				cols.append("#" + Color(String(c)).to_html(true))
 		if cols.size() > 0 and cols.size() <= 64:
 			out["colorset_colors"] = cols
 			out["colorset_mirror"] = bool(cs.mirror)
 			out["colorset_name"] = String(cs.name).left(60)
+	# your own hit / miss sounds ("<sha256>.<ext>": uploaded like your border,
+	# LobbyManager.upload_spectate_assets); not while someone else's are on
+	if not active():
+		for kind in ["hit", "miss"]:
+			var sf := own_sound_file(kind)
+			var ssha := sha_of(sf)
+			if ssha != "":
+				out[kind + "_sound_file"] = "%s.%s" % [ssha, sf.get_extension().to_lower()]
 	out["_vr"] = bool(Rhythia.vr)
 	# your VR hands (shown to spectators: HUD.gd): the furry paws are in every
 	# game; custom models are uploaded (LobbyManager.upload_spectate_assets)
@@ -331,6 +346,29 @@ static func own_font_file(font_id: String) -> String:
 	var p: String = load("res://scripts/HudFont.gd").custom_file()
 	return p if p != "" and _small_enough(p) else ""
 
+# your hit / miss sound's file ("" for the game's own), found the way the game
+# loads it (Savia.refresh_active_sound_streams)
+static func own_sound_file(kind: String) -> String:
+	var sel = Rhythia.selected_hit_sound if kind == "hit" else Rhythia.selected_miss_sound
+	var base: String = "user://hit" if kind == "hit" else "user://miss"
+	if sel != null and sel.get("path") != null and String(sel.path) != "":
+		base = String(sel.path)
+	if base.begins_with("res://"):
+		return ""
+	base = Globals.p(base)
+	var f := File.new()
+	for p in [base + ".ogg", base + ".mp3", base + ".wav", base]:
+		if f.file_exists(p) and not Directory.new().dir_exists(p) and p.get_extension().to_lower() in ["ogg", "mp3", "wav"]:
+			return p if _small_enough(p) else ""
+	return ""
+
+# a spectated player's sound file name ("<sha256>.<ext>") -> [sha, ext] or []
+static func sound_file_parts(v: String) -> Array:
+	v = v.to_lower()
+	if v.find(".") != 64 or not v.left(64).is_valid_hex_number() or not (v.right(65) in ["ogg", "mp3", "wav"]):
+		return []
+	return [v.left(64), v.right(65)]
+
 # a spectated player's font file name ("<sha256>.<ext>") -> [sha, ext] or []
 static func font_file_parts(v: String) -> Array:
 	v = v.to_lower()
@@ -420,6 +458,15 @@ static func apply(their: Dictionary, peer_id: int):
 	var fpath: String = cached_asset(fp[0], fp[1]) if not fp.empty() else ""
 	if fpath != "":
 		Rhythia.set_meta("spec_hud_font", fpath)
+	# their hit / miss sounds (downloaded: LobbyManager.fetch_spectate_assets;
+	# restore() loads yours again)
+	for kind in ["hit", "miss"]:
+		var sp := sound_file_parts(String(their.get(kind + "_sound_file", "")))
+		var spath: String = cached_asset(sp[0], sp[1]) if not sp.empty() else ""
+		if spath != "":
+			var stream = Globals.audioLoader.load_file(spath)
+			if stream is AudioStream:
+				Rhythia.set(kind + "_snd", stream)
 	for k in FORCED:
 		_assign(k, FORCED[k])
 	Rhythia.set_meta("spec_for", peer_id)
@@ -473,6 +520,7 @@ static func restore():
 	if Rhythia.has_meta("spec_for"):
 		Rhythia.remove_meta("spec_for")
 	Directory.new().remove(Globals.p(BACKUP_FILE))
+	Rhythia.refresh_active_sound_streams() # (your hit / miss sounds again)
 
 # Savia.save_settings: yours while writing, theirs again after.
 static func swap_out():

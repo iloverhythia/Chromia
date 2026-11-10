@@ -49,3 +49,4 @@ in scripts/Savia.gd and empties this list.
 - The new Settings, the Online page, the Profile page with its Profile / Leaderboard / Stats panel, and their windows (Cards, Frames, invites, the lobby map picker) take the colours of your Menu Customizer look: your button colour for filled buttons, tabs and outlines, your accent for headings and values, your text colour, and the dark panels in your button colour's hue. Settings changes as you pick colours; Online and Profile load the menu again once when you next open them. Nothing changes if you have no look of your own.
 - New Settings: it no longer shows the old look for a moment when you open it or switch category.
 - New Settings > Fonts: every font is shown in its own typeface again (they all looked the same).
+- Spectating with someone's settings (and their Save video links) now shows their own custom colorset (it fell back to the default) and plays their own hit and miss sounds
