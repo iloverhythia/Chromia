@@ -74,6 +74,31 @@ func warning_menu_exit():
 	yield(Globals.confirm_prompt, "done_closing")
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+func _convert_song():
+	yield(get_tree(), "idle_frame") # (always a coroutine: the caller waits for "completed")
+	var song = Rhythia.selected_song
+	if song == null or song.stream() != Globals.error_sound:
+		return
+	var AudioConvert = load("res://scripts/content/AudioConvert.gd")
+	var buf = song.get_music_buffer()
+	if not AudioConvert.needed(buf):
+		return
+	Rhythia.trail("song load: converting the song (%s)" % AudioConvert.kind(buf))
+	var msg := Label.new()
+	msg.text = "Getting this map's song ready (only the first time)..."
+	msg.align = Label.ALIGN_CENTER
+	msg.anchor_right = 1
+	msg.anchor_top = 0.5
+	msg.anchor_bottom = 0.5
+	msg.margin_top = -60
+	add_child(msg)
+	var job = AudioConvert.start(buf)
+	var res = yield(job, "finished")
+	msg.queue_free()
+	if not res[0]:
+		Rhythia.trail("song load: the song wasn't converted: %s" % String(res[1]))
+		Globals.notify(Globals.NOTIFY_WARN, "This map's song is in a format the game can't play by itself, and it couldn't be converted: %s." % String(res[1]), "Song")
+
 const ReverseSong = preload("res://scripts/game/ReverseSong.gd")
 func _make_reverse():
 	var song = Rhythia.selected_song
@@ -146,6 +171,10 @@ func finish():
 		# done_loading was already emitted: waiting for it would hang here forever
 		if not Rhythia.replay.loaded:
 			yield(Rhythia.replay, "done_loading")
+
+	# A song the engine can't decode (.m4a, FLAC...): made an Ogg by the
+	# Chromia server, once, and kept (AudioConvert.gd)
+	yield(_convert_song(), "completed")
 
 	# Reverse: the song backwards first (ReverseSong.gd; kept for next time)
 	Rhythia.reverse_stream = null

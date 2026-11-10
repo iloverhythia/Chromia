@@ -6,6 +6,8 @@ func _pressed():
 	if !Rhythia.selected_song: return
 	if !$Song.playing:
 		$Song.stream = Rhythia.selected_song.stream()
+		if $Song.stream == Globals.error_sound and _convert_then_play():
+			return
 		if $Song.stream == null:
 			# No audio for this map (the built-in maps ship without their music).
 			text = "Play Music"
@@ -19,6 +21,29 @@ func _pressed():
 		$Song.stop()
 		text = "Play Music"
 		menu_resume()
+
+# A song the engine can't decode (.m4a, FLAC...): converted by the Chromia
+# server once (AudioConvert.gd), then played if the map is still selected.
+# -> true when a conversion was started
+func _convert_then_play() -> bool:
+	var s = Rhythia.selected_song
+	var AudioConvert = load("res://scripts/content/AudioConvert.gd")
+	var buf = s.get_music_buffer()
+	if not AudioConvert.needed(buf):
+		return false
+	$Song.stream = null
+	text = "Getting the song..."
+	var job = AudioConvert.start(buf)
+	if not job.is_connected("finished", self, "_on_song_converted"):
+		job.connect("finished", self, "_on_song_converted", [s])
+	return true
+
+func _on_song_converted(ok: bool, why: String, s):
+	text = "Play Music"
+	if not ok:
+		Globals.notify(Globals.NOTIFY_WARN, "This map's song couldn't be converted: %s." % why, "Song")
+	elif s == Rhythia.selected_song and not $Song.playing:
+		_pressed()
 
 var song = Rhythia.selected_song
 

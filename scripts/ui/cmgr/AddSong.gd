@@ -212,11 +212,45 @@ func sel_filetype(type:int):
 			Globals.file_sel.open_file(
 				self,
 				"file_selected",
-				PoolStringArray(["*.mp3, *.ogg ; Audio files"]),
+				PoolStringArray(["*.mp3, *.ogg, *.wav, *.m4a, *.aac, *.flac, *.opus ; Audio files"]),
 				false,
 				#"~/Downloads"
 				OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
 			)
+
+# A picked song the engine can't decode (.m4a, FLAC...): the Chromia server
+# makes it an Ogg (AudioConvert.gd), and that Ogg is the map's song, so the map
+# plays everywhere without converting anything again.
+var _converting_name := ""
+func _convert_picked_song(path: String) -> bool:
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return false
+	var bytes: PoolByteArray = f.get_buffer(f.get_len())
+	f.close()
+	var AudioConvert = load("res://scripts/content/AudioConvert.gd")
+	if AudioConvert.kind(bytes) == "":
+		return false
+	_converting_name = path.get_file()
+	if not AudioConvert.needed(bytes): # (made before)
+		_on_picked_song_converted(true, AudioConvert.path_of(bytes))
+		return true
+	$TxtFile/H/audio/Info.text = "Converting %s..." % _converting_name
+	$TxtFile/H/audio/Info.set("custom_colors/font_color", Color(1, 0.9, 0.5))
+	AudioConvert.start(bytes).connect("finished", self, "_on_picked_song_converted")
+	return true
+
+func _on_picked_song_converted(ok: bool, text: String):
+	if not is_inside_tree():
+		return
+	if not ok:
+		$TxtFile/H/audio/Info.text = "Couldn't convert %s: %s" % [_converting_name, text]
+		$TxtFile/H/audio/Info.set("custom_colors/font_color", Color(1, 0.5, 0.5))
+		return
+	opening = FO_SONG
+	file_selected(PoolStringArray([text]))
+	if song.musicFile == text:
+		$TxtFile/H/audio/Info.text = _converting_name
 
 const valid_chars = "0123456789abcdefghijklmnopqrstuvwxyz_-"
 
@@ -661,6 +695,8 @@ func file_selected(files:PoolStringArray):
 #				get_node("../MenuSong").play()
 #			$TxtFile/H/audio/player.stop()
 #			$TxtFile/H/audio/preview/Title.text = "Preview"
+			if _convert_picked_song(files[0]):
+				return # (an .m4a or the like: back here with the Ogg made of it)
 			var stream = Globals.audioLoader.load_file(files[0])
 			if stream == Globals.error_sound:
 				$TxtFile/H/audio/preview.disabled = true
