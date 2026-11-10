@@ -62,3 +62,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating someone and their Save video links show their touch indicator style (the rings under their fingers in replays)
 - Save video: no more stuttering sound at the very end of videos of a fail or give-up, and hit sounds are no longer doubled (they were louder than in the game)
 - Test builds: Settings > Online > Send Passes to the Main Server makes your passes count on the real leaderboards (off by default: they go to the test server)
+- Your bests on each map (including the maps you've only failed) can no longer be wiped: they're saved safely (a crash while saving used to leave the file empty, and the next attempt was saved over everything), the previous save is kept as a backup, and a file that can't be read is put aside instead of written over

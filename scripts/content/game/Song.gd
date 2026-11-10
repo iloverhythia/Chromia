@@ -490,61 +490,85 @@ func load_from_db_data(data: Dictionary = {
 
 	return {success = true}
 
+# Your bests on this map (every mod / speed combination), user://chromia/bests/<id>.
+# Saved safely (save_pbs): a new file, then swapped in, the last one kept as
+# .bak. A file that can't be read is never written over: before, a crash while
+# saving (or the file briefly locked) left it empty or unreadable, the next
+# attempt was saved over it alone, and every other best on the map was gone.
+var _pbs_unreadable := false
+
 func load_pbs():
 	if Rhythia.single_map_mode:
 		return
+	var path: String = Rhythia.user_best_dir + "/" + id
+	var file := File.new()
+	if not file.file_exists(path) and not file.file_exists(path + ".bak"):
+		pbs_loaded = true # (none yet)
+		return
+	for p in [path, path + ".bak"]:
+		if file.file_exists(p) and _read_pbs(p):
+			pbs_loaded = true
+			_pbs_unreadable = false
+			return
+	_pbs_unreadable = true
+	print("[bests] couldn't read the bests of %s: they're kept as they are" % id)
+
+func _read_pbs(path: String) -> bool:
 	var file: File = File.new()
-	if file.file_exists(Rhythia.user_best_dir + "/" + id):
-		var err: int = file.open(Rhythia.user_best_dir + "/" + id, File.READ)
-		if err != OK:
-			return
-
-		if file.get_buffer(5) != PoolByteArray([83, 83, 43, 112, 66]):
-			print("invalid signature for pb file (%s)" % id)
-			file.close()
-			return
-
-		var sv: int = file.get_16()
-		if sv > 4:
-			print("invalid file version for pb file (%s)" % id)
-			file.close()
-			return
-
-		if sv < 3: has_combo = false
-		else: has_combo = true
-
-		var amt: int = file.get_64()
-
-		for i in range(amt):
-			if file.eof_reached():
-				break # damaged file with a garbage count: don't loop (practically) forever
-			var pb: Dictionary = {}
-			var s: String = file.get_line()
-
-
-
-			pb.has_passed = bool(file.get_8())
-			pb.pauses = file.get_16()
-			pb.hit_notes = file.get_32()
-			pb.total_notes = file.get_32()
-			pb.position = file.get_32()
-			pb.length = file.get_32()
-
-			if has_combo: pb.max_combo = file.get_16()
-			else: pb.max_combo = -1
-
-			if sv >= 4: pb.ts = file.get_64()
-			else: pb.ts = 0
-
-			pb_data[s] = pb
-
+	if file.open(path, File.READ) != OK:
+		return false
+	if file.get_len() < 15 or file.get_buffer(5) != PoolByteArray([83, 83, 43, 112, 66]):
+		print("invalid signature for pb file (%s)" % id)
 		file.close()
+		return false
+	var sv: int = file.get_16()
+	if sv > 4:
+		print("invalid file version for pb file (%s)" % id)
+		file.close()
+		return false
+
+	if sv < 3: has_combo = false
+	else: has_combo = true
+
+	var amt: int = file.get_64()
+
+	for i in range(amt):
+		if file.eof_reached():
+			break # damaged file with a garbage count: don't loop (practically) forever
+		var pb: Dictionary = {}
+		var s: String = file.get_line()
+
+
+
+		pb.has_passed = bool(file.get_8())
+		pb.pauses = file.get_16()
+		pb.hit_notes = file.get_32()
+		pb.total_notes = file.get_32()
+		pb.position = file.get_32()
+		pb.length = file.get_32()
+
+		if has_combo: pb.max_combo = file.get_16()
+		else: pb.max_combo = -1
+
+		if sv >= 4: pb.ts = file.get_64()
+		else: pb.ts = 0
+
+		pb_data[s] = pb
+
+	file.close()
+	return true
 
 func save_pbs():
 	if Rhythia.single_map_mode:
 		return
+	var path: String = Rhythia.user_best_dir + "/" + id
+	var dir := Directory.new()
+	if _pbs_unreadable and dir.file_exists(path):
+		# (never over bests that couldn't be read: they're put aside first)
+		dir.rename(path, "%s.unreadable-%d" % [path, OS.get_unix_time()])
+		_pbs_unreadable = false
 	var file: File = File.new()
-	var err: int = file.open(Rhythia.user_best_dir + "/" + id, File.WRITE)
+	var err: int = file.open(path + ".tmp", File.WRITE)
 	if err != OK:
 		print("error writing pb file for %s:  %s" % [id, String(err)])
 		return
@@ -568,6 +592,12 @@ func save_pbs():
 		file.store_64(int(pb.get("ts", 0)))
 
 	file.close()
+	# the new one in place (the last good one kept as .bak)
+	if dir.file_exists(path):
+		dir.remove(path + ".bak")
+		dir.rename(path, path + ".bak")
+	if dir.rename(path + ".tmp", path) != OK:
+		print("[bests] couldn't put the new bests of %s in place" % id)
 
 func get_pb(pb_str: String):
 	if not pbs_loaded: load_pbs()
