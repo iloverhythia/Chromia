@@ -196,28 +196,49 @@ func _transition_to_list():
 	if list:
 		list.switch_to_play_screen()
 
-# Save video, under Play: the play just made as a video on the website, with
-# your settings (VideoExport.gd); also for a part of a map (a fail / give-up)
+# Save video: a small camera button beside the gear (under Play), for the play
+# just made, as a video on the website with your settings (VideoExport.gd);
+# also for a part of a map (a fail / give-up). Gone once another map is picked.
+var _video_song = null
 func _add_video_button():
-	var info = get_node_or_null("../../H1/Info")
-	var run = info.get_node_or_null("Run") if info != null else null
-	if run == null or info.get_node_or_null("SaveVideo") != null or OS.has_feature("JavaScript") or Rhythia.vr:
+	var row = get_node_or_null("../../H1/Info/Control")
+	var gear = row.get_node_or_null("Actions") if row != null else null
+	if gear == null or OS.has_feature("JavaScript") or Rhythia.vr:
 		return
+	_remove_video_button()
 	var file: String = load("res://scripts/VideoExport.gd").last_replay_file()
 	if file == "":
 		return
 	var b := Button.new()
 	b.name = "SaveVideo"
-	b.text = "Save video"
-	b.hint_tooltip = "Make a video of this play on the website, with your settings (opens your browser)"
-	b.theme = run.theme
-	b.rect_min_size = Vector2(0, max(run.rect_min_size.y * 0.7, 32))
+	b.hint_tooltip = "Save video: make a video of this play on the website, with your settings (opens your browser)"
+	b.theme = gear.theme
+	b.rect_min_size = gear.rect_min_size
+	b.size_flags_vertical = gear.size_flags_vertical
 	b.focus_mode = Control.FOCUS_NONE
+	var icon = Control.new()
+	icon.set_script(load("res://scripts/ui/VideoIcon.gd"))
+	icon.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	b.add_child(icon)
 	var song = Rhythia.selected_song
+	_video_song = song
 	var what := "%s · %s" % ["Passed" if Rhythia.song_end_type == Globals.END_PASS else "Part of the map", Rhythia.song_end_time_str]
 	b.connect("pressed", self, "_on_save_video", [file, song, what])
-	info.add_child(b)
-	info.move_child(b, run.get_index() + 1)
+	row.add_child(b)
+	row.move_child(b, gear.get_index() + 1)
+	if not Rhythia.is_connected("selected_song_changed", self, "_on_song_changed_video"):
+		Rhythia.connect("selected_song_changed", self, "_on_song_changed_video")
+
+func _on_song_changed_video(_s = null):
+	if Rhythia.selected_song != _video_song:
+		_remove_video_button()
+
+func _remove_video_button():
+	_video_song = null
+	var b = get_node_or_null("../../H1/Info/Control/SaveVideo")
+	if b != null:
+		b.get_parent().remove_child(b)
+		b.queue_free()
 
 func _on_save_video(file: String, song, what: String):
 	load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
