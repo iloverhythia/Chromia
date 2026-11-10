@@ -23,7 +23,12 @@ var filter_name := ""
 var show_all := false
 var cur_dir := ""
 var root_dir := "" # Back stops here
-var entries := [] # [{name, dir, size}]
+var entries := [] # [{name, dir, size, time}]
+# the order of the list: "name", "largest", "smallest", "newest" or "oldest"
+# (folders stay on top; kept between openings in user://file_picker_sort.txt)
+const SORTS := [["name", "Name (A to Z)", "Name"], ["largest", "Largest first", "Largest"], ["smallest", "Smallest first", "Smallest"], ["newest", "Newest first", "Newest"], ["oldest", "Oldest first", "Oldest"]]
+const SORT_FILE := "user://file_picker_sort.txt"
+var sort_mode := "name"
 var selected := {} # file name -> true
 var _replace_armed := ""
 
@@ -37,6 +42,8 @@ var back_btn: Button
 var path_label: Label
 var files_app_btn: Button
 var places_btn: Button
+var sort_btn: Button
+var sort_menu: VBoxContainer
 var list # FileList
 var bottom_bar: Control
 var info_label: Label
@@ -104,6 +111,15 @@ func _build():
 	files_app_btn = _button("Phone files", "_on_files_app")
 	files_app_btn.visible = OS.has_feature("iOS")
 	top_bar.add_child(files_app_btn)
+	var sf := File.new()
+	if sf.open(SORT_FILE, File.READ) == OK:
+		var saved := sf.get_as_text().strip_edges()
+		sf.close()
+		for so in SORTS:
+			if so[0] == saved:
+				sort_mode = saved
+	sort_btn = _button("Sort", "_toggle_sort")
+	top_bar.add_child(sort_btn)
 
 	list = FileList.new()
 	list.picker = self
@@ -140,6 +156,16 @@ func _build():
 		b.connect("pressed", self, "_go_place", [p[1]])
 		places_menu.add_child(b)
 
+	sort_menu = VBoxContainer.new()
+	sort_menu.visible = false
+	add_child(sort_menu)
+	for so in SORTS:
+		var b := _button(so[1], "_set_sort")
+		b.disconnect("pressed", self, "_set_sort")
+		b.connect("pressed", self, "_set_sort", [so[0]])
+		b.set_meta("sort", so[0])
+		sort_menu.add_child(b)
+
 func _layout():
 	var vp := get_viewport_rect().size
 	if vp.y <= 0:
@@ -171,7 +197,7 @@ func _layout():
 	back_btn.rect_size = Vector2(200 * u, bar_h)
 	x = 200 * u + gap
 	var rx := right - left
-	for b in [files_app_btn, places_btn]:
+	for b in [files_app_btn, places_btn, sort_btn]:
 		if b.visible:
 			var w: float = max(200 * u, font_bold.get_string_size(b.text).x + 60 * u)
 			rx -= w
@@ -219,6 +245,13 @@ func _layout():
 	if places_menu.rect_position.x + places_menu.rect_size.x > right:
 		places_menu.rect_position.x = right - places_menu.rect_size.x
 
+	sort_menu.rect_position = Vector2(sort_btn.rect_global_position.x - rect_global_position.x, top + bar_h + 6 * u)
+	for b in sort_menu.get_children():
+		b.rect_min_size = Vector2(max(sort_btn.rect_size.x, 380 * u), bar_h * 0.9)
+	sort_menu.rect_size = Vector2.ZERO
+	if sort_menu.rect_position.x + sort_menu.get_combined_minimum_size().x > right:
+		sort_menu.rect_position.x = right - sort_menu.get_combined_minimum_size().x
+
 # --- opening -----------------------------------------------------------------
 
 # filters like ["*.png, *.jpg ; Images", "* ; All Files"]
@@ -253,6 +286,7 @@ func open(p_kind: String, p_filters: PoolStringArray, p_multi: bool, start_dir: 
 	files_app_btn.visible = OS.has_feature("iOS") and kind != "folder"
 	files_app_btn.text = "Save to phone" if kind == "save" else "Phone files"
 	places_menu.visible = false
+	sort_menu.visible = false
 	visible = true
 	_go(start_dir)
 	_layout()
@@ -304,15 +338,15 @@ func _go(dir: String):
 	var n := d.get_next()
 	while n != "":
 		if d.current_is_dir():
-			dirs.append({"name": n, "dir": true, "size": -1})
+			dirs.append({"name": n, "dir": true, "size": -1, "time": _time(cur_dir.plus_file(n))})
 		elif kind != "folder":
 			if show_all or exts.empty() or exts.has(n.get_extension().to_lower()):
-				files.append({"name": n, "dir": false, "size": _size(cur_dir.plus_file(n))})
+				files.append({"name": n, "dir": false, "size": _size(cur_dir.plus_file(n)), "time": _time(cur_dir.plus_file(n))})
 		n = d.get_next()
 	d.list_dir_end()
-	dirs.sort_custom(self, "_by_name")
-	files.sort_custom(self, "_by_name")
-	entries = dirs + files
+	_dirs = dirs
+	_files = files
+	_sort_entries()
 	selected = {}
 	_replace_armed = ""
 	list.scroll = 0.0
@@ -320,8 +354,70 @@ func _go(dir: String):
 	list.update()
 	_refresh_labels()
 
+var _dirs := []
+var _files := []
+# Folders first (they have no size: by name, or by date when the files are),
+# then the files in the chosen order. Equal ones go by name.
+func _sort_entries():
+	_dirs.sort_custom(self, "_by_newest" if sort_mode == "newest" else ("_by_oldest" if sort_mode == "oldest" else "_by_name"))
+	_files.sort_custom(self, "_by_" + sort_mode)
+	entries = _dirs + _files
+
 func _by_name(a, b) -> bool:
 	return String(a.name).nocasecmp_to(String(b.name)) < 0
+
+func _by_largest(a, b) -> bool:
+	return a.size > b.size if a.size != b.size else _by_name(a, b)
+
+func _by_smallest(a, b) -> bool:
+	return a.size < b.size if a.size != b.size else _by_name(a, b)
+
+func _by_newest(a, b) -> bool:
+	return a.time > b.time if a.time != b.time else _by_name(a, b)
+
+func _by_oldest(a, b) -> bool:
+	return a.time < b.time if a.time != b.time else _by_name(a, b)
+
+# when it was last changed (seconds, 0 if the phone won't say)
+func _time(path: String) -> int:
+	return int(File.new().get_modified_time(path))
+
+# "today 14:05", "yesterday", "3 days ago", "12 Mar 2026"
+static func fmt_time(t: int) -> String:
+	if t <= 0:
+		return ""
+	var now := OS.get_unix_time()
+	var ago := now - t
+	if ago < 60:
+		return "just now"
+	if ago < 3600:
+		return "%d min ago" % int(ago / 60)
+	if ago < 86400:
+		return "%d h ago" % int(ago / 3600)
+	if ago < 86400 * 2:
+		return "yesterday"
+	if ago < 86400 * 30:
+		return "%d days ago" % int(ago / 86400)
+	var d := OS.get_datetime_from_unix_time(t)
+	return "%d %s %d" % [d.day, ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][int(d.month) - 1], d.year]
+
+func _toggle_sort():
+	places_menu.visible = false
+	sort_menu.visible = not sort_menu.visible
+	_layout()
+
+func _set_sort(mode: String):
+	sort_menu.visible = false
+	if mode != sort_mode:
+		sort_mode = mode
+		var f := File.new()
+		if f.open(SORT_FILE, File.WRITE) == OK:
+			f.store_string(mode)
+			f.close()
+		_sort_entries()
+		list.scroll = 0.0
+		list.vel = 0.0
+	_refresh_labels()
 
 func _size(path: String) -> int:
 	var f := File.new()
@@ -383,6 +479,16 @@ func _refresh_labels():
 			info_label.text = "Open the folder you want, then tap Use folder"
 			ok_btn.disabled = false
 	all_btn.text = "Only %s" % (filter_name if filter_name != "" else "matching") if show_all else "Show all files"
+	for so in SORTS:
+		if so[0] == sort_mode:
+			var st: String = "Sort: " + so[2]
+			if sort_btn.text != st:
+				sort_btn.text = st
+				_layout_soon()
+	for b in sort_menu.get_children():
+		# (the one in use is marked; sizes mean nothing when only folders show)
+		b.modulate = PINK if b.get_meta("sort") == sort_mode else Color(1, 1, 1)
+		b.visible = kind != "folder" or not (b.get_meta("sort") in ["largest", "smallest"])
 	if all_btn.visible:
 		_layout_soon()
 	list.update()
@@ -427,6 +533,7 @@ func tapped(i: int, double: bool):
 
 func _on_back():
 	places_menu.visible = false
+	sort_menu.visible = false
 	if cur_dir == root_dir or cur_dir == "/":
 		return
 	var up := cur_dir.get_base_dir()
@@ -435,6 +542,7 @@ func _on_back():
 	_go(up)
 
 func _toggle_places():
+	sort_menu.visible = false
 	places_menu.visible = not places_menu.visible
 	_layout()
 
@@ -727,12 +835,22 @@ class FileList extends Control:
 				right_text = "›"
 			else:
 				right_text = picker.fmt_size(e.size)
+				if picker.sort_mode in ["newest", "oldest"]:
+					var when: String = picker.fmt_time(e.time)
+					if when != "":
+						right_text = when + ("   " + right_text if right_text != "" else "")
 			var rw := 0.0
 			if right_text != "":
 				var rf: DynamicFont = f if e.dir else fs
 				var rsz := rf.get_string_size(right_text)
 				rw = rsz.x + 30 * u
 				draw_string(rf, Vector2(w - rsz.x - 24 * u, y + (row_h + rf.get_ascent() - rf.get_descent()) / 2), right_text, picker.DIM)
+			if e.dir and picker.sort_mode in ["newest", "oldest"] and picker.fmt_time(e.time) != "":
+				# (a folder's date, left of its arrow)
+				var when_d: String = picker.fmt_time(e.time)
+				var wsz := fs.get_string_size(when_d)
+				draw_string(fs, Vector2(w - rw - wsz.x - 24 * u, y + (row_h + fs.get_ascent() - fs.get_descent()) / 2), when_d, picker.DIM)
+				rw += wsz.x + 30 * u
 			if picker.multiselect and not e.dir:
 				var cc := Vector2(w - rw - 40 * u, y + row_h / 2)
 				draw_arc(cc, 16 * u, 0, TAU, 32, picker.LILAC, 3 * u, true)
