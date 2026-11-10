@@ -36,3 +36,4 @@ in scripts/Savia.gd and empties this list.
 - Online: hosting a lobby at the default window size no longer squeezes the map's name into one letter per line (the Pick map / Use selected buttons sit under the name now), and the lobby chat's emoji button is small so its hint text fits.
 - Switching to another window during a map now gives the mouse back to Windows, and coming back takes it again: fixes the cursor going missing with remote desktop or other games in the background
 - Results: Save video makes a video of your play (a whole map or the part you played) on the website, with your settings: notes, cursor, camera, HUD and background
+- Spectating with their settings now shows their own HUD panel picture too

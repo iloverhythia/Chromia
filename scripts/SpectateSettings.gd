@@ -243,7 +243,8 @@ static func own_background_assets() -> Array:
 
 static func _own_background_assets() -> Array:
 	var out := []
-	for pair in [["custombg_image", "user://custombg"], ["panobg_image", "user://panobg"]]:
+	# (and the HUD panels' own picture: Background Editor > HUD panels)
+	for pair in [["custombg_image", "user://custombg"], ["panobg_image", "user://panobg"], ["hud_panel_image", "user://hud_panel"]]:
 		var p := _first_existing(Globals.p(pair[1]))
 		var ext := media_ext(p) if p != "" else ""
 		var size := _file_size(p) if p != "" else 0
@@ -427,7 +428,7 @@ static func apply(their: Dictionary, peer_id: int):
 # "none" = they have none (so you don't see yours); not downloaded yet = none.
 static func _apply_backgrounds(their: Dictionary):
 	_clear_backgrounds()
-	for pair in [["custombg_image", "spec_custombg"], ["panobg_image", "spec_panobg"]]:
+	for pair in [["custombg_image", "spec_custombg"], ["panobg_image", "spec_panobg"], ["hud_panel_image", "spec_hud_panel"]]:
 		var v := String(their.get(pair[0], ""))
 		if v == "none":
 			Rhythia.set_meta(pair[1], "")
@@ -458,7 +459,7 @@ static func _apply_backgrounds(their: Dictionary):
 					Rhythia.set_meta("spec_bg_dir", Globals.p(ASSET_CACHE))
 
 static func _clear_backgrounds():
-	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font"]:
+	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font", "spec_hud_panel"]:
 		if Rhythia.has_meta(k):
 			Rhythia.remove_meta(k)
 

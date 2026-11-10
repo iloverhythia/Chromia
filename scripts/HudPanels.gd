@@ -5,8 +5,8 @@ extends Reference
 #
 # "Sound Space" is the Sound Space HUD (SoundSpaceMode.gd, the ss_hud
 # setting): picking it turns that on, picking another turns it off. Your own
-# picture is user://hud_panel.png (or .jpg); spectators see the default look
-# instead of it.
+# picture is user://hud_panel.png (or .jpg); spectators watching with your
+# settings get it too (SpectateSettings: spec_hud_panel, downloaded).
 
 # id, name shown
 const STYLES := [
@@ -242,7 +242,8 @@ static func _restyle(bg: ColorRect, style: String, accent: Color, tex: Texture, 
 	bg.move_child(under, 0)
 
 static func _image() -> Texture:
-	var p := image_file()
+	# (watching someone with their settings: their picture, "" when they have none)
+	var p: String = String(Rhythia.get_meta("spec_hud_panel")) if Rhythia.has_meta("spec_hud_panel") else image_file()
 	if p == "":
 		return null
 	var img := Image.new()

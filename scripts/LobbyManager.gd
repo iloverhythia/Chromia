@@ -1137,7 +1137,7 @@ func fetch_spectate_assets(settings):
 	var fp: Array = spec.font_file_parts(String(settings.get("hud_font_file", "")))
 	if not fp.empty() and String(settings.get("hud_font", "")) == "custom":
 		wanted.append(["font", fp[0], fp[1]])
-	for k in ["custombg_image", "panobg_image"]:
+	for k in ["custombg_image", "panobg_image", "hud_panel_image"]:
 		var v: String = String(settings.get(k, "")).to_lower()
 		if v.find(".") == 64:
 			wanted.append(["media", v.left(64), v.right(65)])
