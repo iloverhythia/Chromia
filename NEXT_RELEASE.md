@@ -60,3 +60,4 @@ in scripts/Savia.gd and empties this list.
 - Phones: Settings has an Old Cursor Movement option (under No Touch Delay and 120 Hz). Turn it on if you preferred how the cursor moved before the smoother prediction; it takes effect in the next song.
 - Save video's Game view (and the website's Game view) now loads the player's own note mesh, hit sounds and HUD panel picture: their downloads never finished in the browser version, so it fell back to the default rounded notes
 - Spectating someone and their Save video links show their touch indicator style (the rings under their fingers in replays)
+- Save video: no more stuttering sound at the very end of videos of a fail or give-up, and hit sounds are no longer doubled (they were louder than in the game)

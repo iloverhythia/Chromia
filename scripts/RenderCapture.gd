@@ -34,6 +34,7 @@ var files := {} # sid -> { stream, ext, length }
 var _ids := {} # stream instance id -> sid
 var _players := {} # player instance id -> { node, playing, pos, stream }
 var _seg = null # the music piece playing now
+var _last_song_s := -INF
 
 var _was_mute := false
 var _was_desync := false
@@ -55,6 +56,7 @@ func begin(p_fps: int, fixed_engine: bool):
 	_ids = {}
 	_players = {}
 	_seg = null
+	_last_song_s = -INF
 	running = true
 	Rhythia.render_fps = fps
 	Rhythia.render_step_ok = true
@@ -138,6 +140,9 @@ func _process(_delta):
 		if playing and p.stream != null:
 			if not s.playing or p.stream != s.stream:
 				_add_sound(p, t)
+				# (its position still says where the last play ended until it's
+				# mixed: read the next frame as a restart, every hit was in twice)
+				pos = 0.0
 			elif pos + 0.02 < float(s.pos):
 				# played again while still playing: seen a frame late (the position
 				# only goes back once the sound is mixed)
@@ -179,10 +184,15 @@ func _track_music(spawn, m, t: float):
 		_close_seg(t)
 		return
 	var on: bool = bool(spawn.get("music_started")) and float(spawn.get("pause_state")) >= 0.0
-	if not on:
+	var song_s: float = float(spawn.get("ms")) / 1000.0
+	# the song's clock standing still (the song ended and the game paused, a
+	# frame that wasn't drawn): no music. (It started a new piece from the same
+	# spot every frame: the sound stuttering at the end of videos)
+	var frozen: bool = abs(song_s - _last_song_s) < 0.000001
+	_last_song_s = song_s
+	if not on or frozen or get_tree().paused:
 		_close_seg(t)
 		return
-	var song_s: float = float(spawn.get("ms")) / 1000.0
 	var pitch: float = float(m.pitch_scale)
 	if _seg != null:
 		var expect: float = float(_seg.from) + (t - float(_seg.t)) * float(_seg.pitch)
