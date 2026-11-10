@@ -1472,6 +1472,13 @@ var replay: Replay
 var replay_path: String = ""
 var was_replay: bool = false
 var replaying: bool = false
+# Save video, one frame at a time (RenderCapture.gd): the song moves exactly
+# 1 / render_fps of a second each frame (NoteManager), 0 = normal play.
+# rendering: the game's own renderer is making a video (GameRender.gd): no
+# notices on screen (they'd be in the video)
+var render_fps: int = 0
+var render_step_ok: bool = true # the last frame was drawn (and kept): the song may move on
+var rendering: bool = false
 
 
 var load_target_frame_time: float = 1.0 / 40.0

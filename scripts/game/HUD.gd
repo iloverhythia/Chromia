@@ -1928,7 +1928,7 @@ func _ready():
 
 	# (the website's game view shows only the replay: no controls, no
 	# "Replaying" mark; WebReplay.gd)
-	if Rhythia.replaying and not load("res://scripts/WebReplay.gd").wanted():
+	if Rhythia.replaying and not load("res://scripts/WebReplay.gd").wanted() and not Rhythia.rendering:
 		if Rhythia.replay.autoplayer: modicons.get_node("Autoplay").visible = true
 		else: modicons.get_node("Replaying").visible = true
 		_build_replay_controls()

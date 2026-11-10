@@ -99,6 +99,11 @@ func _build_screen():
 	_watch = _button("Watch", "_on_watch")
 	_record = _button("Record video", "_on_record")
 	_record.visible = _can_record()
+	# a video link: the game runs one frame at a time there (--fixed-fps,
+	# webgame.js), so just watching would play at the screen's speed
+	if params().has("render"):
+		_watch.visible = false
+		_record.text = "Make video"
 	_status = _label(box, "Getting the replay...", 15, Color(0.55, 0.56, 0.6))
 
 func _label(parent: Control, text: String, size: int, color: Color) -> Label:
@@ -297,6 +302,20 @@ func _on_record():
 	_record_size(true)
 	_buttons.visible = false
 	yield(get_tree().create_timer(0.8), "timeout")
+	# a video link, where the browser can: made one frame at a time (smooth
+	# however slow the browser is), else recorded as it plays
+	_frames = false
+	var js = Engine.get_singleton("JavaScript")
+	# (a server with fcan also starts video links with --fixed-fps)
+	if js != null and params().has("render") and bool(js.eval("!!(window.__chromiaRec && window.__chromiaRec.fcan && window.__chromiaRec.fcan())", true)):
+		_status.text = "Getting the video maker ready..."
+		js.eval("window.__chromiaRec.fbegin(60)", true)
+		var waited := 0.0
+		while waited < 10.0 and int(js.eval("window.__chromiaRec.fready()", true)) == 0:
+			yield(get_tree().create_timer(0.1), "timeout")
+			waited += 0.1
+		_frames = int(js.eval("window.__chromiaRec.fready()", true)) == 1
+		_status.text = ""
 	_play()
 
 # The recording's size, on / off. In the score page (a frame): the page draws
@@ -348,7 +367,12 @@ func _process(_delta):
 		if recording:
 			_show_logo(true)
 			var js = Engine.get_singleton("JavaScript")
-			if js != null:
+			if _frames:
+				_cap = load("res://scripts/RenderCapture.gd").new()
+				add_child(_cap)
+				_cap.connect("frame_drawn", self, "_on_frame_drawn")
+				_cap.begin(60, true)
+			elif js != null:
 				js.eval("window.__chromiaRec && window.__chromiaRec.start(60)", true)
 	elif _game_scene != null and cur == _game_scene and not _ending:
 		# the song ended (Game.ending): a moment more, then the video stops and
@@ -407,7 +431,42 @@ func _stop_recording():
 		return
 	recording = false
 	var js = Engine.get_singleton("JavaScript")
+	if _cap != null:
+		_finish_frames(js)
+		_record_size(false)
+		return
 	if js != null:
 		js.eval("window.__chromiaRec && window.__chromiaRec.stop(%s)" % to_json(title), true)
 	_status.text = "Your video is ready: Save video, under the game."
 	_record_size(false)
+
+# ── one frame at a time (RenderCapture.gd and the page's fframe / ffinish) ──
+var _frames := false
+var _cap = null
+
+func _on_frame_drawn(i: int):
+	var js = Engine.get_singleton("JavaScript")
+	if js != null:
+		js.eval("window.__chromiaRec.fframe(%d)" % i, true)
+
+# the frames are in: the sounds' files and what played when go to the page,
+# which mixes the sound and finishes the MP4
+func _finish_frames(js):
+	var data: Dictionary = _cap.end()
+	_cap.queue_free()
+	_cap = null
+	if js == null:
+		return
+	for sid in data.files.keys():
+		var bytes: PoolByteArray = load("res://scripts/RenderCapture.gd").file_bytes(data.files[sid])
+		if bytes.size() > 0:
+			js.eval("window.__chromiaRec.fsound(%s, '%s')" % [to_json(String(sid)), Marshalls.raw_to_base64(bytes)], true)
+	var spec := { "frames": data.frames, "fps": data.fps, "music": data.music, "sounds": data.sounds }
+	js.eval("window.__chromiaRec.ffinish(%s, %s)" % [to_json(spec), to_json(title)], true)
+	# the page says how it's going
+	while true:
+		var st := String(js.eval("window.__chromiaRec.fstate()", true))
+		_status.text = st
+		if st.begins_with("Your video is ready") or st.begins_with("Something went wrong"):
+			break
+		yield(get_tree().create_timer(0.5), "timeout")

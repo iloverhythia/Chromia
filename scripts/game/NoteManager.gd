@@ -1064,6 +1064,10 @@ func _process(delta: float):
 	var u = OS.get_ticks_usec()
 	delta = float(u - last_usec) / 1000000.0
 	last_usec = u
+	# making a video (Save video, RenderCapture.gd): exactly one video frame of song time
+	# (a frame that wasn't drawn, e.g. the window minimized, isn't in the video: the song waits)
+	if Rhythia.render_fps > 0:
+		delta = 1.0 / float(Rhythia.render_fps) if Rhythia.render_step_ok else 0.0
 
 	if Rhythia.vr: do_vr_cursor()
 	elif Grid != null and Grid.spectating and Grid.vr_view_on():
@@ -1096,7 +1100,7 @@ func _process(delta: float):
 
 		_n_cursor.can_switch_move_modes = (ms < Rhythia.music_offset)
 
-		if Rhythia.replaying and not Rhythia.replay.autoplayer and Rhythia.replay.sv != 1 and Input.is_action_just_pressed("pause"):
+		if Rhythia.replaying and not Rhythia.replay.autoplayer and Rhythia.replay.sv != 1 and Rhythia.render_fps == 0 and Input.is_action_just_pressed("pause"):
 			set_viewer_paused(not viewer_paused)
 
 		if not Rhythia.replaying:

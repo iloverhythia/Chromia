@@ -618,6 +618,9 @@ func notify(type: int, body: String, title: String = "Notification", time: float
 	# (the website's game view shows only the replay: no notices like "Test build")
 	if load("res://scripts/WebReplay.gd").wanted():
 		return
+	# (nor while the game makes a video: they'd be in it, GameRender.gd)
+	if Rhythia.rendering:
+		return
 	notify_gui.notify(type, body, title, time)
 
 var url_regex: RegEx = RegEx.new()
