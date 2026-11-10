@@ -38,7 +38,11 @@ static func start(tree: SceneTree, replay_file: String, song, title: String):
 # the replay of the play that just ended ("" when there is none: watching a
 # replay, replays not kept, or it couldn't be written)
 static func last_replay_file() -> String:
-	if Rhythia.was_replay or Rhythia.replay == null or String(Rhythia.replay.id) == "":
+	# a replay just watched (dragged into the game, or opened from a file): that file
+	if Rhythia.was_replay:
+		var rp := String(Rhythia.last_replay_path)
+		return rp if rp.to_lower().ends_with(".sspre") and File.new().file_exists(rp) else ""
+	if Rhythia.replay == null or String(Rhythia.replay.id) == "":
 		return ""
 	var p: String = Globals.p("user://replays/%s.sspre" % Rhythia.replay.id)
 	return p if File.new().file_exists(p) else ""

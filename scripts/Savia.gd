@@ -1475,6 +1475,7 @@ var song_end_combo: int
 
 var replay: Replay
 var replay_path: String = ""
+var last_replay_path: String = "" # the replay file just watched (menuload.gd)
 var was_replay: bool = false
 var replaying: bool = false
 # Save video, one frame at a time (RenderCapture.gd): the song moves exactly

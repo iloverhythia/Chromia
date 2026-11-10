@@ -263,7 +263,11 @@ func read_data(from_path: String = ""):
 			if lead_in_ms <= 0 and sv >= 2:
 				lead_in_ms = _guess_lead_in()
 			debug_txt.lead_in_ms = lead_in_ms
+			var after_notes: int = file.get_position()
 			_read_touches()
+			if touches.empty():
+				file.seek(after_notes) # (no touch block: the VR one may start here)
+			_read_vr()
 			emit_signal("progress", 1.0)
 
 			debug_txt.noteres_amt = note_results.size()
@@ -596,7 +600,8 @@ func _write_touches():
 # then head, left hand, right hand as position + rotation), for the website's
 # first-person replay view. Saved after the touches as "CVRP": u16 version 1,
 # u32 count, then u32 replay ms, u8 flags (1 = left handed), 21 i16 (positions
-# in mm, rotations * 32767). The game itself doesn't read it back.
+# in mm, rotations * 32767). Read back (_read_vr) for the replay player's
+# first-person view of a VR play (HUD.gd replay_vr_on).
 const VR_SIG := PoolByteArray([67, 86, 82, 80]) # "CVRP"
 const VR_SAMPLE_MS := 50
 var vr_samples: Array = []
@@ -627,6 +632,27 @@ func _write_vr():
 				var v: float = float(pose[o + k])
 				var q: int = int(round(v * 1000.0)) if k < 3 else int(round(v * 32767.0))
 				file.store_16(int(clamp(q, -32767, 32767)) & 0xFFFF) # (two's complement)
+
+# the VR block, if there is one: vr_samples = [[replay ms, pose (22 floats, as sent to spectators)], ...]
+func _read_vr():
+	vr_samples = []
+	if file.get_len() - file.get_position() < 10:
+		return
+	if file.get_buffer(4) != VR_SIG or file.get_16() != 1:
+		return
+	var n := int(file.get_32())
+	if n <= 0 or file.get_len() - file.get_position() < n * 47:
+		return
+	for i in range(n):
+		var ms := int(file.get_32())
+		var pose := [1.0 if file.get_8() & 1 else 0.0]
+		for part in range(3):
+			for k in range(7):
+				var v := int(file.get_16())
+				if v >= 32768:
+					v -= 65536
+				pose.append(float(v) / 1000.0 if k < 3 else float(v) / 32767.0)
+		vr_samples.append([ms, pose])
 
 func _read_touches():
 	touches = []

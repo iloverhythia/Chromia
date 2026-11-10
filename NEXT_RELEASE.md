@@ -50,3 +50,5 @@ in scripts/Savia.gd and empties this list.
 - New Settings: it no longer shows the old look for a moment when you open it or switch category.
 - New Settings > Fonts: every font is shown in its own typeface again (they all looked the same).
 - Spectating with someone's settings (and their Save video links) now shows their own custom colorset (it fell back to the default) and plays their own hit and miss sounds
+- Replays of VR plays are watched from the player's eyes: their head is the camera and their hands and beam show (in the game, and in Save video's Game view)
+- Drag a replay (.sspre) into the game, watch it, then press the camera button on the results to make it into a video on the website
