@@ -38,3 +38,4 @@ in scripts/Savia.gd and empties this list.
 - Results: Save video makes a video of your play (a whole map or the part you played) on the website, with your settings: notes, cursor, camera, HUD and background
 - Spectating with their settings now shows their own HUD panel picture too
 - VR (Quest): a fix for the game closing right after you die with restart on death turned on. The song is now stopped for a moment before it reloads (about a fifth of a second), instead of being swapped out in the same instant.
+- The ban screen is no longer a flat picture: it's drawn live in the same look (a slow red glow behind the card, a pulsing warning sign), shows the reason the admin wrote (and its change, within seconds), and plays a clip on a loop under the message (click the clip to mute it).

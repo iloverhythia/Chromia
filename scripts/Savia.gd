@@ -932,6 +932,7 @@ func is_client_banned(client_id: String) -> bool:
 
 const LIVE_BAN_STATUS_URL = "https://savia.nysr.host/savia-live-ban-status"
 const LIVE_BAN_POLL_INTERVAL_SEC = 30.0
+var live_ban_reason := "" # (what the admin wrote when banning: shown on the ban screen, scenes/errors/banned.gd)
 var _live_ban_timer: Timer
 
 func check_live_ban():
@@ -956,6 +957,13 @@ func _on_live_ban_status_received(result, response_code, headers, body, http_req
 		return
 	print("[live_ban] status check OK, banned=", json_result.result.get("banned", false))
 	if bool(json_result.result.get("banned", false)):
+		var r = json_result.result.get("reason", "")
+		live_ban_reason = String(r) if r is String else ""
+		# (already on the ban screen: it keeps itself up to date; loading it
+		# again every poll started its clip over)
+		var cs = get_tree().current_scene
+		if cs != null and cs.filename == "res://scenes/errors/banned.tscn":
+			return
 		get_tree().change_scene("res://scenes/errors/banned.tscn")
 
 func start_live_ban_poll():
