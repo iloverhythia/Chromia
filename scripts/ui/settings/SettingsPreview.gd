@@ -107,6 +107,8 @@ func _place():
 	else:
 		rect_size = DEFAULT_SIZE
 		rect_position = Vector2(p.rect_size.x - DEFAULT_SIZE.x - 24, 96)
+		if p.has_node("NewUI"): # (the new Settings look: under its header, inside its panel)
+			rect_position = Vector2(p.rect_size.x - DEFAULT_SIZE.x - 30, 150)
 	_placed = true
 	_fit()
 

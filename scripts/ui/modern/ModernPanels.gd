@@ -346,6 +346,8 @@ func _presets():
 	if pr == null:
 		pr = Rhythia.menu_node("Main/Settings/S/F/TopButtons/TopButtonsHBox/Presets")
 	if pr == null:
+		pr = Rhythia.menu_node("Main/Settings/NewUI/Header/TopScroll/TopButtons/TopButtonsHBox/Presets")
+	if pr == null:
 		var l = get_tree().get_nodes_in_group("settings_profiles")
 		pr = l[0] if l.size() > 0 else null
 	return pr
@@ -420,6 +422,8 @@ func _open_tab(title: String, tab: String):
 		var pr = Rhythia.menu_node("Main/Settings/Header/TopButtons/TopButtonsHBox/Presets")
 		if pr == null:
 			pr = Rhythia.menu_node("Main/Settings/S/F/TopButtons/TopButtonsHBox/Presets")
+		if pr == null:
+			pr = Rhythia.menu_node("Main/Settings/NewUI/Header/TopScroll/TopButtons/TopButtonsHBox/Presets")
 		if pr is MenuButton:
 			pr.emit_signal("about_to_show")
 			pr.get_popup().popup(Rect2(get_global_mouse_position(), Vector2(1, 1)))

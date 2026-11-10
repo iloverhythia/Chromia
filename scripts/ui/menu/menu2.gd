@@ -3155,7 +3155,16 @@ func _ready():
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
 		settings_tab_container.move_child(settings_tab_container.get_node("Online"), settings_tab_container.get_node("Keybinds").get_index() + 1)
-	load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings")) # buttons and tabs stay put; only the page scrolls
+	# Settings' header: the new look with its search (Experimental > New
+	# Settings UI, on by default; not over Sound Space Mode's own skin), or the
+	# old one: buttons and tabs stay put, only the page scrolls
+	if Rhythia.new_settings_ui and not Rhythia.sound_space_mode and not Rhythia.modern_ui_on(): # (the Modern UI has its own Settings panel)
+		load("res://scripts/ui/settings/SettingsNewUI.gd").install(get_node_or_null("Main/Settings"))
+	else:
+		load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings"))
+	if Rhythia.has_meta("reopen_settings_tab"):
+		call_deferred("_reopen_settings", String(Rhythia.get_meta("reopen_settings_tab")))
+		Rhythia.remove_meta("reopen_settings_tab")
 	if has_node("Main/Settings") and not has_node("Main/Settings/SettingsPreview"):
 		get_node("Main/Settings").add_child(load("res://scripts/ui/settings/SettingsPreview.gd").new()) # the "Watching Auto play" preview window (Settings > UI > Settings Preview)
 	var lobby_manager = _get_lobby_manager()
@@ -3252,6 +3261,18 @@ func _on_mods_changed_for_lobby():
 		lobby_manager.push_current_mods()
 		lobby_manager.lobby_state.mods = lobby_manager._collect_current_mods()
 		_update_lobby_ui()
+
+# back in Settings on a category after the menu was loaded again (a setting
+# that changes the menu itself, like New Settings UI)
+func _reopen_settings(tab: String):
+	var page = get_node_or_null("Main/Settings")
+	var sidebar = get_node_or_null("Sidebar")
+	if page == null or sidebar == null:
+		return
+	sidebar.press_page(page)
+	var tabs = page.get_node_or_null("S/F/TabContainer")
+	if tabs != null and tabs.has_node(tab):
+		tabs.current_tab = tabs.get_node(tab).get_index()
 
 func _process(delta):
 	_update_rank_button()

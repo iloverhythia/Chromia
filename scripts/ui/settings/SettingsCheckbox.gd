@@ -23,6 +23,7 @@ func _ready():
 		call_deferred("_add_xp_boost_toggle")
 		call_deferred("_add_map_grid")
 		call_deferred("_add_show_map_rp")
+		call_deferred("_add_new_settings_ui")
 	if target == "map_grid":
 		Rhythia.connect("map_grid_changed", self, "upd")
 	if target == "realistic_autoplay":
@@ -87,6 +88,22 @@ func _add_map_grid():
 	cb.hint_tooltip = "Shows your maps as a grid of square covers (like Sound Space Plus's grid menu) instead of a list. Works right away, no restart."
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
+
+# Experimental: "New Settings UI" (on by default): SettingsNewUI.gd
+func _add_new_settings_ui():
+	var parent = get_parent()
+	if parent == null or parent.has_node("NewSettingsUI"):
+		return
+	var cb = duplicate()
+	cb.name = "NewSettingsUI"
+	cb.target = "new_settings_ui"
+	cb.text = "New Settings UI"
+	cb.hint_tooltip = "Settings in the look of the Online and Profile pages, on the whole screen: the categories in a list on the left, each group of settings in its own card, and a search box that finds a setting in any category (Ctrl+F). Turn it off for the old settings page. Changing it loads the menu again."
+	parent.add_child(cb)
+	var at: Node = parent.get_node_or_null("ShowMapRP")
+	if at == null:
+		at = parent.get_node_or_null("MapGrid")
+	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
 
 # Experimental: "Show RP on Maps" (off by default). RP is earned either way
 func _add_show_map_rp():

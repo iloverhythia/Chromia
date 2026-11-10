@@ -3321,6 +3321,23 @@ var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd:
 # earned and kept (the Profile tab has the total and the top plays); this only
 # says whether a map's screen shows what it gives and your best on it. Off by
 # default; while the servers can't be reached it shows either way (map_rp_shown).
+# Experimental: "New Settings UI" (on by default): Settings in the look of the
+# Online and Profile pages, with a search (scripts/ui/settings/SettingsNewUI.gd).
+# Changing it loads the menu again and comes back to this setting.
+var new_settings_ui: bool = true setget _set_new_settings_ui
+func _set_new_settings_ui(v: bool):
+	if new_settings_ui == v:
+		return
+	new_settings_ui = v
+	if not is_inside_tree() or in_map:
+		return
+	var cs = get_tree().current_scene
+	if cs == null or cs.find_node("Sidebar", true, false) == null:
+		return # (not in the menu, e.g. settings being read at the start)
+	save_settings()
+	set_meta("reopen_settings_tab", "Replays & Misc")
+	get_tree().call_deferred("change_scene", "res://scenes/loaders/menuload.tscn")
+
 signal show_map_rp_changed
 var show_map_rp: bool = false setget _set_show_map_rp
 func _set_show_map_rp(v: bool):
@@ -4312,6 +4329,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			legacy_mouse = bool(data.legacy_mouse)
 		if data.has("show_map_rp"):
 			show_map_rp = bool(data.show_map_rp)
+		if data.has("new_settings_ui"):
+			new_settings_ui = bool(data.new_settings_ui)
 		if data.has("modern_ui"):
 			modern_ui = bool(data.modern_ui)
 		if data.has("map_grid"):
@@ -5085,6 +5104,7 @@ func _write_settings_file(saveFile: String):
 			pc_no_delay = pc_no_delay,
 			legacy_mouse = legacy_mouse,
 			show_map_rp = show_map_rp,
+			new_settings_ui = new_settings_ui,
 			modern_ui = modern_ui,
 			map_grid = map_grid,
 			is_staff = is_staff,
