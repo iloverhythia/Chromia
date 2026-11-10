@@ -12,6 +12,7 @@ var cursor_positions: Array = []
 var past_triggers: Array = []
 var triggers: Array = []
 var note_results: Dictionary = {}
+var hit_rms: Dictionary = {} # note id -> replay ms of the cursor sample just before its hit (_lead_in_from_hits)
 var settings: Dictionary = {}
 
 var id: String
@@ -213,6 +214,7 @@ func read_data(from_path: String = ""):
 
 				if kind == Globals.RS_CURSOR:
 					var ms = file.get_32()
+					_last_cursor_ms = int(ms)
 					var c = Vector3(file.get_float(), file.get_float(), ms)
 					debug_txt.c = c
 					cursor_unrev.append(c)
@@ -244,6 +246,7 @@ func read_data(from_path: String = ""):
 				elif kind == Globals.RS_HIT and sv >= 2:
 					var nid = file.get_32()
 					note_results[nid] = true
+					hit_rms[nid] = _last_cursor_ms
 
 				elif kind == Globals.RS_MISS and sv >= 2:
 					var nid = file.get_32()
@@ -260,6 +263,13 @@ func read_data(from_path: String = ""):
 				return
 
 			cursor_positions = cursor_unrev
+			# the hits say where the song was (each comes right after the cursor
+			# sample it happened at): their lead-in, when there are enough of them.
+			# It wins over a saved one that's clearly off, and over the guess.
+			var from_hits: float = _lead_in_from_hits() if sv >= 2 else 0.0
+			if from_hits > 0.0 and (lead_in_ms <= 0 or abs(from_hits - lead_in_ms) > 60.0):
+				print("[replay] lead-in from the hits: %d ms (saved: %d)" % [from_hits, lead_in_ms])
+				lead_in_ms = from_hits
 			if lead_in_ms <= 0 and sv >= 2:
 				lead_in_ms = _guess_lead_in()
 			debug_txt.lead_in_ms = lead_in_ms
@@ -393,6 +403,43 @@ func _guess_lead_in() -> float:
 		return 0.0
 	print("[replay] lead-in worked out: %d ms (%d of %d hits)" % [best_l, best, checked])
 	return best_l
+
+var _last_cursor_ms := 0
+
+# The lead-in from the hits before anything (a pause, a skip) moves the clock:
+# the song is at (start - lead-in x speed) + replay ms x speed, and a hit is
+# within the hit window of its note, so the middle of (start + rms x speed -
+# note time) / speed over the hits is the lead-in. 0 when there are too few.
+func _lead_in_from_hits() -> float:
+	if hit_rms.size() < 8 or song == null or Rhythia.mod_reverse:
+		return 0.0
+	Rhythia.lock_song_notes(song)
+	var got = song.read_notes()
+	Rhythia.unlock_song_notes(song)
+	if not (got is Array) or got.empty():
+		return 0.0
+	var all: Array = got.duplicate()
+	all.sort_custom(self, "_by_note_ms") # (the order NoteManager numbers them in)
+	var first_trigger: float = INF
+	for t in triggers:
+		first_trigger = min(first_trigger, float(t[0]))
+	var speed: float = Globals.speed_multi[Rhythia.mod_speed_level]
+	var leads := []
+	var nid := 0
+	for n in all:
+		if float(n[2]) < Rhythia.start_offset:
+			continue
+		if hit_rms.has(nid):
+			var rms: float = float(hit_rms[nid])
+			if rms < first_trigger:
+				leads.append((Rhythia.start_offset + rms * speed - float(n[2])) / speed)
+		nid += 1
+	if leads.size() < 8:
+		return 0.0
+	leads.sort()
+	var mid: float = leads[leads.size() / 2]
+	# (the cursor sample comes a little before the hit: about half a sample later)
+	return mid if mid >= 50.0 and mid <= 60000.0 else 0.0
 
 func _by_note_ms(a, b):
 	if a[2] == b[2]:

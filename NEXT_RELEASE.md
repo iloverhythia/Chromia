@@ -55,3 +55,4 @@ in scripts/Savia.gd and empties this list.
 - Settings > Colorsets: the tiles no longer have a shiny chrome frame (the new Settings look was adding it by mistake), and the shine on the selected one is calmer.
 - The new Settings, Profile, Leaderboard, Stats and Online panels are slightly see-through again, so a little of the menu background shows.
 - Spectating: switching to watch someone else while you're already watching a song no longer plays them at your own speed (e.g. their 1.45x shown at 1x, the cursor off the notes), most often seen in VR
+- Replays line the cursor up with the notes more reliably: the lead-in is worked out from the hits themselves (exact, not to the nearest 100 ms), and used over the saved one when that is clearly off
