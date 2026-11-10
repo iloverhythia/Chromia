@@ -37,3 +37,4 @@ in scripts/Savia.gd and empties this list.
 - Switching to another window during a map now gives the mouse back to Windows, and coming back takes it again: fixes the cursor going missing with remote desktop or other games in the background
 - Results: Save video makes a video of your play (a whole map or the part you played) on the website, with your settings: notes, cursor, camera, HUD and background
 - Spectating with their settings now shows their own HUD panel picture too
+- VR (Quest): a fix for the game closing right after you die with restart on death turned on. The song is now stopped for a moment before it reloads (about a fifth of a second), instead of being swapped out in the same instant.

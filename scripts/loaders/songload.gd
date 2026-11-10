@@ -18,6 +18,7 @@ var black_fade: float = 0
 
 
 func _ready():
+	Rhythia.trail("song loader: ready")
 	# your own settings for a normal play (someone else's stay on only when
 	# this load goes straight into spectating them)
 	var lm = get_node_or_null("/root/LobbyManager")

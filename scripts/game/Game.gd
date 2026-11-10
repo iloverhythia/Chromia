@@ -207,6 +207,17 @@ func end(end_type: int):
 		# straight from this song scene to a new one (while paused) crashed
 		# phones on every retry; the loader path never did.
 		Rhythia.trail("auto retry after fail")
+		if Rhythia.vr:
+			# VR: the Quest crashed here on every death (crash reports end at
+			# the line above). The song was swapped for the loader in the very
+			# frame of the fail, with the notes still running and the music
+			# and note effects still playing. Now it's left the way going back
+			# to the menu leaves it: everything in the song stopped, a short
+			# wait with the game still paused, then the loader.
+			_quiet_song()
+			Rhythia.trail("auto retry: song stopped")
+			yield(get_tree().create_timer(0.2), "timeout")
+			Rhythia.trail("auto retry: to the loader")
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/songload.tscn")
 	else:
@@ -222,6 +233,19 @@ func end(end_type: int):
 			$Spawn/Music.stop()
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
+# The song brought to a stop before its scene is left: no more notes, the
+# music off, and the hit / miss effects hidden and no longer emitting.
+func _quiet_song():
+	$Spawn.active = false
+	if $Spawn.has_node("Music"):
+		$Spawn/Music.stop()
+	for holder in [self, $Spawn]:
+		for c in holder.get_children():
+			var parts = c.get_node_or_null("Particles") if c is Spatial else null
+			if parts != null and "emitting" in parts:
+				parts.emitting = false
+				c.visible = false
 
 func update_timer(ms: float, canSkip: bool = false):
 	var qms = ms + $Spawn.ms_offset
@@ -406,6 +430,8 @@ func _on_lobby_score_row_input(event: InputEvent, row: Control):
 # (in VR it waits until the song has settled: the scan's work at the very start
 # made the first seconds stutter on PC VR; it only matters for the score)
 func _scan_processes():
+	if not load("res://scripts/ProcessScan.gd").supported():
+		return # (nothing to scan here, e.g. the Quest: no timer left waiting on a song that may be gone)
 	if Rhythia.vr:
 		yield(get_tree().create_timer(6.0, false), "timeout")
 		if not is_inside_tree():
@@ -776,6 +802,7 @@ func miss(col):
 
 
 func _exit_tree():
+	Rhythia.trail("song scene: leaving") # (a crash while the song is torn down shows where)
 	Rhythia.in_map = false
 	Rhythia.no_delay_end() # (Experimental No Delay: your VSync and FPS cap back)
 	if _desync_to_restore != null:
