@@ -306,6 +306,12 @@ func _ready():
 			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it.") % Rhythia._pending_update_notice,
 			"Update ready")
 		Rhythia._pending_update_notice = ""
+	# the first start with Chromia's own data folder (DataFolder.gd): say what happened, once
+	if Engine.has_meta("data_folder_moved"):
+		Engine.remove_meta("data_folder_moved")
+		Globals.call_deferred("notify", Globals.NOTIFY_INFO,
+			"Chromia now keeps its data in its own folder (Chromia instead of SoundSpacePlus). Your settings, bests and history were copied over; your maps and replays stay where they were. Nothing was lost.",
+			"Data folder", 8.0)
 	# test builds: scores go to the test server, never the real leaderboards
 	# (once per session, the first time the menu opens)
 	if Online.build_channel() == "test" and not Rhythia.has_meta("test_build_warned"):

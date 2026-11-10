@@ -21,8 +21,11 @@ extends Reference
 
 const OLD_NAME := "SoundSpacePlus"
 const MARKER := "chromia/moved_from.txt"
-const LINKED := ["maps", "vmaps", "packs", "replays", "content_downloads"]
+const LINKED := ["maps", "vmaps", "packs", "replays", "content_downloads", "helper"]
 const SKIP := ["logs", "cache", "caches", "shader_cache", "vulkan", "render", "tools", "spectate_cache", "pack_update"]
+# (the old copies of bests and history the game left for Nightly: chromia/ has them)
+const SKIP_WHEN_CHROMIA := ["bests", "score_history"]
+const NOTICE_META := "data_folder_moved" # for the menu's one-time notice (Sidebar.gd)
 
 static func migrate():
 	if not (OS.has_feature("Windows") or OS.has_feature("X11") or OS.has_feature("OSX")) or OS.has_feature("editor"):
@@ -43,7 +46,9 @@ static func migrate():
 	var t0 := OS.get_ticks_msec()
 	d.make_dir_recursive(new_dir)
 	var notes := []
-	_copy(old_dir, new_dir, true)
+	var ui = load("res://scripts/DataFolder.gd").new()
+	ui._show(_count(old_dir, true, d.dir_exists(old_dir.plus_file("chromia"))))
+	ui._copy_files(old_dir, new_dir, true, d.dir_exists(old_dir.plus_file("chromia")))
 	for name in LINKED:
 		var target: String = old_dir.plus_file(name)
 		var link: String = new_dir.plus_file(name)
@@ -54,9 +59,11 @@ static func migrate():
 		elif d.rename(target, link) == OK:
 			notes.append("%s: moved" % name)
 		else:
-			_copy(target, link, false)
+			ui._copy_files(target, link, false, false)
 			notes.append("%s: copied" % name)
+	ui._hide()
 	_mark(new_dir, old_dir, PoolStringArray(notes).join(", "))
+	Engine.set_meta(NOTICE_META, true)
 	print("[data folder] done in %d ms (%s)" % [OS.get_ticks_msec() - t0, PoolStringArray(notes).join(", ")])
 
 static func _mark(new_dir: String, old_dir: String, how: String):
@@ -76,8 +83,31 @@ static func _link(link: String, target: String) -> bool:
 		OS.execute("ln", PoolStringArray(["-s", target, link]), true, out)
 	return Directory.new().dir_exists(link)
 
+static func _skipped(name: String, top: bool, has_chromia: bool) -> bool:
+	return top and (name in LINKED or name in SKIP or (has_chromia and name in SKIP_WHEN_CHROMIA))
+
+# how many files a copy will take
+static func _count(from: String, top: bool, has_chromia: bool) -> int:
+	var d := Directory.new()
+	if d.open(from) != OK:
+		return 0
+	var n := 0
+	d.list_dir_begin(true, false)
+	var name := d.get_next()
+	while name != "":
+		if d.current_is_dir():
+			if not _skipped(name, top, has_chromia):
+				n += _count(from.plus_file(name), false, false)
+		else:
+			n += 1
+		name = d.get_next()
+	d.list_dir_end()
+	return n
+
 # everything in `from` into `to` (the top level skips the big and throwaway folders)
-static func _copy(from: String, to: String, top: bool):
+var _done := 0
+var _total := 0
+func _copy_files(from: String, to: String, top: bool, has_chromia: bool):
 	var d := Directory.new()
 	if d.open(from) != OK:
 		return
@@ -88,9 +118,62 @@ static func _copy(from: String, to: String, top: bool):
 		var src: String = from.plus_file(name)
 		var dst: String = to.plus_file(name)
 		if d.current_is_dir():
-			if not (top and (name in LINKED or name in SKIP)):
-				_copy(src, dst, false)
-		elif not File.new().file_exists(dst):
-			d.copy(src, dst)
+			if not _skipped(name, top, has_chromia):
+				_copy_files(src, dst, false, false)
+		else:
+			if not File.new().file_exists(dst):
+				d.copy(src, dst)
+			_done += 1
+			if _done % 40 == 0:
+				_update()
 		name = d.get_next()
 	d.list_dir_end()
+
+# ── what's shown meanwhile (the game's own screens aren't loaded yet: a
+# plain screen drawn here, and the window's title) ──
+var _layer: CanvasLayer = null
+var _label: Label = null
+var _old_title := ""
+
+func _show(total: int):
+	_total = total
+	_old_title = String(ProjectSettings.get_setting("application/config/name"))
+	OS.set_window_title("Chromia - setting up its own data folder (only this once)")
+	var tree = Engine.get_main_loop()
+	if not (tree is SceneTree) or tree.root == null:
+		return
+	_layer = CanvasLayer.new()
+	_layer.layer = 128
+	var bg := ColorRect.new()
+	bg.color = Color(0.03, 0.03, 0.04)
+	bg.anchor_right = 1
+	bg.anchor_bottom = 1
+	_layer.add_child(bg)
+	_label = Label.new()
+	_label.anchor_right = 1
+	_label.anchor_bottom = 1
+	_label.align = Label.ALIGN_CENTER
+	_label.valign = Label.VALIGN_CENTER
+	_label.autowrap = true
+	var font := DynamicFont.new()
+	font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	font.size = 22
+	_label.add_font_override("font", font)
+	_label.add_color_override("font_color", Color(0.85, 0.86, 0.9))
+	bg.add_child(_label)
+	tree.root.add_child(_layer)
+	_update()
+
+func _update():
+	if _label == null:
+		return
+	_label.text = "Chromia now has its own data folder.\nCopying your settings, bests and history into it (only this once)...\nYour maps and replays stay where they are.\n\n%d / %d files" % [min(_done, _total), _total]
+	VisualServer.force_draw(true, 0.0)
+
+func _hide():
+	OS.set_window_title(_old_title)
+	if _layer != null and is_instance_valid(_layer):
+		_layer.get_parent().remove_child(_layer)
+		_layer.free()
+	_layer = null
+	_label = null
