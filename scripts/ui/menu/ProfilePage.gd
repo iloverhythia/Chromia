@@ -50,7 +50,7 @@ func _label(text: String, size: int = 0, color: Color = Color(0.9, 0.95, 1)) -> 
 
 # The page's two panels are as solid as the Online page's (OnlineStyle.gd's
 # WINDOW_BG and its faint outline), so the text reads over any background.
-const PANEL_BG = Color(0.035, 0.03, 0.05, 0.94)
+const PANEL_BG = Color(0.035, 0.03, 0.05, 0.86)
 const PANEL_EDGE = Color(1, 1, 1, 0.07)
 const CARD_BG = Color(0.075, 0.068, 0.1, 1)
 func _panel_style(inner: bool = false) -> StyleBoxFlat:

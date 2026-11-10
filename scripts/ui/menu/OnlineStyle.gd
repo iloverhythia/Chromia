@@ -15,7 +15,7 @@ var DIM := Color(0.62, 0.6, 0.68, 1)
 var PLAYING := Color(0.55, 0.9, 0.65)
 var WAITING := Color(1, 0.85, 0.45)
 var BAD := Color(1, 0.55, 0.5)
-var WINDOW_BG := Color(0.035, 0.03, 0.05, 0.94)
+var WINDOW_BG := Color(0.035, 0.03, 0.05, 0.86)
 var SECTION_BG := Color(1, 1, 1, 0.025)
 var CARD_BG := Color(0.075, 0.068, 0.1, 1)
 var CARD_HOVER := Color(0.11, 0.1, 0.145, 1)
@@ -30,7 +30,7 @@ var ON_ACCENT := Color(0.1, 0.07, 0.12) # text on a filled (lilac) button
 const DEFAULTS := {
 	"LILAC": Color(0.764706, 0.65098, 0.8), "ACCENT": Color(1, 0.756863, 0.960784),
 	"ACCENT_HOVER": Color(0.913725, 0.74902, 0.94902), "TEXT": Color(0.898039, 0.94902, 1, 1),
-	"DIM": Color(0.62, 0.6, 0.68, 1), "WINDOW_BG": Color(0.035, 0.03, 0.05, 0.94),
+	"DIM": Color(0.62, 0.6, 0.68, 1), "WINDOW_BG": Color(0.035, 0.03, 0.05, 0.86),
 	"CARD_BG": Color(0.075, 0.068, 0.1, 1), "CARD_HOVER": Color(0.11, 0.1, 0.145, 1),
 	"FIELD_BG": Color(0.13, 0.125, 0.165, 1), "FIELD_TEXT": Color(0.898039, 0.94902, 1, 1),
 	"BTN_BG": Color(0.1, 0.095, 0.125, 1), "BTN_HOVER": Color(0.14, 0.13, 0.18, 1),

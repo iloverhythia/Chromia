@@ -52,3 +52,5 @@ in scripts/Savia.gd and empties this list.
 - Spectating with someone's settings (and their Save video links) now shows their own custom colorset (it fell back to the default) and plays their own hit and miss sounds
 - Replays of VR plays are watched from the player's eyes: their head is the camera and their hands and beam show (in the game, and in Save video's Game view)
 - Drag a replay (.sspre) into the game, watch it, then press the camera button on the results to make it into a video on the website
+- Settings > Colorsets: the tiles no longer have a shiny chrome frame (the new Settings look was adding it by mistake), and the shine on the selected one is calmer.
+- The new Settings, Profile, Leaderboard, Stats and Online panels are slightly see-through again, so a little of the menu background shows.

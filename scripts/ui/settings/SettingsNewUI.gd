@@ -450,7 +450,10 @@ func _style_node(n: Node):
 		d.rect_min_size = Vector2(d.rect_min_size.x, max(d.rect_min_size.y, 30))
 	elif n is Button:
 		var b: Button = n
-		if not (b.text == "" and b.icon != null) and not b.toggle_mode:
+		# (not a button that is only a click area with a look of its own, like a
+		# colorset's tile: filled in, its shimmer showed as a chrome frame on every tile)
+		var own_look: bool = b.text == "" and (b.icon != null or b.has_stylebox_override("normal"))
+		if not own_look and not b.toggle_mode:
 			var keep: Vector2 = b.rect_min_size
 			var theme_was = b.theme
 			# (Save is the one that stands out, as it always did)

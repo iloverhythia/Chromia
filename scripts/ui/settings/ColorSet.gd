@@ -74,6 +74,13 @@ func _toggle_fav(cs):
 func col(): columns = rect_size.x / 100
 
 func _ready():
+	# the selected tile's moving shine, calmer: half as strong and slower
+	# (every tile's button shares this one material)
+	var shine = $Color.get_node("Select").material
+	if shine is ShaderMaterial:
+		var sh := Shader.new()
+		sh.code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec2 uv = UV + vec2(TIME * -0.12);\n\tCOLOR.rgb = texture(TEXTURE,UV).rgb * (0.88 + (0.12 * sin(length(uv*6.285))));\n}"
+		shine.shader = sh
 	for cs in Rhythia.registry_colorset.items:
 		add_set(cs, false)
 	upd()
