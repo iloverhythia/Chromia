@@ -828,12 +828,13 @@ func _flush_mods_push():
 	_mods_push_debounce_running = false
 	push_current_mods()
 
-func _apply_mods_locally(mods: Dictionary):
+func _apply_mods_locally(mods: Dictionary, force: bool = false):
 	if mods.empty():
 		return
 	# (during the song they can't change: setting them again on every lobby
-	# update, several a second, was wasted work mid-map)
-	if Rhythia.in_map and bool(lobby_state.get("started", false)):
+	# update, several a second, was wasted work mid-map. force: the first state
+	# of a new watch, while you may still be in the last song you watched)
+	if not force and Rhythia.in_map and bool(lobby_state.get("started", false)):
 		return
 	Rhythia.mod_nofail = mods.get("nofail", Rhythia.mod_nofail)
 	Rhythia.mod_speed_level = mods.get("speed_level", Rhythia.mod_speed_level)
@@ -1746,6 +1747,10 @@ func _handle_message(msg: Dictionary):
 				watch_target_name = Globals.s(msg.get("target_name", ""))
 				_spectate_load_target = int(msg.get("target_peer", -1))
 				_watch_first_load = true
+				# their mods (speed!) come with the next state: always put on, also
+				# when switching to them from inside the last song you watched
+				# (skipped then, the song ran at your speed: 1x for their 1.45x)
+				_watch_mods_pending = true
 				# (switching to someone else: their map is checked again, and the
 				# last player's look isn't used for them)
 				_map_readiness_checked_song_id = ""
@@ -1777,8 +1782,10 @@ func _handle_message(msg: Dictionary):
 					is_host = bool(p.get("is_host", is_host))
 
 			if not is_host:
-				_apply_mods_locally(lobby_state.get("mods", {}))
+				_apply_mods_locally(lobby_state.get("mods", {}), _watch_mods_pending)
 				_apply_watch_spin(lobby_state.get("mods", {}))
+				if not lobby_state.get("mods", {}).empty():
+					_watch_mods_pending = false
 			_check_map_readiness()
 			_try_scroll_map_list(String(lobby_state.get("song_id", "")))
 			emit_signal("lobby_state_changed")
@@ -2129,6 +2136,7 @@ var _watch_first_load: bool = false
 var _watch_wait_t: float = 0.0
 var reopen_spectate_tab: bool = false # the menu opens on the Spectate tab after watching
 var _watch_mods_backup = null
+var _watch_mods_pending := false # a new watch: its first mods go on whatever (_apply_mods_locally force)
 var _online_subscribed: bool = false
 var _presence_sent: String = ""
 var _presence_t: float = 0.0

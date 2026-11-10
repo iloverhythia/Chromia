@@ -54,3 +54,4 @@ in scripts/Savia.gd and empties this list.
 - Drag a replay (.sspre) into the game, watch it, then press the camera button on the results to make it into a video on the website
 - Settings > Colorsets: the tiles no longer have a shiny chrome frame (the new Settings look was adding it by mistake), and the shine on the selected one is calmer.
 - The new Settings, Profile, Leaderboard, Stats and Online panels are slightly see-through again, so a little of the menu background shows.
+- Spectating: switching to watch someone else while you're already watching a song no longer plays them at your own speed (e.g. their 1.45x shown at 1x, the cursor off the notes), most often seen in VR
