@@ -43,7 +43,7 @@ const SKIP_EXT := ["sspm", "sspre", "rhm", "osu", "zip", "part", "dat", "tmp", "
 # settings that stay as they are on the receiving device
 const DEVICE_KEYS := ["resolution", "window_fullscreen", "window_borderless", "auto_maximize",
 	"vsync_enabled", "target_fps", "max_fps_mode", "mirror_buttons", "mobile_high_hz",
-	"mobile_no_delay", "touch_style", "show_touch_indicator", "lock_mouse", "sensitivity",
+	"mobile_no_delay", "mobile_old_cursor", "touch_style", "show_touch_indicator", "lock_mouse", "sensitivity",
 	"absolute_mode", "absolute_scale", "ignore_controller_detection", "music_offset",
 	"vr_play_lock", "vr_play_lock_frame", "vr_play_lock_pitch"] # (a headset's place in its room)
 const CFG_SKIP_SECTIONS := ["internal", "profile"]

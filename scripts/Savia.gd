@@ -3553,6 +3553,7 @@ var ss_progress_w: float = 100.0 # Sound Space Mode: song progress bar width, %
 var mobile_no_delay: bool = false setget _set_mobile_no_delay
 var mobile_high_hz: bool = false setget _set_mobile_high_hz
 var mobile_tuned_v2: bool = false # (No Touch Delay was turned on once for this player)
+var mobile_old_cursor: bool = false # phones: the cursor's prediction as it was before TouchPredictor.gd
 # No Touch Delay: how far ahead of your finger the cursor is placed, in ms
 # (0 = off). Also fills the gaps between touch samples so motion stays smooth.
 var mobile_predict_ms: float = 18.0
@@ -4584,6 +4585,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mobile_high_hz = bool(data.mobile_high_hz)
 		if data.has("mobile_tuned_v2"):
 			mobile_tuned_v2 = bool(data.mobile_tuned_v2)
+		if data.has("mobile_old_cursor"):
+			mobile_old_cursor = bool(data.mobile_old_cursor)
 		if data.has("mobile_predict_ms"):
 			mobile_predict_ms = clamp(float(data.mobile_predict_ms), 0.0, 45.0)
 		if data.has("touch_style") and data.touch_style is Dictionary:
@@ -5203,6 +5206,7 @@ func _write_settings_file(saveFile: String):
 			mobile_no_delay = mobile_no_delay,
 			mobile_high_hz = mobile_high_hz,
 			mobile_tuned_v2 = mobile_tuned_v2,
+			mobile_old_cursor = mobile_old_cursor,
 			mobile_predict_ms = mobile_predict_ms,
 			touch_style = touch_style,
 			vr_grip_rot = [vr_grip_rot.x, vr_grip_rot.y, vr_grip_rot.z],

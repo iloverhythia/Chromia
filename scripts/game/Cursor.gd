@@ -340,10 +340,49 @@ func _process(delta):
 				$L.text = "amount this frame: %s\nalive: %s" % [amt, _trail_mm.live() if _trail_mm != null else 0]
 		prev_pos = global_transform.origin
 		prev_rot = $Mesh.rotation_degrees.x
+	if _trail_cl != null and is_instance_valid(_trail_cl) and _trail_cl.is_inside_tree():
+		_classic_stamps(delta)
 	_tr_prev = _tr_now
 	_tr_now = global_transform.origin
 	_tr_dt = delta
 	_tr_frame = Engine.get_frames_drawn()
+
+# The classic trail on the graphics card: piece k is put down again once every
+# Trail Time, each a little after the one before (as CursorTrail.gd's nodes
+# did: the same moments, the same places between two frames, left out when
+# the cursor hasn't moved since that piece's last place).
+var _trail_cl = null
+var _cl_n := 0
+var _cl_T := 0.0 # time, in Trail Times
+var _cl_last := []
+func _classic_stamps(delta: float):
+	var tt: float = max(0.001, float(Rhythia.trail_time))
+	var t0: float = _cl_T
+	var t1: float = t0 + delta / tt
+	_cl_T = t1
+	_trail_cl.begin_frame(delta)
+	var here: Vector3 = global_transform.origin
+	var before: Vector3 = _tr_now # (where the cursor was a frame ago)
+	var jumped: bool = (here - before).length() > 2.5
+	var col = null
+	var rot: Vector3 = $Mesh.rotation
+	var step: float = 1.0 / float(_cl_n - 1)
+	for k in range(_cl_n):
+		var off: float = k * step
+		var c1: float = floor(t1 - off)
+		if c1 < 1.0 or c1 <= floor(t0 - off):
+			continue
+		var late: float = (t1 - off - c1) * tt # (seconds since this piece was due)
+		var p: Vector3 = here
+		if not jumped and late > 0.0:
+			p = here.linear_interpolate(before, clamp(late / max(delta, 0.0005), 0.0, 1.0))
+		p -= Vector3(0, 0, 0.001)
+		var show: bool = p != _cl_last[k]
+		_cl_last[k] = p
+		if col == null:
+			col = $Mesh.get("material/0").albedo_color
+			col.a *= Rhythia.trail_opacity
+		_trail_cl.stamp(k, p, rot, col, late, show)
 
 # The classic trail (CursorTrail.gd) puts a piece down every so often. The
 # moment a piece is due falls between two drawn frames: this is where the
@@ -367,7 +406,13 @@ func _ready():
 	_tr_prev = _tr_now
 	if not Rhythia.show_cursor: visible = false
 	_pred = Rhythia.device("mobile") and bool(Rhythia.get("mobile_no_delay")) and not Rhythia.replaying and not Rhythia.vr
-	if _pred:
+	if _pred and bool(Rhythia.get("mobile_old_cursor")):
+		# Settings > Old Cursor Movement: the prediction as it was (and, as then,
+		# only for the absolute cursor)
+		_pred = Rhythia.absolute_mode
+		if _pred:
+			_tp = load("res://scripts/game/TouchPredictorOld.gd").new()
+	elif _pred:
 		_tp = load("res://scripts/game/TouchPredictor.gd").new()
 	if _legacy and not Rhythia.replaying:
 		Input.use_accumulated_input = true # (as it was then)
@@ -416,6 +461,14 @@ func _ready():
 			# one MultiMesh for the whole trail (TrailMulti.gd), next to the old pieces' place
 			_trail_mm = load("res://scripts/game/TrailMulti.gd").make(trail_base)
 			get_node("../..").call_deferred("add_child", _trail_mm)
+		elif OS.get_current_video_driver() == OS.VIDEO_DRIVER_GLES3 and int(Rhythia.trail_detail) >= 2:
+			# the classic trail's pieces as slots of one MultiMesh, aged on the
+			# graphics card (TrailMulti.gd): no node, script and material per piece
+			_cl_n = int(min(int(Rhythia.trail_detail), 4096))
+			_trail_cl = load("res://scripts/game/TrailMulti.gd").make(trail_base, _cl_n)
+			get_node("../..").call_deferred("add_child", _trail_cl)
+			for _i in range(_cl_n):
+				_cl_last.append(Vector3(-100, 0, 0))
 		else:
 			for i in range(Rhythia.trail_detail):
 				var trail: Spatial = trail_base

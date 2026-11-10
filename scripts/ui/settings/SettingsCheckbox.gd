@@ -157,6 +157,7 @@ func _add_touch_toggle():
 	for opt in [
 		["mobile_no_delay", "No Touch Delay", "The cursor reacts to your finger right away: every movement is used as it comes, and on iPhone the short hold Chromia's engine puts on each new touch is removed."],
 		["mobile_high_hz", "120 Hz", "Draws at your screen's highest refresh rate (120 Hz on ProMotion iPhones and iPads) for smoother movement and less delay. Uses more battery."],
+		["mobile_old_cursor", "Old Cursor Movement", "Moves the cursor the way it did before the smoother prediction: led from each touch as it's handled, back on your finger the moment a frame has no new touch, and only with Absolute Mode. Needs No Touch Delay on (off, the cursor simply sits on your finger, as it always did). Takes effect in the next song."],
 	]:
 		if parent.has_node(opt[0]):
 			continue
@@ -212,7 +213,7 @@ func _on_predict_changed(v: float, val: Label):
 
 # iPhone: say when the app needs reinstalling for these
 func _mobile_tuning_pressed(box: CheckBox, key: String):
-	if not box.pressed or not OS.has_feature("iOS"):
+	if not box.pressed or not OS.has_feature("iOS") or key == "mobile_old_cursor":
 		return
 	yield(get_tree().create_timer(0.3), "timeout")
 	if Rhythia.mobile_tuning_status == "":
