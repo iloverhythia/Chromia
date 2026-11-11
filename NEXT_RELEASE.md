@@ -9,3 +9,4 @@ in scripts/Savia.gd and empties this list.
 - Map list: Filters > Show > embossed shows only maps by Embossed (sorted as usual)
 - VR and phones: the cursor trail is lighter. Its shader is no longer rebuilt at the start of every song (a stall when the first piece appeared), it is drawn in one pass instead of two, a very high Trail Detail no longer makes more pieces than you can tell apart, and less data goes to the graphics card each frame. It looks the same at normal settings.
 - Each song now leaves a "song perf" line in the game's log (frame rate, slow frames, the worst frame, VR refresh rate, trail settings). With Settings > Replays & Misc > Experimental > Always show crash logs on, the next start shows the log with a Copy report button, so a lag report comes with numbers.
+- Replays: Cursor Face Velocity works (the cursor turns the way it moves, as when you played)

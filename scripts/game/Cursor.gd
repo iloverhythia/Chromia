@@ -290,11 +290,19 @@ func _process(delta):
 		var p
 		if Rhythia.replay.sv == 1 or Rhythia.replay.autoplayer: p = Rhythia.replay.get_cursor_position(get_parent().ms)
 		else: p = Rhythia.replay.get_cursor_position(get_parent().rms)
+		var before: Vector2 = rpos
 		if Rhythia.replay.sv < 3:
 			transform.origin.x = p.x
 			transform.origin.y = p.y
 		else:
 			move_cursor_abs(Vector2(p.x, p.y))
+			# Face movement: the replay's own movement turns the cursor (there's no
+			# mouse input to do it), as the mouse's would (grid units / 0.018 at
+			# sensitivity 1, as move_cursor turns them into the cursor's movement)
+			if Rhythia.cursor_face_velocity:
+				var moved: Vector2 = rpos - before
+				if moved.length() < 1.0: # (not a jump: a skip or a seek)
+					_face_accum += moved / 0.018
 
 	if Rhythia.show_cursor and Rhythia.cursor_trail and Rhythia.smart_trail and trail_started:
 		var start_p = global_transform.origin
