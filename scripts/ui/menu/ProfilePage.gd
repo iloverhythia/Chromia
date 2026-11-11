@@ -33,7 +33,12 @@ func _big_font(size: int) -> DynamicFont:
 	f.size = size
 	return f
 
+# (the Menu Customizer's colours, where a look is set: OnlineStyle.gd)
+var _os = load("res://scripts/ui/menu/OnlineStyle.gd").new()
+
 func _label(text: String, size: int = 0, color: Color = Color(0.9, 0.95, 1)) -> Label:
+	if color == Color(0.9, 0.95, 1):
+		color = _os.pick("TEXT", color)
 	var l := Label.new()
 	l.text = text
 	l.theme = _theme
@@ -43,10 +48,21 @@ func _label(text: String, size: int = 0, color: Color = Color(0.9, 0.95, 1)) -> 
 	l.add_color_override("font_color", color)
 	return l
 
-func _panel_style(alpha: float = 0.55) -> StyleBoxFlat:
+# The page's two panels are as solid as the Online page's (OnlineStyle.gd's
+# WINDOW_BG and its faint outline), so the text reads over any background.
+const PANEL_BG = Color(0.035, 0.03, 0.05, 0.86)
+const PANEL_EDGE = Color(1, 1, 1, 0.07)
+const CARD_BG = Color(0.075, 0.068, 0.1, 1)
+func _panel_style(inner: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.04, 0.07, alpha)
-	sb.set_corner_radius_all(8)
+	sb.bg_color = _os.pick("CARD_BG", CARD_BG) if inner else _os.pick("WINDOW_BG", PANEL_BG)
+	sb.set_corner_radius_all(4 if inner else 8)
+	# (a smooth curve: the default few straight pieces look stepped with a thin outline)
+	sb.anti_aliasing = true
+	sb.anti_aliasing_size = 1.0
+	sb.corner_detail = 12 if inner else 16
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.04) if inner else PANEL_EDGE
 	sb.content_margin_left = 16
 	sb.content_margin_right = 16
 	sb.content_margin_top = 14
@@ -134,7 +150,7 @@ func _ready():
 	names.add_child(motd_badge)
 	_badges_holder = VBoxContainer.new()
 	names.add_child(_badges_holder)
-	rank_label = _label("", 20, Color(1, 0.75, 0.85))
+	rank_label = _label("", 20, _os.pick("ACCENT", Color(1, 0.75, 0.85)))
 	names.add_child(rank_label)
 
 	var refresh := Button.new()
@@ -157,13 +173,13 @@ func _ready():
 		Rhythia.connect("discord_login_changed", self, "_on_discord_changed")
 	_on_discord_changed()
 
-	status_label = _label("", 0, Color(0.8, 0.8, 0.85))
+	status_label = _label("", 0, _os.pick("DIM", Color(0.8, 0.8, 0.85)))
 	v.add_child(status_label)
 	stats_label = _label("", 18)
 	v.add_child(stats_label)
 
 	v.add_child(HSeparator.new())
-	v.add_child(_label("Top Play", 22, Color(1, 0.6, 0.75)))
+	v.add_child(_label("Top Play", 22, _os.pick("PINK", Color(1, 0.6, 0.75))))
 	top_play_box = VBoxContainer.new()
 	v.add_child(top_play_box)
 
@@ -482,27 +498,29 @@ func _show_scores(scores: Array):
 		return
 	var best: Dictionary = sorted[0]
 	var card := PanelContainer.new()
-	card.add_stylebox_override("panel", _panel_style(0.75))
+	card.add_stylebox_override("panel", _panel_style(true))
 	var cv := VBoxContainer.new()
 	card.add_child(cv)
 	cv.add_child(_label(Globals.s(best.get("song_name", best.get("song_id", "?"))), 22))
-	cv.add_child(_label(_play_line(best), 18, Color(1, 0.8, 0.9)))
-	cv.add_child(_label("%s XP  •  %s notes" % [_fmt(best.get("xp_awarded", 0)), _fmt(best.get("note_count", 0))], 0, Color(0.75, 0.75, 0.8)))
+	cv.add_child(_label(_play_line(best), 18, _os.pick("ACCENT", Color(1, 0.8, 0.9))))
+	cv.add_child(_label("%s XP  •  %s notes" % [_fmt(best.get("xp_awarded", 0)), _fmt(best.get("note_count", 0))], 0, _os.pick("DIM", Color(0.75, 0.75, 0.8))))
 	top_play_box.add_child(card)
 	for i in range(min(10, sorted.size())):
 		var s: Dictionary = sorted[i]
 		var row := HBoxContainer.new()
 		row.add_constant_override("separation", 10)
-		var rank := _label("#%d" % (i + 1), 0, Color(0.7, 0.7, 0.75))
+		var rank := _label("#%d" % (i + 1), 0, _os.pick("DIM", Color(0.7, 0.7, 0.75)))
 		rank.rect_min_size = Vector2(36, 0)
 		rank.autowrap = false
 		row.add_child(rank)
-		var nm := _label(Globals.s(s.get("song_name", s.get("song_id", "?"))))
+		# (a long name ends in "…", not cut off mid-letter: EllipsisLabel.gd)
+		var nm: Label = load("res://scripts/ui/EllipsisLabel.gd").new()
+		nm.theme = _theme
+		nm.add_color_override("font_color", _os.pick("TEXT", Color(0.9, 0.95, 1)))
 		nm.size_flags_horizontal = SIZE_EXPAND_FILL
-		nm.autowrap = false
-		nm.clip_text = true
+		nm.full = Globals.s(s.get("song_name", s.get("song_id", "?")))
 		row.add_child(nm)
-		var val := _label(_play_line(s), 0, Color(1, 0.8, 0.9))
+		var val := _label(_play_line(s), 0, _os.pick("ACCENT", Color(1, 0.8, 0.9)))
 		val.autowrap = false
 		row.add_child(val)
 		plays_box.add_child(row)

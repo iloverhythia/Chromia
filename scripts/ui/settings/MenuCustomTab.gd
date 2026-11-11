@@ -87,7 +87,7 @@ func _ready():
 		_pattern.add_item(MenuStyle.PATTERN_NAMES[k])
 	_pattern.connect("item_selected", self, "_on_pattern")
 	row.add_child(_pattern)
-	row = _row("Colours")
+	row = _row("Colors")
 	for i in 3:
 		var cp := ColorPickerButton.new()
 		cp.rect_min_size = Vector2(64, 32)
@@ -97,10 +97,10 @@ func _ready():
 		_bg_pickers.append(cp)
 		_label(["background", "lines", "accent"][i], f_body, DIM, false, row)
 	var own := Button.new()
-	own.text = "  Pattern's own colours  "
+	own.text = "  Pattern's own colors  "
 	own.theme = load("res://uitheme.tres")
 	own.add_font_override("font", f_body)
-	own.hint_tooltip = "The pattern's own colours (or your colorset's, with Wave Menu colorset on)"
+	own.hint_tooltip = "The pattern's own colors (or your colorset's, with Wave Menu colorset on)"
 	own.connect("pressed", self, "_bg_own_colors")
 	row.add_child(own)
 	row = _row("Speed")
@@ -116,12 +116,12 @@ func _ready():
 	# --- buttons
 	box.add_child(HSeparator.new())
 	_label("Buttons", f_title, ACCENT)
-	_color_row("Button colour", "btn_bg")
+	_color_row("Button color", "btn_bg")
 	_color_row("When pointed at", "btn_hover")
 	_color_row("Button text", "btn_text")
 	_slider_row("Roundness", "btn_radius", 0, 20)
 	_slider_row("Border width", "btn_border_w", 0, 4)
-	_color_row("Border colour", "btn_border")
+	_color_row("Border color", "btn_border")
 	_color_row("Highlight (focus)", "focus")
 
 	# --- text

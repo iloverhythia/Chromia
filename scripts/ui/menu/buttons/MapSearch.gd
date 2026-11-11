@@ -55,8 +55,78 @@ func _on_reset_filters():
 func _on_lock_type():
 	set_editable(false)
 
+# Speed keys: Ctrl+S, then A / D (or the arrows) move through the speeds,
+# slowest to fastest, instead of typing into the search. Ctrl+S again, Esc or
+# Enter stops (as does any other key, which then types as usual).
+const SPEED_ORDER := [Globals.SPEED_MMMM, Globals.SPEED_MMM, Globals.SPEED_MM, Globals.SPEED_M, Globals.SPEED_NORMAL,
+	Globals.SPEED_P, Globals.SPEED_PP, Globals.SPEED_PPP, Globals.SPEED_PPPP]
+const SPEED_NAMES := {Globals.SPEED_MMMM: "----", Globals.SPEED_MMM: "---", Globals.SPEED_MM: "--", Globals.SPEED_M: "-",
+	Globals.SPEED_NORMAL: "Normal", Globals.SPEED_P: "+", Globals.SPEED_PP: "++", Globals.SPEED_PPP: "+++", Globals.SPEED_PPPP: "++++"}
+var _speed_keys := false
+var _speed_label: Label = null
+
+func _show_speed_keys(on: bool):
+	_speed_keys = on
+	if _speed_label == null:
+		_speed_label = Label.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0, 0, 0, 0.8)
+		sb.set_corner_radius_all(6)
+		sb.content_margin_left = 10
+		sb.content_margin_right = 10
+		sb.content_margin_top = 4
+		sb.content_margin_bottom = 4
+		_speed_label.add_stylebox_override("normal", sb)
+		_speed_label.add_color_override("font_color", Color(1, 1, 1))
+		_speed_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_speed_label.set_as_toplevel(true) # (over the map list)
+		add_child(_speed_label)
+	_speed_label.rect_position = rect_global_position + Vector2(0, rect_size.y + 4)
+	_speed_label.visible = on
+	if on:
+		var lvl: int = Rhythia.mod_speed_level
+		var speed := "Custom" if lvl == Globals.SPEED_CUSTOM else String(SPEED_NAMES.get(lvl, "?"))
+		_speed_label.text = "Speed: %s (%.2fx)   A / D to change, Esc when done" % [speed, float(Globals.speed_multi[lvl])]
+
+func _step_speed(dir: int):
+	var i: int = SPEED_ORDER.find(Rhythia.mod_speed_level)
+	if i < 0:
+		i = SPEED_ORDER.find(Globals.SPEED_NORMAL) # (from a custom speed: next to normal)
+	i = int(clamp(i + dir, 0, SPEED_ORDER.size() - 1))
+	Rhythia.mod_speed_level = SPEED_ORDER[i]
+	_show_speed_keys(true)
+
+func _speed_key_input(event) -> bool:
+	if not (event is InputEventKey) or not event.pressed:
+		return false
+	var sc: int = event.scancode
+	if sc == KEY_S and event.control and not event.alt:
+		if not event.echo:
+			_show_speed_keys(not _speed_keys)
+		return true
+	if not _speed_keys:
+		return false
+	if sc == KEY_A or sc == KEY_LEFT:
+		_step_speed(-1)
+		return true
+	if sc == KEY_D or sc == KEY_RIGHT:
+		_step_speed(1)
+		return true
+	if event.echo:
+		return false
+	_show_speed_keys(false)
+	return sc == KEY_ESCAPE or sc == KEY_ENTER or sc == KEY_KP_ENTER
+
 func _input(event):
 	if not is_visible_in_tree() or not editable:
+		if _speed_keys:
+			_show_speed_keys(false)
+		return
+
+	# (other text boxes keep their keys)
+	var f = get_focus_owner()
+	if not (f != null and f != self and (f is LineEdit or f is TextEdit)) and _speed_key_input(event):
+		get_tree().set_input_as_handled()
 		return
 
 	var current_focus = get_focus_owner()

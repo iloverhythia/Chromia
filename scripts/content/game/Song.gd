@@ -490,61 +490,85 @@ func load_from_db_data(data: Dictionary = {
 
 	return {success = true}
 
+# Your bests on this map (every mod / speed combination), user://chromia/bests/<id>.
+# Saved safely (save_pbs): a new file, then swapped in, the last one kept as
+# .bak. A file that can't be read is never written over: before, a crash while
+# saving (or the file briefly locked) left it empty or unreadable, the next
+# attempt was saved over it alone, and every other best on the map was gone.
+var _pbs_unreadable := false
+
 func load_pbs():
 	if Rhythia.single_map_mode:
 		return
+	var path: String = Rhythia.user_best_dir + "/" + id
+	var file := File.new()
+	if not file.file_exists(path) and not file.file_exists(path + ".bak"):
+		pbs_loaded = true # (none yet)
+		return
+	for p in [path, path + ".bak"]:
+		if file.file_exists(p) and _read_pbs(p):
+			pbs_loaded = true
+			_pbs_unreadable = false
+			return
+	_pbs_unreadable = true
+	print("[bests] couldn't read the bests of %s: they're kept as they are" % id)
+
+func _read_pbs(path: String) -> bool:
 	var file: File = File.new()
-	if file.file_exists(Globals.p("user://bests/%s" % id)):
-		var err: int = file.open(Globals.p("user://bests/%s" % id), File.READ)
-		if err != OK:
-			return
-
-		if file.get_buffer(5) != PoolByteArray([83, 83, 43, 112, 66]):
-			print("invalid signature for pb file (%s)" % id)
-			file.close()
-			return
-
-		var sv: int = file.get_16()
-		if sv > 4:
-			print("invalid file version for pb file (%s)" % id)
-			file.close()
-			return
-
-		if sv < 3: has_combo = false
-		else: has_combo = true
-
-		var amt: int = file.get_64()
-
-		for i in range(amt):
-			if file.eof_reached():
-				break # damaged file with a garbage count: don't loop (practically) forever
-			var pb: Dictionary = {}
-			var s: String = file.get_line()
-
-
-
-			pb.has_passed = bool(file.get_8())
-			pb.pauses = file.get_16()
-			pb.hit_notes = file.get_32()
-			pb.total_notes = file.get_32()
-			pb.position = file.get_32()
-			pb.length = file.get_32()
-
-			if has_combo: pb.max_combo = file.get_16()
-			else: pb.max_combo = -1
-
-			if sv >= 4: pb.ts = file.get_64()
-			else: pb.ts = 0
-
-			pb_data[s] = pb
-
+	if file.open(path, File.READ) != OK:
+		return false
+	if file.get_len() < 15 or file.get_buffer(5) != PoolByteArray([83, 83, 43, 112, 66]):
+		print("invalid signature for pb file (%s)" % id)
 		file.close()
+		return false
+	var sv: int = file.get_16()
+	if sv > 4:
+		print("invalid file version for pb file (%s)" % id)
+		file.close()
+		return false
+
+	if sv < 3: has_combo = false
+	else: has_combo = true
+
+	var amt: int = file.get_64()
+
+	for i in range(amt):
+		if file.eof_reached():
+			break # damaged file with a garbage count: don't loop (practically) forever
+		var pb: Dictionary = {}
+		var s: String = file.get_line()
+
+
+
+		pb.has_passed = bool(file.get_8())
+		pb.pauses = file.get_16()
+		pb.hit_notes = file.get_32()
+		pb.total_notes = file.get_32()
+		pb.position = file.get_32()
+		pb.length = file.get_32()
+
+		if has_combo: pb.max_combo = file.get_16()
+		else: pb.max_combo = -1
+
+		if sv >= 4: pb.ts = file.get_64()
+		else: pb.ts = 0
+
+		pb_data[s] = pb
+
+	file.close()
+	return true
 
 func save_pbs():
 	if Rhythia.single_map_mode:
 		return
+	var path: String = Rhythia.user_best_dir + "/" + id
+	var dir := Directory.new()
+	if _pbs_unreadable and dir.file_exists(path):
+		# (never over bests that couldn't be read: they're put aside first)
+		dir.rename(path, "%s.unreadable-%d" % [path, OS.get_unix_time()])
+		_pbs_unreadable = false
 	var file: File = File.new()
-	var err: int = file.open(Globals.p("user://bests/%s") % id, File.WRITE)
+	var err: int = file.open(path + ".tmp", File.WRITE)
 	if err != OK:
 		print("error writing pb file for %s:  %s" % [id, String(err)])
 		return
@@ -568,6 +592,12 @@ func save_pbs():
 		file.store_64(int(pb.get("ts", 0)))
 
 	file.close()
+	# the new one in place (the last good one kept as .bak)
+	if dir.file_exists(path):
+		dir.remove(path + ".bak")
+		dir.rename(path, path + ".bak")
+	if dir.rename(path + ".tmp", path) != OK:
+		print("[bests] couldn't put the new bests of %s in place" % id)
 
 func get_pb(pb_str: String):
 	if not pbs_loaded: load_pbs()
@@ -715,11 +745,15 @@ func loadRawData(data: String):
 	notes = []
 	for s in split:
 		if s != "":
-			var dat = s.split("|")
-			if (dat is Array or dat is PoolStringArray) and dat.size() == 3:
-				var x = 2 - float(dat[0])
-				var y = 2 - float(dat[1])
-				var ms = float(dat[2])
+			# "x|y|ms": three numbers between two bars. Each number is read from
+			# where it starts (reading stops at the bar by itself), which is the
+			# same number as cutting the text in three first, without the cutting.
+			var p1: int = s.find("|")
+			var p2: int = s.find("|", p1 + 1) if p1 != -1 else -1
+			if p2 != -1 and s.find("|", p2 + 1) == -1:
+				var x = 2 - float(s)
+				var y = 2 - float(s.substr(p1 + 1))
+				var ms = float(s.substr(p2 + 1))
 				last_ms = ms
 				notes.append([x, y, ms])
 			else: invalid += 1
@@ -908,6 +942,116 @@ func get_vulnus_map_difficulty_list(folder_path: String):
 	return names
 
 
+# Puts a list of notes / markers (each an Array with its time at index k) in
+# the order `cmp` (a sort_custom comparer on `obj`) gives: by time, and its own
+# rule among the ones at the same time. The result is the one sort_custom
+# gives; it's just reached much faster on big maps, where sort_custom calls a
+# script function millions of times (most of a 1,000,000-note map's loading):
+#  - already in order with no two at the same time: nothing to do (one pass
+#    to find out, or none when the caller says so with `state`),
+#  - whole-number times: the engine's own sort on one number per note, made
+#    of its time and its place in the list, then the notes are put in that
+#    order,
+#  - notes at the very same time: with `xy_text` (notes [x, y, time] whose
+#    comparer puts them in the order of their text, "[x, y, time]") and x and
+#    y both whole numbers from 0 to 9, that order is x then y, so it goes into
+#    the number too; otherwise each such little group is sorted with `cmp`.
+# state: -1 not known, 0 in order and no two at the same time, 1 in order with
+# some at the same time, 2 out of order.
+const _SORT_PLACE_BITS := 22
+const BigNotes = preload("res://scripts/content/game/BigNotes.gd")
+const BIG_NOTES := 20000 # from here on the bulk ways (BigNotes.gd) are worth it
+static func _big(n: int) -> bool:
+	# ("bignotes_off": the plain loops on purpose, to compare the two)
+	return n >= BIG_NOTES and not Engine.has_meta("bignotes_off")
+static func sort_timed(arr: Array, k: int, obj: Object, cmp: String, state: int = -1, xy_text: bool = false) -> void:
+	var n := arr.size()
+	if n < 2:
+		return
+	if state == -1:
+		state = 0
+		var prev = arr[0][k]
+		for i in range(1, n):
+			var v = arr[i][k]
+			if v < prev:
+				state = 2
+				break
+			if v == prev:
+				state = 1
+			prev = v
+	if state == 0:
+		return
+	var ties_done := false
+	if n <= 4194304 and (state == 2 or xy_text):
+		# one whole number per note: time, then (xy_text) x and y, then its place
+		var keys := []
+		keys.resize(n)
+		var ok := true
+		var digits := xy_text
+		if digits:
+			for i in range(n):
+				var e: Array = arr[i]
+				var v = e[k]
+				if typeof(v) != TYPE_INT or v < 0 or v > 4294967295 or e.size() != 3:
+					ok = false
+					break
+				var x = e[0]
+				var y = e[1]
+				# ("0" to "9" as text: whole, not negative, and not the "-0" a
+				# float can be, which pow tells apart)
+				if x < 0 or x > 9 or y < 0 or y > 9 or x != floor(x) or y != floor(y) or (x == 0 and pow(float(x), -1.0) < 0.0) or (y == 0 and pow(float(y), -1.0) < 0.0):
+					digits = false
+					break
+				keys[i] = ((v * 100 + int(x) * 10 + int(y)) << _SORT_PLACE_BITS) | i
+		if ok and not digits and state == 2:
+			for i in range(n):
+				var v = arr[i][k]
+				if typeof(v) != TYPE_INT or v < 0 or v > 1099511627775:
+					ok = false
+					break
+				keys[i] = (v << _SORT_PLACE_BITS) | i
+		if ok and (digits or state == 2):
+			keys.sort()
+			var out := []
+			out.resize(n)
+			for i in range(n):
+				out[i] = arr[keys[i] & 4194303]
+			arr.clear()
+			arr.append_array(out) # (the same Array, as sort_custom leaves it)
+			ties_done = digits
+		elif state == 2:
+			arr.sort_custom(obj, cmp) # (times with fractions: as before)
+			return
+	elif state == 2:
+		arr.sort_custom(obj, cmp)
+		return
+	if ties_done:
+		return
+	if xy_text and _big(n) and BigNotes.order_ties_by_text(arr, k):
+		return # (notes at the same time in their texts' order: the texts made in bulk)
+	var run_start := 0
+	var prev_t = arr[0][k]
+	for i in range(1, n + 1):
+		if i < n and arr[i][k] == prev_t:
+			continue
+		var count: int = i - run_start
+		if count == 2:
+			if obj.call(cmp, arr[run_start + 1], arr[run_start]):
+				var first = arr[run_start]
+				arr[run_start] = arr[run_start + 1]
+				arr[run_start + 1] = first
+		elif count > 2:
+			var sub: Array = arr.slice(run_start, i - 1)
+			sub.sort_custom(obj, cmp)
+			for j in range(count):
+				arr[run_start + j] = sub[j]
+		if i < n:
+			run_start = i
+			prev_t = arr[i][k]
+
+func _marker_time_sort(a, b):
+	return a[0] < b[0]
+
 func notesort(a, b):
 	if a[2] == b[2]:
 		if a[1] == b[1]: return a[0] < b[0]
@@ -930,7 +1074,7 @@ func read_notes() -> Array:
 			else: print("Reading: RAW")
 			loadRawData(rawData)
 			print(notes.size())
-			notes.sort_custom(self, "notesort")
+			sort_timed(notes, 2, self, "notesort")
 			markers.ssp_note = notes
 			return notes
 		elif songType == Globals.MAP_VULNUS:
@@ -946,7 +1090,7 @@ func read_notes() -> Array:
 			var n: Array = data.get("_notes", []) if data.get("_notes") is Array else []
 
 			loadVulnusNoteArray(n)
-			notes.sort_custom(self, "notesort")
+			sort_timed(notes, 2, self, "notesort")
 			markers.ssp_note = notes
 			return notes
 		elif songType == Globals.MAP_SSPM:
@@ -1000,7 +1144,7 @@ func read_notes() -> Array:
 					n[0] = float(file.get_8())
 					n[1] = float(file.get_8())
 				notes.append(n)
-			notes.sort_custom(self, "notesort")
+			sort_timed(notes, 2, self, "notesort")
 
 			file.close()
 		elif songType == Globals.MAP_SSPM2:
@@ -1017,17 +1161,65 @@ func read_notes() -> Array:
 # Same text as before: every note, each followed by ";".
 var _chart_hash := ""
 var _chart_hash_notes = null
-func compute_chart_hash() -> String:
-	var notes_arr = read_notes()
-	if _chart_hash != "" and _chart_hash_notes == notes_arr:
-		return _chart_hash
+var _hash_thread: Thread = null
+var _hash_thread_notes = null
+
+static func _chart_hash_text(notes_arr: Array) -> String:
+	if _big(notes_arr.size()):
+		# (the same text, made the quick way for the kind of notes these are)
+		var quick: String = BigNotes.chart_text_digits(notes_arr)
+		return (quick if quick != "" else BigNotes.chart_text(notes_arr)).sha256_text()
 	var parts := PoolStringArray()
 	for n in notes_arr:
 		parts.append(String(n))
 	var s := ""
 	if parts.size() > 0:
 		s = parts.join(";") + ";"
-	_chart_hash = s.sha256_text()
+	return s.sha256_text()
+
+# The fingerprint started on the loading screen. On a big map it's worked out
+# on a thread of its own (a second or more of the load otherwise) and is
+# waited for only by whoever asks for it before it's done; small maps and
+# builds without threads work it out right here, as before.
+func start_chart_hash():
+	var notes_arr = read_notes()
+	if (_chart_hash != "" and _chart_hash_notes == notes_arr) or _hash_thread != null:
+		return
+	# Worked out right here now, also for big maps. It used to go on a thread
+	# for those, but a thread making texts slows the main thread's own loops
+	# over the notes (getting them ready to play) by more than the fingerprint
+	# takes: the load was longer with the thread than without. And the
+	# fingerprint itself is several times quicker than it was (BigNotes.gd).
+	if true:
+		compute_chart_hash()
+		return
+	_hash_thread_notes = notes_arr
+	_hash_thread = Thread.new()
+	# (its own copy of the list: the song may put the list itself in order
+	# meanwhile; the notes in it are never changed)
+	if _hash_thread.start(self, "_chart_hash_job", notes_arr.duplicate()) != OK:
+		_hash_thread = null
+		compute_chart_hash()
+
+func _chart_hash_job(notes_copy: Array) -> String:
+	return _chart_hash_text(notes_copy)
+
+func _finish_chart_hash_thread():
+	if _hash_thread == null:
+		return
+	var h = _hash_thread.wait_to_finish()
+	_hash_thread = null
+	if h is String and h != "":
+		_chart_hash = h
+		_chart_hash_notes = _hash_thread_notes
+	_hash_thread_notes = null
+
+func compute_chart_hash() -> String:
+	_finish_chart_hash_thread()
+	var notes_arr = read_notes()
+	if _chart_hash != "" and _chart_hash_notes == notes_arr:
+		return _chart_hash
+	_chart_hash = _chart_hash_text(notes_arr)
 	_chart_hash_notes = notes_arr
 	return _chart_hash
 
@@ -1069,12 +1261,46 @@ func read_markers() -> Dictionary:
 
 		file.seek(112)
 		var marker_pos = file.get_64()
+		var marker_len = file.get_64()
 		if marker_pos < 0 or marker_pos >= file.get_len() or marker_count < 0 or marker_count * 5 > file.get_len():
 			print("broken sspm2 (markers) ", filePath)
 			file.close()
 			return markers
 		file.seek(marker_pos)
 
+		# Markers made of plain numbers and positions (every map's notes) are
+		# read from the whole block at once; anything else (texts, lists) the
+		# old way, value by value from the file.
+		var simple := true
+		for mtt in mt_type:
+			for t in mtt:
+				if not (t in [DT_INT_8, DT_INT_16, DT_INT_32, DT_INT_64, DT_FLOAT_32, DT_FLOAT_64, DT_POSITION]):
+					simple = false
+		var states := {} # list name -> its order as read (sort_timed's state)
+		if simple:
+			_read_markers_fast(file, marker_pos, marker_len, mt_name, mt_type, mt_size, states)
+		else:
+			_read_markers_slow(file, mt_name, mt_type, mt_size)
+		file.close()
+
+		for mi in range(mt_name.size()):
+			# (notes: markersort puts the ones at the same time in their text's
+			# order, see sort_timed's xy_text)
+			var is_notes: bool = mt_type[mi].size() == 1 and mt_type[mi][0] == DT_POSITION
+			sort_timed(markers[mt_name[mi]], -1, self, "markersort", int(states.get(mt_name[mi], -1)), is_notes)
+		return markers
+	else:
+		markers = {
+			ssp_note = read_notes()
+		}
+		marker_types = [
+			["ssp_note", DT_POSITION]
+		]
+		return markers
+
+# the markers one value at a time (as they were always read)
+func _read_markers_slow(file: File, mt_name: Array, mt_type: Array, mt_size: Array):
+	if true:
 		for i in range(marker_count):
 			if file.eof_reached():
 				break
@@ -1111,19 +1337,93 @@ func read_markers() -> Dictionary:
 
 			markers[name].append(m)
 
-		for arr in markers.values():
-			arr.sort_custom(self, "markersort")
-
-
-		return markers
-	else:
-		markers = {
-			ssp_note = read_notes()
-		}
-		marker_types = [
-			["ssp_note", DT_POSITION]
-		]
-		return markers
+# The markers from the block read in one piece (a StreamPeerBuffer over its
+# bytes): the same values in the same types as the reader above gives, without
+# a file call and a function call per value.
+func _read_markers_fast(file: File, pos: int, length: int, mt_name: Array, mt_type: Array, mt_size: Array, states: Dictionary):
+	var left: int = file.get_len() - pos
+	if length <= 0 or length > left:
+		length = left
+	var bytes: PoolByteArray = file.get_buffer(length)
+	# a map of notes only (nearly every one) with a great many of them, all
+	# stored the same way: the bytes turned into numbers in bulk (BigNotes.gd)
+	if mt_name.size() == 1 and mt_type[0].size() == 1 and mt_type[0][0] == DT_POSITION and _big(marker_count):
+		var got: Array = BigNotes.decode(bytes, marker_count)
+		if got.size() == 2:
+			markers[mt_name[0]] = got[0]
+			# (-1: already in the final order, nothing left to sort)
+			states[mt_name[0]] = 0 if got[1] == -1 else got[1]
+			return
+	var sp := StreamPeerBuffer.new()
+	sp.data_array = bytes
+	var end: int = sp.get_size()
+	var ntypes: int = mt_name.size()
+	var lists := []
+	var only_pos := [] # this type is one position and nothing else (notes)
+	var prev := []
+	var st := []
+	for t in range(ntypes):
+		lists.append(markers[mt_name[t]])
+		only_pos.append(mt_type[t].size() == 1 and mt_type[t][0] == DT_POSITION)
+		prev.append(-1)
+		st.append(0)
+	for _i in range(marker_count):
+		if sp.get_position() + 5 > end:
+			break
+		var ms: int = sp.get_u32()
+		var type_id: int = sp.get_u8()
+		if type_id >= ntypes:
+			print("broken sspm2 (marker type) ", filePath)
+			break
+		if ms <= prev[type_id] and st[type_id] != 2:
+			st[type_id] = 2 if ms < prev[type_id] else 1
+		prev[type_id] = ms
+		if only_pos[type_id]:
+			var kind: int = sp.get_u8()
+			if kind == 0:
+				lists[type_id].append([float(sp.get_u8()), float(sp.get_u8()), ms])
+			elif kind == 1:
+				lists[type_id].append([sp.get_float(), sp.get_float(), ms])
+			else:
+				lists[type_id].append([5.0, 3.0, ms])
+			continue
+		var data: Array = mt_type[type_id]
+		var m: Array = []
+		m.resize(mt_size[type_id] + 1)
+		m[mt_size[type_id]] = ms
+		var at := 0
+		for ti in range(data.size()):
+			match data[ti]:
+				DT_INT_8:
+					m[at] = sp.get_u8()
+				DT_INT_16:
+					m[at] = sp.get_u16()
+				DT_INT_32:
+					m[at] = sp.get_u32()
+				DT_INT_64:
+					m[at] = sp.get_64()
+				DT_FLOAT_32:
+					m[at] = sp.get_float()
+				DT_FLOAT_64:
+					m[at] = sp.get_double()
+				DT_POSITION:
+					var kind: int = sp.get_u8()
+					if kind == 0:
+						m[at] = float(sp.get_u8())
+						at += 1
+						m[at] = float(sp.get_u8())
+					elif kind == 1:
+						m[at] = sp.get_float()
+						at += 1
+						m[at] = sp.get_float()
+					else:
+						m[at] = 5.0
+						at += 1
+						m[at] = 3.0
+			at += 1
+		lists[type_id].append(m)
+	for t in range(ntypes):
+		states[mt_name[t]] = st[t]
 
 func discard_notes():
 	if songType != Globals.MAP_RAW:
@@ -1749,19 +2049,35 @@ func convert_to_sspm(upgrade: bool = false):
 
 	var allmarkers = []
 
-	for t in markers.keys():
-		for d in markers[t]:
-			var ms = d[-1]
-			var v = [ms, t, []]
+	# A map whose markers are its notes only (nearly every map): the notes are
+	# in order already (read_markers sorts them), so they're written as they
+	# are, as one block made in memory (BigNotes.gd), instead of being copied
+	# one by one into a second list, sorted and written a number at a time.
+	var notes_only: bool = markers.size() == 1 and marker_types.size() == 1 and marker_types[0].size() == 2 and marker_types[0][1] == DT_POSITION and markers.has(marker_types[0][0])
+	if not notes_only:
+		for t in markers.keys():
+			for d in markers[t]:
+				var ms = d[-1]
+				var v = [ms, t, []]
 
-			for i in range(d.size() - 1):
-				v[2].append(d[i])
+				for i in range(d.size() - 1):
+					v[2].append(d[i])
 
-			allmarkers.append(v)
+				allmarkers.append(v)
 
-	allmarkers.sort_custom(self, "marker_sort")
+		# (by time. This asked for a comparer called "marker_sort", which doesn't
+		# exist: every comparison failed, which took a long time on a big map and
+		# left the markers in the file back to front.)
+		allmarkers.sort_custom(self, "_marker_time_sort")
 
 	start = file.get_position()
+	if notes_only:
+		# (in the order they're played in: by time, and notes at the same time
+		# by their text, as read_markers leaves them. A file written like that
+		# needs no sorting when it's opened.)
+		var in_order: Array = markers[marker_types[0][0]].duplicate()
+		sort_timed(in_order, -1, self, "markersort", -1, true)
+		file.store_buffer(BigNotes.encode(in_order, marker_td[marker_types[0][0]][0]))
 	for m in allmarkers:
 		var ms = m[0]
 		var type = marker_td[m[1]]

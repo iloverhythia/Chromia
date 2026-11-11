@@ -35,6 +35,8 @@ func _ready():
 		Rhythia.lock_song_notes(Rhythia.selected_song)
 		Rhythia.selected_song.discard_notes()
 		Rhythia.unlock_song_notes(Rhythia.selected_song)
+	# (the replay just watched, e.g. one dragged in: Save video can make it a video)
+	Rhythia.last_replay_path = Rhythia.replay_path if Rhythia.was_replay else ""
 	Rhythia.replay_path = ""
 	$BlackFade.visible = true
 	black_fade = 1

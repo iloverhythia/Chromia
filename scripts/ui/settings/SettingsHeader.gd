@@ -65,9 +65,15 @@ func _fit():
 	_scroll.margin_top = rect_size.y
 
 func _copy_look():
+	# (only when it changed: each copy made the header lay itself out again,
+	# twice a second)
 	for k in ["tab_fg", "tab_bg", "tab_disabled"]:
-		_tabs.add_stylebox_override(k, _tc.get_stylebox(k))
-	_tabs.add_font_override("font", _tc.get_font("font"))
+		var sb = _tc.get_stylebox(k)
+		if _tabs.get_stylebox(k) != sb:
+			_tabs.add_stylebox_override(k, sb)
+	var f = _tc.get_font("font")
+	if _tabs.get_font("font") != f:
+		_tabs.add_font_override("font", f)
 	for k in ["font_color_fg", "font_color_bg", "font_color_disabled"]:
 		_tabs.add_color_override(k, _tc.get_color(k))
 	for k in ["increment", "increment_highlight", "decrement", "decrement_highlight"]:

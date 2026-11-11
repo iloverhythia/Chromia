@@ -4,23 +4,93 @@ extends Reference
 # window's colours, cards and buttons, with the Profile page's big title,
 # pink section headings and thin rules.
 
-const LILAC = Color(0.764706, 0.65098, 0.8)
-const ACCENT = Color(1, 0.756863, 0.960784)
-const ACCENT_HOVER = Color(0.913725, 0.74902, 0.94902)
-const TEXT = Color(0.898039, 0.94902, 1, 1)
-const DIM = Color(0.62, 0.6, 0.68, 1)
-const PLAYING = Color(0.55, 0.9, 0.65)
-const WAITING = Color(1, 0.85, 0.45)
-const BAD = Color(1, 0.55, 0.5)
-const WINDOW_BG = Color(0.035, 0.03, 0.05, 0.94)
-const SECTION_BG = Color(1, 1, 1, 0.025)
-const CARD_BG = Color(0.075, 0.068, 0.1, 1)
-const CARD_HOVER = Color(0.11, 0.1, 0.145, 1)
-const FIELD_BG = Color(0.13, 0.125, 0.165, 1)
-const BTN_BG = Color(0.1, 0.095, 0.125, 1)
-const BTN_HOVER = Color(0.14, 0.13, 0.18, 1)
-const PINK = Color(0.96, 0.6, 0.78)
-const RULE = Color(1, 1, 1, 0.16)
+# The colours. These are the game's own; with a look made in Settings > Menu
+# Customizer (MenuStyle.gd) they follow it (retint(), below): the buttons'
+# colour, the accent, the text, and the dark panels in the buttons' hue.
+var LILAC := Color(0.764706, 0.65098, 0.8)
+var ACCENT := Color(1, 0.756863, 0.960784)
+var ACCENT_HOVER := Color(0.913725, 0.74902, 0.94902)
+var TEXT := Color(0.898039, 0.94902, 1, 1)
+var DIM := Color(0.62, 0.6, 0.68, 1)
+var PLAYING := Color(0.55, 0.9, 0.65)
+var WAITING := Color(1, 0.85, 0.45)
+var BAD := Color(1, 0.55, 0.5)
+var WINDOW_BG := Color(0.035, 0.03, 0.05, 0.86)
+var SECTION_BG := Color(1, 1, 1, 0.025)
+var CARD_BG := Color(0.075, 0.068, 0.1, 1)
+var CARD_HOVER := Color(0.11, 0.1, 0.145, 1)
+var FIELD_BG := Color(0.13, 0.125, 0.165, 1)
+var FIELD_TEXT := Color(0.898039, 0.94902, 1, 1)
+var BTN_BG := Color(0.1, 0.095, 0.125, 1)
+var BTN_HOVER := Color(0.14, 0.13, 0.18, 1)
+var PINK := Color(0.96, 0.6, 0.78)
+var RULE := Color(1, 1, 1, 0.16)
+var ON_ACCENT := Color(0.1, 0.07, 0.12) # text on a filled (lilac) button
+
+const DEFAULTS := {
+	"LILAC": Color(0.764706, 0.65098, 0.8), "ACCENT": Color(1, 0.756863, 0.960784),
+	"ACCENT_HOVER": Color(0.913725, 0.74902, 0.94902), "TEXT": Color(0.898039, 0.94902, 1, 1),
+	"DIM": Color(0.62, 0.6, 0.68, 1), "WINDOW_BG": Color(0.035, 0.03, 0.05, 0.86),
+	"CARD_BG": Color(0.075, 0.068, 0.1, 1), "CARD_HOVER": Color(0.11, 0.1, 0.145, 1),
+	"FIELD_BG": Color(0.13, 0.125, 0.165, 1), "FIELD_TEXT": Color(0.898039, 0.94902, 1, 1),
+	"BTN_BG": Color(0.1, 0.095, 0.125, 1), "BTN_HOVER": Color(0.14, 0.13, 0.18, 1),
+	"PINK": Color(0.96, 0.6, 0.78), "ON_ACCENT": Color(0.1, 0.07, 0.12),
+}
+const SURFACES := ["WINDOW_BG", "CARD_BG", "CARD_HOVER", "FIELD_BG", "BTN_BG", "BTN_HOVER"]
+
+# For a page with colours of its own (the Profile page): its own colour while
+# the look is the game's, the customized one once this colour follows a look.
+func pick(key: String, own: Color) -> Color:
+	var now: Color = get(key)
+	return own if now == DEFAULTS[key] else Color(now.r, now.g, now.b, own.a if key in SURFACES else now.a)
+
+# a dark panel colour in another hue: as dark and as see-through as it was,
+# as colourful as the colour it follows (grey buttons give grey panels)
+static func tinted(panel: Color, from: Color) -> Color:
+	var sat: float = clamp(panel.s * from.s / 0.19, 0.0, 0.62)
+	return Color.from_hsv(from.h, sat, panel.v, panel.a)
+
+# The Menu Customizer's look, where one is set (anything not set stays as it is
+# in the game): buttons -> the filled buttons, tabs and outlines; hover -> their
+# hover; button text -> the text on them; accent -> headings and values; text ->
+# the text (and a dimmer one for captions); the panels, cards and dark buttons
+# take the buttons' hue; a text box colour of your own is used as it is.
+func retint():
+	for k in DEFAULTS:
+		set(k, DEFAULTS[k])
+	var MS = load("res://scripts/ui/menu/MenuStyle.gd")
+	var st: Dictionary = MS.data().style
+	if st.has("btn_bg"):
+		var c: Color = MS.get_value("btn_bg")
+		LILAC = Color(c.r, c.g, c.b)
+		ACCENT_HOVER = LILAC.lightened(0.25)
+		for k in SURFACES:
+			set(k, tinted(DEFAULTS[k], LILAC))
+	if st.has("btn_hover"):
+		var c: Color = MS.get_value("btn_hover")
+		ACCENT_HOVER = Color(c.r, c.g, c.b)
+	if st.has("btn_text"):
+		var c: Color = MS.get_value("btn_text")
+		ON_ACCENT = Color(c.r, c.g, c.b)
+	if st.has("accent"):
+		var c: Color = MS.get_value("accent")
+		ACCENT = Color(c.r, c.g, c.b)
+		PINK = ACCENT
+	if st.has("text"):
+		var c: Color = MS.get_value("text")
+		TEXT = Color(c.r, c.g, c.b)
+		DIM = TEXT.linear_interpolate(Color(0.42, 0.42, 0.46), 0.5) if TEXT.v > 0.5 else TEXT.lightened(0.3)
+		FIELD_TEXT = TEXT
+	if st.has("field_bg"):
+		var c: Color = MS.get_value("field_bg")
+		FIELD_BG = Color(c.r, c.g, c.b)
+		var ft: Color = MS.get_value("field_text")
+		FIELD_TEXT = Color(ft.r, ft.g, ft.b)
+	elif st.has("field_text"):
+		var c: Color = MS.get_value("field_text")
+		# (on the dark box only if it can be read there)
+		if c.v > 0.45:
+			FIELD_TEXT = Color(c.r, c.g, c.b)
 
 var f_regular: DynamicFont
 var f_bold: DynamicFont
@@ -30,6 +100,7 @@ var f_title: DynamicFont
 var f_code: DynamicFont
 
 func _init():
+	retint()
 	f_regular = font("res://assets/font/Lato/Lato-Regular.ttf", 16)
 	f_bold = font("res://assets/font/Lato/Lato-Bold.ttf", 16)
 	f_small = font("res://assets/font/Lato/Lato-Regular.ttf", 14)
@@ -49,7 +120,11 @@ static func flat(bg: Color, radius: int = 4, border: Color = Color(0, 0, 0, 0), 
 	var s = StyleBoxFlat.new()
 	s.bg_color = bg
 	s.set_corner_radius_all(radius)
+	# (round corners drawn as a smooth curve: with the defaults a corner is a
+	# few straight pieces and its thin outline looks stepped)
 	s.anti_aliasing = true
+	s.anti_aliasing_size = 1.0
+	s.corner_detail = 16 if radius >= 6 else 12
 	if bw > 0:
 		s.border_color = border
 		s.set_border_width_all(bw)
@@ -112,11 +187,101 @@ func card(parent: Control) -> HBoxContainer:
 	p.add_child(h)
 	return h
 
+# a small stat card (the profile panel's XP / SP / RP, the Stats tab): the
+# number over what it counts. Returns the number's Label
+func tile(parent: Control, value: String, caption: String, tip: String = "") -> Label:
+	var p = PanelContainer.new()
+	p.add_stylebox_override("panel", flat(CARD_BG, 4, Color(1, 1, 1, 0.04), 1, 12, 9))
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p.hint_tooltip = tip
+	parent.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_constant_override("separation", 1)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(v)
+	var val = label(value, f_bold, TEXT)
+	val.clip_text = true
+	v.add_child(val)
+	v.add_child(fit_label(caption, f_small, DIM))
+	return val
+
+# a one-line label that ends in "…" when it has no room for its text
+# (never cut off mid-letter; the whole text is then its tooltip)
+func fit_label(text: String, f: Font = null, col: Color = TEXT) -> Label:
+	var l = load("res://scripts/ui/EllipsisLabel.gd").new()
+	l.add_font_override("font", f if f != null else f_regular)
+	l.add_color_override("font_color", col)
+	l.full = text
+	return l
+
+# a thin row card of a numbered list (top plays, the leaderboard, most played):
+# "#1  name  detail  value". Returns the HBox inside (rank first, value last)
+func row(parent: Control, rank: String, name: String, detail: String, value: String, mine: bool = false) -> HBoxContainer:
+	var p = PanelContainer.new()
+	p.add_stylebox_override("panel", flat(CARD_HOVER if mine else CARD_BG, 4, LILAC if mine else Color(1, 1, 1, 0.04), 1, 12, 7))
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_constant_override("separation", 10)
+	p.add_child(h)
+	var rk = label(rank, f_bold, DIM)
+	rk.rect_min_size = Vector2(32, 0)
+	h.add_child(rk)
+	var nm = fit_label(name, f_regular, TEXT)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(nm)
+	if detail != "":
+		h.add_child(label(detail, f_small, DIM))
+	var val = label(value, f_bold, ACCENT)
+	val.align = Label.ALIGN_RIGHT
+	h.add_child(val)
+	return h
+
+# the same row with its detail on a second line under the name (top RP plays):
+# "#1  name            value"
+# "    detail"
+func row2(parent: Control, rank: String, name: String, detail: String, value: String) -> HBoxContainer:
+	var p = PanelContainer.new()
+	p.add_stylebox_override("panel", flat(CARD_BG, 4, Color(1, 1, 1, 0.04), 1, 12, 6))
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_constant_override("separation", 10)
+	p.add_child(h)
+	var rk = label(rank, f_bold, DIM)
+	rk.rect_min_size = Vector2(32, 0)
+	h.add_child(rk)
+	var v = VBoxContainer.new()
+	v.add_constant_override("separation", 0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	v.add_child(fit_label(name, f_regular, TEXT))
+	v.add_child(fit_label(detail, f_small, DIM))
+	var val = label(value, f_bold, ACCENT)
+	val.align = Label.ALIGN_RIGHT
+	h.add_child(val)
+	return h
+
+# a dropdown as a small dark button (its list keeps the theme's look)
+func dropdown(ob: OptionButton) -> OptionButton:
+	ob.focus_mode = Control.FOCUS_NONE
+	ob.add_font_override("font", f_bold)
+	for k in ["font_color", "font_color_hover", "font_color_pressed"]:
+		ob.add_color_override(k, TEXT)
+	ob.add_stylebox_override("normal", flat(BTN_BG, 3, Color(0, 0, 0, 0), 0, 12, 4))
+	ob.add_stylebox_override("hover", flat(BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 12, 4))
+	ob.add_stylebox_override("pressed", flat(BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 12, 4))
+	ob.add_stylebox_override("focus", StyleBoxEmpty.new())
+	ob.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	ob.rect_min_size = Vector2(0, 30)
+	return ob
+
 func button(b: Button, accent: bool = false, small: bool = false) -> Button:
 	b.focus_mode = Control.FOCUS_NONE
 	b.theme = null
 	b.add_font_override("font", f_bold)
-	var dark = Color(0.1, 0.07, 0.12)
+	var dark = ON_ACCENT
 	for k in ["font_color", "font_color_hover", "font_color_pressed"]:
 		b.add_color_override(k, dark if accent else TEXT)
 	b.add_color_override("font_color_disabled", Color(DIM.r, DIM.g, DIM.b, 0.6))
@@ -203,9 +368,9 @@ func make_button(text: String, target: Object, method: String, binds: Array = []
 func field(e: LineEdit) -> LineEdit:
 	e.theme = null
 	e.add_font_override("font", f_regular)
-	e.add_color_override("font_color", TEXT)
-	e.add_color_override("font_color_uneditable", DIM)
-	e.add_color_override("cursor_color", ACCENT)
+	e.add_color_override("font_color", FIELD_TEXT)
+	e.add_color_override("font_color_uneditable", Color(FIELD_TEXT.r, FIELD_TEXT.g, FIELD_TEXT.b, 0.6))
+	e.add_color_override("cursor_color", ACCENT if FIELD_BG.v < 0.5 else FIELD_TEXT)
 	e.add_stylebox_override("normal", flat(FIELD_BG, 3, Color(0, 0, 0, 0), 0, 14, 8))
 	e.add_stylebox_override("focus", flat(FIELD_BG, 3, LILAC, 1, 14, 8))
 	e.add_stylebox_override("read_only", flat(FIELD_BG, 3, Color(0, 0, 0, 0), 0, 14, 8))
@@ -227,18 +392,33 @@ func check(c: CheckBox) -> CheckBox:
 func scroll(sc: ScrollContainer) -> ScrollContainer:
 	sc.scroll_horizontal_enabled = false
 	var bar = sc.get_v_scrollbar()
-	var track = flat(Color(1, 1, 1, 0.04), 2)
-	track.content_margin_left = 3
-	track.content_margin_right = 3
-	var grab = flat(Color(LILAC.r, LILAC.g, LILAC.b, 0.45), 2)
-	var grab_hi = flat(Color(LILAC.r, LILAC.g, LILAC.b, 0.75), 2)
+	# (the bar is 6 px wide with 6 px of nothing on its left, so the rows end
+	# clear of it instead of touching or sliding under it)
+	var track = _bar_part(Color(1, 1, 1, 0.04))
+	var grab = _bar_part(Color(LILAC.r, LILAC.g, LILAC.b, 0.45))
+	var grab_hi = _bar_part(Color(LILAC.r, LILAC.g, LILAC.b, 0.75))
 	bar.add_stylebox_override("scroll", track)
 	bar.add_stylebox_override("scroll_focus", track)
 	bar.add_stylebox_override("grabber", grab)
 	bar.add_stylebox_override("grabber_highlight", grab_hi)
 	bar.add_stylebox_override("grabber_pressed", grab_hi)
-	bar.rect_min_size.x = 8
+	bar.rect_min_size.x = 12
+	# (the list is laid out before the bar decides to show: laid out again when
+	# it does, so the rows end beside the bar and not under it)
+	if not bar.is_connected("visibility_changed", sc, "queue_sort"):
+		bar.connect("visibility_changed", sc, "queue_sort")
 	return sc
+
+static func _bar_part(col: Color) -> StyleBoxFlat:
+	var s = StyleBoxFlat.new()
+	s.bg_color = col
+	s.set_corner_radius_all(3)
+	s.anti_aliasing = true
+	s.border_width_left = 6 # (see-through: the gap)
+	s.border_color = Color(col.r, col.g, col.b, 0)
+	s.content_margin_left = 6
+	s.content_margin_right = 6
+	return s
 
 # a small coloured tag ("HOST", "IN GAME")
 func badge(text: String, col: Color) -> PanelContainer:

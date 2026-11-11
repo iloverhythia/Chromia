@@ -200,32 +200,78 @@ static func load_project(project_id: String):
 	return pr
 
 # [{pid, title, mapper, notes, modified, has_cover}] newest first
+# Every project's title, mapper, note count... for the editor's start screen.
+# A project's file holds all its notes, so each one's summary is kept (in
+# memory and in _index.json) with the file's modified time and size, and only a project
+# that changed is read again: opening the Map Editor read every project whole.
+const INDEX := "_index.json"
 static func list_projects() -> Array:
 	var out := []
 	var d = Directory.new()
 	if d.open(root_dir()) != OK:
 		return out
+	var idx := _index()
+	var seen := {}
+	var changed := false
+	var f := File.new()
 	d.list_dir_begin(true, true)
 	var n = d.get_next()
 	while n != "":
 		if d.current_is_dir():
-			var txt := _read_text(root_dir().plus_file(n).plus_file("project.json"))
-			if txt != "":
-				var p = JSON.parse(txt)
-				if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
-					var r: Dictionary = p.result
-					var count := int(r.get("note_count", 0))
-					var nn = r.get("notes", null)
-					if nn is Array:
-						count = nn.size() / 3
-					out.append({
-						"pid": n, "title": Globals.s(r.get("title", n)), "mapper": Globals.s(r.get("mapper", "")),
-						"notes": count, "modified": int(r.get("modified", 0)), "has_cover": bool(r.get("has_cover", false)),
-					})
+			var path: String = root_dir().plus_file(n).plus_file("project.json")
+			# (modified time and size: two saves in the same second differ in size)
+			var mt: int = 0
+			if f.open(path, File.READ) == OK:
+				mt = f.get_modified_time(path) * 1000 + f.get_len() % 1000
+				f.close()
+			var row = idx.get(n)
+			if not (row is Dictionary) or int(row.get("mt", -1)) != mt:
+				row = {"mt": mt, "p": _summary(n, path)}
+				idx[n] = row
+				changed = true
+			seen[n] = true
+			if row.p is Dictionary:
+				out.append(row.p)
 		n = d.get_next()
 	d.list_dir_end()
+	for k in idx.keys():
+		if not seen.has(k):
+			idx.erase(k)
+			changed = true
+	if changed:
+		_write_text(root_dir().plus_file(INDEX), to_json(idx))
 	out.sort_custom(load("res://scripts/editor/EditorProject.gd"), "_newest_first")
 	return out
+
+# (null: not a project)
+static func _summary(n: String, path: String):
+	var txt := _read_text(path)
+	if txt == "":
+		return null
+	var p = JSON.parse(txt)
+	if p.error != OK or typeof(p.result) != TYPE_DICTIONARY:
+		return null
+	var r: Dictionary = p.result
+	var count := int(r.get("note_count", 0))
+	var nn = r.get("notes", null)
+	if nn is Array:
+		count = nn.size() / 3
+	return {
+		"pid": n, "title": Globals.s(r.get("title", n)), "mapper": Globals.s(r.get("mapper", "")),
+		"notes": count, "modified": int(r.get("modified", 0)), "has_cover": bool(r.get("has_cover", false)),
+	}
+
+static func _index() -> Dictionary:
+	if Engine.has_meta("editor_project_index"):
+		return Engine.get_meta("editor_project_index")
+	var idx := {}
+	var txt := _read_text(root_dir().plus_file(INDEX))
+	if txt != "":
+		var p = JSON.parse(txt)
+		if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
+			idx = p.result
+	Engine.set_meta("editor_project_index", idx)
+	return idx
 
 static func _newest_first(a, b) -> bool:
 	return a.modified > b.modified

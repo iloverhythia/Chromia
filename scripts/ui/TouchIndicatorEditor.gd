@@ -112,8 +112,8 @@ func _build():
 	_row(rows, "Shape", shape)
 	_slider(rows, "size", "Size", 8, 200, 1, "%d px")
 	_slider(rows, "thickness", "Outline width", 0.5, 20, 0.5, "%.1f px")
-	_color(rows, "color", "Outline colour")
-	_color(rows, "fill", "Fill colour")
+	_color(rows, "color", "Outline color")
+	_color(rows, "fill", "Fill color")
 	_slider(rows, "opacity", "Opacity", 0.05, 1, 0.05, "%d%%", 100)
 
 	_section(rows, "Animation")
@@ -125,7 +125,7 @@ func _build():
 	_check(rows, "trail", "Trail behind moving fingers")
 	_slider(rows, "trail_time", "Trail length", 0.05, 1.5, 0.05, "%.2f s")
 	_slider(rows, "trail_width", "Trail width", 0.05, 1.5, 0.05, "%d%%", 100)
-	_check(rows, "rainbow", "Rainbow colours")
+	_check(rows, "rainbow", "Rainbow colors")
 	_slider(rows, "rainbow_speed", "Rainbow speed", 0.05, 4, 0.05, "%.2fx")
 
 	_section(rows, "Where")

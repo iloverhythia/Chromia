@@ -229,9 +229,9 @@ func _build_lobby_ui():
 	code_row.add_child(lobby_copy_code_button)
 	lobby_active_box.add_child(code_row)
 
-	lobby_map_label = Label.new()
-	lobby_map_label.text = "Map: none"
-	lobby_map_label.autowrap = true
+	# (one line each, ending in "…" when the name is long: EllipsisLabel.gd)
+	lobby_map_label = load("res://scripts/ui/EllipsisLabel.gd").new()
+	lobby_map_label.full = "Map: none"
 	lobby_map_label.theme = ui_theme
 	lobby_active_box.add_child(lobby_map_label)
 
@@ -239,9 +239,8 @@ func _build_lobby_ui():
 	lobby_map_button.connect("pressed", self, "_on_use_current_map_pressed")
 	lobby_active_box.add_child(lobby_map_button)
 
-	lobby_selected_map_label = Label.new()
-	lobby_selected_map_label.text = "Selected: none"
-	lobby_selected_map_label.autowrap = true
+	lobby_selected_map_label = load("res://scripts/ui/EllipsisLabel.gd").new()
+	lobby_selected_map_label.full = "Selected: none"
 	lobby_selected_map_label.theme = ui_theme
 	lobby_active_box.add_child(lobby_selected_map_label)
 
@@ -447,6 +446,10 @@ func _build_profile_ui():
 	profile_toggle_button.connect("pressed", self, "_toggle_profile_panel")
 	profile_canvas.add_child(profile_toggle_button)
 
+	# The panel on the right of the Profile page (Profile / Leaderboard / Stats).
+	# It looks like the "Your Profile" side next to it and the Online page
+	# (OnlineStyle.gd): the same dark panel, tabs, pink headings and row cards.
+	var S = _online_style()
 	profile_panel = PanelContainer.new()
 	profile_panel.rect_min_size = Vector2(340, 360)
 	profile_panel.anchor_top = 1.0
@@ -456,66 +459,67 @@ func _build_profile_ui():
 	profile_panel.margin_top = -420
 	profile_panel.margin_bottom = -60
 	profile_panel.theme = ui_theme
+	# (as solid as the Online page's panel, and "Your Profile" beside it: ProfilePage.gd)
+	profile_panel.add_stylebox_override("panel", S.flat(S.WINDOW_BG, 8, Color(1, 1, 1, 0.07), 1, 16, 14))
 	profile_panel.visible = false
 	profile_canvas.add_child(profile_panel)
 
-	var margin = MarginContainer.new()
-	margin.add_constant_override("margin_left", 16)
-	margin.add_constant_override("margin_right", 16)
-	margin.add_constant_override("margin_top", 14)
-	margin.add_constant_override("margin_bottom", 14)
-	profile_panel.add_child(margin)
+	var root = VBoxContainer.new()
+	root.add_constant_override("separation", 10)
+	profile_panel.add_child(root)
 
+	var tab_row = HBoxContainer.new()
+	tab_row.add_constant_override("separation", 8)
+	root.add_child(tab_row)
+	root.add_child(S.rule())
+
+	# (the pages still sit in a TabContainer, its own tab bar hidden)
 	var tabs = TabContainer.new()
-	tabs.theme = ui_theme
-	margin.add_child(tabs)
+	tabs.name = "ProfileTabs"
+	tabs.tabs_visible = false
+	tabs.add_stylebox_override("panel", StyleBoxEmpty.new())
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(tabs)
+	profile_tabs = tabs
 
+	var pscroll = S.scroll(ScrollContainer.new())
+	pscroll.name = "Profile"
+	tabs.add_child(pscroll)
 	var pvbox = VBoxContainer.new()
-	pvbox.name = "Profile"
-	pvbox.add_constant_override("separation", 8)
-	tabs.add_child(pvbox)
+	pvbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pvbox.add_constant_override("separation", 12)
+	pscroll.add_child(pvbox)
 
 	var discord_hbox = HBoxContainer.new()
-	discord_hbox.add_constant_override("separation", 8)
-	discord_button = _make_button("Connect Discord", ui_theme)
-	discord_button.connect("pressed", self, "_on_discord_button_pressed")
+	discord_hbox.add_constant_override("separation", 12)
+	discord_button = S.make_button("Connect Discord", self, "_on_discord_button_pressed", [], true)
 	discord_hbox.add_child(discord_button)
-	discord_status_label = Label.new()
-	discord_status_label.theme = ui_theme
-	discord_status_label.autowrap = true
-	discord_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	discord_status_label = S.label("", S.f_regular, S.DIM, true)
+	discord_status_label.valign = Label.VALIGN_CENTER
+	discord_status_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	discord_hbox.add_child(discord_status_label)
 	pvbox.add_child(discord_hbox)
 
-	xp_total_label = Label.new()
-	xp_total_label.theme = ui_theme
-	xp_total_label.text = "XP: %d" % Rhythia.jp
-	pvbox.add_child(xp_total_label)
-
-	sp_total_label = Label.new()
-	sp_total_label.theme = ui_theme
-	sp_total_label.text = "SP: %d" % Rhythia.sp
-	pvbox.add_child(sp_total_label)
-
+	var tiles = GridContainer.new()
+	tiles.columns = 4
+	tiles.add_constant_override("hseparation", 8)
+	tiles.add_constant_override("vseparation", 8)
+	pvbox.add_child(tiles)
+	xp_total_label = S.tile(tiles, Globals.comma_sep(int(Rhythia.jp)), "XP")
+	sp_total_label = S.tile(tiles, Globals.comma_sep(int(Rhythia.sp)), "SP")
 	# Offline RP: earned on this computer, works with the servers down.
-	rp_total_label = Label.new()
-	rp_total_label.theme = ui_theme
-	rp_total_label.hint_tooltip = "Rhythia Points, earned offline from passes. Your best play on each map counts; play n is worth 97%^(n-1)."
-	rp_total_label.mouse_filter = Control.MOUSE_FILTER_PASS
-	pvbox.add_child(rp_total_label)
-
-	var time_label = Label.new()
-	time_label.theme = ui_theme
+	rp_total_label = S.tile(tiles, "0", "RP", "Rhythia Points, earned offline from passes. Your best play on each map counts; play n is worth 97%^(n-1).")
 	var ms = int(Rhythia.get_lifetime_stats().get("play_time_ms", 0))
-	time_label.text = "Time played: %s" % _fmt_duration(ms)
-	time_label.hint_tooltip = "Time spent actually playing maps (since stats started being tracked)"
-	time_label.mouse_filter = Control.MOUSE_FILTER_PASS
-	pvbox.add_child(time_label)
+	S.tile(tiles, _fmt_duration(ms), "Time played", "Time spent actually playing maps (since stats started being tracked)")
 
 	# Level / Prestige (offline, like BeatLeader): scripts/PlayerLevel.gd
+	var level_card = PanelContainer.new()
+	level_card.add_stylebox_override("panel", S.flat(S.CARD_BG, 4, Color(1, 1, 1, 0.04), 1))
+	pvbox.add_child(level_card)
 	var level_bar = preload("res://scripts/ui/menu/LevelBar.gd").new()
 	level_bar.name = "LevelBar"
-	pvbox.add_child(level_bar)
+	level_card.add_child(level_bar)
+	level_bar.use_style(S)
 
 	lobby_name_input = LineEdit.new()
 	lobby_name_input.placeholder_text = "Your display name"
@@ -529,21 +533,16 @@ func _build_profile_ui():
 	pvbox.add_child(lobby_name_input)
 
 	var rp_head = HBoxContainer.new()
-	var rp_title = Label.new()
-	rp_title.theme = ui_theme
-	rp_title.text = "Top 10 RP plays"
-	rp_title.add_color_override("font_color", Color(1, 0.756863, 0.960784))
+	var rp_title = S.heading("Top 10 RP plays")
 	rp_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rp_head.add_child(rp_title)
-	var rp_reset = Button.new()
-	rp_reset.theme = ui_theme
-	rp_reset.text = "Reset RP"
+	var rp_reset = S.make_button("Reset RP", self, "_on_reset_rp", [], false, true)
 	rp_reset.hint_tooltip = "Forget every offline RP play and start your RP from 0 (your XP, SP and level stay)"
-	rp_reset.connect("pressed", self, "_on_reset_rp")
+	rp_reset.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	rp_head.add_child(rp_reset)
 	pvbox.add_child(rp_head)
 	rp_top_box = VBoxContainer.new()
-	rp_top_box.add_constant_override("separation", 2)
+	rp_top_box.add_constant_override("separation", 6)
 	pvbox.add_child(rp_top_box)
 	var rp_store = preload("res://scripts/RhythiaPoints.gd").get_store()
 	rp_store.connect("changed", self, "_refresh_rp")
@@ -551,43 +550,67 @@ func _build_profile_ui():
 
 	var lvbox = VBoxContainer.new()
 	lvbox.name = "Leaderboard"
-	lvbox.add_constant_override("separation", 8)
+	lvbox.add_constant_override("separation", 12)
 	tabs.add_child(lvbox)
+
+	var lb_head = HBoxContainer.new()
+	var lb_title = S.heading("Top players")
+	lb_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lb_head.add_child(lb_title)
+	var refresh_btn = S.make_button("Refresh", self, "_on_refresh_leaderboard_pressed", [], false, true)
+	refresh_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lb_head.add_child(refresh_btn)
+	lvbox.add_child(lb_head)
 
 	var mode_hbox = HBoxContainer.new()
 	mode_hbox.add_constant_override("separation", 8)
-	# Weighted (SP) first, as on the website
-	leaderboard_mode_weighted_btn = _make_button("Weighted", ui_theme)
-	leaderboard_mode_weighted_btn.connect("pressed", self, "_on_leaderboard_mode_pressed", [1])
-	mode_hbox.add_child(leaderboard_mode_weighted_btn)
-	leaderboard_mode_additive_btn = _make_button("Additive", ui_theme)
-	leaderboard_mode_additive_btn.connect("pressed", self, "_on_leaderboard_mode_pressed", [0])
-	mode_hbox.add_child(leaderboard_mode_additive_btn)
+	# Weighted (SP) first, as on the website. The one that's on is `disabled`
+	# (_update_leaderboard_mode_buttons), so that state is the lit one here
+	leaderboard_mode_weighted_btn = S.make_button("Weighted", self, "_on_leaderboard_mode_pressed", [1], false, true)
+	leaderboard_mode_weighted_btn.hint_tooltip = "Ranked by SP"
+	leaderboard_mode_additive_btn = S.make_button("Additive", self, "_on_leaderboard_mode_pressed", [0], false, true)
+	leaderboard_mode_additive_btn.hint_tooltip = "Ranked by XP"
+	for mb in [leaderboard_mode_weighted_btn, leaderboard_mode_additive_btn]:
+		mb.add_stylebox_override("disabled", S.flat(Color(S.LILAC.r, S.LILAC.g, S.LILAC.b, 0.3), 3, S.LILAC, 1, 12, 4))
+		mb.add_color_override("font_color_disabled", S.TEXT)
+		mode_hbox.add_child(mb)
 	# (the plays on one kind of device: LbModes.gd)
-	leaderboard_device = load("res://scripts/ui/LbModes.gd").make(self, "_on_leaderboard_device")
-	leaderboard_device.theme = ui_theme
+	leaderboard_device = S.dropdown(load("res://scripts/ui/LbModes.gd").make(self, "_on_leaderboard_device"))
 	mode_hbox.add_child(leaderboard_device)
 	lvbox.add_child(mode_hbox)
 	_update_leaderboard_mode_buttons()
 
-	var refresh_btn = _make_button("Refresh", ui_theme)
-	refresh_btn.connect("pressed", self, "_on_refresh_leaderboard_pressed")
-	lvbox.add_child(refresh_btn)
-
-	var leaderboard_scroll = ScrollContainer.new()
+	var leaderboard_scroll = S.scroll(ScrollContainer.new())
 	leaderboard_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	lvbox.add_child(leaderboard_scroll)
 
 	leaderboard_list_box = VBoxContainer.new()
-	leaderboard_list_box.add_constant_override("separation", 4)
+	leaderboard_list_box.add_constant_override("separation", 8)
 	leaderboard_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	leaderboard_scroll.add_child(leaderboard_list_box)
+	# (profile pictures load for the rows in view: _lb_load_pics)
+	leaderboard_scroll.get_v_scrollbar().connect("value_changed", self, "_lb_pics_soon")
+	leaderboard_list_box.connect("visibility_changed", self, "_lb_pics_soon")
+	_build_leaderboard_rows(leaderboard_list_box, [], "sp", "SP")
 
 	# Stats (used to be its own sidebar page)
 	var stats_tab = preload("res://prefabs/menu/stats_page.tscn").instance()
 	stats_tab.name = "Stats"
 	stats_tab.compact = true
+	stats_tab.style = S
 	tabs.add_child(stats_tab)
+
+	# the tabs, as on the Online page
+	_profile_tab_btns = []
+	for i in range(tabs.get_child_count()):
+		var tb: Button = S.tab(Button.new())
+		tb.text = tabs.get_child(i).name
+		tb.rect_min_size = Vector2(0, 44)
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tb.pressed = i == 0
+		tb.connect("pressed", self, "_show_profile_tab", [i])
+		tab_row.add_child(tb)
+		_profile_tab_btns.append(tb)
 
 	tabs.connect("tab_changed", self, "_on_profile_tab_changed")
 
@@ -596,8 +619,20 @@ func _build_profile_ui():
 func _toggle_profile_panel():
 	profile_panel.visible = not profile_panel.visible
 
-func _on_profile_tab_changed(tab_index: int):
+var profile_tabs: TabContainer
+var _profile_tab_btns := []
+func _show_profile_tab(i: int):
+	if profile_tabs == null:
+		return
+	profile_tabs.current_tab = int(clamp(i, 0, profile_tabs.get_child_count() - 1))
+	_mark_profile_tab()
 
+func _mark_profile_tab():
+	for j in range(_profile_tab_btns.size()):
+		_profile_tab_btns[j].pressed = j == profile_tabs.current_tab
+
+func _on_profile_tab_changed(tab_index: int):
+	_mark_profile_tab()
 	if tab_index == 1 and not _leaderboard_loaded:
 		_leaderboard_loaded = true
 		_update_leaderboard_mode_buttons()
@@ -638,36 +673,212 @@ func _update_leaderboard_mode_buttons():
 	leaderboard_mode_additive_btn.disabled = _leaderboard_mode == 0
 	leaderboard_mode_weighted_btn.disabled = _leaderboard_mode == 1
 
+# the names you go by (to light your own row on the leaderboard)
+func _my_names() -> Array:
+	var names := []
+	for n in [Rhythia.website_name, Rhythia.discord_user.get("username", ""), Rhythia.discord_user.get("display_name", "")]:
+		if String(n).strip_edges() != "":
+			names.append(String(n).strip_edges().to_lower())
+	return names
+
+# a leaderboard row's level, as "Lv 32" or "P1 Lv 32" with a prestige. The
+# server sends {level, prestige, exp, need, progress} (older ones: a number)
+static func _lb_int(v) -> int:
+	return int(v) if (v is int or v is float) else (int(String(v)) if v is String else 0)
+
+static func _lb_level_text(v) -> String:
+	var lvl := 0
+	var prestige := 0
+	if v is Dictionary:
+		var l = v.get("level", 0)
+		var p = v.get("prestige", 0)
+		lvl = int(l) if (l is int or l is float) else 0
+		prestige = int(p) if (p is int or p is float) else 0
+	elif v is int or v is float:
+		lvl = int(v)
+	if lvl <= 0 and prestige <= 0:
+		return ""
+	return ("P%d Lv %d" % [prestige, lvl]) if prestige > 0 else ("Lv %d" % lvl)
+
+const LB_MEDALS = [Color(1, 0.84, 0.3), Color(0.8, 0.84, 0.9), Color(0.87, 0.6, 0.38)]
+const LB_SITE := "https://savia.nysr.host"
+const LB_RANKED_TEAM := Color(1, 0.431, 0.29) # (the website's "Ranked Team" orange)
+
+# a country's flag from its two letters ("US"), from the emoji pack; null when unknown
+static func _lb_flag(code) -> Texture:
+	var c := String(code).to_upper() if code is String else ""
+	if c.length() != 2:
+		return null
+	var a := c.ord_at(0) - 65
+	var b := c.ord_at(1) - 65
+	if a < 0 or a > 25 or b < 0 or b > 25:
+		return null
+	return load("res://scripts/ui/Emoji.gd")._texture("%x-%x" % [0x1F1E6 + a, 0x1F1E6 + b])
+
+# The leaderboard's rows, with what the website's leaderboard shows: place,
+# country, profile picture, name with their tag and Ranked Team, level and
+# ranked plays, the XP / SP and the lead over the next player. A click opens
+# their profile on the website.
+var _lb_pics := [] # [row, slot, name, url]: pictures still to load (as their rows come into view)
 func _build_leaderboard_rows(list_box: VBoxContainer, entries: Array, value_key: String = "xp", unit: String = "XP"):
 	if list_box == null:
 		return
+	var S = _online_style()
 	for child in list_box.get_children():
+		list_box.remove_child(child)
 		child.queue_free()
+	_lb_pics.clear()
+	if list_box.get_parent() is ScrollContainer:
+		list_box.get_parent().scroll_vertical = 0 # (a new list starts at its top)
 	if entries.size() == 0:
-		var empty = Label.new()
-		empty.text = "No leaderboard data yet."
-		list_box.add_child(empty)
+		list_box.add_child(S.label("No leaderboard data yet.", S.f_regular, S.DIM))
 		return
-	var ui_theme = load("res://uitheme.tres")
+	var me := _my_names()
+	# (no empty flag slots before any country is known)
+	var flags := false
+	for e in entries:
+		if e is Dictionary and _lb_flag(e.get("country")) != null:
+			flags = true
+			break
 	for i in range(entries.size()):
-		var e = entries[i]
-		var row = HBoxContainer.new()
-		row.add_constant_override("separation", 8)
-		var rank_label = Label.new()
-		rank_label.text = "#%d" % (i + 1)
-		rank_label.theme = ui_theme
-		rank_label.rect_min_size = Vector2(36, 0)
-		row.add_child(rank_label)
-		var name_label = Label.new()
-		name_label.text = Globals.s(e.get("name", "Player"))
-		name_label.theme = ui_theme
-		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(name_label)
-		var value_label = Label.new()
-		value_label.text = "%d %s" % [int(e.get(value_key, 0)), unit]
-		value_label.theme = ui_theme
-		row.add_child(value_label)
-		list_box.add_child(row)
+		if entries[i] is Dictionary:
+			_lb_row(list_box, entries, i, value_key, unit, me, flags)
+	_lb_pics_soon()
+
+func _lb_row(list_box: VBoxContainer, entries: Array, i: int, value_key: String, unit: String, me: Array, flags: bool):
+	var S = _online_style()
+	var e: Dictionary = entries[i]
+	var nm: String = Globals.s(e.get("name", "Player"))
+	var mine: bool = me.has(nm.strip_edges().to_lower())
+	var number := _lb_int(e.get("number", 0))
+
+	var p = PanelContainer.new()
+	var normal = S.flat(S.CARD_HOVER if mine else S.CARD_BG, 4, S.LILAC if mine else Color(1, 1, 1, 0.04), 1, 12, 8)
+	var hover = S.flat(S.CARD_HOVER, 4, S.LILAC if mine else Color(1, 1, 1, 0.14), 1, 12, 8)
+	p.add_stylebox_override("panel", normal)
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if number > 0 and not Rhythia.vr:
+		p.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		p.hint_tooltip = "Open %s's profile on the website" % nm
+		p.connect("mouse_entered", p, "add_stylebox_override", ["panel", hover])
+		p.connect("mouse_exited", p, "add_stylebox_override", ["panel", normal])
+		p.connect("gui_input", self, "_on_lb_row_input", [number])
+	list_box.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_constant_override("separation", 10)
+	p.add_child(h)
+
+	var rk = S.label("#%d" % (i + 1), S.f_bold, LB_MEDALS[i] if i < LB_MEDALS.size() else S.DIM)
+	rk.rect_min_size = Vector2(32, 0)
+	h.add_child(rk)
+
+	if flags:
+		var fl = TextureRect.new()
+		fl.expand = true
+		fl.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fl.rect_min_size = Vector2(22, 22)
+		fl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		fl.texture = _lb_flag(e.get("country"))
+		if fl.texture != null:
+			fl.hint_tooltip = String(e.get("country")).to_upper()
+			fl.mouse_filter = Control.MOUSE_FILTER_PASS
+		else:
+			fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(fl)
+
+	# their picture: the initial for now, the picture once the row is in view
+	var slot = Control.new()
+	slot.rect_min_size = Vector2(36, 36)
+	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(S.initial(nm))
+	h.add_child(slot)
+	var url = e.get("avatar_url")
+	if url is String and url != "":
+		_lb_pics.append([p, slot, nm, url])
+
+	# name, tag and Ranked Team over level and ranked plays; it fits the room
+	# that's left without cutting anything in half (LbRowText.gd)
+	var tag_node: Control = null
+	var tag = e.get("tag")
+	if tag is Dictionary and String(tag.get("text", "")).strip_edges() != "":
+		var tc := String(tag.get("color", "")) if tag.get("color") is String else ""
+		tag_node = S.badge(Globals.s(tag.get("text")), Color(tc) if tc.is_valid_html_color() else S.LILAC)
+	var lv := _lb_level_text(e.get("level"))
+	var long_bits := PoolStringArray()
+	var short_bits := PoolStringArray()
+	if lv != "":
+		long_bits.append(lv)
+		short_bits.append(lv)
+	if e.has("pass_count"):
+		var pc := _lb_int(e.get("pass_count"))
+		long_bits.append("%s ranked %s" % [Globals.comma_sep(pc), "play" if pc == 1 else "plays"])
+		short_bits.append("%s %s" % [Globals.comma_sep(pc), "play" if pc == 1 else "plays"])
+	var variants := [long_bits.join("  ·  "), short_bits.join("  ·  ")]
+	if lv != "":
+		variants.append(lv)
+	var text = load("res://scripts/ui/menu/LbRowText.gd").new()
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text.setup(S, nm, tag_node, e.get("is_ranker") == true, LB_RANKED_TEAM, variants)
+	h.add_child(text)
+
+	var right = VBoxContainer.new()
+	right.add_constant_override("separation", 0)
+	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(right)
+	var value := _lb_int(e.get(value_key, 0))
+	var val = S.label("%s %s" % [Globals.comma_sep(value), unit], S.f_bold, S.ACCENT)
+	val.align = Label.ALIGN_RIGHT
+	right.add_child(val)
+	# (the lead over the next player, as on the website)
+	if i + 1 < entries.size() and entries[i + 1] is Dictionary:
+		var lead = S.label("+%s" % Globals.comma_sep(int(max(value - _lb_int(entries[i + 1].get(value_key, 0)), 0))), S.f_small, S.DIM)
+		lead.align = Label.ALIGN_RIGHT
+		right.add_child(lead)
+
+var _lb_press_at := Vector2(-1000, -1000)
+func _on_lb_row_input(ev: InputEvent, number: int):
+	if not (ev is InputEventMouseButton) or ev.button_index != BUTTON_LEFT:
+		return
+	if ev.pressed:
+		_lb_press_at = ev.global_position
+	elif _lb_press_at.distance_to(ev.global_position) < 8.0: # (a click, not the end of a drag)
+		_lb_press_at = Vector2(-1000, -1000)
+		OS.shell_open(LB_SITE + "/profile?id=%d" % number)
+
+# Pictures are loaded for the rows you can see (a few at a time), and the rest
+# as you scroll to them: not a hundred downloads when the list opens
+var _lb_pics_queued := false
+func _lb_pics_soon(_v = null):
+	if _lb_pics_queued or _lb_pics.empty() or not is_inside_tree():
+		return
+	_lb_pics_queued = true
+	get_tree().create_timer(0.08).connect("timeout", self, "_lb_load_pics")
+
+func _lb_load_pics():
+	_lb_pics_queued = false
+	if _lb_pics.empty() or leaderboard_list_box == null or not leaderboard_list_box.is_visible_in_tree():
+		return
+	var S = _online_style()
+	var sc: Control = leaderboard_list_box.get_parent()
+	var view := Rect2(sc.rect_global_position, sc.rect_size).grow(160)
+	var left := []
+	var started := 0
+	for it in _lb_pics:
+		if not is_instance_valid(it[0]):
+			continue
+		if started < 6 and view.intersects(Rect2(it[0].rect_global_position, it[0].rect_size)):
+			for c in it[1].get_children():
+				c.queue_free()
+			it[1].add_child(S.avatar(it[2], it[3], self))
+			started += 1
+		else:
+			left.append(it)
+	_lb_pics = left
+	if started >= 6:
+		_lb_pics_soon() # (more of them are in view)
 
 func _on_leaderboard_received(entries: Array):
 	_leaderboard_entries_additive = entries
@@ -1170,7 +1381,7 @@ func _unhandled_input(event: InputEvent):
 				ranker_canvas.visible = admin_canvas.visible
 			_save_admin_ui_hidden(not admin_canvas.visible)
 		else:
-			_toggle_admin_key_prompt()
+			Globals.notify(Globals.NOTIFY_INFO, "The admin tools are for staff: link the Discord account the owner gave permissions to (Settings > Online), then they show here.", "Admin")
 
 	if event.is_action_pressed("toggle_profile") and not event.echo and profile_canvas != null:
 		profile_canvas.visible = not profile_canvas.visible
@@ -1300,6 +1511,20 @@ func _set_action_key(action: String, event: InputEventKey):
 	config.save("user://settings.cfg")
 	if _rebinding_button != null:
 		_rebinding_button.text = _get_action_key_text(action)
+
+func _on_perms_changed():
+	var lm = _get_lobby_manager()
+	if lm == null:
+		return
+	if lm.has_admin_key() and admin_canvas == null:
+		_build_admin_ui()
+		for pair in [["admin_bans_received", "_on_admin_bans_received"], ["admin_all_lobbies_received", "_on_admin_lobbies_received"],
+				["admin_live_bans_received", "_on_admin_live_bans_received"], ["admin_rankers_received", "_on_admin_rankers_received"]]:
+			if not lm.is_connected(pair[0], self, pair[1]):
+				lm.connect(pair[0], self, pair[1])
+	elif not lm.has_admin_key() and admin_canvas != null:
+		admin_canvas.visible = false # (permissions taken away: hidden; the server refuses anything anyway)
+	_update_motd_button()
 
 func _toggle_admin_key_prompt():
 	if admin_key_canvas != null:
@@ -1691,8 +1916,8 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	var state = lobby_manager.lobby_state
 	lobby_status_label.text = "Hosting a lobby" if is_host else "In a lobby"
 	lobby_code_label.text = lobby_manager.lobby_code
-	lobby_map_label.text = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
-	lobby_selected_map_label.text = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
+	lobby_map_label.full = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
+	lobby_selected_map_label.full = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
 	lobby_map_button.disabled = not is_host
 	if lobby_pick_button != null and is_instance_valid(lobby_pick_button):
 		lobby_pick_button.visible = is_host
@@ -1773,7 +1998,8 @@ func _rebuild_player_list(players: Array, local_peer_id: int):
 		texts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(texts)
 		var you: bool = int(p.get("peer_id", -1)) == local_peer_id
-		texts.add_child(S.label(pname + ("  (you)" if you else ""), S.f_bold, S.TEXT))
+		# (a long name ends in "…" instead of pushing the card's buttons out)
+		texts.add_child(S.fit_label(pname + ("  (you)" if you else ""), S.f_bold, S.TEXT))
 		var state := "Ready"
 		var col: Color = S.PLAYING
 		if p.get("missing_map", false):
@@ -1859,7 +2085,9 @@ func _draw_lobby_line(line: RichTextLabel):
 	var lf = lobby_chat_input.get_font("font") if lobby_chat_input != null else null
 	var px: int = int(lf.get_height()) if lf != null else 18
 	line.clear()
+	var who: bool = preload("res://scripts/ui/ChatReactions.gd").name_start(line, String(d[2]), String(d[0]), _get_lobby_manager()) # (staff: right-click)
 	line.add_text(String(d[0]) + ": ")
+	preload("res://scripts/ui/ChatReactions.gd").name_end(line, who)
 	preload("res://scripts/ui/ChatCommands.gd").add_text(line, String(d[1]), px) # (emoji, share links)
 	preload("res://scripts/ui/ChatReactions.gd").add(line, String(d[2]), _get_lobby_manager(), int(px * 0.85)) # (reactions)
 
@@ -1870,6 +2098,20 @@ func _on_lobby_chat_reactions(mid: String):
 	for line in lobby_chat_log_box.get_children():
 		if line is RichTextLabel and line.has_meta("chat") and String(line.get_meta("chat")[2]) == mid:
 			_draw_lobby_line(line)
+
+# a message deleted by staff: its line goes (lobby chat and the small global chat)
+func _on_chat_deleted(mid: String):
+	for box in [lobby_chat_log_box, global_chat_log_box]:
+		if box == null or not is_instance_valid(box):
+			continue
+		for line in box.get_children():
+			var lm_id := ""
+			if line.has_meta("chat"):
+				lm_id = String(line.get_meta("chat")[2])
+			elif line.has_meta("chat_mid"):
+				lm_id = String(line.get_meta("chat_mid"))
+			if lm_id != "" and lm_id == mid:
+				line.queue_free()
 
 func _clear_lobby_chat():
 	if lobby_chat_log_box == null:
@@ -1909,6 +2151,9 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 	elif preload("res://scripts/ui/ChatMention.gd").mentions_me(text, _get_lobby_manager()):
 		line.add_color_override("font_color", Color(1.0, 0.55, 0.75)) # (you're mentioned)
 	global_chat_log_box.add_child(line)
+	var glm = _get_lobby_manager()
+	if glm != null:
+		preload("res://scripts/ui/ChatReactions.gd").moderate_label(line, String(glm.get("last_chat_id")) if glm.get("last_chat_id") != null else "", name, glm) # (staff: right-click)
 	while global_chat_log_box.get_child_count() > GLOBAL_CHAT_MAX_LINES:
 		global_chat_log_box.get_child(0).queue_free()
 	if global_chat_scroll != null:
@@ -2371,7 +2616,9 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	lobby_copy_code_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	code_card.add_child(lobby_copy_code_button)
 	code_row.queue_free()
-	# the map
+	# the map: its name and yours over the two buttons. (Beside the names the
+	# buttons left them a few pixels at the default window size, and a name
+	# came out one letter a line.)
 	var map_card = S.card(top)
 	map_card.get_parent().size_flags_stretch_ratio = 1.4
 	var map_texts := VBoxContainer.new()
@@ -2384,19 +2631,21 @@ func _build_online_active(S, players_caption, player_scroll, footer):
 	map_texts.add_child(lobby_selected_map_label)
 	lobby_selected_map_label.add_font_override("font", S.f_small)
 	lobby_selected_map_label.add_color_override("font_color", S.DIM)
+	var map_btns := HBoxContainer.new()
+	map_btns.add_constant_override("separation", 8)
+	map_texts.add_child(S.spacer(false))
+	map_texts.add_child(map_btns)
 	# Pick map: the lobby's own map picker (LobbyMapPicker.gd)
 	lobby_pick_button = Button.new()
 	lobby_pick_button.text = "Pick map"
 	lobby_pick_button.hint_tooltip = "Choose the lobby's map from a list of all your maps"
-	S.button(lobby_pick_button, true)
-	lobby_pick_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	S.button(lobby_pick_button, true, true)
 	lobby_pick_button.connect("pressed", self, "_open_lobby_map_picker")
-	map_card.add_child(lobby_pick_button)
+	map_btns.add_child(lobby_pick_button)
 	lobby_map_button.text = "Use selected"
 	lobby_map_button.hint_tooltip = "Use the map selected on the Maps page"
-	S.button(lobby_map_button)
-	lobby_map_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	map_card.add_child(lobby_map_button)
+	S.button(lobby_map_button, false, true)
+	map_btns.add_child(lobby_map_button)
 	box.add_child(S.rule())
 	# players
 	players_caption.queue_free()
@@ -2452,8 +2701,16 @@ func _style_chat_box(S, box: VBoxContainer, sc: ScrollContainer, input: LineEdit
 		var row = input.get_parent()
 		for c in row.get_children():
 			if c is Button:
-				S.button(c, true)
-				c.rect_min_size.x = 90
+				# Send is the wide lilac one; the emoji button a small dark square
+				# (it was as wide as Send, and cut the box's hint text short)
+				var is_send: bool = c.text.strip_edges() == "Send"
+				S.button(c, is_send)
+				c.rect_min_size.x = 90 if is_send else 44
+				if not is_send:
+					# (little padding, so its picture keeps its size in the small button)
+					c.add_stylebox_override("normal", S.flat(S.BTN_BG, 3, Color(0, 0, 0, 0), 0, 9, 7))
+					c.add_stylebox_override("hover", S.flat(S.BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 9, 7))
+					c.add_stylebox_override("pressed", S.flat(S.BTN_HOVER, 3, Color(0, 0, 0, 0), 0, 9, 7))
 
 func _on_code_entered(_t: String):
 	_on_join_lobby_pressed()
@@ -2570,6 +2827,7 @@ func _on_discord_login_changed():
 		discord_button.visible = true
 		discord_button.text = "Sign out"
 		discord_button.disabled = false
+		_online_style().button(discord_button, false)
 		discord_status_label.text = "✓ Discord: %s" % String(Rhythia.discord_user.username)
 
 		if lobby_name_input != null and lobby_name_input.text != String(Rhythia.discord_user.username):
@@ -2579,11 +2837,12 @@ func _on_discord_login_changed():
 		discord_button.visible = true
 		discord_button.text = "Connect Discord"
 		discord_button.disabled = false
+		_online_style().button(discord_button, true)
 		discord_status_label.text = Rhythia.discord_login_error
 
 func _on_jp_changed(awarded):
 	if xp_total_label != null:
-		xp_total_label.text = "XP: %d" % Rhythia.jp
+		xp_total_label.text = Globals.comma_sep(int(Rhythia.jp))
 
 static func _fmt_duration(ms: int) -> String:
 	var sec := int(ms / 1000)
@@ -2619,49 +2878,20 @@ func _on_reset_rp():
 func _refresh_rp():
 	if rp_total_label == null or not is_instance_valid(rp_total_label):
 		return
+	var S = _online_style()
 	var store = preload("res://scripts/RhythiaPoints.gd").get_store()
-	rp_total_label.text = "RP: %s" % Globals.comma_sep(int(round(store.total())))
+	rp_total_label.text = Globals.comma_sep(int(round(store.total())))
 	for c in rp_top_box.get_children():
 		c.queue_free()
 	var top: Array = store.top(10)
 	if top.empty():
-		var none = Label.new()
-		none.theme = rp_total_label.theme
-		none.text = "Pass a map to earn RP."
-		none.add_color_override("font_color", Color(1, 1, 1, 0.5))
-		rp_top_box.add_child(none)
+		rp_top_box.add_child(S.label("Pass a map to earn RP.", S.f_regular, S.DIM))
 		return
 	for i in range(top.size()):
 		var p: Dictionary = top[i]
-		var row = HBoxContainer.new()
-		row.add_constant_override("separation", 8)
-		var rank = Label.new()
-		rank.theme = rp_total_label.theme
-		rank.text = "#%d" % (i + 1)
-		rank.rect_min_size = Vector2(34, 0)
-		rank.add_color_override("font_color", Color(1, 1, 1, 0.55))
-		row.add_child(rank)
-		var nm = Label.new()
-		nm.theme = rp_total_label.theme
-		nm.text = Globals.s(p.get("name", p.id))
-		nm.clip_text = true
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nm.hint_tooltip = nm.text
-		nm.mouse_filter = Control.MOUSE_FILTER_PASS
-		row.add_child(nm)
-		var info = Label.new()
-		info.theme = rp_total_label.theme
-		info.text = "%.2f*  %sx  %.2f%%" % [float(p.stars), String(stepify(float(p.speed), 0.01)), float(p.acc) * 100.0]
-		info.add_color_override("font_color", Color(1, 1, 1, 0.6))
-		row.add_child(info)
-		var val = Label.new()
-		val.theme = rp_total_label.theme
-		val.text = "%d RP" % int(round(float(p.rp)))
-		val.rect_min_size = Vector2(70, 0)
-		val.align = Label.ALIGN_RIGHT
-		val.add_color_override("font_color", Color(1, 0.756863, 0.960784))
-		row.add_child(val)
-		rp_top_box.add_child(row)
+		S.row2(rp_top_box, "#%d" % (i + 1), Globals.s(p.get("name", p.id)),
+			"%.2f stars  ·  %sx speed  ·  %.2f%%" % [float(p.stars), String(stepify(float(p.speed), 0.01)), float(p.acc) * 100.0],
+			"%s RP" % Globals.comma_sep(int(round(float(p.rp)))))
 
 func _exit_tree():
 	var rp_store = preload("res://scripts/RhythiaPoints.gd").get_store()
@@ -2670,7 +2900,7 @@ func _exit_tree():
 
 func _on_sp_changed(awarded):
 	if sp_total_label != null:
-		sp_total_label.text = "SP: %d" % Rhythia.sp
+		sp_total_label.text = Globals.comma_sep(int(Rhythia.sp))
 
 func _on_use_current_map_pressed():
 	var lobby_manager = _get_lobby_manager()
@@ -2925,7 +3155,20 @@ func _ready():
 	var settings_tab_container = get_node_or_null("Main/Settings/S/F/TabContainer")
 	if settings_tab_container != null and settings_tab_container.has_node("Online") and settings_tab_container.has_node("Keybinds"):
 		settings_tab_container.move_child(settings_tab_container.get_node("Online"), settings_tab_container.get_node("Keybinds").get_index() + 1)
-	load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings")) # buttons and tabs stay put; only the page scrolls
+	# Settings' header: the new look with its search (Experimental > New
+	# Settings UI, on by default; not over Sound Space Mode's own skin), or the
+	# old one: buttons and tabs stay put, only the page scrolls
+	if Rhythia.new_settings_ui and not Rhythia.sound_space_mode and not Rhythia.modern_ui_on(): # (the Modern UI has its own Settings panel)
+		load("res://scripts/ui/settings/SettingsNewUI.gd").install(get_node_or_null("Main/Settings"))
+	else:
+		load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings"))
+	Engine.remove_meta("menu_style_dirty") # (this menu is built with the look as it is now)
+	if Rhythia.has_meta("reopen_page"):
+		call_deferred("_reopen_page", String(Rhythia.get_meta("reopen_page")))
+		Rhythia.remove_meta("reopen_page")
+	if Rhythia.has_meta("reopen_settings_tab"):
+		call_deferred("_reopen_settings", String(Rhythia.get_meta("reopen_settings_tab")))
+		Rhythia.remove_meta("reopen_settings_tab")
 	if has_node("Main/Settings") and not has_node("Main/Settings/SettingsPreview"):
 		get_node("Main/Settings").add_child(load("res://scripts/ui/settings/SettingsPreview.gd").new()) # the "Watching Auto play" preview window (Settings > UI > Settings Preview)
 	var lobby_manager = _get_lobby_manager()
@@ -2957,6 +3200,8 @@ func _ready():
 		lobby_manager.connect("chat_message_received", self, "_on_chat_message_received")
 		if lobby_manager.has_signal("chat_reactions_changed") and not lobby_manager.is_connected("chat_reactions_changed", self, "_on_lobby_chat_reactions"):
 			lobby_manager.connect("chat_reactions_changed", self, "_on_lobby_chat_reactions")
+		if lobby_manager.has_signal("chat_message_deleted") and not lobby_manager.is_connected("chat_message_deleted", self, "_on_chat_deleted"):
+			lobby_manager.connect("chat_message_deleted", self, "_on_chat_deleted")
 		lobby_manager.connect("global_chat_message_received", self, "_on_global_chat_message_received")
 		if lobby_manager.has_admin_key():
 			_build_admin_ui()
@@ -2964,6 +3209,9 @@ func _ready():
 			lobby_manager.connect("admin_all_lobbies_received", self, "_on_admin_lobbies_received")
 			lobby_manager.connect("admin_live_bans_received", self, "_on_admin_live_bans_received")
 			lobby_manager.connect("admin_rankers_received", self, "_on_admin_rankers_received")
+		# (staff permissions come after signing in: the admin tools then)
+		if lobby_manager.has_signal("perms_changed") and not lobby_manager.is_connected("perms_changed", self, "_on_perms_changed"):
+			lobby_manager.connect("perms_changed", self, "_on_perms_changed")
 		lobby_manager.connect("admin_player_tags_received", self, "_on_admin_player_tags_received")
 
 
@@ -3017,6 +3265,24 @@ func _on_mods_changed_for_lobby():
 		lobby_manager.push_current_mods()
 		lobby_manager.lobby_state.mods = lobby_manager._collect_current_mods()
 		_update_lobby_ui()
+
+# back in Settings on a category after the menu was loaded again (a setting
+# that changes the menu itself, like New Settings UI)
+func _reopen_page(page_name: String):
+	var page = get_node_or_null("Main/" + page_name)
+	var sidebar = get_node_or_null("Sidebar")
+	if page != null and sidebar != null:
+		sidebar.press_page(page)
+
+func _reopen_settings(tab: String):
+	var page = get_node_or_null("Main/Settings")
+	var sidebar = get_node_or_null("Sidebar")
+	if page == null or sidebar == null:
+		return
+	sidebar.press_page(page)
+	var tabs = page.get_node_or_null("S/F/TabContainer")
+	if tabs != null and tabs.has_node(tab):
+		tabs.current_tab = tabs.get_node(tab).get_index()
 
 func _process(delta):
 	_update_rank_button()

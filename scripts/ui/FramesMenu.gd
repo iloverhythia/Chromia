@@ -39,7 +39,7 @@ static func open_on(parent: Node):
 
 func _init():
 	S = OnlineStyle.new()
-	add_stylebox_override("panel", OnlineStyle.flat(OnlineStyle.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 22, 18))
+	add_stylebox_override("panel", OnlineStyle.flat(S.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 22, 18))
 	rect_min_size = Vector2(600, 0)
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 10)
@@ -54,14 +54,14 @@ func _init():
 	S.button(x)
 	x.connect("pressed", self, "close")
 	head.add_child(x)
-	v.add_child(S.label("The frame round your profile picture, in the game and on your website profile. Every card you unlock gives you its frame too.", S.f_small, OnlineStyle.DIM, true))
+	v.add_child(S.label("The frame round your profile picture, in the game and on your website profile. Every card you unlock gives you its frame too.", S.f_small, S.DIM, true))
 	v.add_child(S.rule())
 	_grid = GridContainer.new()
 	_grid.columns = 4
 	_grid.add_constant_override("hseparation", 10)
 	_grid.add_constant_override("vseparation", 10)
 	v.add_child(_grid)
-	_msg = S.label("Loading your frames...", S.f_small, OnlineStyle.DIM)
+	_msg = S.label("Loading your frames...", S.f_small, S.DIM)
 	v.add_child(_msg)
 
 func _ready():
@@ -120,8 +120,8 @@ func _tile(f: Dictionary) -> Control:
 	b.rect_min_size = Vector2(130, 150)
 	b.focus_mode = FOCUS_NONE
 	for st in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var bg: Color = OnlineStyle.CARD_HOVER if st == "hover" else OnlineStyle.CARD_BG
-		b.add_stylebox_override(st, OnlineStyle.flat(bg, 6, OnlineStyle.ACCENT if picked else Color(1, 1, 1, 0.08), 2 if picked else 1))
+		var bg: Color = S.CARD_HOVER if st == "hover" else S.CARD_BG
+		b.add_stylebox_override(st, OnlineStyle.flat(bg, 6, S.ACCENT if picked else Color(1, 1, 1, 0.08), 2 if picked else 1))
 	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND if have else CURSOR_ARROW
 	b.disabled = not have
 	b.hint_tooltip = ("Showing" if picked else "Use this frame") if have else "Locked"
@@ -138,14 +138,14 @@ func _tile(f: Dictionary) -> Control:
 	var fv = FrameView.new()
 	fv.set_frame(f)
 	pic.add_child(fv)
-	var nm: Label = S.label(String(f.get("name", "Frame")), S.f_bold, OnlineStyle.TEXT)
+	var nm: Label = S.label(String(f.get("name", "Frame")), S.f_bold, S.TEXT)
 	nm.align = Label.ALIGN_CENTER
 	nm.mouse_filter = MOUSE_FILTER_IGNORE
 	nm.anchor_right = 1
 	nm.margin_top = 104
 	nm.clip_text = true
 	b.add_child(nm)
-	var sub: Label = S.label("Showing" if picked else ("No frame" if String(f.get("style", "")) == "none" else ("" if have else "Locked")), S.f_small, OnlineStyle.ACCENT if picked else OnlineStyle.DIM)
+	var sub: Label = S.label("Showing" if picked else ("No frame" if String(f.get("style", "")) == "none" else ("" if have else "Locked")), S.f_small, S.ACCENT if picked else S.DIM)
 	sub.align = Label.ALIGN_CENTER
 	sub.mouse_filter = MOUSE_FILTER_IGNORE
 	sub.anchor_right = 1

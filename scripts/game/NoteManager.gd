@@ -42,7 +42,40 @@ func _fx_copy(tpl: Spatial, pool: Array) -> Spatial:
 	var d = tpl.duplicate()
 	if "_pool" in d:
 		d._pool = pool
+	if "_live" in d:
+		d._live = _fx_live
 	return d
+
+# Maps with thousands of notes a second: what a person can't tell apart is
+# done a few times a frame instead of once per note. A hit or miss effect, a
+# hit sound and a score popup each cost far more than the note itself, and at
+# that rate they froze the game for seconds at a time (and thousands of live
+# effects ran the engine out of memory slots: a crash). Normal maps, even
+# very fast ones, never reach these numbers, so nothing changes for them.
+const FX_PER_FRAME := 12 # hit / miss effects started in one frame
+const FX_LIVE_MAX := 160 # effects playing at once
+const HIT_SOUNDS_PER_FRAME := 6
+const POPUPS_PER_FRAME := 6
+# Notes still on their way are drawn up to this many at a time, nearest
+# first; the ones behind them appear as those are hit or missed. (Each drawn
+# note is placed every frame: thousands at once is what made dense maps lag.)
+const MAX_NOTES_AHEAD := 512
+var _fx_live := [0] # (shared with the effect copies: how many are playing)
+var _frame_fx := 0
+var _frame_hit_snd := 0
+var _frame_popups := 0
+var _frame_miss_snd := false
+func _new_frame_budget():
+	_frame_fx = 0
+	_frame_hit_snd = 0
+	_frame_popups = 0
+	_frame_miss_snd = false
+
+func _fx_ok() -> bool:
+	if _frame_fx >= FX_PER_FRAME or _fx_live[0] >= FX_LIVE_MAX:
+		return false
+	_frame_fx += 1
+	return true
 var missEffect: Spatial = null
 var hit_id: String = ""
 var miss_id: String = ""
@@ -93,7 +126,19 @@ func linstep(a: float, b: float, x: float):
 	if a == b: return float(x >= a)
 	return clamp(((x - a) / (b - a)), 0, 1)
 
+# (the notes' / approach squares' / spawn effect's MultiMesh, kept: this runs for
+# every note on screen every frame, and each lookup through its node adds up)
+var _mm_notes: MultiMesh = null
+var _mm_asq: MultiMesh = null
+var _mm_spawn: MultiMesh = null
+func _keep_multimeshes():
+	_mm_notes = _n_notes.multimesh
+	_mm_asq = _n_asq.multimesh
+	_mm_spawn = _n_spawn.multimesh
+
 func note_reposition(i: int):
+	if _mm_notes == null:
+		_keep_multimeshes()
 	var nd: Array = notes[i]
 	var real_position: Vector2 = nd[0]
 	var notems: float = nd[1]
@@ -123,15 +168,15 @@ func note_reposition(i: int):
 
 		if _f_spawn_effect:
 			var spawn_effect_t = 1 - clamp(4 * (_f_spawn_dist - current_dist) / _f_spawn_dist, 0, 1)
-			_n_spawn.multimesh.set_instance_color(slot, col)
+			_mm_spawn.set_instance_color(slot, col)
 			if spawn_effect_t != 0:
 				var effect_transform = Transform.IDENTITY
 				effect_transform.origin = nt.origin
 				effect_transform.basis = effect_transform.basis.scaled(Vector3.ONE * _f_note_size)
 				effect_transform.basis = effect_transform.basis.scaled(Vector3(1 * spawn_effect_t, 0.9 + (0.1 * spawn_effect_t), 1))
 				effect_transform.basis = effect_transform.basis.rotated(Vector3(1, 0, 0), deg2rad(90))
-				_n_spawn.multimesh.set_instance_transform(slot, effect_transform)
-			else: _n_spawn.multimesh.set_instance_transform(slot, Transform.IDENTITY.scaled(Vector3.ZERO))
+				_mm_spawn.set_instance_transform(slot, effect_transform)
+			else: _mm_spawn.set_instance_transform(slot, Transform.IDENTITY.scaled(Vector3.ZERO))
 
 		if _f_any_offset_mod:
 			var base_pos = real_position
@@ -175,8 +220,8 @@ func note_reposition(i: int):
 			alpha = min(fade_in, fade_out)
 
 
-		_n_notes.multimesh.set_instance_transform(slot, nt)
-		_n_notes.multimesh.set_instance_color(slot, Color(col.r, col.g, col.b, col.a * alpha))
+		_mm_notes.set_instance_transform(slot, nt)
+		_mm_notes.set_instance_color(slot, Color(col.r, col.g, col.b, col.a * alpha))
 		if asq:
 			var sc = (linstep(0, _f_spawn_dist, current_dist) + 0.6) * 0.4
 
@@ -186,24 +231,24 @@ func note_reposition(i: int):
 			if not _f_va_follow:
 				at.origin.z = 0
 
-			_n_asq.multimesh.set_instance_transform(slot, at)
+			_mm_asq.set_instance_transform(slot, at)
 			if _f_ghost:
-				_n_asq.multimesh.set_instance_color(slot, Color(1, 1, 1, 1 * alpha))
+				_mm_asq.set_instance_color(slot, Color(1, 1, 1, 1 * alpha))
 			else:
-				_n_asq.multimesh.set_instance_color(slot, Color(1, 1, 1, pow(linstep(_f_spawn_dist, 0, current_dist), 1.7)))
+				_mm_asq.set_instance_color(slot, Color(1, 1, 1, pow(linstep(_f_spawn_dist, 0, current_dist), 1.7)))
 
 
 
 		return true
 	else:
-		_n_notes.multimesh.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
-		_n_notes.multimesh.set_instance_color(slot, Color(0, 0, 0, 0))
+		_mm_notes.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
+		_mm_notes.set_instance_color(slot, Color(0, 0, 0, 0))
 		if asq:
-			_n_asq.multimesh.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
-			_n_asq.multimesh.set_instance_color(slot, Color(0, 0, 0, 0))
+			_mm_asq.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
+			_mm_asq.set_instance_color(slot, Color(0, 0, 0, 0))
 		if _f_spawn_effect:
-			_n_spawn.multimesh.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
-			_n_spawn.multimesh.set_instance_color(slot, Color(0, 0, 0, 0))
+			_mm_spawn.set_instance_transform(slot, Transform(Basis(), Vector3(0, 0, 10)))
+			_mm_spawn.set_instance_color(slot, Color(0, 0, 0, 0))
 
 
 
@@ -331,26 +376,59 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 	last_reposition_ms = ms
 
+	# Watching someone: their clock can jump ahead (joining late, after their
+	# pause, catching up). The notes it jumped over go at once, quietly (their
+	# hits and misses come from them). Gone through below, they grew the note
+	# list ten at a time and redid the whole pass each time: a freeze on maps
+	# with many notes.
+	if Grid != null and Grid.spectating:
+		var gone: float = ms - hit_window - 100
+		while current_note < notes.size() and notes[current_note][1] < gone:
+			if notes[current_note][2] == Globals.NSTATE_ACTIVE:
+				notes[current_note][2] = Globals.NSTATE_MISS
+			current_note += 1
+
+	var ahead := 0
+	var vis_notes := -1
+	var vis_spawn := -1
 	for i in range(max(current_note, rerun_start), notes.size()):
 		var notems: float = notes[i][1]
 		next_ms = notems
+		if notems > ms and not force:
+			ahead += 1
+			if ahead > MAX_NOTES_AHEAD:
+				# (see MAX_NOTES_AHEAD: the rest wait their turn, like the
+				# notes that are still too far away to see)
+				_mm_visible = i - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
+				if asq: _n_asq.multimesh.visible_instance_count = _mm_visible
+				if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = _mm_visible
+				return note_passed
 		if force:
 
 			note_reposition(i)
 		else:
 			if note_reposition(i) == false:
-
-				_mm_visible = i - current_note + 1; _n_notes.multimesh.visible_instance_count = _mm_visible
-				if asq: _n_asq.multimesh.visible_instance_count = i - current_note + 1
-				if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = i - current_note
+				# (how many note slots are drawn: worked out here for every
+				# note that isn't shown, as it always was, but told to the
+				# renderer once, when the pass ends. Telling it for each such
+				# note took about a tenth of a millisecond a time on a dense
+				# map: with thousands of notes going by a frame, that alone
+				# was the freeze.)
+				vis_notes = i - current_note + 1
+				vis_spawn = i - current_note
 				if ms < notems:
 
 					if notes[i][2] == Globals.NSTATE_ACTIVE:
+						_mm_visible = vis_notes; _n_notes.multimesh.visible_instance_count = _mm_visible
+						if asq: _n_asq.multimesh.visible_instance_count = vis_notes
+						if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = vis_spawn
 						return note_passed
 
-		if (i - current_note + 2) > _mm_count:
+		if (i - current_note + 2) > _mm_count and _mm_count < notes.size(): # (already all the notes: no use growing)
 			rerun_required = true
-			_mm_count = int(min(_mm_count + 10, notes.size()))
+			# (doubled, not ten more: each change clears the list and the pass
+			# starts over, so a dense map's first seconds redid it again and again)
+			_mm_count = int(min(max(_mm_count * 2, i - current_note + 12), notes.size()))
 			_n_notes.multimesh.instance_count = _mm_count
 			if asq: _n_asq.multimesh.instance_count = _mm_count
 			if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = _mm_count
@@ -369,12 +447,15 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					Rhythia.replay.note_miss(i)
 				notes[i][2] = Globals.NSTATE_MISS
 				if Rhythia.play_miss_snd and not spectating_now:
+					# (the one miss sound, started once a frame: started again
+					# for every miss of the same frame it sounds no different)
 					if Rhythia.sfx_2d:
-						$Miss2D.play()
+						if not _frame_miss_snd: $Miss2D.play()
 					else:
 						$Miss.transform = notes[i][5]
-						$Miss.play()
-				if missEffect != null and Rhythia.show_miss_effect and not spectating_now:
+						if not _frame_miss_snd: $Miss.play()
+					_frame_miss_snd = true
+				if missEffect != null and Rhythia.show_miss_effect and not spectating_now and _fx_ok():
 					var np: Vector3 = _note_fx_pos(i)
 					var pos: Vector3 = Vector3(np.x, np.y, 0.002)
 					_fx_copy(missEffect, _miss_fx_pool).spawn(self, pos, notes[i][3], miss_id, true)
@@ -392,14 +473,15 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					Rhythia.replay.note_hit(i)
 				notes[i][2] = Globals.NSTATE_HIT
 
-				if Rhythia.play_hit_snd and not spectating_now:
+				if Rhythia.play_hit_snd and not spectating_now and _frame_hit_snd < HIT_SOUNDS_PER_FRAME:
+					_frame_hit_snd += 1
 					SFXManager.play_hitsfx(notes[i][5])
 				var pos: Vector3 = Vector3(
 					_n_cursor.global_transform.origin.x,
 					_n_cursor.global_transform.origin.y,
 					0.002
 				)
-				if hitEffect != null and Rhythia.show_hit_effect and not Rhythia.visual_mode and not spectating_now:
+				if hitEffect != null and Rhythia.show_hit_effect and not Rhythia.visual_mode and not spectating_now and _fx_ok():
 					var fx_pos: Vector3 = pos
 					if not Rhythia.hit_effect_at_cursor:
 						var note_origin: Vector3 = global_transform.xform(_note_fx_pos(i))
@@ -416,13 +498,16 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 						var ssm = get_parent().get_node_or_null("HUD/SoundSpaceMode")
 						if ssm != null:
 							ssm.score_popup(global_transform.xform(_note_fx_pos(i)), score)
-					if Rhythia.score_popup:
+					if Rhythia.score_popup and _frame_popups < POPUPS_PER_FRAME:
+						_frame_popups += 1
 						_fx_copy(scoreEffect, _score_fx_pool).spawn(get_parent(), pos, notes[i][3], score)
 
 				prev_ms = notems
-		elif ms > (notems + hit_window) + 100:
-
-
+		elif ms > (notems + hit_window) + 100 or (i == current_note and notes[i][2] != Globals.NSTATE_ACTIVE):
+			# (the first note of the pass, once it's hit or missed: nothing
+			# looks at it again, so the pass starts after it from now on. It
+			# used to stay another tenth of a second, being hidden again each
+			# frame: hundreds of notes a frame on a dense map.)
 			current_note = i + 1
 
 	_mm_visible = notes.size() - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
@@ -443,8 +528,14 @@ func sort_note_queue(a, b):
 		return String(a) < String(b)
 	return a[2] < b[2]
 
-func spawn_notes(note_array: Array):
-	note_array.sort_custom(self, "sort_note_queue")
+# in_order: the list is already in sort_note_queue's order (a .sspm map as
+# its file was read: Song.read_markers sorts by the same rule)
+func spawn_notes(note_array: Array, in_order: bool = false):
+	# (in time order, and by sort_note_queue's rule among notes at the same
+	# time, exactly as sort_custom left them: Song.sort_timed gets there without
+	# calling a script function millions of times on a big map)
+	if not in_order:
+		Song.sort_timed(note_array, 2, self, "sort_note_queue", -1, true)
 
 	var nscale = 0.45 * Rhythia.note_size * (Rhythia.note_hitbox_size / 1.14)
 	if Rhythia.mod_hard_mode:
@@ -457,34 +548,44 @@ func spawn_notes(note_array: Array):
 			next_ms = data[2]
 			break
 	var colorset: Array = Rhythia.selected_colorset.colors
+	# Everything that is the same for every note is worked out once, here,
+	# instead of once per note (a map with a million notes spent most of its
+	# loading in this loop). Each note comes out exactly as before.
+	var ncolors: int = colorset.size()
+	var colors := []
+	for c in colorset:
+		colors.append(Rhythia.note_color(c))
+	var start_offset: float = Rhythia.start_offset
+	var hr: bool = Rhythia.hr_on()
+	var hr_spread: float = Rhythia.hr_spread() if hr else 1.0
+	var mirror_x: bool = Rhythia.mod_mirror_x
+	var mirror_y: bool = Rhythia.mod_mirror_y
+	# (the Chaos mod's own offset per note; without Chaos nothing reads it, so
+	# its two random numbers a note aren't drawn)
+	var chaos: bool = Rhythia.mod_chaos
+	var no_chaos := Vector2.ZERO
+	var basis: Basis = Transform().scaled(note_transform_scale).basis
+	var plain: bool = not hr and not mirror_x and not mirror_y and not chaos
 	for i in range(note_array.size()):
 		var data: Array = note_array[i]
-		if (data[2] >= Rhythia.start_offset):
-			var note: Array = [
-				Vector2(data[0], -data[1]),
-
-				data[2],
-
-				Globals.NSTATE_ACTIVE,
-
-				Rhythia.note_color(colorset[i % colorset.size()]),
-
-				Vector2(
-					chaos_rng.randf_range(-1, 1),
-					chaos_rng.randf_range(-1, 1)
-				).normalized() * 2,
-
-				Transform()
-			]
-
-			if Rhythia.hr_on(): note[0] = ((note[0] - Vector2(1, -1)) * Rhythia.hr_spread()) + Vector2(1, -1) # (Harder Rock: wider)
-			if Rhythia.mod_mirror_x: note[0].x = 2 - note[0].x
-			if Rhythia.mod_mirror_y: note[0].y = (-note[0].y) - 2
-			note[5] = note[5].scaled(note_transform_scale)
-			note[5].origin = Vector3(note[0].x, note[0].y, 4)
-
-
-			notes.append(note)
+		if data[2] < start_offset:
+			continue
+		var x: float = data[0]
+		var y: float = -data[1]
+		if plain:
+			notes.append([Vector2(x, y), data[2], Globals.NSTATE_ACTIVE, colors[i % ncolors], no_chaos, Transform(basis, Vector3(x, y, 4))])
+			continue
+		var pos := Vector2(x, y)
+		var chaos_offset := no_chaos
+		if chaos:
+			chaos_offset = Vector2(
+				chaos_rng.randf_range(-1, 1),
+				chaos_rng.randf_range(-1, 1)
+			).normalized() * 2
+		if hr: pos = ((pos - Vector2(1, -1)) * hr_spread) + Vector2(1, -1) # (Harder Rock: wider)
+		if mirror_x: pos.x = 2 - pos.x
+		if mirror_y: pos.y = (-pos.y) - 2
+		notes.append([pos, data[2], Globals.NSTATE_ACTIVE, colors[i % ncolors], chaos_offset, Transform(basis, Vector3(pos.x, pos.y, 4))])
 
 	var last_ms = note_array[-1][2]
 	var inst_count = max(35, ceil(10000 * (float(notes.size()) / float(last_ms))))
@@ -495,6 +596,13 @@ func spawn_notes(note_array: Array):
 	if Rhythia.note_spawn_effect:
 		# same slots as the notes (it was left at 0: ~180 errors at every song start)
 		_n_spawn.multimesh.instance_count = inst_count
+
+	# The play tracker (Settings Generator) watches every note about to come,
+	# each frame. On a map this big or this dense that alone lags, and there
+	# is nothing to learn from it: it sits this song out.
+	if _tracker != null and is_instance_valid(_tracker) and (notes.size() > 40000 or float(notes.size()) / max(float(last_ms) / 1000.0, 1.0) > 60.0):
+		_tracker.set_process(false)
+		_tracker = null
 
 	notes_loaded = true
 	call_deferred("reposition_notes", true)
@@ -847,10 +955,17 @@ func set_viewer_paused(p: bool):
 		music_started = true
 
 func _first_note_index_after(target_ms: float) -> int:
-	for i in range(notes.size()):
-		if notes[i][1] > target_ms:
-			return i
-	return notes.size()
+	# (the notes are in time order: halved down to the spot instead of walked
+	# from the first note, which took a moment on a map with a million of them)
+	var lo := 0
+	var hi: int = notes.size()
+	while lo < hi:
+		var mid: int = (lo + hi) / 2
+		if notes[mid][1] > target_ms:
+			hi = mid
+		else:
+			lo = mid + 1
+	return lo
 
 func _resolve_seek_state(target_rms: float) -> Dictionary:
 	var speed = speed_multi
@@ -949,9 +1064,13 @@ func _process(delta: float):
 	var u = OS.get_ticks_usec()
 	delta = float(u - last_usec) / 1000000.0
 	last_usec = u
+	# making a video (Save video, RenderCapture.gd): exactly one video frame of song time
+	# (a frame that wasn't drawn, e.g. the window minimized, isn't in the video: the song waits)
+	if Rhythia.render_fps > 0:
+		delta = 1.0 / float(Rhythia.render_fps) if Rhythia.render_step_ok else 0.0
 
 	if Rhythia.vr: do_vr_cursor()
-	elif Grid != null and Grid.spectating and Grid.vr_view_on():
+	elif Grid != null and ((Grid.spectating and Grid.vr_view_on()) or Grid.replay_vr_on()):
 		# watching someone in VR with their settings: their head is the camera,
 		# and the grid stays still as it does in VR
 		transform.origin = Vector3(-1, 1, 0)
@@ -981,7 +1100,7 @@ func _process(delta: float):
 
 		_n_cursor.can_switch_move_modes = (ms < Rhythia.music_offset)
 
-		if Rhythia.replaying and not Rhythia.replay.autoplayer and Rhythia.replay.sv != 1 and Input.is_action_just_pressed("pause"):
+		if Rhythia.replaying and not Rhythia.replay.autoplayer and Rhythia.replay.sv != 1 and Rhythia.render_fps == 0 and Input.is_action_just_pressed("pause"):
 			set_viewer_paused(not viewer_paused)
 
 		if not Rhythia.replaying:
@@ -1178,6 +1297,7 @@ func _process(delta: float):
 						)
 					_n_music.play((ms + Rhythia.music_offset) / 1000.0)
 
+		_new_frame_budget()
 		var rn_res: bool = reposition_notes()
 		if not Rhythia.replaying and Rhythia.record_replays:
 			var should_write_pos: bool = rn_res
@@ -1202,6 +1322,7 @@ func _process(delta: float):
 	elif Grid != null and Grid.spectating and notes_loaded:
 		_spectate_music()
 		emit_signal("timer_update", ms, false)
+		_new_frame_budget()
 		reposition_notes()
 
 # VR: where your head and hands are (next to the game, so a spectator can put
@@ -1317,14 +1438,23 @@ func _fill_fx_pools():
 			var d = tpl.duplicate()
 			if "_pool" in d:
 				d._pool = pool
+			if "_live" in d:
+				d._live = _fx_live
 			pool.append(d)
 
 func _exit_tree():
-	# (copies made ahead for the pools that never went into the song)
+	# (copies made ahead for the pools that never went into the song: they have
+	# no parent, so nothing else frees them. A copy that played and went back
+	# to its pool still has its parent in the song, which frees it. Asking
+	# "not in the tree" here was true for those too, since the song is leaving
+	# the tree at this very moment: they were freed while their parent was busy
+	# taking its children out, the parent kept pointing at them, and the game
+	# crashed going back to the menu after a song with hits in it.)
 	for pool in [_hit_fx_pool, _miss_fx_pool]:
 		for c in pool:
-			if is_instance_valid(c) and not c.is_inside_tree():
+			if is_instance_valid(c) and c.get_parent() == null:
 				c.free()
+		pool.clear()
 	scoreEffect.queue_free()
 	for n in noteCache:
 		n.queue_free()

@@ -95,10 +95,22 @@ func press_page(page: Node):
 func press(bi: int, q: bool = false):
 	if bi < 0 or bi >= pages.size():
 		return
+	# The Menu Customizer's look was changed since the menu was built, and this
+	# page was made with the old one (the Profile and Online pages are built
+	# once): the menu is loaded again and opens on it.
+	if not q and Engine.has_meta("menu_style_dirty") and pages[bi].name in ["Profile", "Online", "Stats"] and not Rhythia.in_map:
+		Engine.remove_meta("menu_style_dirty")
+		Rhythia.set_meta("reopen_page", String(pages[bi].name))
+		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+		return
 	if not q: get_node("../Press").play()
 	for i in range(pages.size()):
 		pages[i].visible = i == bi
 		buttons[i].pressed = i == bi
+	# (the version label's place for this page now, so the old one isn't drawn
+	# over the new page for a frame; and again after the page has settled)
+	get_node("../VersionNumber").visible = not use_ver_b[bi] and not Rhythia.device("mobile")
+	get_node("../VersionNumberB").visible = use_ver_b[bi] and not Rhythia.device("mobile")
 	yield(get_tree(), "idle_frame")
 
 	get_node("../VersionNumber").visible = not use_ver_b[bi]
@@ -274,6 +286,8 @@ func _ready():
 	ft.connect("timeout", self, "_flip_check")
 	add_child(ft)
 	Rhythia.trail("menu open")
+	# (once the pages have made what they make a moment later)
+	get_tree().create_timer(2.0).connect("timeout", Rhythia, "keep_scripts", [get_tree().root])
 	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
 	load("res://scripts/PackGuard.gd").ok()
 	if OS.get_environment("CHROMIA_BOOT_CHECK") == "1":
@@ -292,12 +306,18 @@ func _ready():
 			"Version %s is downloaded. Close Chromia completely (swipe it away in the app switcher) and open it again to use it.") % Rhythia._pending_update_notice,
 			"Update ready")
 		Rhythia._pending_update_notice = ""
+	# the first start with Chromia's own data folder (DataFolder.gd): say what happened, once
+	if Engine.has_meta("data_folder_moved"):
+		Engine.remove_meta("data_folder_moved")
+		Globals.call_deferred("notify", Globals.NOTIFY_INFO,
+			"Chromia now keeps its data in its own folder (Chromia instead of SoundSpacePlus). Your settings, bests and history were copied over; your maps and replays stay where they were. Nothing was lost.",
+			"Data folder", 8.0)
 	# test builds: scores go to the test server, never the real leaderboards
 	# (once per session, the first time the menu opens)
 	if Online.build_channel() == "test" and not Rhythia.has_meta("test_build_warned"):
 		Rhythia.set_meta("test_build_warned", true)
 		Globals.call_deferred("notify", Globals.NOTIFY_WARN,
-			"Test build: scores go to the TEST leaderboards, not the real ones.",
+			"Test build: scores go to the main server (Settings > Online)." if Rhythia.passes_to_main else "Test build: scores go to the TEST leaderboards, not the real ones (Settings > Online can send them to the main server).",
 			"Test build", 4.0)
 	# (Quest: shown once the VR menu is up; the first, flat menu isn't visible)
 	# (not in the website's game view: closing the browser tab counts as a crash there)
@@ -385,6 +405,14 @@ func _on_Sidebar(isEntered: bool):
 
 # The last session ended without closing normally: show what it was doing
 # (Rhythia's crash trail) and offer to copy it for a bug report.
+# (the crash report doesn't follow you out of the menu: a song starting
+# closes it, it never sits over a map)
+var _crash_prompt_open := false
+func _exit_tree():
+	if _crash_prompt_open and Globals.confirm_prompt != null and is_instance_valid(Globals.confirm_prompt):
+		_crash_prompt_open = false
+		Globals.confirm_prompt.close()
+
 func _show_crash_report():
 	yield(get_tree().create_timer(1.5), "timeout")
 	if not is_inside_tree() or Globals.confirm_prompt == null:
@@ -396,7 +424,10 @@ func _show_crash_report():
 		var l := String(last[i])
 		var cut := l.find("] ")
 		shown.append(l.substr(cut + 2) if cut != -1 else l)
+	if Rhythia.in_map:
+		return
 	var crashed: bool = Rhythia.last_session_crashed
+	_crash_prompt_open = true
 	Globals.confirm_prompt.open(
 		("Chromia closed unexpectedly last time. The last things it did:\n\n%s\n\nTap Copy report and send it to the developer." if crashed else
 		"Last session's log (Settings > Replays & Misc > Experimental shows this every start). The last things it did:\n\n%s") % PoolStringArray(shown).join("\n"),
@@ -404,6 +435,7 @@ func _show_crash_report():
 		[{text = "OK"}, {text = "Copy report"}]
 	)
 	var picked = yield(Globals.confirm_prompt, "option_selected")
+	_crash_prompt_open = false
 	Globals.confirm_prompt.close()
 	if picked == 1:
 		OS.clipboard = Rhythia.crash_report()

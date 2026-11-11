@@ -37,6 +37,7 @@ const VIEW_KEYS := [
 	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity", "note_brightness",
 	"note_spin_x", "note_spin_y", "note_spin_z", "half_ghost", "half_ghost_strength",
 	"note_visual_approach", "visual_approach_follow", "do_note_pushback", "note_spawn_effect",
+	"show_touch_indicator", "touch_style", # (phones: the rings under the fingers, shown in replays too)
 	"hitwindow_ms", "note_hitbox_size", "speed_hitwindow",
 	"cursor_scale", "cursor_trail", "trail_detail", "trail_time", "trail_opacity",
 	"trail_mode_scale", "trail_mode_opacity", "trail_gradient_enabled", "trail_gradient",
@@ -153,16 +154,31 @@ static func collect() -> Dictionary:
 			out[k] = e
 	# your colorset's colours themselves: a custom / imported one isn't in the
 	# spectator's list (and the notes' alpha is these colours' alpha x opacity)
+	# (read with get(): `"real_colors" in cs` was never true here, so a custom
+	# colorset never reached spectators or videos)
 	var cs = backup.get("selected_colorset", Rhythia.selected_colorset)
-	if cs != null and is_instance_valid(cs) and "real_colors" in cs:
+	if cs is Object and is_instance_valid(cs):
+		var list = cs.get("real_colors")
+		if not (list is Array) or list.empty():
+			list = cs.get("colors")
 		var cols := []
-		for c in cs.real_colors:
+		for c in (list if list is Array else []):
 			if c is Color:
 				cols.append("#" + c.to_html(true))
-		if cols.size() > 0 and cols.size() <= 64:
+			elif typeof(c) == TYPE_STRING and String(c).is_valid_html_color():
+				cols.append("#" + Color(String(c)).to_html(true))
+		if cols.size() > 0 and cols.size() <= 256: # (long gradient colorsets have dozens)
 			out["colorset_colors"] = cols
 			out["colorset_mirror"] = bool(cs.mirror)
 			out["colorset_name"] = String(cs.name).left(60)
+	# your own hit / miss sounds ("<sha256>.<ext>": uploaded like your border,
+	# LobbyManager.upload_spectate_assets); not while someone else's are on
+	if not active():
+		for kind in ["hit", "miss"]:
+			var sf := own_sound_file(kind)
+			var ssha := sha_of(sf)
+			if ssha != "":
+				out[kind + "_sound_file"] = "%s.%s" % [ssha, sf.get_extension().to_lower()]
 	out["_vr"] = bool(Rhythia.vr)
 	# your VR hands (shown to spectators: HUD.gd): the furry paws are in every
 	# game; custom models are uploaded (LobbyManager.upload_spectate_assets)
@@ -243,7 +259,8 @@ static func own_background_assets() -> Array:
 
 static func _own_background_assets() -> Array:
 	var out := []
-	for pair in [["custombg_image", "user://custombg"], ["panobg_image", "user://panobg"]]:
+	# (and the HUD panels' own picture: Background Editor > HUD panels)
+	for pair in [["custombg_image", "user://custombg"], ["panobg_image", "user://panobg"], ["hud_panel_image", "user://hud_panel"]]:
 		var p := _first_existing(Globals.p(pair[1]))
 		var ext := media_ext(p) if p != "" else ""
 		var size := _file_size(p) if p != "" else 0
@@ -330,6 +347,29 @@ static func own_font_file(font_id: String) -> String:
 	var p: String = load("res://scripts/HudFont.gd").custom_file()
 	return p if p != "" and _small_enough(p) else ""
 
+# your hit / miss sound's file ("" for the game's own), found the way the game
+# loads it (Savia.refresh_active_sound_streams)
+static func own_sound_file(kind: String) -> String:
+	var sel = Rhythia.selected_hit_sound if kind == "hit" else Rhythia.selected_miss_sound
+	var base: String = "user://hit" if kind == "hit" else "user://miss"
+	if sel != null and sel.get("path") != null and String(sel.path) != "":
+		base = String(sel.path)
+	if base.begins_with("res://"):
+		return ""
+	base = Globals.p(base)
+	var f := File.new()
+	for p in [base + ".ogg", base + ".mp3", base + ".wav", base]:
+		if f.file_exists(p) and not Directory.new().dir_exists(p) and p.get_extension().to_lower() in ["ogg", "mp3", "wav"]:
+			return p if _small_enough(p) else ""
+	return ""
+
+# a spectated player's sound file name ("<sha256>.<ext>") -> [sha, ext] or []
+static func sound_file_parts(v: String) -> Array:
+	v = v.to_lower()
+	if v.find(".") != 64 or not v.left(64).is_valid_hex_number() or not (v.right(65) in ["ogg", "mp3", "wav"]):
+		return []
+	return [v.left(64), v.right(65)]
+
 # a spectated player's font file name ("<sha256>.<ext>") -> [sha, ext] or []
 static func font_file_parts(v: String) -> Array:
 	v = v.to_lower()
@@ -393,7 +433,7 @@ static func apply(their: Dictionary, peer_id: int):
 				_assign(k, item)
 	# their colorset as they have it (newer games send the colours)
 	var cc = their.get("colorset_colors")
-	if cc is Array and cc.size() > 0 and cc.size() <= 64:
+	if cc is Array and cc.size() > 0 and cc.size() <= 256:
 		var cols := []
 		for h in cc:
 			if typeof(h) == TYPE_STRING and h.is_valid_html_color():
@@ -419,6 +459,15 @@ static func apply(their: Dictionary, peer_id: int):
 	var fpath: String = cached_asset(fp[0], fp[1]) if not fp.empty() else ""
 	if fpath != "":
 		Rhythia.set_meta("spec_hud_font", fpath)
+	# their hit / miss sounds (downloaded: LobbyManager.fetch_spectate_assets;
+	# restore() loads yours again)
+	for kind in ["hit", "miss"]:
+		var sp := sound_file_parts(String(their.get(kind + "_sound_file", "")))
+		var spath: String = cached_asset(sp[0], sp[1]) if not sp.empty() else ""
+		if spath != "":
+			var stream = Globals.audioLoader.load_file(spath)
+			if stream is AudioStream:
+				Rhythia.set(kind + "_snd", stream)
 	for k in FORCED:
 		_assign(k, FORCED[k])
 	Rhythia.set_meta("spec_for", peer_id)
@@ -427,7 +476,7 @@ static func apply(their: Dictionary, peer_id: int):
 # "none" = they have none (so you don't see yours); not downloaded yet = none.
 static func _apply_backgrounds(their: Dictionary):
 	_clear_backgrounds()
-	for pair in [["custombg_image", "spec_custombg"], ["panobg_image", "spec_panobg"]]:
+	for pair in [["custombg_image", "spec_custombg"], ["panobg_image", "spec_panobg"], ["hud_panel_image", "spec_hud_panel"]]:
 		var v := String(their.get(pair[0], ""))
 		if v == "none":
 			Rhythia.set_meta(pair[1], "")
@@ -458,7 +507,7 @@ static func _apply_backgrounds(their: Dictionary):
 					Rhythia.set_meta("spec_bg_dir", Globals.p(ASSET_CACHE))
 
 static func _clear_backgrounds():
-	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font"]:
+	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font", "spec_hud_panel"]:
 		if Rhythia.has_meta(k):
 			Rhythia.remove_meta(k)
 
@@ -472,6 +521,7 @@ static func restore():
 	if Rhythia.has_meta("spec_for"):
 		Rhythia.remove_meta("spec_for")
 	Directory.new().remove(Globals.p(BACKUP_FILE))
+	Rhythia.refresh_active_sound_streams() # (your hit / miss sounds again)
 
 # Savia.save_settings: yours while writing, theirs again after.
 static func swap_out():
@@ -588,7 +638,43 @@ static func _enc(v):
 		TYPE_OBJECT:
 			if v != null and is_instance_valid(v) and "id" in v:
 				return str(v.id)
+		TYPE_DICTIONARY:
+			# (one level: the touch indicator's look, the avatar's)
+			var out := {}
+			for k in v:
+				if out.size() >= 40:
+					break
+				var e = _enc(v[k])
+				if typeof(e) != TYPE_NIL and typeof(e) != TYPE_ARRAY and typeof(e) != TYPE_DICTIONARY:
+					out[String(k).left(40)] = e
+			return out
 	return null
+
+# their touch indicator look: only its own keys, each the type of its default
+# (a custom picture isn't sent: the ring then)
+static func _touch_style(v: Dictionary, defaults: Dictionary) -> Dictionary:
+	var out := {}
+	var shapes: Array = load("res://scripts/ui/TouchIndicator.gd").SHAPES
+	for k in v:
+		if not defaults.has(k):
+			continue
+		var d = defaults[k]
+		var x = v[k]
+		var num := typeof(x) == TYPE_INT or typeof(x) == TYPE_REAL or typeof(x) == TYPE_BOOL
+		match typeof(d):
+			TYPE_BOOL:
+				if num: out[k] = bool(x)
+			TYPE_REAL, TYPE_INT:
+				if num: out[k] = clamp(float(x), -1000.0, 1000.0)
+			TYPE_STRING:
+				if typeof(x) != TYPE_STRING:
+					continue
+				if k == "shape":
+					if x in shapes and x != "image":
+						out[k] = x
+				elif String(x).is_valid_html_color():
+					out[k] = String(x).trim_prefix("#").left(8)
+	return out
 
 # Their value read as the type of yours; {"__skip": true} if it doesn't fit.
 static func _dec(v, cur):
@@ -619,7 +705,15 @@ static func _dec(v, cur):
 					out.append([clamp(float(x[0]), 0.0, 1.0), x[1]])
 				return out
 		TYPE_DICTIONARY:
-			# (the avatar's look: only colours and known items get through)
 			if typeof(v) == TYPE_DICTIONARY:
+				# the touch indicator's look (its keys only), else the avatar's
+				# (only colours and known items get through)
+				var touch: Dictionary = load("res://scripts/ui/TouchIndicator.gd").DEFAULTS
+				var is_touch: bool = not v.empty()
+				for k in v:
+					if not touch.has(k):
+						is_touch = false
+				if is_touch:
+					return _touch_style(v, touch)
 				return load("res://scripts/avatar/AvatarLook.gd").normalized(v)
 	return {"__skip": true}

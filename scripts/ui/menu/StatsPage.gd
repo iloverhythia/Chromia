@@ -12,6 +12,9 @@ const COLOR_DIM = Color(1, 1, 1, 0.55)
 var _grid: GridContainer
 # Compact: shown as a tab in the profile panel (smaller margins, 2 columns).
 var compact := false
+# The Online page's look (OnlineStyle.gd), handed in by the menu for the
+# compact tab so it's drawn like the Profile / Leaderboard tabs beside it.
+var style = null
 var _most_played: VBoxContainer
 var _since: Label
 
@@ -40,8 +43,11 @@ func _ready():
 	add_child(scroll)
 
 	if compact:
-		# Same look as the Profile / Leaderboard tabs next to it: theme font, plain rows.
+		# Same look as the Profile / Leaderboard tabs next to it (OnlineStyle.gd)
 		theme = load("res://uitheme.tres")
+		if style == null:
+			style = load("res://scripts/ui/menu/OnlineStyle.gd").new()
+		style.scroll(scroll)
 		scroll.margin_left = 0
 		scroll.margin_right = 0
 		scroll.margin_top = 0
@@ -49,7 +55,7 @@ func _ready():
 	var v := VBoxContainer.new()
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
 	v.rect_clip_content = true
-	v.add_constant_override("separation", 8 if compact else 18)
+	v.add_constant_override("separation", 12 if compact else 18)
 	scroll.add_child(v)
 
 	var title := Label.new()
@@ -59,29 +65,35 @@ func _ready():
 	v.add_child(title)
 
 	_since = Label.new()
-	if not compact:
+	if compact:
+		_since.add_font_override("font", style.f_small)
+		_since.add_color_override("font_color", style.DIM)
+	else:
 		_since.add_font_override("font", _font(18, false))
-	_since.add_color_override("font_color", COLOR_LABEL)
+		_since.add_color_override("font_color", COLOR_LABEL)
 	v.add_child(_since)
 
 	_grid = GridContainer.new()
-	_grid.columns = 1 if compact else 4
+	_grid.columns = 3 if compact else 4
 	_grid.size_flags_horizontal = SIZE_EXPAND_FILL
-	_grid.add_constant_override("hseparation", 14)
-	_grid.add_constant_override("vseparation", 2 if compact else 14)
+	_grid.add_constant_override("hseparation", 10 if compact else 14)
+	_grid.add_constant_override("vseparation", 10 if compact else 14)
+	if compact:
+		# (two wide tiles a row in a narrow panel, three when there's room, so a
+		# caption like "Maps with a record" always has its room)
+		connect("resized", self, "_fit_columns")
+		_fit_columns()
 	v.add_child(_grid)
 
-	var mp_title := Label.new()
-	mp_title.text = "Most played"
-	if compact:
-		mp_title.add_color_override("font_color", COLOR_ACCENT)
-	else:
+	var mp_title: Label = style.heading("Most played") if compact else Label.new()
+	if not compact:
+		mp_title.text = "Most played"
 		mp_title.add_font_override("font", _font(26, true))
 	v.add_child(mp_title)
 
 	_most_played = VBoxContainer.new()
 	_most_played.size_flags_horizontal = SIZE_EXPAND_FILL
-	_most_played.add_constant_override("separation", 2)
+	_most_played.add_constant_override("separation", 6 if compact else 2)
 	v.add_child(_most_played)
 
 	connect("visibility_changed", self, "_on_visibility_changed")
@@ -113,20 +125,13 @@ func _delayed_refresh(t):
 	_refresh_timer = null
 	refresh()
 
+func _fit_columns():
+	if _grid != null:
+		_grid.columns = 3 if rect_size.x >= 560.0 else 2
+
 func _tile(value: String, label: String):
 	if compact:
-		var row := HBoxContainer.new()
-		row.size_flags_horizontal = SIZE_EXPAND_FILL
-		var lab := Label.new()
-		lab.text = label
-		lab.size_flags_horizontal = SIZE_EXPAND_FILL
-		lab.clip_text = true
-		row.add_child(lab)
-		var val := Label.new()
-		val.text = value
-		val.add_color_override("font_color", COLOR_ACCENT)
-		row.add_child(val)
-		_grid.add_child(row)
+		style.tile(_grid, value, label, label)
 		return
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -220,32 +225,14 @@ func refresh():
 	if ids.empty():
 		var none := Label.new()
 		none.text = "Nothing yet."
-		none.add_color_override("font_color", COLOR_LABEL)
+		none.add_color_override("font_color", style.DIM if compact else COLOR_LABEL)
 		_most_played.add_child(none)
 	for i in range(min(10, ids.size())):
 		var song = Rhythia.registry_song.get_item(ids[i]) if Rhythia.registry_song else null
 		var n := int(counts[ids[i]])
 		if compact:
-			var h := HBoxContainer.new()
-			h.size_flags_horizontal = SIZE_EXPAND_FILL
-			h.add_constant_override("separation", 8)
-			var rk := Label.new()
-			rk.text = "#%d" % (i + 1)
-			rk.rect_min_size = Vector2(34, 0)
-			rk.add_color_override("font_color", COLOR_DIM)
-			h.add_child(rk)
-			var nm := Label.new()
-			nm.text = song.name if song else String(ids[i])
-			nm.clip_text = true
-			nm.size_flags_horizontal = SIZE_EXPAND_FILL
-			nm.hint_tooltip = nm.text
-			nm.mouse_filter = MOUSE_FILTER_PASS
-			h.add_child(nm)
-			var pc := Label.new()
-			pc.text = "%s %s" % [Globals.comma_sep(n), "play" if n == 1 else "plays"]
-			pc.add_color_override("font_color", COLOR_ACCENT)
-			h.add_child(pc)
-			_most_played.add_child(h)
+			style.row(_most_played, "#%d" % (i + 1), song.name if song else String(ids[i]), "",
+				"%s %s" % [Globals.comma_sep(n), "play" if n == 1 else "plays"])
 			continue
 		var row := Label.new()
 		row.text = "%d.  %s  —  %s %s" % [i + 1, song.name if song else String(ids[i]), Globals.comma_sep(n), "play" if n == 1 else "plays"]

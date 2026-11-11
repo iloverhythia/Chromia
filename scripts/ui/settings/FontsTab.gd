@@ -65,7 +65,20 @@ func _ready():
 	size_reset.connect("pressed", self, "_on_size", [100.0])
 	size_row.add_child(size_reset)
 
+	var group := ""
 	for f in HudFont.FONTS:
+		var g: String = f[3] if f.size() > 3 else ""
+		if g != group and g != "":
+			group = g
+			var h := _text(g, ACCENT, 17)
+			h.rect_min_size = Vector2(0, 30)
+			h.valign = Label.VALIGN_BOTTOM
+			_list.add_child(h)
+		elif g == "" and group != "":
+			group = ""
+			var sp := Control.new()
+			sp.rect_min_size = Vector2(0, 10)
+			_list.add_child(sp)
 		_list.add_child(_font_row(f[0], f[1]))
 
 	# your own font
@@ -120,10 +133,27 @@ func _font_row(id: String, title: String) -> Control:
 	sample.clip_text = true
 	sample.add_color_override("font_color", TEXT)
 	sample.name = "Sample"
+	sample.set_meta("nsu_keep", true) # (the new Settings look leaves it in its own font: SettingsNewUI.gd)
+	sample.rect_min_size = Vector2(0, 30) # (same height before its font is in)
 	v.add_child(sample)
 	_rows[id] = row
-	_set_sample_font(id)
+	sample.text = SAMPLE
+	_pending.append(id)
+	set_process(true)
 	return row
+
+# each sample in its own font, a few per frame (40+ fonts at once made the tab
+# slow to open)
+var _pending := []
+func _process(_d):
+	var n := 0
+	while not _pending.empty() and n < 4:
+		var id: String = _pending.pop_front()
+		if _rows.has(id):
+			_set_sample_font(id)
+		n += 1
+	if _pending.empty():
+		set_process(false)
 
 func _set_sample_font(id: String):
 	var sample: Label = _rows[id].get_child(0).get_node("Sample")

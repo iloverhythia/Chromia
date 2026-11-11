@@ -73,11 +73,8 @@ func check_warnings():
 		return "debug"
 	elif check_experimental_settings():
 		return "experimental"
-	elif Rhythia.ignore_controller_detection:
-		if bar_enable:
-			return "controllercheck"
-		else:
-			return "none"
+	# (Disable controller detection is a setting you picked yourself: no bar for
+	# it, it stayed up in every menu)
 	else:
 		return "none"
 

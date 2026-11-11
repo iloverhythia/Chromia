@@ -196,12 +196,65 @@ func _transition_to_list():
 	if list:
 		list.switch_to_play_screen()
 
+# Save video: a small camera button beside the gear (under Play), for the play
+# just made, as a video on the website with your settings (VideoExport.gd);
+# also for a part of a map (a fail / give-up). Gone once another map is picked.
+var _video_song = null
+func _add_video_button():
+	var row = get_node_or_null("../../H1/Info/Control")
+	var gear = row.get_node_or_null("Actions") if row != null else null
+	if gear == null or OS.has_feature("JavaScript") or Rhythia.vr:
+		return
+	_remove_video_button()
+	var file: String = load("res://scripts/VideoExport.gd").last_replay_file()
+	if file == "":
+		return
+	var b := Button.new()
+	b.name = "SaveVideo"
+	b.hint_tooltip = "Save video: make a video of this play on the website, with your settings (opens your browser)"
+	b.theme = gear.theme
+	b.rect_min_size = gear.rect_min_size
+	b.size_flags_vertical = gear.size_flags_vertical
+	b.focus_mode = Control.FOCUS_NONE
+	var icon = Control.new()
+	icon.set_script(load("res://scripts/ui/VideoIcon.gd"))
+	icon.set_anchors_and_margins_preset(Control.PRESET_WIDE)
+	b.add_child(icon)
+	var song = Rhythia.selected_song
+	_video_song = song
+	var what := "%s · %s" % ["Passed" if Rhythia.song_end_type == Globals.END_PASS else "Part of the map", Rhythia.song_end_time_str]
+	b.connect("pressed", self, "_on_save_video", [file, song, what])
+	row.add_child(b)
+	row.move_child(b, gear.get_index() + 1)
+	if not Rhythia.is_connected("selected_song_changed", self, "_on_song_changed_video"):
+		Rhythia.connect("selected_song_changed", self, "_on_song_changed_video")
+
+func _on_song_changed_video(_s = null):
+	if Rhythia.selected_song != _video_song:
+		_remove_video_button()
+
+func _remove_video_button():
+	_video_song = null
+	var b = get_node_or_null("../../H1/Info/Control/SaveVideo")
+	if b != null:
+		b.get_parent().remove_child(b)
+		b.queue_free()
+
+# made on the website, where its page lets you pick the website's viewer or
+# the game itself to make it (VideoExport.gd)
+func _on_save_video(file: String, song, what: String):
+	load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
+
 func _handle_post_game_results():
+	_add_video_button()
 	var is_best: bool = Rhythia.do_pb_check_and_set()
 	if is_best: $NewBest.play()
 
 	if Rhythia.song_end_type == Globals.END_PASS and not Rhythia.was_replay and Online.build_channel() == "test":
-		Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Test build: this score went to the TEST leaderboards, not the real ones.", "Test build", 3.0)
+		if Rhythia.passes_to_main:
+			Globals.call_deferred("notify", Globals.NOTIFY_INFO, "Test build: this score went to the main server (Send Passes to the Main Server is on).", "Test build", 3.0)
+		else:
+			Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Test build: this score went to the TEST leaderboards, not the real ones (Settings > Online can send them to the main server).", "Test build", 3.0)
 
 	if Rhythia.song_end_type == Globals.END_PASS:
 		if Rhythia.was_replay: $Result.text = "Replay passed"

@@ -79,6 +79,16 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Chromia's own data folder on computers (%APPDATA%\Chromia), not the
+      # "SoundSpacePlus" one Rhythia Nightly shares; scripts/DataFolder.gd fills
+      # it from the old one at the first start. Set here so project.godot itself
+      # isn't edited in the repo.
+      - name: Own data folder
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          sed -i 's/^config\/custom_user_dir_name="SoundSpacePlus"/config\/custom_user_dir_name="Chromia"/' project.godot
+          grep -q '^config/custom_user_dir_name="Chromia"' project.godot
+
       # Test builds: the test server instead of savia.nysr.host, the test
       # channel, and the test tag as the version. Committed (locally) so the
       # steps that read project.godot from git (iOS, Quest) get it too.

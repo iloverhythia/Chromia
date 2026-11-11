@@ -13,14 +13,16 @@ signal closed
 # of the layers below. Each layer also has its own perk, unlocked for good the
 # first time you reach it (the higher the layer, the stronger it is).
 #
-# Features: 10,000 of them, each found once and kept for good (prestige
+# Features: 110,000 of them, each found once and kept for good (prestige
 # doesn't take them). "New Feature" upgrades in the tree find one each, and a
 # reset of layer k finds k. Every feature is one of 20 effects (coins, clicks,
 # prices, layer gains, auto-clicks, critical clicks, golden upgrades, combos,
 # offline earnings ...) that grows with one of 25 things (upgrades bought,
 # clicks, digits of your coins, features found ...), at one of 20 strengths
-# (I to XX). The ones found are added up per effect and source (_coef), so
-# 10,000 of them cost no more to work out than a few.
+# (I to XX), in 11 marks (the first 10,000 are Mark I; Mark II to XI are the
+# same 10,000 again, each mark a quarter stronger). The ones found are added
+# up per effect and source (_coef), so 110,000 of them cost no more to work
+# out than a few.
 #
 # Endless numbers: every amount (coins, prices, rates, points) is kept as its
 # number of digits, log10 of it, so it can grow forever. Plain numbers stop
@@ -63,7 +65,8 @@ const PERKS = ["rate", "click", "cheap", "start", "auto", "boost_prev", "branch"
 const FIRST_REQ_L := 6.0 # 1e6 chrome coins in a run for the first Polish point
 
 # --- Features ---------------------------------------------------------------
-const FEAT_COUNT = 10000
+const FEAT_COUNT = 110000
+const FEAT_MARK = 10000 # features in one mark (a save from before has mark I only)
 const FEAT_NODE_CHANCE = 0.08
 # the 20 effects: [name, strength per unit, how it shows]
 #   x: a multiplier (log10)   div: a divider (log10)   pct: a share   num: a count
@@ -455,14 +458,30 @@ func _ready():
 	_info_label.anchor_bottom = 1.0
 	_info_label.anchor_right = 1.0
 	_info_label.margin_left = 112
-	_info_label.margin_right = -24
+	_info_label.margin_right = -262 # (Import / Export on the right)
 	_info_label.margin_top = -90
 	_info_label.margin_bottom = -16
-	_info_label.text = "Click the Chromia logo for chrome coins. Click an upgrade to buy it. Drag to move, scroll (or - / +) to zoom, as far out as you like. New Feature upgrades find one of 10,000 features, kept for good."
+	_info_label.text = "Click the Chromia logo for chrome coins. Click an upgrade to buy it. Drag to move, scroll (or - / +) to zoom, as far out as you like. New Feature upgrades find one of 110,000 features, kept for good."
 	_info_label.valign = Label.VALIGN_BOTTOM
 	_info_label.autowrap = true
 	_info_label.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(_info_label)
+	# your tree as a file, and a file back (bottom right, clear of the eye button)
+	for e in [["Import", -252, -166, "_import_tree", "Load a tree from a file (yours is kept as furry_tree.before_import.json)"], ["Export", -160, -74, "_export_tree", "Save your whole tree to a file"]]:
+		var b := Button.new()
+		b.text = e[0]
+		b.hint_tooltip = e[4]
+		b.theme = preload("res://uitheme.tres")
+		b.anchor_left = 1.0
+		b.anchor_right = 1.0
+		b.anchor_top = 1.0
+		b.anchor_bottom = 1.0
+		b.margin_left = e[1]
+		b.margin_right = e[2]
+		b.margin_top = -54
+		b.margin_bottom = -18
+		b.connect("pressed", self, e[3])
+		add_child(b)
 
 	_build_prestige_panel()
 	_build_feature_panel()
@@ -471,6 +490,8 @@ func _ready():
 func open():
 	if nodes.empty():
 		_load()
+	# (your other devices' tree, if it has got further: TreeSync.gd)
+	load("res://scripts/ui/menu/TreeSync.gd").get_sync().check(self)
 	visible = true
 	set_process(true)
 	_recalc()
@@ -481,6 +502,7 @@ func open():
 
 func close():
 	_save()
+	load("res://scripts/ui/menu/TreeSync.gd").get_sync().upload(progress_score(), SAVE_PATH)
 	visible = false
 	set_process(false)
 	emit_signal("closed") # the menu then deletes this screen entirely
@@ -614,14 +636,23 @@ static func feat_source(i: int) -> int:
 	return (i % 500) / FT_N
 
 static func feat_grade(i: int) -> int:
-	return i / 500 + 1
+	return (i % FEAT_MARK) / 500 + 1
+
+# 0 = Mark I (the first 10,000), up to 10 = Mark XI
+static func feat_mark(i: int) -> int:
+	return i / FEAT_MARK
+
+# how strong feature i is (its grade, and a quarter more per mark)
+static func feat_strength(i: int) -> float:
+	return _feat_power(feat_grade(i)) * (1.0 + 0.25 * feat_mark(i))
 
 static func _feat_power(g: int) -> float:
 	return 0.4 * pow(1.12, g - 1)
 
 static func feat_name(i: int) -> String:
 	var c := i % 500
-	return "%s %s %s" % [ADJ[c % 24], NOUN[(c / 24 + c % 24) % 24], ROMAN[feat_grade(i) - 1]]
+	var n := "%s %s %s" % [ADJ[c % 24], NOUN[(c / 24 + c % 24) % 24], ROMAN[feat_grade(i) - 1]]
+	return n if feat_mark(i) == 0 else "%s, Mark %s" % [n, ROMAN[feat_mark(i)]]
 
 static func feat_rarity(i: int) -> String:
 	var g := feat_grade(i)
@@ -652,7 +683,7 @@ func feat_text(i: int) -> String:
 		w = lg(1.0 + _kind_found[t])
 	elif _w.size() == FS_N:
 		w = _w[s]
-	var a: float = FT[t][1] * _feat_power(feat_grade(i)) * w
+	var a: float = FT[t][1] * feat_strength(i) * w
 	var how := ""
 	if s == 22:
 		how = ", at the start of a run (first 15 upgrades)"
@@ -687,7 +718,7 @@ func _mark_found(i: int):
 	_found_count += 1
 	var t := feat_effect(i)
 	var k := t * FS_N + feat_source(i)
-	_coef[k] = _coef[k] + FT[t][1] * _feat_power(feat_grade(i))
+	_coef[k] = _coef[k] + FT[t][1] * feat_strength(i)
 	_kind_found[t] += 1
 
 # finds features not found yet (rarer grades less often)
@@ -861,6 +892,98 @@ func _highest_reached() -> int:
 		if _reached(k):
 			h = k
 	return h
+
+# --- Import / Export: the whole tree (its save file) as a .chromiatree file ------
+const TREE_FILTER := "*.chromiatree ; Chromia upgrade tree"
+# (the file picker is drawn with the menu, under this screen's layer: this
+# screen steps behind while it's open, and comes back after)
+var _layer_before = null
+func _picker_open():
+	var cl = get_parent()
+	if cl is CanvasLayer and _layer_before == null:
+		_layer_before = cl.layer
+		cl.layer = -1
+
+func _picker_closed():
+	var cl = get_parent()
+	if cl is CanvasLayer and _layer_before != null:
+		cl.layer = _layer_before
+	_layer_before = null
+
+func _export_tree():
+	_save()
+	_picker_open()
+	Globals.file_sel.save_file(self, "_export_picked", PoolStringArray([TREE_FILTER]), "user://my_tree.chromiatree")
+
+func _export_picked(path: String):
+	_picker_closed()
+	if path == "":
+		return
+	if path.get_extension().to_lower() != "chromiatree":
+		path += ".chromiatree"
+	var d := Directory.new()
+	if d.copy(SAVE_PATH, path) == OK:
+		_info_label.text = "Your tree is saved to %s. Import it on another device (or later) to carry on from here." % path
+	else:
+		_info_label.text = "Couldn't save the tree to %s." % path
+
+func _import_tree():
+	_picker_open()
+	Globals.file_sel.open_file(self, "_import_picked", PoolStringArray([TREE_FILTER, "*.json ; Tree save (furry_tree.json)"]), false)
+
+func _import_picked(files):
+	_picker_closed()
+	var path := ""
+	if files is PoolStringArray or files is Array:
+		path = String(files[0]) if files.size() > 0 else ""
+	elif files is String:
+		path = files
+	if path == "":
+		return # (cancelled)
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		_info_label.text = "Couldn't open %s." % path
+		return
+	var text := f.get_as_text()
+	f.close()
+	var p := JSON.parse(text)
+	if p.error != OK or not (p.result is Dictionary) or not (p.result.get("nodes") is Array) or p.result.nodes.empty():
+		_info_label.text = "That file isn't an upgrade tree."
+		return
+	_save()
+	var d := Directory.new()
+	d.remove(IMPORT_BACKUP)
+	d.copy(SAVE_PATH, IMPORT_BACKUP)
+	if f.open(SAVE_PATH, File.WRITE) != OK:
+		_info_label.text = "Couldn't write the tree."
+		return
+	f.store_string(text)
+	f.close()
+	Rhythia.trail("upgrade tree: imported %s" % path.get_file())
+	reload_from_save("Tree imported from %s. Your tree from before is kept as furry_tree.before_import.json." % path.get_file())
+const IMPORT_BACKUP := "user://furry_tree.before_import.json"
+
+# How far this tree has got, for your other devices (TreeSync.gd): the highest
+# layer reached, its best points, all chrome coins ever, features found.
+func progress_score() -> Array:
+	_ensure_layers()
+	var h := _highest_reached()
+	# (LZERO as the server keeps it: -1e9)
+	return [h, max(float(_layer(h).b) if h > 0 else LZERO, -1e9), max(total_l, -1e9), _found_count]
+
+# The save file was replaced (TreeSync: your other device's tree): read again.
+func reload_from_save(note: String):
+	if _games != null and is_instance_valid(_games) and _games.has_method("close"):
+		_games.close()
+	nodes = []
+	layers = []
+	_load()
+	_recalc()
+	_rebuild_buttons()
+	_recenter()
+	_refresh_ui()
+	if _info_label:
+		_info_label.text = note
 
 var _last_prestige_note := ""
 
@@ -1185,7 +1308,7 @@ func _describe(n) -> String:
 		"feat":
 			if n.has("feat_id"):
 				return feat_text(int(n.feat_id))
-			return "Finds one of the 10,000 features"
+			return "Finds one of the 110,000 features"
 	return ""
 
 # Every upgrade that's shown (bought, or ready to buy) is filed by area
@@ -1683,7 +1806,7 @@ func _on_prestige_pressed(k: int):
 
 # --- The features panel ------------------------------------------------------------
 # What the features found add up to per effect, the latest finds, and all
-# 10,000 page by page (the ones not found yet as ???).
+# 110,000 page by page (the ones not found yet as ???).
 
 const FEAT_PAGE = 40
 var _feat_btn: Button
@@ -1698,7 +1821,7 @@ var _feat_page := 0
 var _feat_t := 0.0
 
 func _build_feature_panel():
-	var p := _make_panel("Features", "10,000 features to find, kept for good (prestige doesn't take them). New Feature upgrades (pink) in the tree find one each, and a reset of prestige layer N finds N. Each one is one of 20 effects, growing with one of 25 things, at a strength from I to XX.")
+	var p := _make_panel("Features", "110,000 features to find, kept for good (prestige doesn't take them). New Feature upgrades (pink) in the tree find one each, and a reset of prestige layer N finds N. Each one is one of 20 effects, growing with one of 25 things, at a strength from I to XX, in 11 marks (each mark a quarter stronger).")
 	_feat_panel = p[0]
 	var v: VBoxContainer = p[1]
 	_feat_title = p[2]
@@ -1782,7 +1905,7 @@ func _effect_total_text(t: int) -> String:
 func _refresh_feat_panel():
 	_feat_title.text = "Features   %d / %d found" % [_found_count, FEAT_COUNT]
 	for t in range(FT_N):
-		_feat_sum[t].text = "%s: %s   (%d / 500)" % [FT[t][0], _effect_total_text(t), _kind_found[t]]
+		_feat_sum[t].text = "%s: %s   (%d / %d)" % [FT[t][0], _effect_total_text(t), _kind_found[t], FEAT_COUNT / FT_N]
 	if _recent.empty():
 		_feat_recent.text = "Latest: none yet. Buy a New Feature upgrade (pink) in the tree."
 	else:
@@ -2037,5 +2160,10 @@ func _bought_any() -> bool:
 
 # Save if the menu goes away while the tree is still open.
 func _exit_tree():
+	# (a file picker still open for this screen: it doesn't call back into it)
+	var fs = Globals.file_sel
+	if fs != null and is_instance_valid(fs) and fs.get("target_object") == self:
+		fs.target_object = fs
+		fs.visible = false
 	if visible:
 		_save()

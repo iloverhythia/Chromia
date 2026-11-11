@@ -1,6 +1,7 @@
 extends Node
 
 signal lobby_created(code)
+signal perms_changed() # (what your staff permissions allow changed: the admin tools)
 signal lobby_joined(code)
 signal lobby_closed()
 signal lobby_state_changed()
@@ -100,8 +101,27 @@ var _pending_send_after_connect: Array = []
 const _SETTINGS_PATH: String = "user://settings.cfg"
 var _admin_key: String = ""
 
-func has_admin_key() -> bool:
-	return _admin_key != ""
+# Staff permissions (the server's src/perms.js), from the Discord account
+# linked to your player: "view", "chat", "bans", "profiles", "ranking",
+# "announce", ... The admin tools show when there's any; the server checks
+# each action again. (The old admin key isn't used any more.)
+var my_perms: Array = []
+func has_perm(p: String) -> bool:
+	return my_perms.has(p)
+
+func has_admin_key() -> bool: # (the old name: "may use the admin tools")
+	return not my_perms.empty()
+
+func _set_perms(v):
+	var list := []
+	if v is Array:
+		for p in v:
+			list.append(String(p))
+	list.sort()
+	if list == my_perms:
+		return
+	my_perms = list
+	emit_signal("perms_changed")
 
 func set_admin_key(key: String):
 	_admin_key = key
@@ -176,6 +196,7 @@ func _process(_delta):
 	_process_map_upload_step()
 	_process_map_publish_step()
 	_presence_tick(_delta)
+	_offline_tick(_delta)
 	_chat_wait(_delta)
 
 	_update_stop_bar()
@@ -807,12 +828,13 @@ func _flush_mods_push():
 	_mods_push_debounce_running = false
 	push_current_mods()
 
-func _apply_mods_locally(mods: Dictionary):
+func _apply_mods_locally(mods: Dictionary, force: bool = false):
 	if mods.empty():
 		return
 	# (during the song they can't change: setting them again on every lobby
-	# update, several a second, was wasted work mid-map)
-	if Rhythia.in_map and bool(lobby_state.get("started", false)):
+	# update, several a second, was wasted work mid-map. force: the first state
+	# of a new watch, while you may still be in the last song you watched)
+	if not force and Rhythia.in_map and bool(lobby_state.get("started", false)):
 		return
 	Rhythia.mod_nofail = mods.get("nofail", Rhythia.mod_nofail)
 	Rhythia.mod_speed_level = mods.get("speed_level", Rhythia.mod_speed_level)
@@ -914,6 +936,27 @@ signal chat_reactions_changed(mid)
 var ranked_map_info := {} # song id -> {xp, ranked_at} (the map list sorts)
 var last_chat_id := ""
 var chat_reactions := {} # line id -> {counts: {emoji: n}, mine: [emoji]}
+
+# Staff (Owner / Admin tag): right-click a name in chat (ChatReactions.gd)
+# to delete that message for everyone, or chat ban whoever wrote it.
+signal chat_message_deleted(mid)
+func staff_delete_chat(mid: String):
+	if mid != "" and _connected():
+		_send({"type": "staff_chat_delete", "id": mid})
+
+func staff_chat_ban(mid: String):
+	if mid != "" and _connected():
+		_send({"type": "staff_chat_ban", "id": mid})
+
+func _on_chat_deleted(mid: String):
+	if mid == "":
+		return
+	for hist in [global_chat_history, lobby_chat_history]:
+		for i in range(hist.size() - 1, -1, -1):
+			if hist[i] is Dictionary and String(hist[i].get("mid", "")) == mid:
+				hist.remove(i)
+	chat_reactions.erase(mid)
+	emit_signal("chat_message_deleted", mid)
 
 func send_chat_reaction(mid: String, emoji: String):
 	if mid == "" or not _connected():
@@ -1024,7 +1067,8 @@ func upload_spectate_assets():
 	for a in spec.own_background_assets():
 		for u in a.uploads:
 			_upload_asset_file(u[0], u[1], u[2])
-	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()], ["font", "font", spec.own_font_file(String(Rhythia.hud_font))]]
+	var sends := [["border", "border", spec.own_border_file()], ["mesh", "mesh", spec.own_mesh_file()], ["font", "font", spec.own_font_file(String(Rhythia.hud_font))],
+		["hit_sound", "sound", spec.own_sound_file("hit")], ["miss_sound", "sound", spec.own_sound_file("miss")]]
 	if String(Rhythia.vr_hand) == "custom":
 		for hf in spec.own_hand_files():
 			sends.append([hf[0], "mesh", hf[1]]) # (VR hand models: .obj like a note mesh)
@@ -1042,7 +1086,7 @@ func upload_spectate_assets():
 		f.close()
 		_assets_sent[key] = sha
 		var http := HTTPRequest.new()
-		http.use_threads = true # (big files: never on the game's main thread)
+		http.use_threads = not OS.has_feature("JavaScript") # (big files: never on the game's main thread; the browser version has no threads: the download never finished there)
 		add_child(http)
 		http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
 		var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
@@ -1067,7 +1111,7 @@ func _upload_asset_file(kind: String, file: String, sha: String):
 	f.close()
 	_assets_sent[key] = sha
 	var http := HTTPRequest.new()
-	http.use_threads = true # (big files: never on the game's main thread)
+	http.use_threads = not OS.has_feature("JavaScript") # (big files: never on the game's main thread; the browser version has no threads: the download never finished there)
 	add_child(http)
 	http.connect("request_completed", self, "_on_asset_uploaded", [http, key])
 	var url: String = "%s/%s?client_id=%s" % [SPECTATE_ASSET_URL, kind, String(Rhythia._ensure_client_id()).http_escape()]
@@ -1095,10 +1139,14 @@ func fetch_spectate_assets(settings):
 	var fp: Array = spec.font_file_parts(String(settings.get("hud_font_file", "")))
 	if not fp.empty() and String(settings.get("hud_font", "")) == "custom":
 		wanted.append(["font", fp[0], fp[1]])
-	for k in ["custombg_image", "panobg_image"]:
+	for k in ["custombg_image", "panobg_image", "hud_panel_image"]:
 		var v: String = String(settings.get(k, "")).to_lower()
 		if v.find(".") == 64:
 			wanted.append(["media", v.left(64), v.right(65)])
+	for sk in ["hit_sound_file", "miss_sound_file"]:
+		var sp: Array = spec.sound_file_parts(String(settings.get(sk, "")))
+		if not sp.empty():
+			wanted.append(["sound", sp[0], sp[1]])
 	var lv: String = String(settings.get("bg_layers", "")).to_lower()
 	if lv != "none" and lv != "":
 		wanted.append(["bglayers", lv, "json"])
@@ -1138,7 +1186,7 @@ func _download_asset(kind: String, sha: String, ext: String):
 	var dir_path: String = Globals.p(spec.ASSET_CACHE)
 	Directory.new().make_dir_recursive(dir_path)
 	var http := HTTPRequest.new()
-	http.use_threads = true # (big files: never on the game's main thread)
+	http.use_threads = not OS.has_feature("JavaScript") # (big files: never on the game's main thread; the browser version has no threads: the download never finished there)
 	http.download_file = dir_path.plus_file("%s.%s.part" % [sha, ext])
 	add_child(http)
 	http.connect("request_completed", self, "_on_asset_downloaded", [http, kind, sha, ext])
@@ -1230,7 +1278,7 @@ func upload_cursor_picture():
 		return
 	_cursor_sent = sha
 	var http := HTTPRequest.new()
-	http.use_threads = true # (big files: never on the game's main thread)
+	http.use_threads = not OS.has_feature("JavaScript") # (big files: never on the game's main thread; the browser version has no threads: the download never finished there)
 	add_child(http)
 	http.connect("request_completed", self, "_on_cursor_uploaded", [http])
 	var url: String = "%s?client_id=%s" % [CURSOR_URL, String(Rhythia._ensure_client_id()).http_escape()]
@@ -1662,6 +1710,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
+			if msg.has("perms"):
+				_set_perms(msg.get("perms"))
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
@@ -1697,6 +1747,10 @@ func _handle_message(msg: Dictionary):
 				watch_target_name = Globals.s(msg.get("target_name", ""))
 				_spectate_load_target = int(msg.get("target_peer", -1))
 				_watch_first_load = true
+				# their mods (speed!) come with the next state: always put on, also
+				# when switching to them from inside the last song you watched
+				# (skipped then, the song ran at your speed: 1x for their 1.45x)
+				_watch_mods_pending = true
 				# (switching to someone else: their map is checked again, and the
 				# last player's look isn't used for them)
 				_map_readiness_checked_song_id = ""
@@ -1728,8 +1782,10 @@ func _handle_message(msg: Dictionary):
 					is_host = bool(p.get("is_host", is_host))
 
 			if not is_host:
-				_apply_mods_locally(lobby_state.get("mods", {}))
+				_apply_mods_locally(lobby_state.get("mods", {}), _watch_mods_pending)
 				_apply_watch_spin(lobby_state.get("mods", {}))
+				if not lobby_state.get("mods", {}).empty():
+					_watch_mods_pending = false
 			_check_map_readiness()
 			_try_scroll_map_list(String(lobby_state.get("song_id", "")))
 			emit_signal("lobby_state_changed")
@@ -1850,6 +1906,8 @@ func _handle_message(msg: Dictionary):
 			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
 			i_am_staff = bool(msg.get("you_staff", false))
 			Rhythia.is_staff = i_am_staff
+			if msg.has("you_perms"):
+				_set_perms(msg.get("you_perms"))
 			emit_signal("online_players_received", online_players, my_player_number)
 			_check_follow(online_players)
 		"spectate_denied":
@@ -1907,6 +1965,10 @@ func _handle_message(msg: Dictionary):
 			_chat_translated(msg)
 		"chat_reactions":
 			_on_chat_reactions(msg)
+		"chat_deleted":
+			_on_chat_deleted(Globals.s(msg.get("id", "")))
+		"staff_result":
+			Globals.notify(Globals.NOTIFY_SUCCEED if bool(msg.get("ok", false)) else Globals.NOTIFY_WARN, Globals.s(msg.get("text", "")), "Chat")
 		"announcement":
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))
@@ -1965,6 +2027,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff
+			if msg.has("perms"):
+				_set_perms(msg.get("perms"))
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
 		"map_rank_info":
 			emit_signal("map_rank_info_received", Globals.s(msg.get("song_id", "")), bool(msg.get("ranked", false)), int(msg.get("xp", 0)), Globals.s(msg.get("content_hash", "")))
@@ -2072,6 +2136,7 @@ var _watch_first_load: bool = false
 var _watch_wait_t: float = 0.0
 var reopen_spectate_tab: bool = false # the menu opens on the Spectate tab after watching
 var _watch_mods_backup = null
+var _watch_mods_pending := false # a new watch: its first mods go on whatever (_apply_mods_locally force)
 var _online_subscribed: bool = false
 var _presence_sent: String = ""
 var _presence_t: float = 0.0
@@ -2098,6 +2163,32 @@ func _set_presence_supported(v: int):
 
 func _connected() -> bool:
 	return _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_CONNECTED
+
+# The servers can't be reached: the game's connection to them (it's kept open
+# all the time, and tried again when it's lost) has been down for a while, or
+# this is a page that can't reach them at all. Maps show their offline RP
+# then, whatever the Show RP on Maps setting says (Savia.map_rp_shown).
+const OFFLINE_AFTER := 12.0
+var servers_offline := false
+var _unreached_t := 0.0
+var _embedded := -1
+func _offline_tick(delta: float):
+	var off := false
+	if _connected():
+		_unreached_t = 0.0
+	elif presence_supported == 0:
+		_unreached_t = 0.0 # (an older server: only connected to when needed, so no telling)
+	else:
+		_unreached_t += delta
+		off = _unreached_t >= OFFLINE_AFTER
+	if not off:
+		if _embedded < 0: # (asked of the page once)
+			_embedded = 1 if Online.is_embedded() else 0
+		off = _embedded == 1
+	if off != servers_offline:
+		servers_offline = off
+		if Rhythia != null:
+			Rhythia.emit_signal("show_map_rp_changed") # (the map's screen redoes its RP line)
 
 func _presence_tick(delta: float):
 	if Rhythia == null or String(Rhythia.cid) == "":
@@ -2179,7 +2270,35 @@ func _presence_now() -> Dictionary:
 		var d = s.get("difficulty")
 		p["difficulty"] = clamp(float(d), -1.0, 100.0) if d != null else -1.0
 		p["mods"] = _collect_current_mods()
+		_presence_progress(p, game, s)
 	return p
+
+# Where you are in the map, for others' Spectate tab: your map time is sent
+# only when it isn't where the clock says (a start, a pause, a skip, a
+# restart), with the map's length and the speed; the server works out the rest.
+var _pos_ms := 0.0
+var _pos_t := 0
+var _pos_paused := false
+var _pos_song := ""
+func _presence_progress(p: Dictionary, game, s):
+	var nm = game.get_node_or_null("Spawn") if game != null else null
+	if nm == null or nm.get("ms") == null or nm.get("speed_multi") == null:
+		return
+	var ms: float = float(nm.ms)
+	var spd: float = max(float(nm.speed_multi), 0.01)
+	var paused: bool = nm.get("pause_state") != null and float(nm.pause_state) < 0.0
+	var now := OS.get_ticks_msec()
+	var guess: float = _pos_ms + (0.0 if _pos_paused else float(now - _pos_t) * spd)
+	var sid := String(s.id)
+	if sid != _pos_song or paused != _pos_paused or abs(ms - guess) > 1500.0:
+		_pos_ms = ms
+		_pos_t = now
+		_pos_paused = paused
+		_pos_song = sid
+	p["pos_ms"] = round(_pos_ms)
+	p["len_ms"] = max(float(s.last_ms), 0.0) if s.get("last_ms") != null else 0.0
+	p["speed"] = stepify(spd, 0.0001)
+	p["paused"] = _pos_paused
 
 func _send_presence(force: bool):
 	if presence_supported != 1 or not _connected():

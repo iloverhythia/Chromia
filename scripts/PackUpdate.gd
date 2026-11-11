@@ -26,6 +26,9 @@ static func supported() -> bool:
 	return OS.has_feature("iOS") or (OS.has_feature("quest") and not OS.has_feature("store"))
 
 func _init():
+	# (computers: Chromia's own data folder, filled from the old shared one the
+	# first time, before anything else reads it)
+	load("res://scripts/DataFolder.gd").migrate()
 	if not supported():
 		return
 	var f := File.new()

@@ -6,6 +6,8 @@ func _pressed():
 	if !Rhythia.selected_song: return
 	if !$Song.playing:
 		$Song.stream = Rhythia.selected_song.stream()
+		if $Song.stream == Globals.error_sound and _convert_then_play():
+			return
 		if $Song.stream == null:
 			# No audio for this map (the built-in maps ship without their music).
 			text = "Play Music"
@@ -19,6 +21,29 @@ func _pressed():
 		$Song.stop()
 		text = "Play Music"
 		menu_resume()
+
+# A song the engine can't decode (.m4a, FLAC...): converted by the Chromia
+# server once (AudioConvert.gd), then played if the map is still selected.
+# -> true when a conversion was started
+func _convert_then_play() -> bool:
+	var s = Rhythia.selected_song
+	var AudioConvert = load("res://scripts/content/AudioConvert.gd")
+	var buf = s.get_music_buffer()
+	if not AudioConvert.needed(buf):
+		return false
+	$Song.stream = null
+	text = "Getting the song..."
+	var job = AudioConvert.start(buf)
+	if not job.is_connected("finished", self, "_on_song_converted"):
+		job.connect("finished", self, "_on_song_converted", [s])
+	return true
+
+func _on_song_converted(ok: bool, why: String, s):
+	text = "Play Music"
+	if not ok:
+		Globals.notify(Globals.NOTIFY_WARN, "This map's song couldn't be converted: %s." % why, "Song")
+	elif s == Rhythia.selected_song and not $Song.playing:
+		_pressed()
 
 var song = Rhythia.selected_song
 
@@ -135,20 +160,56 @@ func _ready():
 	Rhythia.connect("speed_mod_changed",self,"upd")
 	Rhythia.connect("menu_music_state_changed",self,"upd_mm")
 	# a custom menu song loops; otherwise the built-in songs play in a random
-	# order, one after another (Savia.gd: next_menu_track)
+	# order, one after another (Savia.gd: next_menu_track). Read on a thread:
+	# reading an MP3 goes through the whole file (it held up the menu opening)
+	_ready_ms = OS.get_ticks_msec()
+	if OS.can_use_threads():
+		_mm_thread = Thread.new()
+		if _mm_thread.start(self, "_read_menu_song") != OK:
+			_mm_thread = null
+	if _mm_thread == null:
+		_menu_song_read(_read_menu_song(null))
+
+var _mm_thread: Thread = null
+var _ready_ms := 0
+
+func _read_menu_song(_u):
 	var custom = Rhythia.get_stream_with_default("user://menu", null)
+	var out := [custom != null, custom if custom != null else Rhythia.next_menu_track()]
+	if _mm_thread != null:
+		call_deferred("_menu_song_thread_done")
+	return out
+
+func _menu_song_thread_done():
+	if _mm_thread == null:
+		return
+	var res = _mm_thread.wait_to_finish()
+	_mm_thread = null
+	if is_inside_tree():
+		_menu_song_read(res)
+
+func _exit_tree():
+	if _mm_thread != null and _mm_thread.is_active():
+		_mm_thread.wait_to_finish()
+	_mm_thread = null
+
+func _menu_song_read(res: Array):
+	var custom = res[1] if res[0] else null
 	if custom:
 		$MenuSong.stream = custom
 		if custom is AudioStreamSample: custom.loop_mode = 1
 		else: custom.loop = true
 	else:
-		$MenuSong.stream = Rhythia.next_menu_track()
+		$MenuSong.stream = res[1]
 		$MenuSong.connect("finished", self, "_menu_song_finished")
 		# none downloaded yet (the first start): the first one to arrive plays
 		var mm = load("res://scripts/MenuMusic.gd").get_or_start()
 		if not mm.is_connected("track_ready", self, "_on_menu_track_ready"):
 			mm.connect("track_ready", self, "_on_menu_track_ready")
 	if Rhythia.play_menu_music:
-		yield(get_tree().create_timer(0.5),"timeout")
+		# (half a second after the menu opened, as before)
+		var wait: float = 0.5 - (OS.get_ticks_msec() - _ready_ms) / 1000.0
+		if wait > 0.0:
+			yield(get_tree().create_timer(wait), "timeout")
 		if is_inside_tree() and !$Song.playing and !$MenuSong.playing and Rhythia.play_menu_music:
 			$MenuSong.play()

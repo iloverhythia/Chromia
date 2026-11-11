@@ -137,6 +137,10 @@ func _ready():
 	var margin = MarginContainer.new()
 	margin.add_constant_override("margin_left", 66)
 	margin.add_constant_override("margin_right", 66)
+	var new_ui: bool = Rhythia.new_settings_ui and not Rhythia.sound_space_mode
+	if new_ui: # (the new Settings look: the page sits beside the list of categories)
+		margin.add_constant_override("margin_left", 20)
+		margin.add_constant_override("margin_right", 18)
 	margin.add_constant_override("margin_top", 12)
 	margin.add_constant_override("margin_bottom", 12)
 	add_child(margin)
@@ -280,6 +284,9 @@ func _ready():
 	var aspect = vp_size.x / max(vp_size.y, 1.0)
 	aspect = clamp(aspect, 1.0, 2.6)
 	var pw = 800.0
+	if new_ui:
+		# (as wide as fits next to the layers: 800 again on a bigger window)
+		pw = clamp(vp_size.x - 60 - 246 - 38 - LEFT_W - 16 - 48, 420.0, 800.0)
 	preview.rect_min_size = Vector2(pw, round(pw / aspect))
 	preview.size_flags_horizontal = 0
 	preview.layers = layers

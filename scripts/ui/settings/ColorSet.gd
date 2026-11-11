@@ -15,6 +15,10 @@ func upd(_c=null):
 		if not is_instance_valid(btns[k]): continue
 		var v = (Rhythia.selected_colorset != null and k.id == Rhythia.selected_colorset.id)
 		btns[k].get_node("Select").disabled = v
+		var hi = btns[k].get_node_or_null("SelHi")
+		if hi:
+			hi.visible = v
+			hi.update()
 		if v: btns[k].self_modulate = Color(1,1,1)
 		else: btns[k].self_modulate = Color(0.5,0.5,0.5)
 		var fav = _is_fav(k)
@@ -24,6 +28,24 @@ func upd(_c=null):
 		if nm:
 			if fav: nm.add_color_override("font_color", FAV_NAME_COLOR)
 			else: nm.set("custom_colors/font_color", null)
+
+# The selected colorset's mark: an outline around its tile and a tick badge in
+# the top left corner (the star is top right), in the Menu Customizer's accent.
+func _draw_selected(hi: Control):
+	var accent: Color = load("res://scripts/ui/menu/MenuStyle.gd").get_value("accent")
+	accent.a = 1.0
+	var box := StyleBoxFlat.new()
+	box.bg_color = Color(accent.r, accent.g, accent.b, 0.10)
+	box.border_color = accent
+	box.set_border_width_all(3)
+	box.set_corner_radius_all(6)
+	box.anti_aliasing = true
+	hi.draw_style_box(box, Rect2(Vector2(-3, -3), hi.rect_size + Vector2(6, 6)))
+	var c := Vector2(13, 13)
+	hi.draw_circle(c, 11, Color(0.08, 0.06, 0.1))
+	hi.draw_circle(c, 9.5, accent)
+	var dark := Color(0.1, 0.07, 0.12)
+	hi.draw_polyline(PoolVector2Array([c + Vector2(-4.5, 0.5), c + Vector2(-1.2, 3.8), c + Vector2(5, -3.5)]), dark, 2.4, true)
 
 # Favorites first (in registry order), then everything else (in registry order).
 func _reorder():
@@ -52,6 +74,13 @@ func _toggle_fav(cs):
 func col(): columns = rect_size.x / 100
 
 func _ready():
+	# the selected tile's moving shine, calmer: half as strong and slower
+	# (every tile's button shares this one material)
+	var shine = $Color.get_node("Select").material
+	if shine is ShaderMaterial:
+		var sh := Shader.new()
+		sh.code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec2 uv = UV + vec2(TIME * -0.12);\n\tCOLOR.rgb = texture(TEXTURE,UV).rgb * (0.88 + (0.12 * sin(length(uv*6.285))));\n}"
+		shine.shader = sh
 	for cs in Rhythia.registry_colorset.items:
 		add_set(cs, false)
 	upd()
@@ -113,6 +142,15 @@ func add_set(cs, update: bool = true):
 		star.fav = _is_fav(cs)
 		star.connect("pressed", self, "_toggle_fav", [cs])
 		btn.add_child(star)
+		# the one in use: an outline in the menu's accent colour and a tick
+		var hi = Control.new()
+		hi.name = "SelHi"
+		hi.anchor_right = 1.0
+		hi.anchor_bottom = 1.0
+		hi.mouse_filter = MOUSE_FILTER_IGNORE
+		hi.visible = false
+		hi.connect("draw", self, "_draw_selected", [hi])
+		btn.add_child(hi)
 		btns[cs] = btn
 		call_deferred("add_child",btn)
 	if update:

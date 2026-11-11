@@ -16,7 +16,7 @@ extends Reference
 #   s  speed multiplier mods [short mod tags]  nm player name  so start-from ms
 #   av Discord picture url  rp the replay's id (user://replays/<rp>.sspre)
 
-const DIR = "user://score_history"
+const DIR = "user://chromia/score_history" # (not in the folder Rhythia Nightly shares)
 const MAX_ENTRIES = 100
 # When over the cap, the oldest attempt that isn't one of your best few goes.
 const KEEP_BEST = 10

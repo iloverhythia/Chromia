@@ -54,6 +54,8 @@ func _process(delta):
 	_haptics_tick(delta)
 	_watch_for_reset(delta)
 	_apply_grip()
+	_apply_hand_rot()
+	_check_own_hand()
 	if not Rhythia.fake_vr:
 		_place_eye()
 	primary_ray.force_raycast_update()
@@ -321,6 +323,10 @@ var _hand_shown := ""
 
 func apply_hand():
 	var want: String = Rhythia.vr_hand
+	# (breck's snow leopard paw: player #3 only; the Furry paws until the game
+	# knows who you are, _check_own_hand puts it on then)
+	if want == "snowleopard" and not load("res://vr/SnowLeopardPaw.gd").allowed():
+		want = "paw"
 	if want == _hand_shown:
 		return
 	var meshes = null # [left, right]
@@ -353,6 +359,7 @@ func apply_hand():
 		if meshes == null:
 			mi.mesh = d[1]
 			mi.transform = d[2]
+			mi.set_meta("hand_base", d[2])
 			mi.set_surface_material(0, d[3])
 			if outline:
 				outline.visible = true
@@ -362,6 +369,7 @@ func apply_hand():
 		var mesh: Mesh = meshes[i]
 		mi.mesh = mesh
 		mi.transform = Transform(Basis().scaled(Vector3(UNITS_PER_M, UNITS_PER_M, UNITS_PER_M)), Vector3.ZERO)
+		mi.set_meta("hand_base", mi.transform)
 		for k in range(mesh.get_surface_count()):
 			# its own material (paw, .mtl colour / texture), or the default hand look
 			mi.set_surface_material(k, null if mesh.surface_get_material(k) != null else d[3])
@@ -370,6 +378,36 @@ func apply_hand():
 		if trail:
 			trail.transform = Transform(Basis().scaled(Vector3(0.02, 0.02, 0.06)), Vector3.ZERO)
 	Rhythia.trail("VR hands: " + want)
+	_hand_rot_applied = null # (the model changed: turned again)
+
+# A hand only one player has (SnowLeopardPaw.gd): put on once the game knows
+# it's them (checked every 2 s while it isn't on).
+var _own_hand_at := 0
+func _check_own_hand():
+	if Rhythia.vr_hand != "snowleopard" or _hand_shown == "snowleopard":
+		return
+	var now := OS.get_ticks_msec()
+	if now < _own_hand_at:
+		return
+	_own_hand_at = now + 2000
+	if load("res://vr/SnowLeopardPaw.gd").allowed():
+		apply_hand()
+
+# Settings > VR > Hands > Hand direction: the hand model turned around the
+# controller (the beam isn't moved: that's Controller grip). The left hand gets
+# the mirror image of the right hand's setting.
+var _hand_rot_applied = null
+func _apply_hand_rot():
+	if _hand_rot_applied == Rhythia.vr_hand_rot:
+		return
+	_hand_rot_applied = Rhythia.vr_hand_rot
+	var r: Vector3 = Rhythia.vr_hand_rot
+	for i in range(_hand_default.size()):
+		var mi: MeshInstance = _hand_default[i][0]
+		var base: Transform = mi.get_meta("hand_base") if mi.has_meta("hand_base") else _hand_default[i][2]
+		var left := i == 0
+		var rot := Basis(Vector3(deg2rad(r.x), deg2rad(-r.y if left else r.y), deg2rad(-r.z if left else r.z)))
+		mi.transform = Transform(rot, Vector3.ZERO) * base
 
 func _custom_hand_meshes():
 	var right_path: String = Globals.p("user://vr_hand.obj")
@@ -403,7 +441,11 @@ func apply_xr_settings():
 	if cfg.has_method("set_foveation_level"):
 		var lvl: int = int(clamp(Rhythia.vr_foveation, 0, 3))
 		cfg.set_foveation_level(lvl, lvl > 0)
-	if Rhythia.vr_refresh > 0.0 and cfg.has_method("set_refresh_rate"):
+	var unlocked := _unlocked_rate()
+	if unlocked > 0.0 and cfg.has_method("set_refresh_rate"):
+		cfg.set_refresh_rate(unlocked)
+		_watch_refresh()
+	elif Rhythia.vr_refresh > 0.0 and cfg.has_method("set_refresh_rate"):
 		var ok := true
 		if cfg.has_method("get_available_refresh_rates"):
 			ok = false
@@ -412,7 +454,37 @@ func apply_xr_settings():
 					ok = true
 		if ok:
 			cfg.set_refresh_rate(Rhythia.vr_refresh)
-	Rhythia.trail("VR graphics: foveation %d, refresh %s" % [Rhythia.vr_foveation, str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default"])
+	Rhythia.trail("VR graphics: foveation %d, refresh %s" % [Rhythia.vr_foveation, ("unlocked %s" % str(unlocked)) if unlocked > 0 else (str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default")])
+
+# Unlock refresh rate: the highest rate the headset offers (0: not on, or the
+# headset doesn't say)
+static func _unlocked_rate() -> float:
+	if not Rhythia.vr_refresh_unlock:
+		return 0.0
+	var rates: Array = refresh_rates()
+	return float(rates[-1]) if not rates.empty() else 0.0
+
+# Headsets can drop back to their default rate (after sleeping, the system
+# menu, a guardian / boundary pop-up): checked every few seconds and put back.
+var _refresh_timer: Timer = null
+func _watch_refresh():
+	if _refresh_timer != null:
+		return
+	_refresh_timer = Timer.new()
+	_refresh_timer.wait_time = 5.0
+	_refresh_timer.pause_mode = PAUSE_MODE_PROCESS
+	_refresh_timer.autostart = true
+	_refresh_timer.connect("timeout", self, "_check_refresh")
+	add_child(_refresh_timer)
+
+func _check_refresh():
+	var want := _unlocked_rate()
+	var cfg = Rhythia.vr_xr_config
+	if want <= 0.0 or cfg == null or not cfg.has_method("set_refresh_rate"):
+		return
+	if cfg.has_method("get_refresh_rate") and abs(float(cfg.get_refresh_rate()) - want) < 0.5:
+		return
+	cfg.set_refresh_rate(want)
 
 static func refresh_rates() -> Array:
 	var cfg = Rhythia.vr_xr_config

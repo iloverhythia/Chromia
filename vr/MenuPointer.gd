@@ -48,13 +48,23 @@ var _frame := 0
 func busy():
 	_busy_until = OS.get_ticks_msec() + BUSY_MS
 
+# At a high refresh rate (90 / 120 Hz) the screen is redrawn at most about 60
+# times a second while you use it and 40 otherwise: drawing the whole menu
+# at 120 Hz was what made it laggy at times. (The pointer, the dot and your
+# view are 3D and stay at the full rate.)
 func _pace_redraw():
 	_frame += 1
+	var fast: bool = Engine.get_frames_per_second() > 80
+	var every := 1
 	if OS.get_ticks_msec() < _busy_until or _resize != null:
+		every = 2 if fast else 1
+	else:
+		every = 3 if fast else 2
+	if every == 1:
 		if viewport.render_target_update_mode != Viewport.UPDATE_ALWAYS:
 			viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
 		return
-	viewport.render_target_update_mode = Viewport.UPDATE_ONCE if _frame % 2 == 0 else Viewport.UPDATE_DISABLED
+	viewport.render_target_update_mode = Viewport.UPDATE_ONCE if _frame % every == 0 else Viewport.UPDATE_DISABLED
 
 # Lays the menu out for the text size setting (and draws it at least 1920x1080).
 func apply_layout():

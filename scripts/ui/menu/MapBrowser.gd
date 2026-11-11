@@ -183,10 +183,21 @@ func _same_name_song(m: Dictionary):
 	if s == null:
 		return null
 	var oid := str(m.get("id", ""))
-	for k in _record.keys():
-		if k != oid and String(_record[k]) == id:
+	# (which rhythia.com maps became which local map: kept the other way round
+	# too, so this stays instant however many maps you've downloaded)
+	for k in _by_local.get(id, []):
+		if k != oid:
 			return null # that file is a different rhythia.com map
 	return s
+
+var _by_local := {} # local map id -> [rhythia.com ids]
+func _index_record():
+	_by_local = {}
+	for k in _record.keys():
+		var l := String(_record[k])
+		if not _by_local.has(l):
+			_by_local[l] = []
+		_by_local[l].append(k)
 
 func _load_record():
 	var f = File.new()
@@ -195,8 +206,10 @@ func _load_record():
 		f.close()
 		if p.error == OK and typeof(p.result) == TYPE_DICTIONARY:
 			_record = p.result
+			_index_record()
 
 func _save_record():
+	_index_record()
 	var f = File.new()
 	if f.open(Globals.p(RECORD_PATH), File.WRITE) == OK:
 		f.store_string(to_json(_record))
@@ -489,6 +502,7 @@ func _show_error(msg: String):
 func _show_maps(maps: Array):
 	for c in grid.get_children():
 		c.queue_free()
+	_card_queue = []
 	_buttons_by_id.clear()
 	_maps_by_id.clear()
 	_extra_by_id.clear()
@@ -499,10 +513,29 @@ func _show_maps(maps: Array):
 		var l = _label("No maps found. Try another search or difficulty.", font_regular, DIM)
 		grid.add_child(l)
 		return
+	# a few cards a frame (all 50 at once held up the menu, worst in VR)
+	_card_queue = []
 	for m in maps:
 		if typeof(m) == TYPE_DICTIONARY:
-			grid.add_child(_make_card(m))
+			_card_queue.append(m)
 	_relayout()
+	_cards_step()
+
+var _card_queue := []
+const CARDS_PER_FRAME := 6
+func _cards_step():
+	var n := 0
+	while not _card_queue.empty() and n < CARDS_PER_FRAME:
+		grid.add_child(_make_card(_card_queue.pop_front()))
+		n += 1
+	var tree = get_tree()
+	if tree == null:
+		return
+	if _card_queue.empty():
+		if tree.is_connected("idle_frame", self, "_cards_step"):
+			tree.disconnect("idle_frame", self, "_cards_step")
+	elif not tree.is_connected("idle_frame", self, "_cards_step"):
+		tree.connect("idle_frame", self, "_cards_step")
 
 # ------------------------------------------------------------------ cards
 
@@ -726,26 +759,58 @@ func _pump_images():
 		else:
 			r.queue_free()
 
+# The covers are decoded and made card-sized on a thread (they're big: decoding
+# them in the menu made it stutter, worst in VR), then become textures here.
+const COVER_W := 480
 func _on_image(result: int, code: int, _headers, data: PoolByteArray, r: HTTPRequest, url: String):
 	r.queue_free()
-	_img_active -= 1
 	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and data.size() > 0:
-		var img = Image.new()
-		var err = img.load_webp_from_buffer(data)
-		if err != OK: err = img.load_jpg_from_buffer(data)
-		if err != OK: err = img.load_png_from_buffer(data)
-		if err == OK:
-			var t = ImageTexture.new()
-			t.create_from_image(img, Texture.FLAG_FILTER)
-			_img_cache[url] = t
-			_img_order.append(url)
-			if _img_order.size() > MAX_IMG_CACHE:
-				_img_cache.erase(_img_order.pop_front())
-			for target in _img_waiting.get(url, []):
-				if is_instance_valid(target):
-					target.texture = t
+		if OS.can_use_threads():
+			var t := Thread.new()
+			if t.start(self, "_decode_cover", [data, url, t]) == OK:
+				return
+		_cover_decoded([_decode_cover([data, url, null])])
+		return
+	_img_active -= 1
 	_img_waiting.erase(url)
 	_pump_images()
+
+func _decode_cover(job: Array):
+	var data: PoolByteArray = job[0]
+	var img := Image.new()
+	var err = img.load_webp_from_buffer(data)
+	if err != OK: err = img.load_jpg_from_buffer(data)
+	if err != OK: err = img.load_png_from_buffer(data)
+	if err != OK or img.is_empty():
+		img = null
+	elif img.get_width() > COVER_W:
+		img.resize(COVER_W, int(max(1, img.get_height() * COVER_W / img.get_width())), Image.INTERPOLATE_BILINEAR)
+	var out := [job[1], img, job[2]]
+	if job[2] != null:
+		call_deferred("_cover_decoded", [out])
+	return out
+
+func _cover_decoded(wrapped: Array):
+	var res: Array = wrapped[0]
+	var url: String = res[0]
+	var th = res[2]
+	if th != null and th.is_active():
+		th.wait_to_finish()
+	_img_active -= 1
+	var img = res[1]
+	if img != null and is_inside_tree():
+		var t = ImageTexture.new()
+		t.create_from_image(img, Texture.FLAG_FILTER)
+		_img_cache[url] = t
+		_img_order.append(url)
+		if _img_order.size() > MAX_IMG_CACHE:
+			_img_cache.erase(_img_order.pop_front())
+		for target in _img_waiting.get(url, []):
+			if is_instance_valid(target):
+				target.texture = t
+	_img_waiting.erase(url)
+	if is_inside_tree():
+		_pump_images()
 
 # ------------------------------------------------------------------ downloads
 
@@ -938,6 +1003,9 @@ func _after_download(oid: String, m: Dictionary):
 		_update_button(m, b)
 
 func _exit_tree():
+	_card_queue = []
+	if get_tree() and get_tree().is_connected("idle_frame", self, "_cards_step"):
+		get_tree().disconnect("idle_frame", self, "_cards_step")
 	for oid in _downloads.keys():
 		var d: Dictionary = _downloads[oid]
 		if is_instance_valid(d.req):

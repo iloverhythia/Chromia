@@ -11,7 +11,7 @@ var _win_request: Array = []
 # fullscreen while one is open and goes back after.
 var _was_fullscreen: bool = false
 func _leave_fullscreen():
-	if OS.window_fullscreen:
+	if OS.window_fullscreen and not Rhythia.vr:
 		_was_fullscreen = true
 		OS.window_fullscreen = false
 		OS.move_window_to_foreground()

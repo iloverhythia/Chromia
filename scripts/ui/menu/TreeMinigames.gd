@@ -8,7 +8,10 @@ extends Control
 # - Chromia Merge: drag a Chromia logo onto one just like it and they merge
 #   into the next logo. It never ends: every level is a new logo (its colour,
 #   rings, orbiting dots, spikes and name come from its level). Logos on the
-#   board make chrome coins all the time, more the higher they are.
+#   board make chrome coins all the time, more the higher they are. Its
+#   Upgrades (paid in chrome coins, priced in seconds of your coin rate like
+#   the games' prizes): faster and better new logos, a bigger board, more
+#   income and merge rewards, auto-merging and lucky merges.
 # - Note Rush: hit the notes on the grid before they fade, 30 seconds.
 # - Lucky Wheel: a free spin every 10 minutes (coins, or a new feature).
 # - Memory Match: find the 8 pairs; the fewer tries, the bigger the prize.
@@ -218,10 +221,24 @@ static func draw_logo(ci: CanvasItem, center: Vector2, size: float, level: int, 
 # --- Chromia Merge ------------------------------------------------------------------
 
 class MergeGame extends Control:
-	const N := 5
+	var N := 5 # (the board's side: 5, bigger with the Bigger board upgrade)
 	var games
 	var board := []
 	var best := 1
+	# upgrades: [id, name, most levels, first price (seconds of coin rate), price x per level]
+	const UPS := [
+		["speed", "Faster logos", 12, 30.0, 2.2],
+		["start", "Better new logos", 6, 120.0, 3.5],
+		["board", "Bigger board", 2, 600.0, 12.0],
+		["income", "Logo income", 25, 45.0, 1.9],
+		["reward", "Merge rewards", 20, 40.0, 1.9],
+		["auto", "Auto-merge", 10, 300.0, 2.4],
+		["lucky", "Lucky merges", 6, 240.0, 3.0],
+	]
+	var up := {}
+	var _up_box: VBoxContainer
+	var _up_btns := {}
+	var _auto_t := 0.0
 	var _drag := -1
 	var _drag_pos := Vector2()
 	var _spawn_t := 0.0
@@ -239,6 +256,10 @@ class MergeGame extends Control:
 		var m = st.get("merge", {})
 		if not (m is Dictionary):
 			m = {}
+		var u = m.get("up", {})
+		for e in UPS:
+			up[e[0]] = int(clamp(int(u.get(e[0], 0)) if u is Dictionary and (typeof(u.get(e[0])) == TYPE_REAL or typeof(u.get(e[0])) == TYPE_INT) else 0, 0, e[2]))
+		N = 5 + int(up.board)
 		var b = m.get("board", [])
 		board = []
 		for i in range(N * N):
@@ -261,13 +282,141 @@ class MergeGame extends Control:
 		bsort.hint_tooltip = "Puts the logos in order, highest first"
 		bsort.connect("pressed", self, "_tidy")
 		add_child(bsort)
+		_build_upgrades()
 		set_process(true)
 
 	func _save():
-		games.state()["merge"] = {"board": board, "best": best}
+		games.state()["merge"] = {"board": board, "best": best, "up": up.duplicate()}
 
 	func spawn_level() -> int:
-		return int(max(1, best - 6)) # (new logos get better as you go, so it never stalls)
+		# (new logos get better as you go, so it never stalls; Better new logos:
+		# higher still, never as high as your best)
+		var lv := int(max(1, best - 6)) + int(up.get("start", 0))
+		return int(clamp(lv, 1, max(1, best - 1)))
+
+	func spawn_every() -> float:
+		return 3.0 * pow(0.85, int(up.get("speed", 0)))
+
+	func auto_every() -> float:
+		return 6.0 * pow(0.8, int(up.get("auto", 0)) - 1) if int(up.get("auto", 0)) > 0 else 0.0
+
+	# --- upgrades (the panel on the right) ---
+	const PANEL_W := 330.0
+
+	func _price_l(e: Array) -> float:
+		var secs: float = float(e[3]) * pow(float(e[4]), int(up.get(e[0], 0)))
+		return max(games.tr._rate_l, 1.0) + games.tr.lg(secs)
+
+	func _up_text(e: Array) -> String:
+		var lv := int(up.get(e[0], 0))
+		var what := ""
+		match e[0]:
+			"speed": what = "a new logo every %ss" % str(stepify(spawn_every(), 0.01))
+			"start": what = "new logos +%d levels" % lv
+			"board": what = "%dx%d board" % [N, N]
+			"income": what = "logos make x%s coins" % str(stepify(pow(1.5, lv), 0.1))
+			"reward": what = "merges pay x%s" % str(stepify(pow(2.0, lv), 1))
+			"auto": what = ("merges a pair every %ss" % str(stepify(auto_every(), 0.1))) if lv > 0 else "merges pairs for you"
+			"lucky": what = "%d%% of merges jump 2 levels" % (lv * 4)
+		var head := "%s  %d/%d" % [e[1], lv, e[2]]
+		if lv >= int(e[2]):
+			return "%s\n%s  (maxed)" % [head, what]
+		return "%s\n%s\n%s chrome coins" % [head, what, games.tr.fmtl(_price_l(e))]
+
+	func _build_upgrades():
+		_up_box = VBoxContainer.new()
+		_up_box.anchor_left = 1.0
+		_up_box.anchor_right = 1.0
+		_up_box.margin_left = -PANEL_W - 24
+		_up_box.margin_right = -24
+		_up_box.margin_top = 54
+		_up_box.add_constant_override("separation", 6)
+		add_child(_up_box)
+		var t := Label.new()
+		t.text = "Upgrades"
+		t.add_font_override("font", _font)
+		t.add_color_override("font_color", Color(1, 0.756863, 0.960784))
+		_up_box.add_child(t)
+		for e in UPS:
+			var b := Button.new()
+			b.theme = preload("res://uitheme.tres")
+			b.rect_min_size = Vector2(PANEL_W, 62)
+			b.clip_text = true
+			b.connect("pressed", self, "_buy", [e[0]])
+			_up_box.add_child(b)
+			# (a label inside: a button's own text is one line)
+			var l := Label.new()
+			l.name = "L"
+			l.anchor_right = 1.0
+			l.anchor_bottom = 1.0
+			l.margin_left = 10
+			l.margin_right = -8
+			l.valign = Label.VALIGN_CENTER
+			l.clip_text = true
+			l.mouse_filter = MOUSE_FILTER_IGNORE
+			l.add_font_override("font", _font_small)
+			l.add_color_override("font_color", Color(0.06, 0.04, 0.08))
+			b.add_child(l)
+			_up_btns[e[0]] = b
+		_refresh_upgrades()
+
+	func _refresh_upgrades():
+		for e in UPS:
+			var b: Button = _up_btns[e[0]]
+			var lv := int(up.get(e[0], 0))
+			b.get_node("L").text = _up_text(e)
+			b.disabled = lv >= int(e[2]) or games.tr.coins_l < _price_l(e)
+			b.get_node("L").modulate.a = 0.55 if b.disabled else 1.0
+
+	func _buy(id: String):
+		for e in UPS:
+			if e[0] != id:
+				continue
+			if int(up.get(id, 0)) >= int(e[2]):
+				return
+			var cost := _price_l(e)
+			if games.tr.coins_l < cost:
+				_say("Not enough chrome coins yet.")
+				return
+			games.tr.coins_l = games.tr.lsub(games.tr.coins_l, cost)
+			up[id] = int(up.get(id, 0)) + 1
+			if id == "board":
+				_grow_board(5 + int(up.board))
+			_say("%s: level %d" % [e[1], int(up[id])])
+			_save()
+			games.tr._refresh_ui()
+			_refresh_upgrades()
+			update()
+			return
+
+	# a bigger board: the logos keep their places (row, column)
+	func _grow_board(n: int):
+		var nb := []
+		for i in range(n * n):
+			nb.append(0)
+		for i in board.size():
+			var r: int = int(i) / N
+			var c: int = int(i) % N
+			if r < n and c < n:
+				nb[r * n + c] = board[i]
+		board = nb
+		N = n
+
+	# Auto-merge: the lowest pair of the same logo merges by itself
+	func _auto_merge():
+		var seen := {}
+		var pick := []
+		for i in board.size():
+			var v: int = board[i]
+			if v <= 0:
+				continue
+			if seen.has(v):
+				if pick.empty() or v < board[pick[0]]:
+					pick = [seen[v], i]
+			else:
+				seen[v] = i
+		if not pick.empty():
+			_drop(pick[1], pick[0])
 
 	func _spawn():
 		var empty := []
@@ -300,10 +449,11 @@ class MergeGame extends Control:
 	# the board's place on screen: square, as big as fits
 	func _geo() -> Array:
 		var top := 54.0
-		var avail := Vector2(rect_size.x - 48, rect_size.y - top - 70)
+		var w: float = rect_size.x - PANEL_W - 24
+		var avail := Vector2(w - 48, rect_size.y - top - 70)
 		var s: float = max(120.0, min(avail.x, avail.y))
 		var cell := s / N
-		var origin := Vector2((rect_size.x - s) / 2, top)
+		var origin := Vector2((w - s) / 2, top)
 		return [origin, cell]
 
 	func _cell_at(p: Vector2) -> int:
@@ -336,11 +486,21 @@ class MergeGame extends Control:
 		var a: int = board[from]
 		var b: int = board[to]
 		if b == a:
-			board[to] = a + 1
+			var lv := a + 1
+			# Lucky merges: now and then two levels up
+			var lucky: bool = randf() < 0.04 * int(up.get("lucky", 0))
+			if lucky:
+				lv += 1
+			board[to] = lv
 			board[from] = 0
 			_pops.append([to, _t])
-			var lv := a + 1
-			var got_l: float = games.reward(games.tr.lg(2.0) + (lv - 1) * games.tr.lg(1.6))
+			var got_l: float = games.reward(games.tr.lg(2.0) + (lv - 1) * games.tr.lg(1.6) + int(up.get("reward", 0)) * games.tr.lg(2.0))
+			if lucky:
+				_say("Lucky! Two levels up: %d, %s   (+%s)" % [lv, games.logo_name(lv), games.tr.fmtl(got_l)])
+				if lv > best:
+					best = lv
+				_save()
+				return
 			if lv > best:
 				best = lv
 				_say("New logo! Level %d: %s   (+%s chrome coins)" % [lv, games.logo_name(lv), games.tr.fmtl(got_l)])
@@ -361,10 +521,15 @@ class MergeGame extends Control:
 		_msg_t -= delta
 		# a new logo every 3 seconds while there's room
 		_spawn_t += delta
-		if _spawn_t >= 3.0:
+		if _spawn_t >= spawn_every():
 			_spawn_t = 0.0
 			if board.has(0):
 				_spawn()
+		if int(up.get("auto", 0)) > 0:
+			_auto_t += delta
+			if _auto_t >= auto_every() and _drag < 0:
+				_auto_t = 0.0
+				_auto_merge()
 		# every logo makes coins: level L is worth 1.6^(L-1) twentieths of a second a second
 		_earn_t += delta
 		if _earn_t >= 1.0:
@@ -374,7 +539,8 @@ class MergeGame extends Control:
 				if v > 0:
 					tot = games.tr.ladd(tot, games.tr.lg(0.05) + (v - 1) * games.tr.lg(1.6))
 			if tot > -1.0e17:
-				games.reward(tot)
+				games.reward(tot + int(up.get("income", 0)) * games.tr.lg(1.5))
+			_refresh_upgrades() # (what you can afford now)
 		update()
 
 	func _draw():

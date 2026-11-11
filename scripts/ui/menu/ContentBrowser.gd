@@ -1,8 +1,9 @@
 extends ReferenceRect
 # "Content Browser" sidebar page (it was the Map Browser): tabs for Maps,
 # Colorsets, Note Meshes, Settings Profiles and Cursors. Maps can come from
-# rhythia.com (the old Map Browser, MapBrowser.gd, unchanged) or from what
-# Chromia players uploaded; the other tabs list players' uploads. Anything can
+# rhythia.com (the old Map Browser, MapBrowser.gd, unchanged), from what
+# Chromia players uploaded, or from any GitHub repository you paste the link
+# of (GithubMaps.gd); the other tabs list players' uploads. Anything can
 # be downloaded straight into the game (handy on a standalone VR headset), and
 # you can upload your own files or share the colorset / mesh / cursor /
 # settings you use now. The server checks each file and its size
@@ -32,7 +33,7 @@ const CARD_W := 250
 const HEAD_H := 104
 
 var kind := "map"
-var source := "rhythia" # Maps tab: "rhythia" (rhythia.com) or "players"
+var source := "rhythia" # Maps tab: "rhythia" (rhythia.com), "players" or "github"
 var page := 1
 var pages := 1
 var sort_idx := 0
@@ -48,6 +49,7 @@ var src_buttons := {}
 var src_box: HBoxContainer
 var rhythia_page: ReferenceRect
 var community: VBoxContainer
+var github_page: VBoxContainer
 var search: LineEdit
 var sort_pick: OptionButton
 var mine_box: CheckBox
@@ -104,7 +106,7 @@ func _label(text: String, font: Font, col := TEXT) -> Label:
 	l.add_color_override("font_color", col)
 	return l
 
-func _button(text: String, method: String, args := [], toggle := false) -> Button:
+func _button(text: String, method: String, args := [], toggle := false, target: Object = null) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = FOCUS_NONE
@@ -119,7 +121,7 @@ func _button(text: String, method: String, args := [], toggle := false) -> Butto
 	b.add_color_override("font_color_pressed", ACCENT)
 	b.add_color_override("font_color_hover", TEXT)
 	b.add_color_override("font_color_disabled", DIM)
-	b.connect("pressed", self, method, args)
+	b.connect("pressed", target if target != null else self, method, args)
 	return b
 
 func _build():
@@ -148,7 +150,7 @@ func _build():
 	src_box.add_constant_override("separation", 4)
 	top.add_child(src_box)
 	src_box.add_child(_label("Maps from", f_reg, DIM))
-	for s in [["rhythia", "rhythia.com"], ["players", "Chromia players"]]:
+	for s in [["rhythia", "rhythia.com"], ["players", "Chromia players"], ["github", "GitHub"]]:
 		var b := _button(s[1], "_on_source", [s[0]], true)
 		src_box.add_child(b)
 		src_buttons[s[0]] = b
@@ -231,6 +233,19 @@ func _build():
 	pager.add_child(page_label)
 	next_btn = _button("Next >", "_go_page", [1])
 	pager.add_child(next_btn)
+	# Maps from GitHub: any repository you paste the link of (GithubMaps.gd)
+	github_page = VBoxContainer.new()
+	github_page.name = "GithubMaps"
+	github_page.anchor_right = 1.0
+	github_page.anchor_bottom = 1.0
+	github_page.margin_left = 76
+	github_page.margin_right = -24
+	github_page.margin_top = HEAD_H
+	github_page.margin_bottom = -56
+	github_page.visible = false
+	github_page.set_script(load("res://scripts/ui/menu/GithubMaps.gd"))
+	add_child(github_page)
+	github_page.setup(self)
 	connect("resized", self, "_relayout")
 	_build_name_dialog()
 
@@ -251,8 +266,12 @@ func _show_tab(k: String):
 	for s in src_buttons:
 		src_buttons[s].pressed = s == source
 	var players := k != "map" or source == "players"
-	rhythia_page.visible = not players
+	var github := k == "map" and source == "github"
+	rhythia_page.visible = not players and not github
 	community.visible = players
+	github_page.visible = github
+	if github:
+		github_page.opened()
 	if players:
 		share_btn.visible = k != "map"
 		share_btn.hint_tooltip = "Upload the %s you use now" % NOUN[k]
@@ -408,29 +427,90 @@ func _preview(it: Dictionary) -> Control:
 		l.align = Label.ALIGN_CENTER
 		l.valign = Label.VALIGN_CENTER
 		box.add_child(l)
+		if k == "map" and String(it.get("preview", "")).begins_with("/"):
+			# the map's cover (a small picture from the server), over the note
+			# sign, which stays for a map with none
+			var t := TextureRect.new()
+			t.expand = true
+			t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			t.mouse_filter = MOUSE_FILTER_IGNORE
+			box.rect_clip_content = true
+			var edge := _flat(Color(0.06, 0.055, 0.08, 1), 3)
+			for m in [MARGIN_LEFT, MARGIN_TOP, MARGIN_RIGHT, MARGIN_BOTTOM]:
+				edge.set_default_margin(m, 0) # (the cover fills the box)
+			box.add_stylebox_override("panel", edge)
+			box.add_child(t)
+			_show_pic(SITE + String(it.preview), t)
 	return box
+
+# pictures are fetched a few at a time (a page of maps is 30 of them)
+const MAX_PICS := 4
+var _pic_queue := [] # [url, TextureRect]
+var _pic_active := 0
+var _no_pic := {} # url -> true (the server has none)
 
 func _show_pic(url: String, t: TextureRect):
 	if _pics.has(url):
 		t.texture = _pics[url]
 		return
-	var r := HTTPRequest.new()
-	r.timeout = 15
-	add_child(r)
-	r.connect("request_completed", self, "_on_pic", [r, url, t])
-	if r.request(url) != OK:
-		r.queue_free()
-
-func _on_pic(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, url: String, t: TextureRect):
-	r.queue_free()
-	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+	if _no_pic.has(url):
 		return
+	_pic_queue.append([url, t])
+	_next_pic()
+
+func _next_pic():
+	while _pic_active < MAX_PICS and not _pic_queue.empty():
+		var q: Array = _pic_queue.pop_front()
+		var url: String = q[0]
+		var t = q[1]
+		if not is_instance_valid(t):
+			continue # (its card is gone: another page or search)
+		if _pics.has(url):
+			t.texture = _pics[url]
+			continue
+		var r := HTTPRequest.new()
+		r.timeout = 15
+		r.use_threads = OS.can_use_threads()
+		add_child(r)
+		r.connect("request_completed", self, "_on_pic", [r, url, t])
+		if r.request(url) != OK:
+			r.queue_free()
+			continue
+		_pic_active += 1
+
+# png, jpg or webp, told by its first bytes
+static func _decode_pic(body: PoolByteArray) -> Image:
+	if body.size() < 12:
+		return null
 	var img := Image.new()
-	if img.load_png_from_buffer(body) != OK:
+	var err := ERR_FILE_UNRECOGNIZED
+	if body[0] == 0x89 and body[1] == 0x50:
+		err = img.load_png_from_buffer(body)
+	elif body[0] == 0xff and body[1] == 0xd8:
+		err = img.load_jpg_from_buffer(body)
+	elif body[0] == 0x52 and body[1] == 0x49 and body[8] == 0x57 and body[9] == 0x45:
+		err = img.load_webp_from_buffer(body)
+	return img if err == OK and not img.is_empty() else null
+
+func _on_pic(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, url: String, t):
+	r.queue_free()
+	_pic_active = int(max(0, _pic_active - 1))
+	call_deferred("_next_pic")
+	if result != HTTPRequest.RESULT_SUCCESS:
+		return
+	if code != 200:
+		if code == 404:
+			_no_pic[url] = true
+		return
+	var img := _decode_pic(body)
+	if img == null:
+		_no_pic[url] = true
 		return
 	var tex := ImageTexture.new()
 	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
 	_pics[url] = tex
+	if _pics.size() > 400:
+		_pics.erase(_pics.keys()[0])
 	if is_instance_valid(t):
 		t.texture = tex
 

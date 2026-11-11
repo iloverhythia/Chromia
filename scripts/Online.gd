@@ -578,8 +578,43 @@ static func wanted_channel() -> String:
 # game starts from (the active profile, else settings.json).
 const CHANNEL_FILE := "user://update_channel.json"
 
+# Update state shared by both data folders (computers): test builds use their
+# own folder (Chromia, DataFolder.gd) while older and stable builds still use
+# SoundSpacePlus. Each kept its own channel and "just updated from" note, so a
+# build in one folder could update to a build in the other, which didn't know
+# and updated straight back (stable <-> test, over and over). Now these files
+# are written to both folders and read from whichever was written last.
+static func shared_paths(rel: String) -> Array:
+	var out := [Globals.p("user://" + rel)]
+	if OS.has_feature("Windows") or OS.has_feature("X11") or OS.has_feature("OSX"):
+		var ud: String = OS.get_user_data_dir()
+		var other: String = ud.get_base_dir().plus_file("Chromia" if ud.get_file() == "SoundSpacePlus" else "SoundSpacePlus")
+		if ud.get_file() != other.get_file() and Directory.new().dir_exists(other):
+			out.append(other.plus_file(rel))
+	return out
+
+# the newest copy's path ("" when there's none)
+static func shared_read_path(rel: String) -> String:
+	var f := File.new()
+	var best := ""
+	var best_t := -1
+	for p in shared_paths(rel):
+		if f.file_exists(p):
+			var t: int = f.get_modified_time(p)
+			if t > best_t:
+				best_t = t
+				best = p
+	return best
+
+static func shared_write(rel: String, text: String):
+	for p in shared_paths(rel):
+		var f := File.new()
+		if f.open(p, File.WRITE) == OK:
+			f.store_string(text)
+			f.close()
+
 static func _saved_channel(key: String, fallback):
-	for path in [Globals.p(CHANNEL_FILE), Rhythia.get_startup_settings_path()]:
+	for path in [shared_read_path("update_channel.json"), Rhythia.get_startup_settings_path()]:
 		var f := File.new()
 		if not f.file_exists(path) or f.open(path, File.READ) != OK:
 			continue
@@ -598,6 +633,8 @@ func check_latest_version():
 		return
 
 	var github_url = "https://api.github.com/repos/%s/releases/latest" % UPDATE_REPO
+	# (in the crash log: which channel this check went by, and why)
+	Rhythia.trail("update check: %s channel (build %s, tester %s, saved in %s)" % [wanted_channel(), build_channel(), str(is_tester()), shared_read_path("update_channel.json")])
 	if wanted_channel() == "test":
 		github_url = "https://api.github.com/repos/%s/releases?per_page=30" % UPDATE_REPO
 	if version_hr.request(github_url) != OK:
@@ -648,14 +685,12 @@ static func _read_text(path: String) -> String:
 const SNOOZE_FILE := "user://update_snooze.json"
 
 func snooze_updates(seconds: int = 86400):
-	var f := File.new()
-	if f.open(SNOOZE_FILE, File.WRITE) == OK:
-		f.store_string(JSON.print({"until": OS.get_unix_time() + seconds}))
-		f.close()
+	shared_write("update_snooze.json", JSON.print({"until": OS.get_unix_time() + seconds}))
 
 func update_snoozed() -> bool:
 	var f := File.new()
-	if not f.file_exists(SNOOZE_FILE) or f.open(SNOOZE_FILE, File.READ) != OK:
+	var path: String = shared_read_path("update_snooze.json")
+	if path == "" or f.open(path, File.READ) != OK:
 		return false
 	var parsed = JSON.parse(f.get_as_text())
 	f.close()
@@ -722,15 +757,12 @@ const LAST_UPDATE_FILE := "user://last_update.json"
 const BOUNCE_WINDOW_S := 15 * 60
 
 static func _note_update(from: String, to: String):
-	var f := File.new()
-	if f.open(Globals.p(LAST_UPDATE_FILE), File.WRITE) == OK:
-		f.store_string(JSON.print({"from": from, "to": to, "at": OS.get_unix_time()}))
-		f.close()
+	shared_write("last_update.json", JSON.print({"from": from, "to": to, "at": OS.get_unix_time()}))
 
 static func _bounces_back(from: String, to: String) -> bool:
 	var f := File.new()
-	var path: String = Globals.p(LAST_UPDATE_FILE)
-	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+	var path: String = shared_read_path("last_update.json")
+	if path == "" or f.open(path, File.READ) != OK:
 		return false
 	var parsed := JSON.parse(f.get_as_text())
 	f.close()

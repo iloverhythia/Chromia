@@ -38,7 +38,8 @@ func _ready():
 
 
 	OS.request_permissions()
-	if ProjectSettings.get_setting("application/config/auto_maximize") and Rhythia.auto_maximize: OS.window_maximized = true
+	# (not in VR: changing the window while the headset runs left it black)
+	if ProjectSettings.get_setting("application/config/auto_maximize") and Rhythia.auto_maximize and not Rhythia.vr: OS.window_maximized = true
 
 
 	if not Rhythia.is_init:

@@ -77,9 +77,13 @@ func _process(delta):
 		var lobby_manager = get_node_or_null("/root/LobbyManager")
 		if lobby_manager == null or not lobby_manager.lobby_active:
 			get_tree().paused = false
+			Rhythia.set_meta("quick_retry", true) # (Game.gd: fades in quickly)
 			get_tree().reload_current_scene()
 
 func _exit_tree():
 	# (the VR headset's camera stays when the song ends: its veil goes)
 	if Rhythia.vr and Rhythia.vr_player != null and "head" in Rhythia.vr_player:
 		load("res://scripts/game/BgVeil.gd").remove_from(Rhythia.vr_player.head)
+	# (this is the last of the song's nodes to leave: after this line the
+	# engine frees them, and the next scene's first line follows)
+	Rhythia.trail("song scene: left")

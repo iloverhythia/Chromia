@@ -7,14 +7,15 @@ extends Reference
 #   "robot"    a dark metal hand with glowing cyan joints and a palm light
 #   "skeleton" a bony hand: knuckles, finger bones and wrist bones
 #   "crystal"  glowing faceted crystal shards in the shape of a hand
+#   "snowleopard" a snow leopard paw (SnowLeopardPaw.gd): breck's, player #3 only
 #
 # build(kind) gives the right hand, in metres with the controller at the
 # origin, palm facing -Y, fingers along -Z, +X to the right (so the thumb is
 # on the -X side); VRPlayer.gd and HUD.gd scale it and mirror it for the left.
 
-const KINDS := ["glove", "robot", "skeleton", "crystal"]
+const KINDS := ["glove", "robot", "skeleton", "crystal", "snowleopard"]
 # how far in front of the controller the fingertips reach (the beam starts there)
-const TIPS := {"glove": 0.078, "robot": 0.085, "skeleton": 0.088, "crystal": 0.095}
+const TIPS := {"glove": 0.078, "robot": 0.085, "skeleton": 0.088, "crystal": 0.095, "snowleopard": 0.052}
 
 const TOON := """
 shader_type spatial;
@@ -82,6 +83,7 @@ static func build(kind: String) -> ArrayMesh:
 		"robot": return _robot()
 		"skeleton": return _skeleton()
 		"crystal": return _crystal()
+		"snowleopard": return load("res://vr/SnowLeopardPaw.gd").build()
 	return ArrayMesh.new()
 
 # --- parts ---------------------------------------------------------------------

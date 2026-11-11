@@ -508,9 +508,13 @@ static func apply(d: Dictionary) -> Dictionary:
 					written += 1
 	BG.save_data(layout)
 
-	# the menu's look (Menu Customizer), when the skin has one
+	# the menu's look (Menu Customizer), when the skin has one: only saved, the
+	# menu that opens after the reload puts it on. (Restyling the whole open
+	# menu right before the reload flooded the engine's message queue in VR:
+	# a black screen until the game was restarted.)
 	if d.has("menu"):
-		load("res://scripts/ui/menu/MenuStyle.gd").put_on(d.menu, Engine.get_main_loop())
+		var MS = load("res://scripts/ui/menu/MenuStyle.gd")
+		MS.save(MS.clean(d.menu))
 
 	for path in [startup, Globals.p("user://settings.json")]:
 		if f.open(path, File.WRITE) == OK:

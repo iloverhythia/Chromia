@@ -18,6 +18,7 @@ var black_fade: float = 0
 
 
 func _ready():
+	Rhythia.trail("song loader: ready")
 	# your own settings for a normal play (someone else's stay on only when
 	# this load goes straight into spectating them)
 	var lm = get_node_or_null("/root/LobbyManager")
@@ -72,6 +73,31 @@ func warning_menu_exit():
 	Globals.confirm_prompt.s_back.play()
 	yield(Globals.confirm_prompt, "done_closing")
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
+func _convert_song():
+	yield(get_tree(), "idle_frame") # (always a coroutine: the caller waits for "completed")
+	var song = Rhythia.selected_song
+	if song == null or song.stream() != Globals.error_sound:
+		return
+	var AudioConvert = load("res://scripts/content/AudioConvert.gd")
+	var buf = song.get_music_buffer()
+	if not AudioConvert.needed(buf):
+		return
+	Rhythia.trail("song load: converting the song (%s)" % AudioConvert.kind(buf))
+	var msg := Label.new()
+	msg.text = "Getting this map's song ready (only the first time)..."
+	msg.align = Label.ALIGN_CENTER
+	msg.anchor_right = 1
+	msg.anchor_top = 0.5
+	msg.anchor_bottom = 0.5
+	msg.margin_top = -60
+	add_child(msg)
+	var job = AudioConvert.start(buf)
+	var res = yield(job, "finished")
+	msg.queue_free()
+	if not res[0]:
+		Rhythia.trail("song load: the song wasn't converted: %s" % String(res[1]))
+		Globals.notify(Globals.NOTIFY_WARN, "This map's song is in a format the game can't play by itself, and it couldn't be converted: %s." % String(res[1]), "Song")
 
 const ReverseSong = preload("res://scripts/game/ReverseSong.gd")
 func _make_reverse():
@@ -146,6 +172,10 @@ func finish():
 		if not Rhythia.replay.loaded:
 			yield(Rhythia.replay, "done_loading")
 
+	# A song the engine can't decode (.m4a, FLAC...): made an Ogg by the
+	# Chromia server, once, and kept (AudioConvert.gd)
+	yield(_convert_song(), "completed")
+
 	# Reverse: the song backwards first (ReverseSong.gd; kept for next time)
 	Rhythia.reverse_stream = null
 	Rhythia.reverse_song_id = ""
@@ -165,7 +195,7 @@ func finish():
 	# (its fingerprint now, on the loading screen: the ranked check uses it
 	# right after the song starts)
 	if _n_notes > 0 and not Rhythia.replaying:
-		Rhythia.selected_song.compute_chart_hash()
+		Rhythia.selected_song.start_chart_hash() # (big maps: on a thread, the load goes on)
 	# (VR: these questions are a flat-screen prompt the headset doesn't show, so
 	# the load waited for an answer nobody could give: a black screen. VR takes
 	# the answer that keeps going, or goes back to the menu.)

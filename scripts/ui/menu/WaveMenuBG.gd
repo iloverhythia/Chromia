@@ -48,16 +48,69 @@ var _pattern := ""
 var _mat_contour: ShaderMaterial
 var _mat_pattern: ShaderMaterial
 
+# VR: the pattern is drawn into a half-size picture at most every other frame
+# and shown stretched behind the menu, instead of over the whole menu screen
+# (1920x1080 or more) every time the screen is redrawn: a full-screen shader
+# that costs the Quest a lot, and made the menu smooth or laggy depending on
+# how often it was being redrawn. The patterns are worked out from the
+# picture's height, so they look the same.
+var _cur_mat: ShaderMaterial
+var _lr_vp: Viewport = null
+var _lr_rect: ColorRect = null
+var _lr_frame := 0
+
+func _set_mat(m: ShaderMaterial):
+	_cur_mat = m
+	if _lr_rect != null:
+		_lr_rect.material = m
+		material = null
+	else:
+		material = m
+
+func _make_lowres():
+	_lr_vp = Viewport.new()
+	_lr_vp.disable_3d = true
+	_lr_vp.usage = Viewport.USAGE_2D
+	_lr_vp.hdr = false
+	_lr_vp.transparent_bg = false
+	_lr_vp.render_target_v_flip = true
+	_lr_vp.render_target_update_mode = Viewport.UPDATE_ONCE
+	add_child(_lr_vp)
+	_lr_rect = ColorRect.new()
+	_lr_vp.add_child(_lr_rect)
+	var tr := TextureRect.new()
+	tr.name = "LowRes"
+	tr.anchor_right = 1
+	tr.anchor_bottom = 1
+	tr.expand = true
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.mouse_filter = MOUSE_FILTER_IGNORE
+	var tex: ViewportTexture = _lr_vp.get_texture()
+	tex.flags = Texture.FLAG_FILTER
+	tr.texture = tex
+	add_child(tr)
+	_set_mat(_cur_mat)
+	connect("resized", self, "_lowres_size")
+	_lowres_size()
+
+func _lowres_size():
+	if _lr_vp == null:
+		return
+	var sz := (rect_size * 0.5).floor()
+	sz = Vector2(max(sz.x, 16), max(sz.y, 16))
+	_lr_vp.size = sz
+	_lr_rect.rect_size = sz
+
 # the material for the picked pattern
 func _use_pattern():
 	_pattern = MenuStyle.bg_pattern()
 	if not PATTERN_IDS.has(_pattern):
 		_pattern = "contour"
 	if _pattern == "contour":
-		material = _mat_contour
+		_set_mat(_mat_contour)
 		_mat_contour.set_shader_param("speed", 0.05 * MenuStyle.bg_speed())
 	else:
-		material = _mat_pattern
+		_set_mat(_mat_pattern)
 		_mat_pattern.set_shader_param("pattern", PATTERN_IDS[_pattern])
 		_mat_pattern.set_shader_param("speed", MenuStyle.bg_speed())
 
@@ -77,7 +130,7 @@ func _pattern_colors() -> Array:
 
 func _apply_colors(_v = null):
 	_use_pattern()
-	var mat: ShaderMaterial = material
+	var mat: ShaderMaterial = _cur_mat
 	if mat == null: return
 	_cs_colors = []
 	if _pattern != "contour":
@@ -121,7 +174,7 @@ func _cs_color_at(pos: float) -> Color:
 	return _cs_colors[posmod(k, n)].linear_interpolate(_cs_colors[posmod(k + 1, n)], f)
 
 func _update_cycle():
-	var mat: ShaderMaterial = material
+	var mat: ShaderMaterial = _cur_mat
 	if mat == null or _cs_colors.empty():
 		return
 	var n := _cs_colors.size()
@@ -137,6 +190,10 @@ func _update_cycle():
 	mat.set_shader_param("minor_color", minor)
 
 func _process(delta):
+	if _lr_vp != null and visible:
+		_lr_frame += 1
+		if _lr_frame % 2 == 0:
+			_lr_vp.render_target_update_mode = Viewport.UPDATE_ONCE
 	if visible and _cs_colors.size() > 1:
 		_cs_phase = fmod(_cs_phase + delta / COLOR_STEP_SECONDS, float(_cs_colors.size()))
 		_update_cycle()
@@ -164,15 +221,18 @@ func _is_light(col: Color) -> bool:
 func _add_outlines(n: Node):
 	if n == self:
 		return
-	if (n is Label or n is Button or n is RichTextLabel) and not _changed.has(n) and n.is_visible_in_tree():
+	_outline_one(n)
+	for c in n.get_children():
+		_add_outlines(c)
+
+func _outline_one(n: Node):
+	if (n is Label or n is Button or n is RichTextLabel) and not _changed.has(n):
 		var prop: String = "custom_fonts/normal_font" if n is RichTextLabel else "custom_fonts/font"
 		var color_name: String = "default_color" if n is RichTextLabel else "font_color"
 		var f = n.get_font("normal_font" if n is RichTextLabel else "font")
 		if f is DynamicFont and f.outline_size == 0 and _is_light(n.get_color(color_name)):
 			_changed[n] = [prop, n.get(prop)]
 			n.set(prop, _outlined_copy(f))
-	for c in n.get_children():
-		_add_outlines(c)
 
 func _remove_outlines():
 	for n in _changed.keys():
@@ -191,7 +251,9 @@ func _ready():
 	_mat_contour.shader = load("res://assets/shaders/wave_menu.shader")
 	_mat_pattern = ShaderMaterial.new()
 	_mat_pattern.shader = load("res://assets/shaders/menu_patterns.shader")
-	material = _mat_contour
+	_set_mat(_mat_contour)
+	if Rhythia.vr:
+		_make_lowres()
 	# the rest of the Menu Customizer's look (buttons, sidebar, tint)
 	get_parent().call_deferred("add_child", MenuStyle.new())
 	Rhythia.connect("wave_menu_changed", self, "_apply")
@@ -200,18 +262,29 @@ func _ready():
 	# Wait a frame so the map list and other menu parts exist before outlining.
 	yield(get_tree(), "idle_frame")
 	_apply()
-	# Map buttons and popups appear later; pick up any new fonts now and then.
-	var t := Timer.new()
-	t.wait_time = 3.0
-	t.autostart = true
-	t.connect("timeout", self, "_refresh")
-	add_child(t)
+	# Map buttons and popups appear later: outlined as they're added, a few
+	# each frame. (Walking the whole menu every 3 seconds for them made a
+	# small stutter every 3 seconds, worst on the Quest.)
+	get_tree().connect("node_added", self, "_on_node_added")
 
-func _refresh():
-	if Rhythia.wave_menu:
-		for n in _changed.keys():
-			if not is_instance_valid(n): _changed.erase(n)
-		_add_outlines(get_parent())
+var _new_nodes := []
+func _on_node_added(n: Node):
+	if not Rhythia.wave_menu or not (n is Label or n is Button or n is RichTextLabel):
+		return
+	if _new_nodes.empty():
+		call_deferred("_outline_new")
+	_new_nodes.append(n)
+
+func _outline_new():
+	var list := _new_nodes
+	_new_nodes = []
+	var parent = get_parent()
+	for n in list:
+		if is_instance_valid(n) and n.is_inside_tree() and parent != null and parent.is_a_parent_of(n):
+			_outline_one(n)
+	for n in _changed.keys():
+		if not is_instance_valid(n):
+			_changed.erase(n)
 
 func _exit_tree():
 	_remove_outlines()

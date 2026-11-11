@@ -26,6 +26,12 @@ func report_errors(err, filepath):
 func get_format(bytes: PoolByteArray) -> String:
 	if bytes.size() < 12: return "unknown"
 
+	# .m4a (AAC), FLAC, raw AAC, Opus: the engine can't decode these. They play
+	# from the Ogg Vorbis the Chromia server made of them once (AudioConvert.gd).
+	# (before "ogg" and "mp3": Opus is in an Ogg file, raw AAC starts like an MP3)
+	var other: String = load("res://scripts/content/AudioConvert.gd").kind(bytes)
+	if other != "": return other
+
 	if bytes.subarray(0, 3) == PoolByteArray([79, 103, 103, 83]): return "ogg"
 
 	# RIFF .... WAVE (it was never recognised: WAV songs, like some rhythia.com
@@ -122,6 +128,15 @@ func load_buffer(bytes: PoolByteArray, loop: bool = false):
 		newstream.loop = loop
 		newstream.data = bytes
 		return newstream
+
+	elif format in ["m4a", "flac", "aac", "opus"]:
+		# (the converted copy, once it has been made: AudioConvert.gd)
+		var made = load("res://scripts/content/AudioConvert.gd").cached(bytes)
+		if made != null:
+			made.loop = loop
+			return made
+		print("audio: a %s song that hasn't been converted yet" % format)
+		return Globals.error_sound
 
 	else:
 		print("ERROR: Unknown filetype or format")

@@ -13,7 +13,7 @@ const FONT_BOLD = preload("res://assets/font/Lato/Lato-Bold.ttf")
 const FONT_BLACK = preload("res://assets/font/Lato/Lato-Black.ttf")
 const FONT_JP = preload("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf")
 
-const PREFS_PATH = "user://score_history/ui.cfg"
+const PREFS_PATH = "user://chromia/score_history/ui.cfg"
 const MODE_BEST = 0
 const MODE_HISTORY = 1
 const MODE_BOARD = 2 # the map's leaderboard (ranked maps): everyone's best pass, from the server

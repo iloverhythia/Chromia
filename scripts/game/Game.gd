@@ -61,7 +61,8 @@ func loadMapFile():
 			song = Rhythia.reverse_stream
 
 
-	$Spawn.spawn_notes(notes)
+	# (a .sspm map's notes as read are already in the order the song wants)
+	$Spawn.spawn_notes(notes, map.songType == Globals.MAP_SSPM2 and notes == got)
 
 	get_node("Spawn/Music").stream = song
 
@@ -75,7 +76,20 @@ var max_energy: float = 6
 var energy_per_hit: float = 1
 var max_combo: int = 0
 
+# The HUD's numbers are redrawn once a frame however many notes were hit or
+# missed in it (each redraw sets a dozen texts; on a map with thousands of
+# notes a second, one per note froze the game). The score, combo and the
+# rest are still counted note by note, right away: only the drawing waits for
+# the end of the same frame.
+var _hud_pending := false
 func update_hud():
+	if _hud_pending:
+		return
+	_hud_pending = true
+	call_deferred("_draw_hud")
+
+func _draw_hud():
+	_hud_pending = false
 	$HUD.update_static_values()
 
 var ending: bool = false
@@ -112,7 +126,7 @@ func end(end_type: int):
 		_desync_to_restore = null
 	get_tree().paused = true
 	if total_notes == 0: total_notes = 1
-	update_hud()
+	_draw_hud() # (now: the end screen reads the accuracy text this sets)
 	Rhythia.just_ended_song = true
 	Rhythia.song_end_hits = hits
 	Rhythia.song_end_misses = misses
@@ -207,6 +221,17 @@ func end(end_type: int):
 		# straight from this song scene to a new one (while paused) crashed
 		# phones on every retry; the loader path never did.
 		Rhythia.trail("auto retry after fail")
+		if Rhythia.vr:
+			# VR: the Quest crashed here on every death (crash reports end at
+			# the line above). The song was swapped for the loader in the very
+			# frame of the fail, with the notes still running and the music
+			# and note effects still playing. Now it's left the way going back
+			# to the menu leaves it: everything in the song stopped, a short
+			# wait with the game still paused, then the loader.
+			_quiet_song()
+			Rhythia.trail("auto retry: song stopped")
+			yield(get_tree().create_timer(0.2), "timeout")
+			Rhythia.trail("auto retry: to the loader")
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/songload.tscn")
 	else:
@@ -222,6 +247,19 @@ func end(end_type: int):
 			$Spawn/Music.stop()
 		get_tree().paused = false
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
+# The song brought to a stop before its scene is left: no more notes, the
+# music off, and the hit / miss effects hidden and no longer emitting.
+func _quiet_song():
+	$Spawn.active = false
+	if $Spawn.has_node("Music"):
+		$Spawn/Music.stop()
+	for holder in [self, $Spawn]:
+		for c in holder.get_children():
+			var parts = c.get_node_or_null("Particles") if c is Spatial else null
+			if parts != null and "emitting" in parts:
+				parts.emitting = false
+				c.visible = false
 
 func update_timer(ms: float, canSkip: bool = false):
 	var qms = ms + $Spawn.ms_offset
@@ -406,6 +444,8 @@ func _on_lobby_score_row_input(event: InputEvent, row: Control):
 # (in VR it waits until the song has settled: the scan's work at the very start
 # made the first seconds stutter on PC VR; it only matters for the score)
 func _scan_processes():
+	if not load("res://scripts/ProcessScan.gd").supported():
+		return # (nothing to scan here, e.g. the Quest: no timer left waiting on a song that may be gone)
 	if Rhythia.vr:
 		yield(get_tree().create_timer(6.0, false), "timeout")
 		if not is_inside_tree():
@@ -661,7 +701,7 @@ func _process(delta):
 		black_fade = min(black_fade + (delta / 0.3), 1)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	elif not black_fade_target and black_fade != 0:
-		black_fade = max(black_fade - (delta / (0.25 if _watching_from_tab() else 0.75)), 0) # (watching: in quickly)
+		black_fade = max(black_fade - (delta / (0.12 if _quick_in else (0.25 if _watching_from_tab() else 0.75))), 0) # (watching or a retry: in quickly)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	$BlackFade.visible = (black_fade != 0)
 
@@ -776,6 +816,7 @@ func miss(col):
 
 
 func _exit_tree():
+	Rhythia.trail("song scene: leaving") # (a crash while the song is torn down shows where)
 	Rhythia.in_map = false
 	Rhythia.no_delay_end() # (Experimental No Delay: your VSync and FPS cap back)
 	if _desync_to_restore != null:
@@ -783,8 +824,12 @@ func _exit_tree():
 		Rhythia.disable_desync = _desync_to_restore
 		_desync_to_restore = null
 
+var _quick_in := false # (a retry: the black fade goes quickly)
 func _ready():
 	Rhythia.start_log("game")
+	if Rhythia.has_meta("quick_retry"):
+		_quick_in = true
+		Rhythia.remove_meta("quick_retry")
 	# Settings > VR > Grid size: the grid, notes and cursor bigger (never
 	# smaller than the default), around the grid's middle (the world's centre);
 	# the VR cursor works in the grid's own space (NoteManager.do_vr_cursor),

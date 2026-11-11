@@ -12,6 +12,7 @@ var cursor_positions: Array = []
 var past_triggers: Array = []
 var triggers: Array = []
 var note_results: Dictionary = {}
+var hit_rms: Dictionary = {} # note id -> replay ms of the cursor sample just before its hit (_lead_in_from_hits)
 var settings: Dictionary = {}
 
 var id: String
@@ -22,6 +23,12 @@ var recording: bool = false
 var loaded: bool = false
 var autoplayer: bool = false
 var end_ms: float = 0
+# The player's lead-in (ms; 0 = not known). The replay's clock starts with it,
+# so it plays with this one, not the watcher's (Savia.gd lead_in_ms): with
+# another, the cursor, pauses and skips were off the notes. Saved in the
+# header's spare 8 bytes (other readers skip them); older replays: worked out
+# from the hits (_guess_lead_in).
+var lead_in_ms: float = 0
 
 var read_start_offset: int = 0
 
@@ -127,7 +134,10 @@ func read_data(from_path: String = ""):
 				replay_error("The replay is corrupted. You will now be returned to the main menu.\n(invalid file version)")
 				return
 
-			debug_txt.reserved_1 = file.get_64()
+			var reserved_1: int = file.get_64()
+			debug_txt.reserved_1 = reserved_1
+			if reserved_1 >= 100 and reserved_1 <= 60000:
+				lead_in_ms = float(reserved_1)
 			if sv >= 4: debug_txt.replay_hwid = file.get_line()
 			id = file.get_line()
 			var song_id = id.substr(0, id.find_last(".")).substr(0, id.find_last("."))
@@ -204,6 +214,7 @@ func read_data(from_path: String = ""):
 
 				if kind == Globals.RS_CURSOR:
 					var ms = file.get_32()
+					_last_cursor_ms = int(ms)
 					var c = Vector3(file.get_float(), file.get_float(), ms)
 					debug_txt.c = c
 					cursor_unrev.append(c)
@@ -235,6 +246,7 @@ func read_data(from_path: String = ""):
 				elif kind == Globals.RS_HIT and sv >= 2:
 					var nid = file.get_32()
 					note_results[nid] = true
+					hit_rms[nid] = _last_cursor_ms
 
 				elif kind == Globals.RS_MISS and sv >= 2:
 					var nid = file.get_32()
@@ -251,7 +263,21 @@ func read_data(from_path: String = ""):
 				return
 
 			cursor_positions = cursor_unrev
+			# the hits say where the song was (each comes right after the cursor
+			# sample it happened at): their lead-in, when there are enough of them.
+			# It wins over a saved one that's clearly off, and over the guess.
+			var from_hits: float = _lead_in_from_hits() if sv >= 2 else 0.0
+			if from_hits > 0.0 and (lead_in_ms <= 0 or abs(from_hits - lead_in_ms) > 60.0):
+				print("[replay] lead-in from the hits: %d ms (saved: %d)" % [from_hits, lead_in_ms])
+				lead_in_ms = from_hits
+			if lead_in_ms <= 0 and sv >= 2:
+				lead_in_ms = _guess_lead_in()
+			debug_txt.lead_in_ms = lead_in_ms
+			var after_notes: int = file.get_position()
 			_read_touches()
+			if touches.empty():
+				file.seek(after_notes) # (no touch block: the VR one may start here)
+			_read_vr()
 			emit_signal("progress", 1.0)
 
 			debug_txt.noteres_amt = note_results.size()
@@ -317,6 +343,125 @@ func read_data(from_path: String = ""):
 
 var last_ms: float = -100000000000
 var last_pos_offset: int = 0
+
+# A replay from before the lead-in was saved: the lead-in (the setting's
+# steps, 500 - 10000 ms) that puts the recorded cursor on the most hit notes,
+# before anything (a pause, a skip) moves the clock. 0 when it can't tell
+# (then the watcher's own plays, as before).
+func _guess_lead_in() -> float:
+	if cursor_positions.size() < 2 or song == null or Rhythia.mod_360 or Rhythia.mod_reverse:
+		return 0.0
+	Rhythia.lock_song_notes(song)
+	var got = song.read_notes()
+	Rhythia.unlock_song_notes(song)
+	if not (got is Array) or got.empty():
+		return 0.0
+	var all: Array = got.duplicate()
+	all.sort_custom(self, "_by_note_ms") # (the order NoteManager numbers them in)
+	var first_trigger: float = INF
+	for t in triggers:
+		first_trigger = min(first_trigger, float(t[0]))
+	var speed: float = Globals.speed_multi[Rhythia.mod_speed_level]
+	var spread: float = Rhythia.hr_spread() if Rhythia.hr_on() else 1.0
+	var hbs: float = Rhythia.note_hitbox_size / 2.0 * 1.25
+	# the hit notes: map time and where they are, as the cursor is recorded
+	var hits := []
+	var nid := 0
+	for n in all:
+		if float(n[2]) < Rhythia.start_offset:
+			continue
+		if note_results.get(nid, false):
+			var p := Vector2(float(n[0]), float(n[1]))
+			p = (p - Vector2(1, 1)) * spread + Vector2(1, 1)
+			if Rhythia.mod_mirror_x: p.x = 2 - p.x
+			if Rhythia.mod_mirror_y: p.y = 2 - p.y
+			hits.append([(float(n[2]) - Rhythia.start_offset) / speed, p])
+			if hits.size() >= 400:
+				break
+		nid += 1
+	var best_l := 0.0
+	var best := 0
+	var checked := 0
+	var l := 500.0
+	while l <= 10000.0:
+		var score := 0
+		var count := 0
+		for h in hits:
+			var t: float = l + h[0]
+			if t >= first_trigger:
+				break
+			count += 1
+			var c: Vector2 = _cursor_at(t)
+			if abs(c.x - h[1].x) <= hbs and abs(c.y - h[1].y) <= hbs:
+				score += 1
+		if score > best:
+			best = score
+			best_l = l
+			checked = count
+		l += 100.0
+	if best < 8 or best < checked * 0.3:
+		return 0.0
+	print("[replay] lead-in worked out: %d ms (%d of %d hits)" % [best_l, best, checked])
+	return best_l
+
+var _last_cursor_ms := 0
+
+# The lead-in from the hits before anything (a pause, a skip) moves the clock:
+# the song is at (start - lead-in x speed) + replay ms x speed, and a hit is
+# within the hit window of its note, so the middle of (start + rms x speed -
+# note time) / speed over the hits is the lead-in. 0 when there are too few.
+func _lead_in_from_hits() -> float:
+	if hit_rms.size() < 8 or song == null or Rhythia.mod_reverse:
+		return 0.0
+	Rhythia.lock_song_notes(song)
+	var got = song.read_notes()
+	Rhythia.unlock_song_notes(song)
+	if not (got is Array) or got.empty():
+		return 0.0
+	var all: Array = got.duplicate()
+	all.sort_custom(self, "_by_note_ms") # (the order NoteManager numbers them in)
+	var first_trigger: float = INF
+	for t in triggers:
+		first_trigger = min(first_trigger, float(t[0]))
+	var speed: float = Globals.speed_multi[Rhythia.mod_speed_level]
+	var leads := []
+	var nid := 0
+	for n in all:
+		if float(n[2]) < Rhythia.start_offset:
+			continue
+		if hit_rms.has(nid):
+			var rms: float = float(hit_rms[nid])
+			if rms < first_trigger:
+				leads.append((Rhythia.start_offset + rms * speed - float(n[2])) / speed)
+		nid += 1
+	if leads.size() < 8:
+		return 0.0
+	leads.sort()
+	var mid: float = leads[leads.size() / 2]
+	# (the cursor sample comes a little before the hit: about half a sample later)
+	return mid if mid >= 50.0 and mid <= 60000.0 else 0.0
+
+func _by_note_ms(a, b):
+	if a[2] == b[2]:
+		return String(a) < String(b)
+	return a[2] < b[2]
+
+# the recorded cursor at replay time t (between its two samples)
+func _cursor_at(t: float) -> Vector2:
+	var lo := 0
+	var hi: int = cursor_positions.size() - 1
+	if t <= cursor_positions[0].z:
+		return Vector2(cursor_positions[0].x, cursor_positions[0].y)
+	if t >= cursor_positions[hi].z:
+		return Vector2(cursor_positions[hi].x, cursor_positions[hi].y)
+	while hi - lo > 1:
+		var mid: int = (lo + hi) / 2
+		if cursor_positions[mid].z <= t: lo = mid
+		else: hi = mid
+	var a: Vector3 = cursor_positions[lo]
+	var b: Vector3 = cursor_positions[hi]
+	var v: float = clamp(inverse_lerp(a.z, b.z, t), 0, 1) if b.z > a.z else 1.0
+	return Vector2(lerp(a.x, b.x, v), lerp(a.y, b.y, v))
 
 func get_cursor_position(ms: float):
 	if autoplayer:
@@ -454,7 +599,7 @@ func start_recording(with_song: Song):
 		return
 	file.store_buffer(file_sig)
 	file.store_16(current_sv)
-	file.store_64(0)
+	file.store_64(int(Rhythia.lead_in_ms)) # (the lead-in: the replay's clock starts with it)
 	file.store_line(Rhythia.get_hardware_id()) # hashed (never the raw device id)
 	file.store_line(id)
 	file.store_line(Rhythia.generate_pb_str())
@@ -502,7 +647,8 @@ func _write_touches():
 # then head, left hand, right hand as position + rotation), for the website's
 # first-person replay view. Saved after the touches as "CVRP": u16 version 1,
 # u32 count, then u32 replay ms, u8 flags (1 = left handed), 21 i16 (positions
-# in mm, rotations * 32767). The game itself doesn't read it back.
+# in mm, rotations * 32767). Read back (_read_vr) for the replay player's
+# first-person view of a VR play (HUD.gd replay_vr_on).
 const VR_SIG := PoolByteArray([67, 86, 82, 80]) # "CVRP"
 const VR_SAMPLE_MS := 50
 var vr_samples: Array = []
@@ -533,6 +679,27 @@ func _write_vr():
 				var v: float = float(pose[o + k])
 				var q: int = int(round(v * 1000.0)) if k < 3 else int(round(v * 32767.0))
 				file.store_16(int(clamp(q, -32767, 32767)) & 0xFFFF) # (two's complement)
+
+# the VR block, if there is one: vr_samples = [[replay ms, pose (22 floats, as sent to spectators)], ...]
+func _read_vr():
+	vr_samples = []
+	if file.get_len() - file.get_position() < 10:
+		return
+	if file.get_buffer(4) != VR_SIG or file.get_16() != 1:
+		return
+	var n := int(file.get_32())
+	if n <= 0 or file.get_len() - file.get_position() < n * 47:
+		return
+	for i in range(n):
+		var ms := int(file.get_32())
+		var pose := [1.0 if file.get_8() & 1 else 0.0]
+		for part in range(3):
+			for k in range(7):
+				var v := int(file.get_16())
+				if v >= 32768:
+					v -= 65536
+				pose.append(float(v) / 1000.0 if k < 3 else float(v) / 32767.0)
+		vr_samples.append([ms, pose])
 
 func _read_touches():
 	touches = []

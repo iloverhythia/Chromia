@@ -197,8 +197,21 @@ static func _to_tex(img: Image) -> ImageTexture:
 	tex.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
 	return tex
 
+static func _tex_cache() -> Dictionary:
+	if not Engine.has_meta("spectate_tex_cache"):
+		Engine.set_meta("spectate_tex_cache", {})
+	return Engine.get_meta("spectate_tex_cache")
+
 # heart (Inigo Quilez's heart distance), filled or as an outline
 static func heart_texture(px: int, filled: bool, col: Color) -> ImageTexture:
+	# (drawn pixel by pixel: once per size and colour, then kept)
+	var key := "heart_texture|" + str([px, filled, col])
+	var c: Dictionary = _tex_cache()
+	if not c.has(key):
+		c[key] = _heart_texture_make(px, filled, col)
+	return c[key]
+
+static func _heart_texture_make(px: int, filled: bool, col: Color) -> ImageTexture:
 	var img := Image.new()
 	img.create(px, px, false, Image.FORMAT_RGBA8)
 	img.lock()
@@ -222,6 +235,14 @@ static func heart_texture(px: int, filled: bool, col: Color) -> ImageTexture:
 
 # the eye button: a dark circle with a thin ring, an eye outline and pupil
 static func eye_texture(px: int, ring: Color) -> ImageTexture:
+	# (drawn pixel by pixel: once per size and colour, then kept)
+	var key := "eye_texture|" + str([px, ring])
+	var c: Dictionary = _tex_cache()
+	if not c.has(key):
+		c[key] = _eye_texture_make(px, ring)
+	return c[key]
+
+static func _eye_texture_make(px: int, ring: Color) -> ImageTexture:
 	var img := Image.new()
 	img.create(px, px, false, Image.FORMAT_RGBA8)
 	img.lock()
@@ -317,6 +338,8 @@ func _ready():
 		_lm.connect("chat_ban_changed", self, "_on_chat_ban")
 		if _lm.has_signal("chat_reactions_changed"):
 			_lm.connect("chat_reactions_changed", self, "_on_chat_reactions")
+		if _lm.has_signal("chat_message_deleted"):
+			_lm.connect("chat_message_deleted", self, "_on_chat_deleted")
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -491,7 +514,7 @@ func _build_window():
 	fav_filter.toggle_mode = true
 	fav_filter.focus_mode = FOCUS_NONE
 	fav_filter.size_flags_vertical = SIZE_SHRINK_CENTER
-	fav_filter.hint_tooltip = "Only your favourites (heart someone on their card)"
+	fav_filter.hint_tooltip = "Only your favorites (heart someone on their card)"
 	fav_filter.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	fav_filter.add_stylebox_override("normal", _flat(FIELD_BG, 3))
 	fav_filter.add_stylebox_override("hover", _flat(BTN_HOVER, 3))
@@ -708,6 +731,13 @@ func _process(delta):
 		if not show_eye:
 			notice.visible = false
 	badge.visible = show_eye and _unread > 0
+	if _open:
+		_prog_tick += delta
+		if _prog_tick >= 0.5:
+			_prog_tick = 0.0
+			for n in _cards:
+				if _cards[n].get("prog") is Dictionary:
+					_draw_prog(_cards[n])
 	if _pending_number != -1:
 		_pending_t -= delta
 		if _pending_t <= 0.0 or (_lm != null and _lm.watch_mode):
@@ -869,7 +899,7 @@ func _update_info():
 	elif _list.empty():
 		text = "Nobody else is online right now."
 	elif fav_filter.pressed and grid.get_child_count() == 0:
-		text = "None of your favourites are online. Heart someone on their card to add them."
+		text = "None of your favorites are online. Heart someone on their card to add them."
 	elif not Rhythia.allow_spectators:
 		text = "Spectators are off for you (Settings > Online), so nobody can watch you."
 	info.text = text
@@ -921,6 +951,7 @@ func _matches(p: Dictionary) -> bool:
 
 # square cards of one size (not stretched to the width)
 const CARD_SIDE := 160.0
+const CARD_EXTRA := 24.0 # (taller than wide: room for the progress line and bar)
 
 func _relayout():
 	if grid == null:
@@ -930,9 +961,10 @@ func _relayout():
 	grid.columns = int(clamp(floor((w + 10) / (side + 10)), 1, 10))
 	var refit: bool = side != _cw
 	_cw = side
+	var tall := floor((CARD_SIDE + CARD_EXTRA) * _k)
 	for c in grid.get_children():
-		c.rect_min_size = Vector2(side, side)
-		c.rect_size = Vector2(side, side)
+		c.rect_min_size = Vector2(side, tall)
+		c.rect_size = Vector2(side, tall)
 	if refit:
 		for n in _cards:
 			_card_style(_cards[n])
@@ -1039,6 +1071,22 @@ func _make_card() -> Dictionary:
 	status_l.align = Label.ALIGN_CENTER
 	status_l.clip_text = true
 	v.add_child(status_l)
+	# while they play: the speed, how far in and the time left, and a bar
+	var prog_l = _label(" ", font_tiny, DIM)
+	prog_l.align = Label.ALIGN_CENTER
+	prog_l.clip_text = true
+	v.add_child(prog_l)
+	var bar := ColorRect.new()
+	bar.rect_min_size = Vector2(0, 3) * _k
+	bar.color = Color(1, 1, 1, 0)
+	bar.mouse_filter = MOUSE_FILTER_IGNORE
+	v.add_child(bar)
+	var bar_fill := ColorRect.new()
+	bar_fill.anchor_bottom = 1.0
+	bar_fill.color = PLAYING
+	bar_fill.mouse_filter = MOUSE_FILTER_IGNORE
+	bar_fill.visible = false
+	bar.add_child(bar_fill)
 	var rank_l = _label("", font_rank, FAINT)
 	rank_l.align = Label.ALIGN_CENTER
 	v.add_child(rank_l)
@@ -1109,7 +1157,7 @@ func _make_card() -> Dictionary:
 	box.add_child(alt)
 
 	var c := {"bgimg": bgimg, "img_url": "", "fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
-		"status": status_l, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
+		"status": status_l, "prog_l": prog_l, "bar": bar, "bar_fill": bar_fill, "prog": null, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
 	card.connect("gui_input", self, "_on_card_input", [c])
@@ -1161,6 +1209,51 @@ func _card_style(c: Dictionary):
 		c.rank.text = c.rank_text if c.rank_text != "" else "Unranked"
 		c.rank.add_font_override("font", font_rank if c.rank_text != "" else font_small)
 		c.rank.add_color_override("font_color", FAINT)
+
+# a card's progress line and bar, moved on by the clock between lists
+static func _mmss(s: float) -> String:
+	var t := int(max(s, 0.0))
+	return "%d:%02d" % [t / 60, t % 60]
+
+static func _speed_text(sp: float) -> String:
+	var t := ("%.2f" % sp).rstrip("0").rstrip(".")
+	return t + "x"
+
+static func _prog_now(d: Dictionary) -> float:
+	var pos: float = d.pos + (0.0 if d.paused else float(OS.get_ticks_msec() - int(d.t)) * d.speed)
+	return min(pos, d.dur) if d.dur > 0 else pos
+
+static func _prog_text(d: Dictionary, long: bool) -> String:
+	var pos := _prog_now(d)
+	var into := _mmss(max(pos, 0.0) / d.speed / 1000.0)
+	var sp := _speed_text(d.speed)
+	if d.dur <= 0:
+		return "%s  ·  %s in" % [sp, into]
+	var left := _mmss(max(d.dur - pos, 0.0) / d.speed / 1000.0)
+	if d.paused:
+		return ("%s  ·  Paused  ·  %s left" if long else "%s · Paused · %s") % [sp, left]
+	return ("%s  ·  %s in  ·  %s left" if long else "%s · %s · -%s") % [sp, into, left]
+
+func _draw_prog(c: Dictionary):
+	var d = c.get("prog")
+	if not (d is Dictionary):
+		c.prog_l.text = " "
+		c.bar.color = Color(1, 1, 1, 0)
+		c.bar_fill.visible = false
+		return
+	var tw := _cw - 22.0 * _k
+	var t := _prog_text(d, true)
+	if font_tiny.get_string_size(t).x > tw:
+		t = _prog_text(d, false)
+	c.prog_l.text = _fit(t, font_tiny, tw)
+	c.prog_l.add_color_override("font_color", DIM if d.paused else PLAYING)
+	c.bar.color = Color(1, 1, 1, 0.08)
+	c.bar_fill.visible = d.dur > 0
+	if d.dur > 0:
+		c.bar_fill.anchor_right = clamp(_prog_now(d) / d.dur, 0.0, 1.0)
+		c.bar_fill.margin_right = 0
+
+var _prog_tick := 0.0
 
 # Player 6's game, one start in ten: every card is this picture for that session
 const CARD_ALT_PLAYER := 6
@@ -1228,6 +1321,12 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	else:
 		c.status_full = "Idle" if status == "menu" or status == "" else status.capitalize()
 		c.status.add_color_override("font_color", DIM)
+	# how far into the map (newer servers: speed, pos_ms, len_ms, paused)
+	c.prog = null
+	if playing and p.has("pos_ms") and p.get("pos_ms") != null and float(p.get("speed", 0)) > 0:
+		c.prog = {"pos": float(p.pos_ms), "dur": float(p.get("len_ms")) if p.get("len_ms") != null else 0.0,
+			"speed": float(p.speed), "paused": bool(p.get("paused", false)), "t": OS.get_ticks_msec()}
+	_draw_prog(c)
 	var n_watch := int(p.get("watchers", 0))
 	c.watching.visible = n_watch > 0
 	c.watching.text = "%d watching" % n_watch
@@ -1238,6 +1337,8 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	# the rest in a tooltip
 	var tip := [nm]
 	tip.append("%s  ·  %s" % [c.rank_text if c.rank_text != "" else "Unranked", DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")])
+	if c.prog is Dictionary:
+		tip.append(_prog_text(c.prog, true))
 	if playing:
 		var bits := [_fmt_dur(int(p.get("since_s", 0)))]
 		var creator := String(p.get("song_creator", ""))
@@ -1378,6 +1479,12 @@ func _on_chat_reactions(mid: String):
 			call_deferred("_redraw_for_reactions")
 			return
 
+# a message deleted by staff: the chat drawn again without it
+func _on_chat_deleted(_mid):
+	if _open and not _react_redraw:
+		_react_redraw = true
+		call_deferred("_redraw_for_reactions")
+
 func _redraw_for_reactions():
 	_react_redraw = false
 	if chat != null and _open:
@@ -1407,11 +1514,13 @@ func _add_chat_line(client_id: String, name: String, text: String, ts: float, mi
 	chat.add_text(_clock(ts) + "  ")
 	chat.pop()
 	var is_you := client_id != "" and client_id == Rhythia.cid
+	var who: bool = preload("res://scripts/ui/ChatReactions.gd").name_start(chat, mid, name, _lm) # (staff: right-click)
 	chat.push_font(font_chat_bold)
 	chat.push_color(ACCENT if is_you else _name_color(name))
 	chat.add_text(name + ": ")
 	chat.pop()
 	chat.pop()
+	preload("res://scripts/ui/ChatReactions.gd").name_end(chat, who)
 	# @mentions stand out (yours most); names with spaces count too
 	for part in preload("res://scripts/ui/ChatMention.gd").split(text, _lm):
 		if part[1]:

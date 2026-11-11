@@ -712,11 +712,17 @@ func _ready():
 		"((https?)://)[\\w\\-.]{2,256}(:\\d{1,5})?(/[\\w@:%._\\-+~&=]+)+/?"
 	)
 
+	# the prompts on their own layer, above every screen: on the plain root
+	# they could open behind a menu drawn on a layer of its own, unseen, and
+	# then show up over the next song (a crash report in the middle of a map)
+	var prompt_layer = CanvasLayer.new()
+	prompt_layer.layer = 90
+	rootg.call_deferred("add_child", prompt_layer)
 	confirm_prompt = load("res://prefabs/menu/confirm.tscn").instance()
-	rootg.call_deferred("add_child", confirm_prompt)
+	prompt_layer.add_child(confirm_prompt)
 
 	string_prompt = load("res://prefabs/menu/string.tscn").instance()
-	rootg.call_deferred("add_child", string_prompt)
+	prompt_layer.add_child(string_prompt)
 
 	file_sel = load("res://prefabs/menu/filesel.tscn").instance()
 	rootg.call_deferred("add_child", file_sel)

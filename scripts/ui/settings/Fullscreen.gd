@@ -6,6 +6,9 @@ extends CheckBox
 # so it stays an ordinary window. Only one is on at a time.
 
 func _pressed():
+	if Rhythia.vr:
+		pressed = OS.window_fullscreen # (the window stays as it is in VR: a change left the headset black)
+		return
 	if pressed and OS.window_borderless:
 		Rhythia.set_borderless_windowed(false)
 	if pressed != OS.window_fullscreen:

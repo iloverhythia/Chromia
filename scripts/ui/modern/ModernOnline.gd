@@ -94,7 +94,7 @@ func _ready():
 	body.add_child(search)
 	fav_btn = ui._button(Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.09), 6)
 	fav_btn.toggle_mode = true
-	fav_btn.hint_tooltip = "Only your favourites"
+	fav_btn.hint_tooltip = "Only your favorites"
 	fav_icon = ui.MIcon.make("heart", 15 * k, Color("#d7d6dc"))
 	fav_btn.add_child(fav_icon)
 	fav_btn.connect("toggled", self, "_on_fav_filter")
@@ -165,6 +165,8 @@ func _ready():
 		lm.connect("chat_message_received", self, "_on_lobby_chat")
 		if lm.has_signal("chat_reactions_changed"):
 			lm.connect("chat_reactions_changed", self, "_on_reactions")
+		if lm.has_signal("chat_message_deleted"):
+			lm.connect("chat_message_deleted", self, "_on_chat_deleted")
 		lm.connect("spectate_denied", self, "_on_denied")
 	layout()
 
@@ -319,7 +321,7 @@ func _update_sub():
 	elif not lm._connected() or lm.presence_supported == -1:
 		t = "Connecting to the server..."
 	else:
-		t = "None of your favourites are online." if fav_btn.pressed else ("Nobody matches that." if search.text != "" else "Nobody else is online right now.")
+		t = "None of your favorites are online." if fav_btn.pressed else ("Nobody matches that." if search.text != "" else "Nobody else is online right now.")
 	info.text = t
 	info.visible = t != ""
 
@@ -668,9 +670,11 @@ func _line(cid: String, nm: String, text: String, ts: float, mid: String):
 	chat.add_text(load("res://scripts/ui/menu/SpectatePage.gd")._clock(ts) + " ")
 	chat.pop()
 	var me: bool = cid != "" and cid == Rhythia.cid
+	var who: bool = preload("res://scripts/ui/ChatReactions.gd").name_start(chat, mid, nm, lm) # (staff: right-click)
 	chat.push_color(Color("#c79bff") if me else Color.from_hsv(fmod(abs(hash(nm)) / 1000.0, 1.0), 0.45, 0.85))
 	chat.add_text(nm + ": ")
 	chat.pop()
+	preload("res://scripts/ui/ChatReactions.gd").name_end(chat, who)
 	for part in preload("res://scripts/ui/ChatMention.gd").split(text, lm):
 		if part[1]:
 			# @mentions in a box, like the video
@@ -704,6 +708,12 @@ func _on_reactions(_mid):
 func _redraw():
 	_react_redraw = false
 	_fill_chat()
+
+# a message deleted by staff: drawn again without it (either channel)
+func _on_chat_deleted(_mid):
+	if _open and not _react_redraw:
+		_react_redraw = true
+		call_deferred("_redraw")
 
 func _on_send(_t = null):
 	if lm == null:

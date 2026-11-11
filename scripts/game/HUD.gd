@@ -445,6 +445,7 @@ func _process(delta: float):
 	gtimer += delta
 	_refresh_hud_viewports(delta)
 	_update_spectate_render(delta)
+	_update_replay_vr()
 	if spectating and _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.check_debug_mouse_toggle()
 	if Rhythia.show_config:
@@ -809,7 +810,9 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 func _spec_speed() -> float:
 	return max(Spawn.speed_multi, 0.05) if Spawn != null else 1.0
 
+var _spec_stats_ms := -INF # (the update whose numbers are on the HUD)
 func _spec_reset_clock():
+	_spec_stats_ms = -INF
 	_spec_samples.clear()
 	_spec_offsets.clear()
 	_spec_clock_set = false
@@ -854,8 +857,13 @@ func _update_spectate_render(delta: float):
 	spectate_cursor.transform.origin = _spec_cursor_at(_spec_ms)
 	_update_spectate_drift(_spec_ms)
 	_update_spectate_vr(_spec_ms)
-	_apply_spectate_stats(_spec_sample_before(_spec_ms))
-	update_static_values()
+	# (the numbers only when a newer update of theirs is reached: redone every
+	# frame, the HUD's texts were laid out again each frame)
+	var sample: Dictionary = _spec_sample_before(_spec_ms)
+	if float(sample.ms) != _spec_stats_ms:
+		_spec_stats_ms = float(sample.ms)
+		_apply_spectate_stats(sample)
+		update_static_values()
 	Spawn.ms = _spec_ms # NoteManager moves the notes and keeps the music with it
 
 # --- watching someone in VR: their hands, beam and (with their settings) view ---
@@ -934,6 +942,49 @@ func _update_spectate_vr(ms: float):
 		ray.enabled = k == pointing
 		if k == pointing and ray.has_method("update_beam") and spectate_cursor != null:
 			ray.set_target(spectate_cursor.global_transform.origin)
+			ray.update_beam()
+
+# --- a VR play's replay: their head is the camera, their hands and beam show ---
+# (Replay.vr_samples, recorded at about 20 a second; the same pose as spectators get)
+var _replay_vr_i := 0
+func replay_vr_on() -> bool:
+	return Rhythia.replaying and not Rhythia.vr and not spectating and Rhythia.replay != null and not Rhythia.replay.vr_samples.empty() and typeof(_spec_vr_head) == TYPE_TRANSFORM
+
+func _update_replay_vr():
+	if not Rhythia.replaying or spectating or Rhythia.vr or Rhythia.replay == null or Rhythia.replay.vr_samples.empty():
+		return
+	var spawn = get_node_or_null("../Spawn")
+	if spawn == null:
+		return
+	var rms: float = float(spawn.get("rms"))
+	var smp: Array = Rhythia.replay.vr_samples
+	var i: int = clamp(_replay_vr_i, 0, smp.size() - 1)
+	while i > 0 and float(smp[i][0]) > rms:
+		i -= 1
+	while i + 1 < smp.size() and float(smp[i + 1][0]) <= rms:
+		i += 1
+	_replay_vr_i = i
+	var pa: Array = smp[i][1]
+	var pb: Array = smp[i + 1][1] if i + 1 < smp.size() else pa
+	var alpha := 0.0
+	if i + 1 < smp.size() and float(smp[i + 1][0]) > float(smp[i][0]):
+		alpha = clamp((rms - float(smp[i][0])) / (float(smp[i + 1][0]) - float(smp[i][0])), 0.0, 1.0)
+	_spec_vr_head = _pose_at(pa, 1).interpolate_with(_pose_at(pb, 1), alpha)
+	_spec_make_hands()
+	if _spec_vr_hands.size() < 2:
+		return
+	_spec_vr_holder.visible = true
+	var cursor = spawn.get("_n_cursor")
+	var pointing: int = 0 if pa[0] > 0.5 else 1 # left : right
+	for k in range(2):
+		var hand: Spatial = _spec_vr_hands[k]
+		hand.transform = _pose_at(pa, 8 + k * 7).interpolate_with(_pose_at(pb, 8 + k * 7), alpha)
+		var ray = hand.get_node_or_null("Ray")
+		if ray == null:
+			continue
+		ray.enabled = k == pointing
+		if k == pointing and ray.has_method("update_beam") and cursor is Spatial:
+			ray.set_target(cursor.global_transform.origin)
 			ray.update_beam()
 
 # Their hands as they see them (Settings > VR > Hands): the furry paws, or
@@ -1433,7 +1484,7 @@ func _spectate_cursor_picture():
 	if _cursor_pic_http != null and is_instance_valid(_cursor_pic_http):
 		_cursor_pic_http.queue_free()
 	_cursor_pic_http = HTTPRequest.new()
-	_cursor_pic_http.use_threads = true # (big files: never on the game's main thread)
+	_cursor_pic_http.use_threads = not OS.has_feature("JavaScript") # (big files: never on the game's main thread; the browser version has no threads: the download never finished there)
 	_cursor_pic_http.timeout = 15
 	add_child(_cursor_pic_http)
 	_cursor_pic_http.connect("request_completed", self, "_on_cursor_picture", [sha, _cursor_pic_http])
