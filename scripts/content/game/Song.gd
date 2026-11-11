@@ -745,11 +745,15 @@ func loadRawData(data: String):
 	notes = []
 	for s in split:
 		if s != "":
-			var dat = s.split("|")
-			if (dat is Array or dat is PoolStringArray) and dat.size() == 3:
-				var x = 2 - float(dat[0])
-				var y = 2 - float(dat[1])
-				var ms = float(dat[2])
+			# "x|y|ms": three numbers between two bars. Each number is read from
+			# where it starts (reading stops at the bar by itself), which is the
+			# same number as cutting the text in three first, without the cutting.
+			var p1: int = s.find("|")
+			var p2: int = s.find("|", p1 + 1) if p1 != -1 else -1
+			if p2 != -1 and s.find("|", p2 + 1) == -1:
+				var x = 2 - float(s)
+				var y = 2 - float(s.substr(p1 + 1))
+				var ms = float(s.substr(p2 + 1))
 				last_ms = ms
 				notes.append([x, y, ms])
 			else: invalid += 1
@@ -955,6 +959,11 @@ func get_vulnus_map_difficulty_list(folder_path: String):
 # state: -1 not known, 0 in order and no two at the same time, 1 in order with
 # some at the same time, 2 out of order.
 const _SORT_PLACE_BITS := 22
+const BigNotes = preload("res://scripts/content/game/BigNotes.gd")
+const BIG_NOTES := 20000 # from here on the bulk ways (BigNotes.gd) are worth it
+static func _big(n: int) -> bool:
+	# ("bignotes_off": the plain loops on purpose, to compare the two)
+	return n >= BIG_NOTES and not Engine.has_meta("bignotes_off")
 static func sort_timed(arr: Array, k: int, obj: Object, cmp: String, state: int = -1, xy_text: bool = false) -> void:
 	var n := arr.size()
 	if n < 2:
@@ -1018,6 +1027,8 @@ static func sort_timed(arr: Array, k: int, obj: Object, cmp: String, state: int 
 		return
 	if ties_done:
 		return
+	if xy_text and _big(n) and BigNotes.order_ties_by_text(arr, k):
+		return # (notes at the same time in their texts' order: the texts made in bulk)
 	var run_start := 0
 	var prev_t = arr[0][k]
 	for i in range(1, n + 1):
@@ -1037,6 +1048,9 @@ static func sort_timed(arr: Array, k: int, obj: Object, cmp: String, state: int 
 		if i < n:
 			run_start = i
 			prev_t = arr[i][k]
+
+func _marker_time_sort(a, b):
+	return a[0] < b[0]
 
 func notesort(a, b):
 	if a[2] == b[2]:
@@ -1151,6 +1165,10 @@ var _hash_thread: Thread = null
 var _hash_thread_notes = null
 
 static func _chart_hash_text(notes_arr: Array) -> String:
+	if _big(notes_arr.size()):
+		# (the same text, made the quick way for the kind of notes these are)
+		var quick: String = BigNotes.chart_text_digits(notes_arr)
+		return (quick if quick != "" else BigNotes.chart_text(notes_arr)).sha256_text()
 	var parts := PoolStringArray()
 	for n in notes_arr:
 		parts.append(String(n))
@@ -1167,7 +1185,12 @@ func start_chart_hash():
 	var notes_arr = read_notes()
 	if (_chart_hash != "" and _chart_hash_notes == notes_arr) or _hash_thread != null:
 		return
-	if notes_arr.size() < 20000 or not OS.can_use_threads():
+	# Worked out right here now, also for big maps. It used to go on a thread
+	# for those, but a thread making texts slows the main thread's own loops
+	# over the notes (getting them ready to play) by more than the fingerprint
+	# takes: the load was longer with the thread than without. And the
+	# fingerprint itself is several times quicker than it was (BigNotes.gd).
+	if true:
 		compute_chart_hash()
 		return
 	_hash_thread_notes = notes_arr
@@ -1321,8 +1344,18 @@ func _read_markers_fast(file: File, pos: int, length: int, mt_name: Array, mt_ty
 	var left: int = file.get_len() - pos
 	if length <= 0 or length > left:
 		length = left
+	var bytes: PoolByteArray = file.get_buffer(length)
+	# a map of notes only (nearly every one) with a great many of them, all
+	# stored the same way: the bytes turned into numbers in bulk (BigNotes.gd)
+	if mt_name.size() == 1 and mt_type[0].size() == 1 and mt_type[0][0] == DT_POSITION and _big(marker_count):
+		var got: Array = BigNotes.decode(bytes, marker_count)
+		if got.size() == 2:
+			markers[mt_name[0]] = got[0]
+			# (-1: already in the final order, nothing left to sort)
+			states[mt_name[0]] = 0 if got[1] == -1 else got[1]
+			return
 	var sp := StreamPeerBuffer.new()
-	sp.data_array = file.get_buffer(length)
+	sp.data_array = bytes
 	var end: int = sp.get_size()
 	var ntypes: int = mt_name.size()
 	var lists := []
@@ -2016,19 +2049,35 @@ func convert_to_sspm(upgrade: bool = false):
 
 	var allmarkers = []
 
-	for t in markers.keys():
-		for d in markers[t]:
-			var ms = d[-1]
-			var v = [ms, t, []]
+	# A map whose markers are its notes only (nearly every map): the notes are
+	# in order already (read_markers sorts them), so they're written as they
+	# are, as one block made in memory (BigNotes.gd), instead of being copied
+	# one by one into a second list, sorted and written a number at a time.
+	var notes_only: bool = markers.size() == 1 and marker_types.size() == 1 and marker_types[0].size() == 2 and marker_types[0][1] == DT_POSITION and markers.has(marker_types[0][0])
+	if not notes_only:
+		for t in markers.keys():
+			for d in markers[t]:
+				var ms = d[-1]
+				var v = [ms, t, []]
 
-			for i in range(d.size() - 1):
-				v[2].append(d[i])
+				for i in range(d.size() - 1):
+					v[2].append(d[i])
 
-			allmarkers.append(v)
+				allmarkers.append(v)
 
-	allmarkers.sort_custom(self, "marker_sort")
+		# (by time. This asked for a comparer called "marker_sort", which doesn't
+		# exist: every comparison failed, which took a long time on a big map and
+		# left the markers in the file back to front.)
+		allmarkers.sort_custom(self, "_marker_time_sort")
 
 	start = file.get_position()
+	if notes_only:
+		# (in the order they're played in: by time, and notes at the same time
+		# by their text, as read_markers leaves them. A file written like that
+		# needs no sorting when it's opened.)
+		var in_order: Array = markers[marker_types[0][0]].duplicate()
+		sort_timed(in_order, -1, self, "markersort", -1, true)
+		file.store_buffer(BigNotes.encode(in_order, marker_td[marker_types[0][0]][0]))
 	for m in allmarkers:
 		var ms = m[0]
 		var type = marker_td[m[1]]
