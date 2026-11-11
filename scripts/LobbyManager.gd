@@ -1903,7 +1903,15 @@ func _handle_message(msg: Dictionary):
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
-			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
+			# (a list without "you" doesn't make you nobody: the number is kept)
+			if msg.get("you") != null and int(msg.get("you")) > 0:
+				my_player_number = int(msg.get("you"))
+			if _number_probe:
+				# (the list was only asked for to learn your number: no more of it,
+				# unless a page wants it by now)
+				_number_probe = false
+				if not _online_subscribed and _connected():
+					_send({"type": "unsubscribe_online"})
 			i_am_staff = bool(msg.get("you_staff", false))
 			Rhythia.is_staff = i_am_staff
 			if msg.has("you_perms"):
@@ -2150,8 +2158,25 @@ func broadcasting() -> bool:
 		return not watch_mode
 	return watchers_count > 0
 
+# Your player number comes with the list of who's online, which is only asked
+# for while a page that shows it is open (Spectate, Online). Things that are
+# yours by your number (a hand in Settings > VR only player #3 has) were
+# therefore missing until you had opened one of those pages. So the list is
+# asked for once after connecting, just for the number, and stopped again.
+var _number_probe := false
+func _ask_my_number():
+	if my_player_number > 0 or _number_probe or Rhythia.cid == "" or presence_supported != 1 or not _connected():
+		return
+	if _online_subscribed:
+		return # (the list is coming anyway)
+	_number_probe = true
+	# (with your id: the server answers "you" only to a connection it knows)
+	_send({"type": "subscribe_online", "client_id": Rhythia.cid})
+
 func _set_presence_supported(v: int):
 	if presence_supported == v:
+		if v == 1:
+			_ask_my_number() # (connected again: asked again if it's still not known)
 		return
 	presence_supported = v
 	if v == 1:
@@ -2159,6 +2184,7 @@ func _set_presence_supported(v: int):
 		_send_presence(true)
 		if _online_subscribed:
 			_send({"type": "subscribe_online"})
+		_ask_my_number()
 	emit_signal("presence_support_changed", v == 1)
 
 func _connected() -> bool:
