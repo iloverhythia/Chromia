@@ -11,6 +11,44 @@ const MAX_LOGGED := 40
 var _logged := 0
 var _skip := 30 # (the first frames of a song are slow anyway)
 
+# The whole song in one line when it's left ("song perf: ..."): how many
+# frames, the average rate, how many were slow and the slowest, the scripts'
+# share, and what was on (VR, its refresh rate, the trail). With Settings >
+# Experimental > Always show crash logs, the next start shows it with a Copy
+# report button, so "it lags" comes with numbers.
+var _frames := 0
+var _time := 0.0
+var _over_20 := 0
+var _over_33 := 0
+var _over_50 := 0
+var _worst := 0.0
+var _script_sum := 0.0
+var _script_n := 0
+var _script_at := 0.0
+
+func _exit_tree():
+	if _frames < 60 or _time <= 0.0:
+		return
+	var what := PoolStringArray()
+	if Rhythia.vr:
+		var hz := 0.0
+		var cfg = Rhythia.get("vr_xr_config")
+		if cfg != null and cfg.has_method("get_refresh_rate"):
+			hz = float(cfg.get_refresh_rate())
+		what.append("VR %s Hz%s, render scale %s, foveation %s" % [str(hz) if hz > 0 else "?", " (unlocked)" if Rhythia.vr_refresh_unlock else "", str(Rhythia.vr_render_scale), str(Rhythia.vr_foveation)])
+	if Rhythia.cursor_trail:
+		what.append("%s trail, detail %s, time %s" % ["smart" if Rhythia.smart_trail else "classic", str(Rhythia.trail_detail), str(Rhythia.trail_time)])
+	else:
+		what.append("no trail")
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null and bool(lm.get("watch_mode")):
+		what.append("spectating")
+	if Rhythia.replaying:
+		what.append("replay")
+	Rhythia.trail("song perf: %d frames in %d s (%.0f fps), over 20 ms: %d, over 33 ms: %d, over 50 ms: %d, worst %d ms, scripts %.1f ms a frame; %s" % [
+		_frames, int(_time), float(_frames) / _time, _over_20, _over_33, _over_50, int(_worst * 1000.0),
+		(_script_sum / _script_n) if _script_n > 0 else 0.0, what.join("; ")])
+
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
 
@@ -18,6 +56,23 @@ func _process(delta):
 	if _skip > 0:
 		_skip -= 1
 		return
+	if not get_tree().paused:
+		_frames += 1
+		_time += delta
+		if delta > 0.02:
+			_over_20 += 1
+		if delta > 0.0333:
+			_over_33 += 1
+		if delta > SLOW_SEC:
+			_over_50 += 1
+		if delta > _worst:
+			_worst = delta
+		# (the engine keeps the scripts' time as a reading renewed once a second)
+		_script_at += delta
+		if _script_at >= 1.0:
+			_script_at = 0.0
+			_script_sum += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
+			_script_n += 1
 	if delta < SLOW_SEC or _logged >= MAX_LOGGED or get_tree().paused:
 		return
 	_logged += 1

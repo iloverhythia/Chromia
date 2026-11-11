@@ -313,7 +313,15 @@ func _process(delta):
 			if _trail_gap > 0.1:
 				_trail_gap = delta # (standing still: the next move starts afresh)
 		else:
-			var amt = min(ceil(Rhythia.trail_detail * diff), 240)
+			# (a headset or a phone: no more pieces than can be told apart, about
+			# eight across the cursor's width. More only overlap, and every piece
+			# is drawn over the others, for each eye.)
+			var detail: float = float(Rhythia.trail_detail)
+			var most: int = 240
+			if _light_trail:
+				detail = min(detail, 30.0 / max(float(Rhythia.cursor_scale), 0.25))
+				most = 96
+			var amt = min(ceil(detail * diff), most)
 			# (all the pieces are one MultiMesh: TrailMulti.gd)
 			if _trail_mm != null and is_instance_valid(_trail_mm):
 				var col: Color = $Mesh.get("material/0").albedo_color
@@ -351,6 +359,7 @@ func _process(delta):
 # Trail Time, each a little after the one before (as CursorTrail.gd's nodes
 # did: the same moments, the same places between two frames, left out when
 # the cursor hasn't moved since that piece's last place).
+var _light_trail: bool = bool(Rhythia.vr) or Rhythia.device("mobile")
 var _trail_cl = null
 var _cl_n := 0
 var _cl_T := 0.0 # time, in Trail Times
@@ -464,7 +473,7 @@ func _ready():
 		elif OS.get_current_video_driver() == OS.VIDEO_DRIVER_GLES3 and int(Rhythia.trail_detail) >= 2:
 			# the classic trail's pieces as slots of one MultiMesh, aged on the
 			# graphics card (TrailMulti.gd): no node, script and material per piece
-			_cl_n = int(min(int(Rhythia.trail_detail), 4096))
+			_cl_n = int(min(int(Rhythia.trail_detail), 256 if _light_trail else 4096))
 			_trail_cl = load("res://scripts/game/TrailMulti.gd").make(trail_base, _cl_n)
 			get_node("../..").call_deferred("add_child", _trail_cl)
 			for _i in range(_cl_n):
