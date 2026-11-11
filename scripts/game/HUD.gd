@@ -572,6 +572,8 @@ const SPEC_MAX_DELAY_SEC := 2.0
 const SPEC_JUMP_MS := 2000.0      # further off than this (a skip, a seek): jump
 const SPEC_GROW_PER_SEC := 0.05   # the delay grows at most this much a second (the clock 5% slower)
 const SPEC_SHRINK_PER_SEC := 0.025
+const SPEC_MAX_RATE := 0.04       # the clock runs at most 4% fast or slow
+var _spec_rate_now: float = 1.0
 var _spec_samples: Array = []
 var _spec_ms: float = 0.0
 var _spec_clock_set: bool = false
@@ -887,21 +889,31 @@ func _update_spectate_render(delta: float):
 		# changes are taken in slowly, so the clock only ever runs a few
 		# percent fast or slow (the music follows it: spec_rate)
 		var step: float = clamp(best - _spec_offset, -SPEC_SHRINK_PER_SEC * 1000.0 * spd * delta, SPEC_GROW_PER_SEC * 1000.0 * spd * delta)
+		var d_delay: float = clamp(_spec_delay_target - _spec_delay, -SPEC_SHRINK_PER_SEC * delta, SPEC_GROW_PER_SEC * delta)
+		# together they never move the clock more than SPEC_MAX_RATE off
+		# real time (the music follows it, its pitch kept: NoteManager)
+		var change: float = step / (1000.0 * spd) - d_delay # (seconds the clock gains this frame)
+		var lim: float = SPEC_MAX_RATE * delta
+		if abs(change) > lim and abs(change) > 0.0:
+			var k: float = lim / abs(change)
+			step *= k
+			d_delay *= k
+			change *= k
 		_spec_offset += step
-		if _spec_delay_target > _spec_delay:
-			_spec_delay = min(_spec_delay_target, _spec_delay + SPEC_GROW_PER_SEC * delta)
-		else:
-			_spec_delay = max(_spec_delay_target, _spec_delay - SPEC_SHRINK_PER_SEC * delta)
+		_spec_delay += d_delay
+		_spec_rate_now = 1.0 + (change / delta if delta > 0.0 else 0.0)
 	_spec_starve_floor = max(0.0, _spec_starve_floor - 0.01 * delta) # (let go over about a minute)
 	var play: float = now * 1000.0 * spd + _spec_offset - _spec_delay * 1000.0 * spd
 	if play < _spec_ms and _spec_ms - play < SPEC_JUMP_MS * spd:
 		play = _spec_ms # never backwards
-	# how fast the clock runs against real time, for the music
+	# how fast the clock runs against real time, for the music: worked out
+	# from the change above (measured from frame times it was noisy, and the
+	# music came out sharp)
 	if jumped or delta <= 0.0:
 		spec_rate = 1.0
+		_spec_rate_now = 1.0
 	else:
-		var r: float = clamp((play - _spec_prev_play) / (delta * 1000.0 * spd), 0.9, 1.1)
-		spec_rate += (r - spec_rate) * min(1.0, delta * 3.0)
+		spec_rate += (_spec_rate_now - spec_rate) * min(1.0, delta * 4.0)
 	_spec_prev_play = play
 	var newest: Dictionary = _spec_samples[_spec_samples.size() - 1]
 	if play > newest.ms:

@@ -1444,6 +1444,7 @@ func _spectate_music():
 	var want_pitch: float = max(speed_multi * replay_view_speed * rate, 0.05)
 	if abs(_n_music.pitch_scale - want_pitch) > 0.002:
 		_n_music.pitch_scale = want_pitch
+	_spectate_keep_pitch(rate)
 	var at: float = ms + Rhythia.music_offset
 	if at >= Rhythia.start_offset:
 		if not music_started:
@@ -1455,6 +1456,26 @@ func _spectate_music():
 		_n_music.stop()
 		music_started = false
 
+
+var _spec_pitch_added := false # (taken off again when the song closes)
+# The music running a little fast or slow (spec_rate) would sound sharp or
+# flat: the Music bus's pitch shift (the one Retain Song Pitch uses) takes
+# that back out, so only its speed changes
+func _spectate_keep_pitch(rate: float):
+	var bus: int = AudioServer.get_bus_index("Music")
+	if bus < 0:
+		return
+	var base: float = 1.0 / speed_multi if (Rhythia.retain_song_pitch and speed_multi != 1.0) else 1.0
+	var want: float = clamp(base / max(rate, 0.05), 0.5, 2.0)
+	var fx = AudioServer.get_bus_effect(bus, 0) if AudioServer.get_bus_effect_count(bus) > 0 else null
+	if fx == null:
+		if abs(want - 1.0) < 0.003:
+			return # (on speed, nothing to undo)
+		fx = AudioEffectPitchShift.new()
+		AudioServer.add_bus_effect(bus, fx, 0)
+		_spec_pitch_added = true
+	if fx is AudioEffectPitchShift and abs(fx.pitch_scale - want) > 0.001:
+		fx.pitch_scale = want
 
 # Adds a back-facing copy of every triangle, so an imported .obj shows up even
 # when its faces were exported pointing the other way.
@@ -1539,6 +1560,11 @@ func _fill_fx_pools():
 			pool.append(d)
 
 func _exit_tree():
+	if _spec_pitch_added:
+		var mbus: int = AudioServer.get_bus_index("Music")
+		if mbus >= 0 and AudioServer.get_bus_effect_count(mbus) > 0 and AudioServer.get_bus_effect(mbus, 0) is AudioEffectPitchShift:
+			AudioServer.remove_bus_effect(mbus, 0)
+		_spec_pitch_added = false
 	# (copies made ahead for the pools that never went into the song: they have
 	# no parent, so nothing else frees them. A copy that played and went back
 	# to its pool still has its parent in the song, which frees it. Asking
