@@ -28,6 +28,7 @@ func _ready():
 	Rhythia.loaded_world = null
 	Rhythia.was_replay = Rhythia.replaying
 	Rhythia.replaying = false
+	load("res://scripts/game/HUD.gd").restore_replay_vr_view() # (a VR replay's view settings: yours back, also if it never started)
 	if Rhythia.was_replay: Rhythia.restore_prev_state()
 	Rhythia.restore_lobby_lead_in()
 	if Rhythia.selected_song:

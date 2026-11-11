@@ -947,6 +947,27 @@ func _update_spectate_vr(ms: float):
 # --- a VR play's replay: their head is the camera, their hands and beam show ---
 # (Replay.vr_samples, recorded at about 20 a second; the same pose as spectators get)
 var _replay_vr_i := 0
+# A VR replay's view, as spectating a VR player: no camera unlock or parallax
+# (their head is the camera). Your settings are kept in Rhythia's meta and put
+# back when the song ends; put on when the replay is read, before the song
+# scene reads them.
+static func apply_replay_vr_view():
+	if Rhythia.has_meta("replay_vr_backup"):
+		return
+	var flat: Dictionary = load("res://scripts/SpectateSettings.gd").FLAT_FOR_VR
+	var backup := {}
+	for k in flat:
+		backup[k] = Rhythia.get(k)
+		Rhythia.set(k, flat[k])
+	Rhythia.set_meta("replay_vr_backup", backup)
+
+static func restore_replay_vr_view():
+	if not Rhythia.has_meta("replay_vr_backup"):
+		return
+	var backup: Dictionary = Rhythia.get_meta("replay_vr_backup")
+	for k in backup:
+		Rhythia.set(k, backup[k])
+	Rhythia.remove_meta("replay_vr_backup")
 func replay_vr_on() -> bool:
 	return Rhythia.replaying and not Rhythia.vr and not spectating and Rhythia.replay != null and not Rhythia.replay.vr_samples.empty() and typeof(_spec_vr_head) == TYPE_TRANSFORM
 
@@ -964,6 +985,7 @@ func _update_replay_vr():
 	while i + 1 < smp.size() and float(smp[i + 1][0]) <= rms:
 		i += 1
 	_replay_vr_i = i
+	apply_replay_vr_view() # (normally done when the replay was read: Replay._read_vr)
 	var pa: Array = smp[i][1]
 	var pb: Array = smp[i + 1][1] if i + 1 < smp.size() else pa
 	var alpha := 0.0
@@ -974,6 +996,7 @@ func _update_replay_vr():
 	if _spec_vr_hands.size() < 2:
 		return
 	_spec_vr_holder.visible = true
+	_spec_hand_look() # (their hands: yours in your own replay, theirs on a video link)
 	var cursor = spawn.get("_n_cursor")
 	var pointing: int = 0 if pa[0] > 0.5 else 1 # left : right
 	for k in range(2):
@@ -992,19 +1015,47 @@ func _update_replay_vr():
 # checked about once a second until it's there.
 var _spec_hand_sig := ""
 var _spec_hand_check_at := 0
+# whose hands, as [kind, right .obj, left .obj]: the spectated player's (their
+# settings), a video link's player (WebReplay.gd's settings), or, watching a
+# replay in the game, your own
+func _hand_source() -> Array:
+	var spec = _spec_settings()
+	var s = null
+	if spectating:
+		var lm = _get_lobby_manager()
+		s = lm.player_view_settings.get(spectate_peer_id, {}) if lm != null else {}
+	else:
+		var wr = get_node_or_null("/root/WebReplay")
+		var rs = wr.get("_render_settings") if wr != null else null
+		if rs is Dictionary and not rs.empty():
+			s = rs
+	if s is Dictionary:
+		var k: String = String(s.get("vr_hand", "default"))
+		if k != "custom":
+			return [k, "", ""]
+		return [k, spec.cached_asset(String(s.get("vr_hand_file", "")).to_lower(), "obj"), spec.cached_asset(String(s.get("vr_hand_left_file", "")).to_lower(), "obj")]
+	# your own replay: your own hands
+	var mine: String = String(Rhythia.get("vr_hand")) if Rhythia.get("vr_hand") != null else "default"
+	if mine != "custom":
+		return [mine, "", ""]
+	var r := ""
+	var l := ""
+	for hf in spec.own_hand_files():
+		if hf[0] == "vr_hand_file":
+			r = hf[1]
+		else:
+			l = hf[1]
+	return [mine, r, l]
+
 func _spec_hand_look():
 	var now := OS.get_ticks_msec()
 	if now < _spec_hand_check_at:
 		return
 	_spec_hand_check_at = now + 1000
-	var lm = _get_lobby_manager()
-	var s = lm.player_view_settings.get(spectate_peer_id, {}) if lm != null else {}
-	if not (s is Dictionary):
-		s = {}
-	var kind: String = String(s.get("vr_hand", "default"))
-	var spec = _spec_settings()
-	var rpath: String = spec.cached_asset(String(s.get("vr_hand_file", "")).to_lower(), "obj") if kind == "custom" else ""
-	var lpath: String = spec.cached_asset(String(s.get("vr_hand_left_file", "")).to_lower(), "obj") if kind == "custom" else ""
+	var src: Array = _hand_source()
+	var kind: String = src[0]
+	var rpath: String = src[1]
+	var lpath: String = src[2]
 	var sig := "%s|%s|%s" % [kind, rpath, lpath]
 	if sig == _spec_hand_sig:
 		return
@@ -1778,6 +1829,7 @@ static func _you_or(lm, peer_id: int, name: String) -> String:
 	return "%s (you)" % name if peer_id == int(lm.local_peer_id) else name
 
 func _exit_tree():
+	restore_replay_vr_view() # (a VR replay's view settings: yours back)
 	if Rhythia.has_meta("vr_third_person"):
 		Rhythia.remove_meta("vr_third_person") # (3rd person ends with the song)
 

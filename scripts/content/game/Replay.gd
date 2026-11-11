@@ -700,6 +700,10 @@ func _read_vr():
 					v -= 65536
 				pose.append(float(v) / 1000.0 if k < 3 else float(v) / 32767.0)
 		vr_samples.append([ms, pose])
+	# watched in VR's own view (not in a headset): the VR player's view settings,
+	# put on now, before the song scene reads them (HUD.gd)
+	if not vr_samples.empty() and not Rhythia.vr:
+		load("res://scripts/game/HUD.gd").apply_replay_vr_view()
 
 func _read_touches():
 	touches = []
