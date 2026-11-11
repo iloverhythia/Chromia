@@ -24,3 +24,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating: the music keeps its normal pitch (it sounded sharp while playback evened out)
 - The speed modifier icons while playing are round again (they were stretched into ovals)
 - VR: the Save video button shows on the results after a play (the link opens in the computer's browser)
+- VR: replays remember which hands you had (furry paws, custom vr_hand.obj, ...), so watching them shows your hands instead of the default ones (needs the updated server)

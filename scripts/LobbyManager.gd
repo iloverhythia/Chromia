@@ -80,6 +80,7 @@ var lobby_code: String = ""
 var player_name: String = "Player"
 var collab_supported := false # the server can relay the map editor's collab (server_hello)
 var replay_vr_supported := false # the server takes replays with VR head / hands (server_hello)
+var replay_vr_hand_supported := false # ... and which hands they had (Replay.gd "CVRH")
 var local_peer_id: int = -1
 
 var lobby_state: Dictionary = {
@@ -1913,6 +1914,7 @@ func _handle_message(msg: Dictionary):
 			_set_presence_supported(1 if (feats is Array and feats.has("presence")) else 0)
 			collab_supported = feats is Array and feats.has("collab")
 			replay_vr_supported = feats is Array and feats.has("replay_vr")
+			replay_vr_hand_supported = feats is Array and feats.has("replay_vr_hand")
 			translate_supported = feats is Array and feats.has("translate")
 			# reconnected in the middle of a song (a network blip, a server
 			# restart): the server lost your settings with the old connection,

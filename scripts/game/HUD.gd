@@ -1125,6 +1125,10 @@ func _hand_source() -> Array:
 		var rs = wr.get("_render_settings") if wr != null else null
 		if rs is Dictionary and not rs.empty():
 			s = rs
+	# a replay that says which hands they had (Replay.gd "CVRH"): those
+	if not (s is Dictionary) and Rhythia.replaying and Rhythia.replay != null and String(Rhythia.replay.get("vr_hand")) != "":
+		var rh = Rhythia.replay
+		s = {"vr_hand": rh.vr_hand, "vr_hand_file": rh.vr_hand_files[0], "vr_hand_left_file": rh.vr_hand_files[1]}
 	if s is Dictionary:
 		var k: String = String(s.get("vr_hand", "default"))
 		if k != "custom":
