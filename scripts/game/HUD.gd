@@ -1981,6 +1981,12 @@ func _on_lobby_state_changed_for_spectators_list():
 func _ready():
 	Rhythia.start_log("hud")
 	_timer_hud = get_node_or_null("TimerHud")
+	# the mod icons keep their shape: the speed ones (HUD.tscn) were set to
+	# fill their box, and when the row got taller they were drawn as ovals
+	for c in modicons.get_children():
+		if c is TextureRect:
+			c.expand = true
+			c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_setup_hud_viewports()
 	Game.connect("miss", self, "on_miss")
 	if Rhythia.colorset_hud:

@@ -22,3 +22,4 @@ in scripts/Savia.gd and empties this list.
 - Big maps are lighter to draw: the list of notes sent to the graphics card each frame is as long as what is on screen, not as long as the whole map.
 - Multiplayer: the Spectators list sits under the lobby leaderboard instead of on top of it
 - Spectating: the music keeps its normal pitch (it sounded sharp while playback evened out)
+- The speed modifier icons while playing are round again (they were stretched into ovals)
