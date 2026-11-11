@@ -476,8 +476,10 @@ func get_cursor_position(ms: float):
 		bp = cursor_positions[0]
 		last_pos_offset = 0
 	elif ms >= end_ms:
+		# (past the end the cursor stays where it was: it used to glide in a
+		# straight line back to the middle, seen at the end of every video)
 		ap = cursor_positions[n - 1]
-		bp = Vector3(1, -1, end_ms + 3000)
+		bp = ap
 		last_pos_offset = n - 1
 	else:
 		var lo: int = 0

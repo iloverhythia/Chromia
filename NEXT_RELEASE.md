@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - Each song now leaves a "song perf" line in the game's log (frame rate, slow frames, the worst frame, VR refresh rate, trail settings). With Settings > Replays & Misc > Experimental > Always show crash logs on, the next start shows the log with a Copy report button, so a lag report comes with numbers.
 - Replays: Cursor Face Velocity works (the cursor turns the way it moves, as when you played)
 - Spectating and Save video links play the player's own hit and miss sounds (the song loading put yours back)
+- Replays (and Save video): at the very end the cursor stays where it was, instead of gliding in a straight line back to the middle
