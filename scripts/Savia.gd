@@ -4994,15 +4994,23 @@ func get_startup_settings_path() -> String:
 # The update channel belongs to this device, not to a settings profile: kept
 # in user://update_channel.json too (Online.gd reads it before anything loads).
 func save_update_channel():
+	# (both data folders: Online.shared_write)
+	var text := JSON.print({"update_channel": update_channel, "tester_channel": tester_channel, "tried_test_builds": tried_test_builds or update_channel == "test"})
+	# (only when it changed: saving the settings mustn't make it the newest copy
+	# over a channel picked in the other folder's game)
 	var f := File.new()
-	if f.open(Globals.p("user://update_channel.json"), File.WRITE) == OK:
-		f.store_string(JSON.print({"update_channel": update_channel, "tester_channel": tester_channel, "tried_test_builds": tried_test_builds or update_channel == "test"}))
+	var cur: String = load("res://scripts/Online.gd").shared_read_path("update_channel.json")
+	if cur != "" and f.open(cur, File.READ) == OK:
+		var same: bool = f.get_as_text() == text
 		f.close()
+		if same:
+			return
+	load("res://scripts/Online.gd").shared_write("update_channel.json", text)
 
 func _load_update_channel():
 	var f := File.new()
-	var path: String = Globals.p("user://update_channel.json")
-	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+	var path: String = load("res://scripts/Online.gd").shared_read_path("update_channel.json")
+	if path == "" or f.open(path, File.READ) != OK:
 		return
 	var parsed := JSON.parse(f.get_as_text())
 	f.close()
