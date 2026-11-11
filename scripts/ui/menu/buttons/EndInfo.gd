@@ -203,7 +203,7 @@ var _video_song = null
 func _add_video_button():
 	var row = get_node_or_null("../../H1/Info/Control")
 	var gear = row.get_node_or_null("Actions") if row != null else null
-	if gear == null or OS.has_feature("JavaScript") or Rhythia.vr:
+	if gear == null or OS.has_feature("JavaScript"): # (in VR too: it opens on the computer's browser)
 		return
 	_remove_video_button()
 	var file: String = load("res://scripts/VideoExport.gd").last_replay_file()
