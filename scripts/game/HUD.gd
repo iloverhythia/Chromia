@@ -446,6 +446,7 @@ func _process(delta: float):
 	_refresh_hud_viewports(delta)
 	_update_spectate_render(delta)
 	_update_replay_vr()
+	_place_top_left()
 	if spectating and _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.check_debug_mouse_toggle()
 	if Rhythia.show_config:
@@ -1855,6 +1856,19 @@ func _top_left() -> VBoxContainer:
 		_top_left_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_top_left_ui.add_child(_top_left_box)
 	return _top_left_box
+
+# The lobby's leaderboard (Game.gd _board) is in the same corner: the
+# Spectators list goes under it while it shows (it was drawn over the board)
+func _place_top_left():
+	if _top_left_box == null or not _top_left_box.is_visible_in_tree():
+		return
+	var y := 32.0
+	var g = get_parent()
+	var board = g.get("_board") if g != null else null
+	if board is Control and is_instance_valid(board) and board.is_visible_in_tree():
+		y = max(y, board.rect_global_position.y + board.rect_size.y + 8.0)
+	if abs(_top_left_box.rect_position.y - y) > 0.5:
+		_top_left_box.rect_position.y = y
 
 func _create_spectators_banner():
 	if _spectators_banner != null:
