@@ -23,3 +23,4 @@ in scripts/Savia.gd and empties this list.
 - Multiplayer: the Spectators list sits under the lobby leaderboard instead of on top of it
 - Spectating: the music keeps its normal pitch (it sounded sharp while playback evened out)
 - The speed modifier icons while playing are round again (they were stretched into ovals)
+- Phones: the cursor is smoother and no longer snappy. It was being pushed further ahead of your finger than the Prediction setting asked for, and the whole push appeared the moment you moved and vanished the moment you slowed. Now the lead grows in gently and shrinks quickly as you slow down, and the cursor follows your finger at evenly spaced moments. If you still want it calmer, lower Prediction (Settings, under No Touch Delay); 0 turns the lead off.

@@ -25,7 +25,7 @@ func add(p: Vector2, now_usec: int):
 	_last = p
 	_t = now_usec
 
-func offset(now_usec: int, lead_s: float, lead_cap: float) -> Vector2:
+func offset(now_usec: int, lead_s: float, lead_cap: float, _frame: bool = false) -> Vector2:
 	var fr: float = 1.0 / max(Engine.get_frames_per_second(), 30.0)
 	var age: float = (float(now_usec - _t) / 1000000.0) if _t > 0 else 1.0
 	if age > 1.5 * fr:

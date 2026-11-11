@@ -116,11 +116,12 @@ var _rel_has := false
 func _predict_input(p: Vector2):
 	_tp.add(p, OS.get_ticks_usec())
 
+var _pred_frame := false # (placing the cursor for the frame being drawn: the predictor's easing moves on)
 func _predict_offset() -> Vector2:
 	if not _pred:
 		return Vector2.ZERO
 	var cap: float = get_viewport().get_visible_rect().size.y * 0.04 # (the lead is never far off)
-	return _tp.offset(OS.get_ticks_usec(), Rhythia.mobile_predict_ms / 1000.0, cap)
+	return _tp.offset(OS.get_ticks_usec(), Rhythia.mobile_predict_ms / 1000.0, cap, _pred_frame)
 
 func _predicted_mouse() -> Vector2:
 	return get_viewport().get_mouse_position() + _predict_offset()
@@ -257,12 +258,14 @@ func _process(delta):
 	# between touch samples and settles on the real spot when your finger stops
 	# (get_absolute_position() leads while moving and snaps back once it pauses).
 	if _pred and not Rhythia.replaying and move_mode == C_MOUSE and not Rhythia.spin_now():
+		_pred_frame = true
 		if Rhythia.absolute_mode:
 			move_cursor_abs(get_absolute_position() * (-1 if Rhythia.invert_mouse else 1))
 		elif _rel_has and rpos == _rel_shown:
 			var off: Vector2 = _predict_offset() * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1)
 			move_cursor_abs(_rel_true + off)
 			_rel_shown = rpos
+		_pred_frame = false
 	check_debug_mouse_toggle()
 	frame = Engine.get_frames_drawn()
 	if Rhythia.cursor_spin != 0 and not Rhythia.cursor_face_velocity:
