@@ -6016,6 +6016,12 @@ func refresh_active_sound_streams():
 		hit_path = selected_hit_sound.path
 	if selected_miss_sound and selected_miss_sound.path != "":
 		miss_path = selected_miss_sound.path
+	# someone else's settings on (spectating them, a Save video link): their
+	# own sounds (SpectateSettings.apply)
+	if has_meta("spec_hit_snd"):
+		hit_path = String(get_meta("spec_hit_snd"))
+	if has_meta("spec_miss_snd"):
+		miss_path = String(get_meta("spec_miss_snd"))
 	hit_snd = get_stream_with_default(hit_path, def_hit_snd)
 	miss_snd = get_stream_with_default(miss_path, def_miss_snd)
 	Globals.error_sound = miss_snd
