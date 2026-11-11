@@ -145,7 +145,10 @@ func _keep_multimeshes():
 	_mm_asq = _n_asq.multimesh
 	_mm_spawn = _n_spawn.multimesh
 
-func note_reposition(i: int):
+# slot: where in the drawn list this note goes. The notes that are drawn are
+# packed one after the other (reposition_notes counts them), so a frame only
+# touches as many slots as it draws notes.
+func note_reposition(i: int, slot: int = -1):
 	if _mm_notes == null:
 		_keep_multimeshes()
 	var nd: Array = notes[i]
@@ -155,7 +158,8 @@ func note_reposition(i: int):
 	var col: Color = nd[3]
 	var chaos_offset: Vector2 = nd[4]
 	var nt: Transform = nd[5]
-	var slot: int = i - current_note
+	if slot < 0:
+		slot = i - current_note
 
 	var current_offset_ms: float = notems - ms
 	var current_dist: float = _f_approach_speed * current_offset_ms / 1000
@@ -397,49 +401,76 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				notes[current_note][2] = Globals.NSTATE_MISS
 			current_note += 1
 
+	# The notes that are drawn are packed into the drawn list one after the
+	# other (slot), so the list is as long as what's on screen, not as long as
+	# the map: a map with hundreds of thousands of notes used to keep a list of
+	# all of them, sent to the graphics card whole every frame.
+	#
+	# More notes on their way than a frame can place (_notes_ahead_cap, set
+	# by how long the pass takes): the nearest half of that many are all drawn,
+	# and of the ones behind them every 2nd, 4th, 8th... (_far_stride) so
+	# that what's drawn still reaches all the way back to where notes come in.
+	# It used to draw the nearest and nothing behind them, so a long stack on
+	# one square was cut short, and the cut moved back and forth as the limit
+	# followed the frame time. Which far notes are drawn goes by their number
+	# in the map, so the same ones stay drawn until they're near, when all are.
 	var ahead := 0
-	var vis_notes := -1
-	var vis_spawn := -1
-	for i in range(max(current_note, rerun_start), notes.size()):
-		var notems: float = notes[i][1]
+	var slot := 0
+	var n_total: int = notes.size()
+	var near_n: int = _notes_ahead_cap / 2
+	var stride := 1
+	var in_far := false
+	var last_ms := -1.0e20
+	var last_pos := Vector2(1.0e20, 1.0e20)
+	var i: int = int(max(current_note, rerun_start))
+	while i < n_total:
+		var nd_i: Array = notes[i]
+		var notems: float = nd_i[1]
 		next_ms = notems
-		if notems > ms and not force:
+		var drawn := false
+		var skip_draw := false
+		if notems > ms:
 			ahead += 1
-			if ahead > _notes_ahead_cap and Rhythia.render_fps <= 0:
-				# (see NOTES_AHEAD_MIN: the rest wait their turn, like the
-				# notes that are still too far away to see. Never while
-				# rendering a video frame by frame: there time doesn't matter)
+			if not in_far and ahead > near_n and Rhythia.render_fps <= 0:
+				# (never while rendering a video frame by frame: there time doesn't matter)
+				in_far = true
+				stride = _far_stride_for(i, n_total)
+				if stride > 1:
+					_notes_ahead_hit = true
+					i = ((i + stride - 1) / stride) * stride
+					if i >= n_total:
+						break
+					nd_i = notes[i]
+					notems = nd_i[1]
+					next_ms = notems
+			if stride == 1 and in_far and ahead > _notes_ahead_cap:
+				# (notes that don't simply come closer, see _far_stride_for:
+				# the nearest ones only, as before)
 				_notes_ahead_hit = true
-				_mm_visible = i - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
-				if asq: _n_asq.multimesh.visible_instance_count = _mm_visible
-				if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = _mm_visible
+				_set_drawn(slot)
 				return note_passed
-		if force:
+		# (a note in the very place and at the very time of the one drawn
+		# before it: one of them is seen. A thousand notes stacked on one
+		# moment are a thousand hits, and one note to look at.)
+		if nd_i[2] == Globals.NSTATE_ACTIVE and notems == last_ms and nd_i[0] == last_pos:
+			skip_draw = true
+		if not skip_draw:
+			drawn = note_reposition(i, slot)
+			if drawn:
+				slot += 1
+				last_ms = notems
+				last_pos = nd_i[0]
+			elif ms < notems and nd_i[2] == Globals.NSTATE_ACTIVE:
+				# (a note still to come that isn't shown: too far away to see
+				# yet, and so is everything after it. The pass ends here.)
+				_set_drawn(slot)
+				return note_passed
 
-			note_reposition(i)
-		else:
-			if note_reposition(i) == false:
-				# (how many note slots are drawn: worked out here for every
-				# note that isn't shown, as it always was, but told to the
-				# renderer once, when the pass ends. Telling it for each such
-				# note took about a tenth of a millisecond a time on a dense
-				# map: with thousands of notes going by a frame, that alone
-				# was the freeze.)
-				vis_notes = i - current_note + 1
-				vis_spawn = i - current_note
-				if ms < notems:
-
-					if notes[i][2] == Globals.NSTATE_ACTIVE:
-						_mm_visible = vis_notes; _n_notes.multimesh.visible_instance_count = _mm_visible
-						if asq: _n_asq.multimesh.visible_instance_count = vis_notes
-						if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = vis_spawn
-						return note_passed
-
-		if (i - current_note + 2) > _mm_count and _mm_count < notes.size(): # (already all the notes: no use growing)
+		if (slot + 2) > _mm_count and _mm_count < n_total: # (already all the notes: no use growing)
 			rerun_required = true
 			# (doubled, not ten more: each change clears the list and the pass
 			# starts over, so a dense map's first seconds redid it again and again)
-			_mm_count = int(min(max(_mm_count * 2, i - current_note + 12), notes.size()))
+			_mm_count = int(min(max(_mm_count * 2, slot + 12), n_total))
 			_n_notes.multimesh.instance_count = _mm_count
 			if asq: _n_asq.multimesh.instance_count = _mm_count
 			if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = _mm_count
@@ -521,12 +552,41 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 			# frame: hundreds of notes a frame on a dense map.)
 			current_note = i + 1
 
-	_mm_visible = notes.size() - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
-	if asq: _n_asq.multimesh.visible_instance_count = notes.size() - current_note
-	if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = notes.size() - current_note
+		i += stride
+
+	_set_drawn(slot)
 
 	if rerun_required: reposition_notes()
 	return note_passed
+
+# how many slots of the drawn lists are in use
+func _set_drawn(count: int):
+	_mm_visible = count
+	_n_notes.multimesh.visible_instance_count = count
+	if asq: _n_asq.multimesh.visible_instance_count = count
+	if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = count
+
+# Of the notes on their way from note `from` on, every how-many-th is drawn
+# (1: all of them). As many as fit in the other half of _notes_ahead_cap,
+# spread over everything that's within sight; a power of two, and changed only
+# when it's clearly too small or too large, so the picture doesn't flicker
+# between two of them.
+var _far_stride: int = 1
+func _far_stride_for(from: int, n_total: int) -> int:
+	if _f_approach_sign != 1 or _f_approach_speed <= 0.0:
+		_far_stride = 1
+		return 1 # (notes that don't simply come closer: no thinning, the nearest ones)
+	var window_ms: float = _f_spawn_dist / _f_approach_speed * 1000.0
+	var in_sight: int = _first_note_index_after(ms + window_ms) - from
+	var room: int = int(max(_notes_ahead_cap - _notes_ahead_cap / 2, 64))
+	var need: float = float(in_sight) / float(room)
+	if need > float(_far_stride):
+		while float(_far_stride) < need and _far_stride < 4096:
+			_far_stride *= 2
+	elif need < float(_far_stride) * 0.4:
+		while _far_stride > 1 and need <= float(_far_stride) * 0.5:
+			_far_stride /= 2
+	return _far_stride
 
 # reposition_notes, timed, to set how many notes on their way it may draw
 func _reposition_timed() -> bool:
@@ -611,7 +671,8 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 		notes.append([pos, data[2], Globals.NSTATE_ACTIVE, colors[i % ncolors], chaos_offset, Transform(basis, Vector3(pos.x, pos.y, 4))])
 
 	var last_ms = note_array[-1][2]
-	var inst_count = max(35, ceil(10000 * (float(notes.size()) / float(last_ms))))
+	# (grown when a frame needs more: reposition_notes)
+	var inst_count = min(max(35, ceil(10000 * (float(notes.size()) / float(last_ms)))), 4096)
 	_mm_count = int(inst_count)
 	_n_notes.multimesh.instance_count = _mm_count
 	if asq:

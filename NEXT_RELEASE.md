@@ -18,3 +18,5 @@ in scripts/Savia.gd and empties this list.
 - Update channel: test builds are for testers set on the website (a Tester role badge). Only they see the Update channel switch; everyone else gets the stable build, even after downloading a test build
 - Spectating: Cursor Face Velocity and Cursor Spin work on the cursor you watch
 - Upgrade tree: saved as upgrade_tree.json (was furry_tree.json, renamed by itself), laid out to be read: totals first, one line per upgrade
+- Maps with huge stacks of notes (a thousand on one square, or far too many at once) look right: the stack reaches all the way back instead of being cut short with the cut moving back and forth. When there are more notes on their way than a frame can place, the nearest are all drawn and the far ones are thinned evenly rather than dropped; notes on the very same spot and moment are drawn once. Hits, misses and score are untouched.
+- Big maps are lighter to draw: the list of notes sent to the graphics card each frame is as long as what is on screen, not as long as the whole map.
