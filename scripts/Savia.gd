@@ -2032,6 +2032,20 @@ var tried_test_builds: bool = load("res://scripts/BuildChannel.gd").CHANNEL == "
 # tester accounts (Online.TESTER_DISCORD_IDS): the build they picked with the
 # Update channel button ("test" until they switch)
 var tester_channel: String = "test"
+# a tester on the website (Online.site_tester): 1 yes, 0 no, -1 not known yet
+var site_tester: int = -1
+# the server's answer at sign-in: kept for the next start's update check, and
+# a change gets the right build now
+func set_site_tester(on: bool):
+	var v: int = 1 if on else 0
+	var known: int = load("res://scripts/Online.gd").site_tester() # (this run's, else the saved one)
+	site_tester = v
+	if v == known:
+		return
+	save_update_channel()
+	var w = get_tree().root.get_node_or_null("UpdateWatcher")
+	if w != null and w.has_method("check_now"):
+		w.check_now()
 var random_colorset: bool = false # experimental: a random colorset every time a map starts
 var _colorset_before_random = null
 
@@ -4997,7 +5011,11 @@ func get_startup_settings_path() -> String:
 # in user://update_channel.json too (Online.gd reads it before anything loads).
 func save_update_channel():
 	# (both data folders: Online.shared_write)
-	var text := JSON.print({"update_channel": update_channel, "tester_channel": tester_channel, "tried_test_builds": tried_test_builds or update_channel == "test"})
+	var d := {"update_channel": update_channel, "tester_channel": tester_channel, "tried_test_builds": tried_test_builds or update_channel == "test"}
+	var st: int = load("res://scripts/Online.gd").site_tester()
+	if st != -1:
+		d["tester"] = st == 1 # (the website says: Online.is_tester)
+	var text := JSON.print(d)
 	# (only when it changed: saving the settings mustn't make it the newest copy
 	# over a channel picked in the other folder's game)
 	var f := File.new()

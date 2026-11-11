@@ -1731,6 +1731,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
+			if msg.has("tester"):
+				Rhythia.set_site_tester(bool(msg.get("tester"))) # (a tester on the website: test builds)
 			if msg.has("perms"):
 				_set_perms(msg.get("perms"))
 			if msg.get("player_number") != null:
@@ -2056,6 +2058,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff
+			if msg.has("tester"):
+				Rhythia.set_site_tester(bool(msg.get("tester")))
 			if msg.has("perms"):
 				_set_perms(msg.get("perms"))
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
