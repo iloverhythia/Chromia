@@ -16,3 +16,4 @@ in scripts/Savia.gd and empties this list.
 - No "What's New" popup after an update (the notes are still in the Update Log)
 - Spectating remade: smooth playback that holds more in hand when the connection is uneven (it eases the speed a few percent instead of freezing and jumping), the music follows without stutters, and every frame's cursor position is sent, so the cursor moves exactly as theirs did
 - Update channel: test builds are for testers set on the website (a Tester role badge). Only they see the Update channel switch; everyone else gets the stable build, even after downloading a test build
+- Spectating: Cursor Face Velocity and Cursor Spin work on the cursor you watch

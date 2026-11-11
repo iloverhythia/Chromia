@@ -911,6 +911,7 @@ func _update_spectate_render(delta: float):
 		play = newest.ms
 	_spec_ms = play
 	spectate_cursor.transform.origin = _spec_cursor_at(_spec_ms)
+	_spec_cursor_turn(delta)
 	_update_spectate_drift(_spec_ms)
 	_update_spectate_vr(_spec_ms)
 	# (the numbers only when a newer update of theirs is reached: redone every
@@ -941,6 +942,32 @@ func apply_vr_view(cam: Camera):
 func _pose_at(arr: Array, o: int) -> Transform:
 	var q := Quat(arr[o + 3], arr[o + 4], arr[o + 5], arr[o + 6]).normalized()
 	return Transform(Basis(q), Vector3(arr[o], arr[o + 1], arr[o + 2]))
+
+# The watched cursor is a copy of yours without its script, so nothing turned
+# it: Cursor Face Velocity (it faces the way it moves, as Cursor.gd does with
+# the mouse) and Cursor Spin are done here. Positions are the scene's (y up),
+# the mouse's go down, hence -y; 0.018 is a mouse count's movement at
+# sensitivity 1, as for replays.
+var _spec_face_spin: float = 0.0
+var _spec_prev_pos = null
+func _spec_cursor_turn(delta: float):
+	var pos: Vector3 = spectate_cursor.transform.origin
+	var m = spectate_cursor.get_node_or_null("Mesh")
+	if m is Spatial:
+		if Rhythia.cursor_face_velocity:
+			if _spec_prev_pos is Vector3:
+				var moved := Vector2(pos.x - _spec_prev_pos.x, -(pos.y - _spec_prev_pos.y))
+				if moved.length() < 1.0: # (not a jump: a skip, a new watch)
+					var ff: Vector2 = moved / 0.018
+					if ff.length() > 0.05:
+						var turn_speed: float = clamp(ff.length() * 0.012, 0.05, 1.0)
+						var target_deg: float = rad2deg(Vector2(ff.x, -ff.y).angle()) - 90
+						var delta_deg: float = wrapf(target_deg - _spec_face_spin, -180, 180) * turn_speed
+						_spec_face_spin = wrapf(_spec_face_spin + delta_deg, -180, 180)
+						m.rotate_z(deg2rad(delta_deg))
+		elif Rhythia.cursor_spin != 0:
+			m.rotate_z(deg2rad(-delta * Rhythia.cursor_spin))
+	_spec_prev_pos = pos
 
 func _spec_make_hands():
 	if _spec_vr_holder != null:
