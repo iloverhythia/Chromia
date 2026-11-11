@@ -63,7 +63,7 @@ var lobby_chat_history: Array = []
 var global_chat_history: Array = []
 
 const SERVER_URL: String = "wss://savia.nysr.host/savia-ws"
-const LIVE_STATE_SEND_INTERVAL: float = 0.0167
+const LIVE_STATE_SEND_INTERVAL: float = 0.033 # (about 30 updates a second, each with every frame's position since the last)
 const SPECTATE_DELAY_SEC: float = 3.0
 
 var _announcement_canvas: CanvasLayer
@@ -999,13 +999,34 @@ func _clear_watch_spin():
 func watched_player_spins() -> bool:
 	return watch_mode and Rhythia.has_meta("watch_spin_theirs") and bool(Rhythia.get_meta("watch_spin_theirs"))
 
+# Your cursor each frame while you play (NoteManager), up to about 120 a
+# second: the next update carries them all (pts: ms, x, y, ms, x, y...), so a
+# spectator's cursor follows every move however the updates are spaced
+var _live_pts: Array = []
+func live_sample(chart_ms: float, x: float, y: float):
+	var n: int = _live_pts.size()
+	if n >= 3 and chart_ms - float(_live_pts[n - 3]) < 8.0:
+		return
+	if n >= 3 and chart_ms < float(_live_pts[n - 3]):
+		_live_pts.clear() # (their map time went back: a seek or a restart)
+	_live_pts.append(stepify(chart_ms, 0.1))
+	_live_pts.append(stepify(x, 0.0001))
+	_live_pts.append(stepify(y, 0.0001))
+	while _live_pts.size() > 45:
+		for _i in range(3):
+			_live_pts.pop_front()
+
 func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false, drift = null):
 	if not broadcasting():
+		_live_pts.clear()
 		return
 	var msg := {
 		"type": "update_live_state", "x": x, "y": y, "combo": combo, "combo_level": combo_level,
 		"energy_pct": energy_pct, "lvl_progress_pct": lvl_progress_pct, "ms": chart_ms,
 	}
+	if _live_pts.size() >= 3:
+		msg["pts"] = _live_pts
+		_live_pts = []
 	if vr_pose is Array:
 		msg["vr"] = vr_pose # in VR: head and hands, for spectators
 	if paused:

@@ -1105,6 +1105,9 @@ func _process(delta: float):
 
 	var lobby_manager = _lobby_manager if is_instance_valid(_lobby_manager) else null
 	if lobby_manager != null and lobby_manager.broadcasting() and active and not (Grid != null and Grid.spectating):
+		# every frame's cursor position goes in the next update (spectators
+		# get them all, a few at a time: LobbyManager.live_sample)
+		lobby_manager.live_sample(ms, _n_cursor.transform.origin.x, _n_cursor.transform.origin.y)
 		_live_send_timer += delta
 		if _live_send_timer >= lobby_manager.LIVE_STATE_SEND_INTERVAL:
 			_live_send_timer = fmod(_live_send_timer, lobby_manager.LIVE_STATE_SEND_INTERVAL) # even spacing
@@ -1365,18 +1368,27 @@ func _vr_pose_for_spectators():
 	return out
 
 # Spectating: ms comes from the watched player (HUD.gd), the music keeps up.
+# Its speed follows the playback clock's (HUD spec_rate: a few percent off
+# while the delay settles), so it stays with the notes without being moved;
+# it's only put back in place when it's well off (a skip, a wait).
 func _spectate_music():
 	if Grid != null and Grid.get("spec_paused"):
 		if music_started:
 			_n_music.stop()
 			music_started = false # (starts again where they are when they go on)
 		return
+	var rate: float = 1.0
+	if Grid != null and Grid.get("spec_rate") != null:
+		rate = float(Grid.get("spec_rate"))
+	var want_pitch: float = max(speed_multi * replay_view_speed * rate, 0.05)
+	if abs(_n_music.pitch_scale - want_pitch) > 0.002:
+		_n_music.pitch_scale = want_pitch
 	var at: float = ms + Rhythia.music_offset
 	if at >= Rhythia.start_offset:
 		if not music_started:
 			_n_music.play(at / 1000.0)
 			music_started = true
-		elif _n_music.playing and abs(_n_music.get_playback_position() * 1000.0 - at) > 150.0 * max(speed_multi, 1.0):
+		elif _n_music.playing and abs(_n_music.get_playback_position() * 1000.0 - at) > 300.0 * max(speed_multi, 1.0):
 			_n_music.play(at / 1000.0)
 	elif music_started:
 		_n_music.stop()

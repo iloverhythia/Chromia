@@ -14,3 +14,4 @@ in scripts/Savia.gd and empties this list.
 - Replays (and Save video): at the very end the cursor stays where it was, instead of gliding in a straight line back to the middle
 - Visual maps: notes no longer pop in partway down the lane. The game drew at most 512 upcoming notes at once, so on dense maps the rest appeared closer than the others; it now draws as many as your computer keeps up with (all of them in Save video renders)
 - No "What's New" popup after an update (the notes are still in the Update Log)
+- Spectating remade: smooth playback that holds more in hand when the connection is uneven (it eases the speed a few percent instead of freezing and jumping), the music follows without stutters, and every frame's cursor position is sent, so the cursor moves exactly as theirs did
