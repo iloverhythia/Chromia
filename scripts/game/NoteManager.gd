@@ -1429,53 +1429,31 @@ func _vr_pose_for_spectators():
 	return out
 
 # Spectating: ms comes from the watched player (HUD.gd), the music keeps up.
-# Its speed follows the playback clock's (HUD spec_rate: a few percent off
-# while the delay settles), so it stays with the notes without being moved;
-# it's only put back in place when it's well off (a skip, a wait).
+# It plays at the song's own speed and pitch, as it always did; when the
+# playback clock (a few percent off while its delay settles, HUD.gd) has
+# drifted from it by more than ~120 ms, it's put back in place.
 func _spectate_music():
 	if Grid != null and Grid.get("spec_paused"):
 		if music_started:
 			_n_music.stop()
 			music_started = false # (starts again where they are when they go on)
 		return
-	var rate: float = 1.0
-	if Grid != null and Grid.get("spec_rate") != null:
-		rate = float(Grid.get("spec_rate"))
-	var want_pitch: float = max(speed_multi * replay_view_speed * rate, 0.05)
+	# (always the song's own speed: following the playback clock's few percent
+	# changed its pitch, and a pitch shift to undo that made it sound flat)
+	var want_pitch: float = max(speed_multi * replay_view_speed, 0.05)
 	if abs(_n_music.pitch_scale - want_pitch) > 0.002:
 		_n_music.pitch_scale = want_pitch
-	_spectate_keep_pitch(rate)
 	var at: float = ms + Rhythia.music_offset
 	if at >= Rhythia.start_offset:
 		if not music_started:
 			_n_music.play(at / 1000.0)
 			music_started = true
-		elif _n_music.playing and abs(_n_music.get_playback_position() * 1000.0 - at) > 300.0 * max(speed_multi, 1.0):
+		elif _n_music.playing and abs(_n_music.get_playback_position() * 1000.0 - at) > 120.0 * max(speed_multi, 1.0):
 			_n_music.play(at / 1000.0)
 	elif music_started:
 		_n_music.stop()
 		music_started = false
 
-
-var _spec_pitch_added := false # (taken off again when the song closes)
-# The music running a little fast or slow (spec_rate) would sound sharp or
-# flat: the Music bus's pitch shift (the one Retain Song Pitch uses) takes
-# that back out, so only its speed changes
-func _spectate_keep_pitch(rate: float):
-	var bus: int = AudioServer.get_bus_index("Music")
-	if bus < 0:
-		return
-	var base: float = 1.0 / speed_multi if (Rhythia.retain_song_pitch and speed_multi != 1.0) else 1.0
-	var want: float = clamp(base / max(rate, 0.05), 0.5, 2.0)
-	var fx = AudioServer.get_bus_effect(bus, 0) if AudioServer.get_bus_effect_count(bus) > 0 else null
-	if fx == null:
-		if abs(want - 1.0) < 0.003:
-			return # (on speed, nothing to undo)
-		fx = AudioEffectPitchShift.new()
-		AudioServer.add_bus_effect(bus, fx, 0)
-		_spec_pitch_added = true
-	if fx is AudioEffectPitchShift and abs(fx.pitch_scale - want) > 0.001:
-		fx.pitch_scale = want
 
 # Adds a back-facing copy of every triangle, so an imported .obj shows up even
 # when its faces were exported pointing the other way.
@@ -1560,11 +1538,6 @@ func _fill_fx_pools():
 			pool.append(d)
 
 func _exit_tree():
-	if _spec_pitch_added:
-		var mbus: int = AudioServer.get_bus_index("Music")
-		if mbus >= 0 and AudioServer.get_bus_effect_count(mbus) > 0 and AudioServer.get_bus_effect(mbus, 0) is AudioEffectPitchShift:
-			AudioServer.remove_bus_effect(mbus, 0)
-		_spec_pitch_added = false
 	# (copies made ahead for the pools that never went into the song: they have
 	# no parent, so nothing else frees them. A copy that played and went back
 	# to its pool still has its parent in the song, which frees it. Asking
