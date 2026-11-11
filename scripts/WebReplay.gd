@@ -309,7 +309,11 @@ func _on_record():
 	# (a server with fcan also starts video links with --fixed-fps)
 	if js != null and params().has("render") and bool(js.eval("!!(window.__chromiaRec && window.__chromiaRec.fcan && window.__chromiaRec.fcan())", true)):
 		_status.text = "Getting the video maker ready..."
-		js.eval("window.__chromiaRec.fbegin(60)", true)
+		# (the rate the page started the game at: 60, or 120 on an owner's link, webgame.js)
+		_fps = int(js.eval("window.__chromiaRenderFps || 60", true))
+		if _fps != 120:
+			_fps = 60
+		js.eval("window.__chromiaRec.fbegin(%d)" % _fps, true)
 		var waited := 0.0
 		while waited < 10.0 and int(js.eval("window.__chromiaRec.fready()", true)) == 0:
 			yield(get_tree().create_timer(0.1), "timeout")
@@ -371,7 +375,7 @@ func _process(_delta):
 				_cap = load("res://scripts/RenderCapture.gd").new()
 				add_child(_cap)
 				_cap.connect("frame_drawn", self, "_on_frame_drawn")
-				_cap.begin(60, true)
+				_cap.begin(_fps, true)
 			elif js != null:
 				js.eval("window.__chromiaRec && window.__chromiaRec.start(60)", true)
 	elif _game_scene != null and cur == _game_scene and not _ending:
@@ -442,6 +446,7 @@ func _stop_recording():
 
 # ── one frame at a time (RenderCapture.gd and the page's fframe / ffinish) ──
 var _frames := false
+var _fps := 60
 var _cap = null
 
 func _on_frame_drawn(i: int):
