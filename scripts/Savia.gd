@@ -1013,7 +1013,8 @@ func check_for_update_log():
 
 	if current_version != last_seen_version:
 		send_analytics_event("app_update", {}, client_id)
-		_notify_latest_update(current_version)
+		# (no "What's New" popup after an update: it was big and in the way;
+		# the notes stay in the Update Log)
 		# Reload first so changes made since the start of this function aren't lost.
 		config = ConfigFile.new()
 		config.load("user://settings.cfg")
