@@ -59,7 +59,16 @@ const POPUPS_PER_FRAME := 6
 # Notes still on their way are drawn up to this many at a time, nearest
 # first; the ones behind them appear as those are hit or missed. (Each drawn
 # note is placed every frame: thousands at once is what made dense maps lag.)
-const MAX_NOTES_AHEAD := 512
+# The limit follows how long placing them takes: it grows while the pass is
+# quick and shrinks when it's slow, never under MIN. With a fixed 512, visual
+# maps (stacks of notes drawing shapes) had notes popping in partway down the
+# lane, closer than the rest, once more than 512 were on their way.
+const NOTES_AHEAD_MIN := 512
+const NOTES_AHEAD_MAX := 16384
+const NOTES_AHEAD_FAST_USEC := 3000 # a pass under this may draw more
+const NOTES_AHEAD_SLOW_USEC := 6000 # a pass over this draws fewer
+var _notes_ahead_cap: int = 2048
+var _notes_ahead_hit: bool = false # (this pass left notes out)
 var _fx_live := [0] # (shared with the effect copies: how many are playing)
 var _frame_fx := 0
 var _frame_hit_snd := 0
@@ -396,9 +405,11 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 		next_ms = notems
 		if notems > ms and not force:
 			ahead += 1
-			if ahead > MAX_NOTES_AHEAD:
-				# (see MAX_NOTES_AHEAD: the rest wait their turn, like the
-				# notes that are still too far away to see)
+			if ahead > _notes_ahead_cap and Rhythia.render_fps <= 0:
+				# (see NOTES_AHEAD_MIN: the rest wait their turn, like the
+				# notes that are still too far away to see. Never while
+				# rendering a video frame by frame: there time doesn't matter)
+				_notes_ahead_hit = true
 				_mm_visible = i - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
 				if asq: _n_asq.multimesh.visible_instance_count = _mm_visible
 				if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = _mm_visible
@@ -516,6 +527,18 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 
 	if rerun_required: reposition_notes()
 	return note_passed
+
+# reposition_notes, timed, to set how many notes on their way it may draw
+func _reposition_timed() -> bool:
+	_notes_ahead_hit = false
+	var t0: int = OS.get_ticks_usec()
+	var res: bool = reposition_notes()
+	var took: int = OS.get_ticks_usec() - t0
+	if took > NOTES_AHEAD_SLOW_USEC and _notes_ahead_cap > NOTES_AHEAD_MIN:
+		_notes_ahead_cap = int(max(NOTES_AHEAD_MIN, _notes_ahead_cap * 0.8))
+	elif _notes_ahead_hit and took < NOTES_AHEAD_FAST_USEC and _notes_ahead_cap < NOTES_AHEAD_MAX:
+		_notes_ahead_cap = int(min(NOTES_AHEAD_MAX, _notes_ahead_cap * 1.25 + 16))
+	return res
 
 var color_index: int = 0
 var note_count: int = 0
@@ -1298,7 +1321,7 @@ func _process(delta: float):
 					_n_music.play((ms + Rhythia.music_offset) / 1000.0)
 
 		_new_frame_budget()
-		var rn_res: bool = reposition_notes()
+		var rn_res: bool = _reposition_timed()
 		if not Rhythia.replaying and Rhythia.record_replays:
 			var should_write_pos: bool = rn_res
 			var ri = 1 / round(max(32, rec_interval))
@@ -1323,7 +1346,7 @@ func _process(delta: float):
 		_spectate_music()
 		emit_signal("timer_update", ms, false)
 		_new_frame_budget()
-		reposition_notes()
+		_reposition_timed()
 
 # VR: where your head and hands are (next to the game, so a spectator can put
 # them in their own scene): which hand points (0 right, 1 left), then head,
