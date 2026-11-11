@@ -4,13 +4,13 @@ extends Node
 # account): the server keeps the tree that has got furthest (savia_web
 # src/treesync.js). Opening the tree asks how far the kept one is; if it's
 # ahead of this device's, it comes down and replaces this one (yours is kept
-# as furry_tree.before_sync.json). Closing the tree sends this device's when
+# as upgrade_tree.before_sync.json). Closing the tree sends this device's when
 # it's ahead. How far: [highest layer reached, its best points, all chrome
 # coins ever, features found], compared in that order
 # (ChromiaUpgradeTree.progress_score).
 
 const URL := "https://savia.nysr.host/savia-tree"
-const BACKUP := "user://furry_tree.before_sync.json"
+const BACKUP := "user://upgrade_tree.before_sync.json"
 
 var server_score = null # the kept tree's, once asked (null: not known)
 var _tree: WeakRef = null
@@ -99,7 +99,7 @@ func _on_tree(result, code, _h, body: PoolByteArray, r: HTTPRequest, cid: String
 	f.store_buffer(raw)
 	f.close()
 	Rhythia.trail("tree sync: took the tree from another device %s" % str(server_score))
-	tree.reload_from_save("Your tree from your other device is further along, so it's here now (this device's is kept as furry_tree.before_sync.json).")
+	tree.reload_from_save("Your tree from your other device is further along, so it's here now (this device's is kept as upgrade_tree.before_sync.json).")
 
 # --- closing: send this device's if it's further along ---------------------------
 func upload(score: Array, save_path: String):

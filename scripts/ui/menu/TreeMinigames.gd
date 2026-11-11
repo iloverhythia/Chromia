@@ -3,7 +3,7 @@ extends Control
 # The Chromia Upgrade Tree's minigames (its Games button). Each one unlocks
 # when you've bought enough upgrades (and stays unlocked), and pays chrome
 # coins worth some seconds of your coin rate, so they're worth playing at any
-# point of the tree. Kept in the tree's save (furry_tree.json, "mini").
+# point of the tree. Kept in the tree's save (upgrade_tree.json, "mini").
 #
 # - Chromia Merge: drag a Chromia logo onto one just like it and they merge
 #   into the next logo. It never ends: every level is a new logo (its colour,

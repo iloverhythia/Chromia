@@ -37,7 +37,7 @@ const SKIP_DIRS := ["maps", "vmaps", "packs", "mods", "replays", "logs", "caches
 const SKIP_FILES := ["settings.json", "settings", "settings.cfg", "active_profile.txt",
 	"map_cache.json", "map_browser.json", "map_folders.txt", "map_folders.json",
 	"vmap_folders.txt", "install_path.txt", "pb.json", "pb", "stats.json", "level.json",
-	"rp_plays.json", "furry_tree.json", ".sound_space_backup.json", "mapdl.sspm.part",
+	"rp_plays.json", "furry_tree.json", "upgrade_tree.json", ".sound_space_backup.json", "mapdl.sspm.part",
 	"upgrade_temp.sspm"]
 const SKIP_EXT := ["sspm", "sspre", "rhm", "osu", "zip", "part", "dat", "tmp", "import"]
 # settings that stay as they are on the receiving device
