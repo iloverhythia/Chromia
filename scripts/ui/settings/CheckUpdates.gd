@@ -124,8 +124,17 @@ func _channel_text(ch: Button):
 
 func _on_channel(ch: Button):
 	if Online.is_tester():
-		# tester accounts switch right away, no questions
-		Rhythia.tester_channel = "stable" if Online.wanted_channel() == "test" else "test"
+		# tester accounts switch without the warning about test builds, but
+		# still confirm (one click used to switch, and download, at once)
+		var go_test: bool = Online.wanted_channel() != "test"
+		Globals.confirm_prompt.open("Switch to the %s build?" % ("test" if go_test else "stable"), "Update Channel",
+			[{text = "Cancel", wait = 0}, {text = "Switch", wait = 0}])
+		var pick = yield(Globals.confirm_prompt, "option_selected")
+		Globals.confirm_prompt.close()
+		yield(Globals.confirm_prompt, "done_closing")
+		if not bool(pick):
+			return
+		Rhythia.tester_channel = "test" if go_test else "stable"
 		Rhythia.update_channel = Rhythia.tester_channel
 		Rhythia.save_settings()
 		_channel_text(ch)
