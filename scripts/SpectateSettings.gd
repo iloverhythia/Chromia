@@ -167,7 +167,7 @@ static func collect() -> Dictionary:
 				cols.append("#" + c.to_html(true))
 			elif typeof(c) == TYPE_STRING and String(c).is_valid_html_color():
 				cols.append("#" + Color(String(c)).to_html(true))
-		if cols.size() > 0 and cols.size() <= 64:
+		if cols.size() > 0 and cols.size() <= 256: # (long gradient colorsets have dozens)
 			out["colorset_colors"] = cols
 			out["colorset_mirror"] = bool(cs.mirror)
 			out["colorset_name"] = String(cs.name).left(60)
@@ -433,7 +433,7 @@ static func apply(their: Dictionary, peer_id: int):
 				_assign(k, item)
 	# their colorset as they have it (newer games send the colours)
 	var cc = their.get("colorset_colors")
-	if cc is Array and cc.size() > 0 and cc.size() <= 64:
+	if cc is Array and cc.size() > 0 and cc.size() <= 256:
 		var cols := []
 		for h in cc:
 			if typeof(h) == TYPE_STRING and h.is_valid_html_color():
