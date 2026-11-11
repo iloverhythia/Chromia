@@ -161,7 +161,7 @@ func note_reposition(i: int, slot: int = -1):
 	if slot < 0:
 		slot = i - current_note
 
-	var current_offset_ms: float = notems - ms
+	var current_offset_ms: float = notems - _draw_ms # (where it's drawn: see _update_draw_clock)
 	var current_dist: float = _f_approach_speed * current_offset_ms / 1000
 
 	if (
@@ -362,6 +362,9 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 	var rerun_required: bool = false
 	if _n_label.text != "": _n_label.text = ""
 	_cache_frame_settings()
+	if force or abs(_draw_ms - ms) > 60.0:
+		_draw_ms = ms # (placed afresh, or the song jumped: by the real clock)
+		_fs_locked = false
 
 	if current_note == notes.size():
 
@@ -588,8 +591,75 @@ func _far_stride_for(from: int, n_total: int) -> int:
 			_far_stride /= 2
 	return _far_stride
 
+# --- Frame Smoothing (Settings > Experimental; on by default on phones and headsets) ---
+# Visual only. The song's clock (ms) moves on by the time measured between
+# two frames being worked out, and that varies by a few milliseconds from
+# frame to frame even when the screen shows every frame exactly one refresh
+# apart. Notes placed by it move in slightly uneven steps: a fine judder,
+# plainest on fast notes, on a phone or in a headset. With this on, notes are
+# drawn by a clock of their own (_draw_ms) that moves on by exactly one
+# refresh's worth of song per frame shown (two for a skipped frame), and is
+# pulled gently towards the real clock so it never drifts from it (it stays
+# within a few milliseconds). Hits, misses, the cursor and the music all go
+# by the real clock, as ever: nothing about how the game plays changes.
+# When frames don't come at a steady rate it knows, or the song jumps
+# (pause, skip, seek), notes are drawn by the real clock.
+const FS_RATES := [60.0, 72.0, 80.0, 90.0, 120.0, 144.0, 165.0, 240.0, 30.0, 36.0, 40.0, 45.0]
+var _draw_ms: float = 0.0
+var _fs_dt: float = 0.0 # the time between frames, smoothed
+var _fs_wobble: float = 0.0 # how much frame times differ from that, smoothed
+var _fs_prev_ms: float = 0.0
+var _fs_locked: bool = false
+var _fs_frame: int = -1
+var _frame_delta: float = 0.0
+
+func _update_draw_clock(delta: float):
+	var true_step: float = ms - _fs_prev_ms
+	_fs_prev_ms = ms
+	if not bool(Rhythia.get("frame_smoothing")) or Rhythia.render_fps > 0 or delta <= 0.0:
+		_draw_ms = ms
+		_fs_locked = false
+		return
+	if delta < 0.1:
+		if _fs_dt <= 0.0:
+			_fs_dt = delta
+		else:
+			_fs_wobble += (abs(delta - _fs_dt) - _fs_wobble) * 0.05
+			_fs_dt += (delta - _fs_dt) * 0.05
+	# the screen's own step, if frames are coming steadily at a rate a screen has
+	# (frame times all over the place only average out to one by chance)
+	var step_s := 0.0
+	if _fs_wobble < 0.22 * _fs_dt:
+		for r in FS_RATES:
+			if abs(_fs_dt * r - 1.0) < 0.05:
+				step_s = 1.0 / r
+				break
+	var shown: float = round(delta / step_s) if step_s > 0.0 else 0.0 # refreshes this frame covers
+	if step_s <= 0.0 or true_step <= 0.0 or shown < 1.0 or shown > 4.0 or abs(delta - shown * step_s) > 0.35 * step_s:
+		_draw_ms = ms # (no steady rate, a jump in the song, or a long stall)
+		_fs_locked = false
+		return
+	if not _fs_locked:
+		_fs_locked = true
+		_draw_ms = ms
+		return
+	# the same share of the song as the real step, for the time the screen
+	# really takes to show this frame
+	var even_step: float = true_step * (shown * step_s / delta)
+	_draw_ms += even_step
+	var err: float = ms - _draw_ms
+	var one: float = true_step / shown # (about one refresh of song)
+	if abs(err) > 1.5 * one:
+		_draw_ms = ms
+	else:
+		_draw_ms += err * 0.08
+
 # reposition_notes, timed, to set how many notes on their way it may draw
 func _reposition_timed() -> bool:
+	var fr: int = Engine.get_frames_drawn()
+	if fr != _fs_frame:
+		_fs_frame = fr
+		_update_draw_clock(_frame_delta)
 	_notes_ahead_hit = false
 	var t0: int = OS.get_ticks_usec()
 	var res: bool = reposition_notes()
@@ -1152,6 +1222,7 @@ func _process(delta: float):
 	# (a frame that wasn't drawn, e.g. the window minimized, isn't in the video: the song waits)
 	if Rhythia.render_fps > 0:
 		delta = 1.0 / float(Rhythia.render_fps) if Rhythia.render_step_ok else 0.0
+	_frame_delta = delta
 
 	if Rhythia.vr: do_vr_cursor()
 	elif Grid != null and ((Grid.spectating and Grid.vr_view_on()) or Grid.replay_vr_on()):

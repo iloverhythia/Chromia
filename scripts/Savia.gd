@@ -3363,6 +3363,10 @@ var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd:
 # Online and Profile pages, with a search (scripts/ui/settings/SettingsNewUI.gd).
 # Changing it loads the menu again and comes back to this setting.
 var new_settings_ui: bool = true setget _set_new_settings_ui
+# Experimental: notes move in even steps matched to the screen's refresh rate
+# (visual only: NoteManager._update_draw_clock). On from the start on phones
+# and standalone headsets, where every frame is shown one refresh apart.
+var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android") or OS.has_feature("iOS")
 func _set_new_settings_ui(v: bool):
 	if new_settings_ui == v:
 		return
@@ -4371,6 +4375,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			legacy_mouse = bool(data.legacy_mouse)
 		if data.has("show_map_rp"):
 			show_map_rp = bool(data.show_map_rp)
+		if data.has("frame_smoothing"):
+			frame_smoothing = bool(data.frame_smoothing)
 		if data.has("new_settings_ui"):
 			new_settings_ui = bool(data.new_settings_ui)
 		if data.has("modern_ui"):
@@ -5163,6 +5169,7 @@ func _write_settings_file(saveFile: String):
 			legacy_mouse = legacy_mouse,
 			show_map_rp = show_map_rp,
 			new_settings_ui = new_settings_ui,
+			frame_smoothing = frame_smoothing,
 			modern_ui = modern_ui,
 			map_grid = map_grid,
 			is_staff = is_staff,
