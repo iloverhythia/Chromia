@@ -72,3 +72,4 @@ in scripts/Savia.gd and empties this list.
 - Fixed updates bouncing between the stable and test builds: the update channel, the update snooze and the "just updated from" note are now shared by the old and new data folders (the stable build still uses the old one), so one build no longer updates to the other and straight back
 - Spectating and Save video show long custom colorsets too (more than 64 colors, like big gradients): they were left out, so the default colors showed
 - Settings > Update channel asks before switching for tester accounts too (one click switched builds and downloaded the other one at once)
+- The crash report (and other question boxes) always show on top in the menu: on some screens they opened hidden behind the menu and then popped up in the middle of the next map

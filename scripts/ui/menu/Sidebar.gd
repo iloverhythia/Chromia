@@ -405,6 +405,14 @@ func _on_Sidebar(isEntered: bool):
 
 # The last session ended without closing normally: show what it was doing
 # (Rhythia's crash trail) and offer to copy it for a bug report.
+# (the crash report doesn't follow you out of the menu: a song starting
+# closes it, it never sits over a map)
+var _crash_prompt_open := false
+func _exit_tree():
+	if _crash_prompt_open and Globals.confirm_prompt != null and is_instance_valid(Globals.confirm_prompt):
+		_crash_prompt_open = false
+		Globals.confirm_prompt.close()
+
 func _show_crash_report():
 	yield(get_tree().create_timer(1.5), "timeout")
 	if not is_inside_tree() or Globals.confirm_prompt == null:
@@ -416,7 +424,10 @@ func _show_crash_report():
 		var l := String(last[i])
 		var cut := l.find("] ")
 		shown.append(l.substr(cut + 2) if cut != -1 else l)
+	if Rhythia.in_map:
+		return
 	var crashed: bool = Rhythia.last_session_crashed
+	_crash_prompt_open = true
 	Globals.confirm_prompt.open(
 		("Chromia closed unexpectedly last time. The last things it did:\n\n%s\n\nTap Copy report and send it to the developer." if crashed else
 		"Last session's log (Settings > Replays & Misc > Experimental shows this every start). The last things it did:\n\n%s") % PoolStringArray(shown).join("\n"),
@@ -424,6 +435,7 @@ func _show_crash_report():
 		[{text = "OK"}, {text = "Copy report"}]
 	)
 	var picked = yield(Globals.confirm_prompt, "option_selected")
+	_crash_prompt_open = false
 	Globals.confirm_prompt.close()
 	if picked == 1:
 		OS.clipboard = Rhythia.crash_report()
