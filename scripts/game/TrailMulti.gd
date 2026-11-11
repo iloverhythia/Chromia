@@ -41,8 +41,12 @@ var _last_add := -1000.0
 var _mat: ShaderMaterial = null
 var _shown := -1
 
+# (%s: how the pieces write depth. As the trail's material always did on
+# computers; never on a headset or a phone, where that second pass over every
+# piece, for each eye, is work with nothing to show for it: the trail is
+# drawn over everything, without a depth test.)
 const SHADER := """shader_type spatial;
-render_mode blend_mix, depth_draw_alpha_prepass, cull_back, unshaded, depth_test_disable, shadows_disabled, ambient_light_disabled;
+render_mode blend_mix, %s, cull_back, unshaded, depth_test_disable, shadows_disabled, ambient_light_disabled;
 uniform sampler2D tex : hint_albedo;
 uniform sampler2D grad;
 uniform float now = 0.0;
@@ -100,7 +104,9 @@ static func make(trail_base: Spatial, slots: int = 0, in_script: bool = false) -
 	if tm.gpu:
 		mm.custom_data_format = MultiMesh.CUSTOM_DATA_FLOAT
 	mm.mesh = mi.mesh
-	mm.instance_count = min(slots, MAX_PIECES) if slots > 0 else MAX_PIECES
+	if tm.gpu and light():
+		tm._cap = 2048
+	mm.instance_count = min(slots, MAX_PIECES) if slots > 0 else (tm._cap if tm.gpu else MAX_PIECES)
 	mm.visible_instance_count = 0
 	tm.multimesh = mm
 	tm.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
@@ -129,9 +135,22 @@ static func make(trail_base: Spatial, slots: int = 0, in_script: bool = false) -
 		tm._t.append(0.0)
 	return tm
 
+# a headset or a phone: less to upload and draw (see _cap and the shader)
+static func light() -> bool:
+	return bool(Rhythia.vr) or Rhythia.device("mobile")
+
+var _cap := MAX_PIECES # smart: slots in the ring (2048 on a headset or a phone: the whole list goes to the graphics card every frame a piece is made)
+
 func _make_gpu(src):
-	var sh := Shader.new()
-	sh.code = SHADER
+	# One Shader for every song of the session. A new one each song was
+	# compiled again each time, on the first piece drawn: a stall at the start
+	# of every song, worst on a headset.
+	var key: String = "trail_shader_light" if light() else "trail_shader"
+	var sh: Shader = Engine.get_meta(key) if Engine.has_meta(key) else null
+	if sh == null:
+		sh = Shader.new()
+		sh.code = SHADER % ("depth_draw_never" if light() else "depth_draw_alpha_prepass")
+		Engine.set_meta(key, sh)
 	_mat = ShaderMaterial.new()
 	_mat.shader = sh
 	_mat.render_priority = 98
@@ -157,9 +176,11 @@ func _make_gpu(src):
 		_mat.set_shader_param("grad", gt)
 	_mat.set_shader_param("use_grad", 1.0 if _grad else 0.0)
 	_mat.set_shader_param("grow", 1.0 if classic else 0.0)
-	# (the classic trail's colours went through the material's colour, which is
-	# read as sRGB; the smart trail's are per piece and always were used as given)
-	_mat.set_shader_param("srgb_in", 1.0 if classic else 0.0)
+	# (the pieces' colours are the cursor's colour, an sRGB colour like any
+	# colour picked on screen: read as one, the trail is the cursor's own
+	# colour. Used as they were, the smart trail came out paler than the
+	# cursor: a pink cursor had a whitish trail.)
+	_mat.set_shader_param("srgb_in", 1.0)
 	material_override = _mat
 	# (pieces are anywhere on the grid: no working out their bounds every frame)
 	set_custom_aabb(AABB(Vector3(-40, -40, -40), Vector3(80, 80, 80)))
@@ -193,7 +214,7 @@ func add(global_pos: Vector3, rot: Vector3, col: Color, t0: float):
 		return
 	if gpu:
 		var j := _next
-		_next = (_next + 1) % MAX_PIECES
+		_next = (_next + 1) % _cap
 		if j + 1 > _high:
 			_high = j + 1
 		var cs: float = float(Rhythia.cursor_scale)

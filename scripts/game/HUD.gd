@@ -446,6 +446,7 @@ func _process(delta: float):
 	_refresh_hud_viewports(delta)
 	_update_spectate_render(delta)
 	_update_replay_vr()
+	_place_top_left()
 	if spectating and _real_cursor != null and is_instance_valid(_real_cursor):
 		_real_cursor.check_debug_mouse_toggle()
 	if Rhythia.show_config:
@@ -554,24 +555,36 @@ var _spectate_data: Dictionary = {
 }
 var ghost_cursor: MeshInstance = null
 
-# Playback: the watched player sends where they are up to 60 times a second,
-# with their map time (ms). Playback runs on a steady clock: your own clock
-# plus a fixed offset to their map time, taken from the messages that arrived
-# quickest (late ones don't pull it around), a little behind so the next
-# position is usually already here. The cursor follows a smooth curve through
-# the positions. So notes and music move at an even speed whatever the network
-# does, and the cursor doesn't cut corners.
-const SPEC_KEEP_MS := 6000.0
-const SPEC_WINDOW_SEC := 3.0      # how far back the quickest arrival is looked for
-const SPEC_MIN_DELAY_SEC := 0.08
-const SPEC_MAX_DELAY_SEC := 0.4
+# Playback: the watched player sends about 30 updates a second, each with
+# every cursor position since the one before (up to one a frame) and their
+# map time (ms). Playback runs on a steady clock: your own clock plus an
+# offset to their map time, taken from the updates that arrived quickest,
+# held back by a delay that covers how late updates come (nearly all of the
+# last few seconds'), so the next position is already here. The delay grows
+# when the connection gets uneven and shrinks slowly when it's calm, by
+# running the clock (and the music with it, spec_rate) a few percent slower
+# or faster, never by stopping or jumping. If the positions do run out, it
+# waits on the last one and the delay grows to cover such a gap next time.
+const SPEC_KEEP_MS := 8000.0
+const SPEC_WINDOW_SEC := 6.0      # how far back arrivals are looked at
+const SPEC_MIN_DELAY_SEC := 0.1
+const SPEC_MAX_DELAY_SEC := 2.0
+const SPEC_JUMP_MS := 2000.0      # further off than this (a skip, a seek): jump
+const SPEC_GROW_PER_SEC := 0.05   # the delay grows at most this much a second (the clock 5% slower)
+const SPEC_SHRINK_PER_SEC := 0.025
+const SPEC_MAX_RATE := 0.04       # the clock runs at most 4% fast or slow
+var _spec_rate_now: float = 1.0
 var _spec_samples: Array = []
 var _spec_ms: float = 0.0
 var _spec_clock_set: bool = false
 var _spec_offsets: Array = []     # [arrival time, their ms - your clock]
 var _spec_offset: float = 0.0
-var _spec_delay: float = 0.12     # follows how uneven the arrivals are
-var _spec_delay_target: float = 0.12
+var _spec_delay: float = 0.15
+var _spec_delay_target: float = 0.15
+var _spec_starve_floor: float = 0.0 # (after running out: the delay stays at least this, slowly let go)
+var _spec_prev_play: float = 0.0
+var _spec_seq: int = 0            # (each update's number: its numbers go on the HUD once)
+var spec_rate: float = 1.0        # playback speed against real time (NoteManager: the music's)
 var _spec_reloading: bool = false
 
 func _get_lobby_manager():
@@ -773,16 +786,19 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 	_set_spec_paused(paused_now)
 	if paused_now:
 		return
+	var last_ms: float = -INF
 	if not _spec_samples.empty():
-		var last_ms: float = _spec_samples[_spec_samples.size() - 1].ms
+		last_ms = _spec_samples[_spec_samples.size() - 1].ms
 		if chart_ms < last_ms - 1000.0:
 			_spec_reset_clock() # their map time went back: start over
+			last_ms = -INF
 		elif chart_ms <= last_ms:
 			return # late or repeated
 	var now: float = OS.get_ticks_usec() / 1000000.0
 	var vr_pose = null
 	var dx := 0.0
 	var dy := 0.0
+	var pts = null
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		var cached: Dictionary = lobby_manager._live_state_cache.get(peer_id, {})
@@ -791,31 +807,51 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 			vr_pose = raw
 		dx = float(cached.get("dx", 0.0))
 		dy = float(cached.get("dy", 0.0))
-	_spec_samples.append({
-		"vr": vr_pose, "dx": dx, "dy": dy,
-		"t": now, "ms": chart_ms, "x": x, "y": y,
+		pts = cached.get("pts", null)
+	_spec_seq += 1
+	var base := {
+		"vr": vr_pose, "dx": dx, "dy": dy, "seq": _spec_seq,
 		"combo": combo, "combo_level": combo_level, "score": score,
 		"hits": hits, "misses": misses, "total_notes": total_notes,
 		"energy_pct": energy_pct, "lvl_progress_pct": lvl_progress_pct,
-	})
+	}
+	# every position since their last update (newer games), then the update's own
+	if pts is Array and pts.size() % 3 == 0:
+		var i := 0
+		while i < pts.size():
+			var pm: float = float(pts[i])
+			if pm > last_ms and pm < chart_ms:
+				var s: Dictionary = base.duplicate()
+				s["ms"] = pm
+				s["x"] = float(pts[i + 1])
+				s["y"] = float(pts[i + 2])
+				_spec_samples.append(s)
+				last_ms = pm
+			i += 3
+	var own: Dictionary = base.duplicate()
+	own["ms"] = chart_ms
+	own["x"] = x
+	own["y"] = y
+	_spec_samples.append(own)
 	while _spec_samples.size() > 4 and _spec_samples[0].ms < chart_ms - SPEC_KEEP_MS:
 		_spec_samples.pop_front()
 	# their map time against your clock (map ms run at the song speed)
 	_spec_offsets.append([now, chart_ms - now * 1000.0 * _spec_speed()])
 	while _spec_offsets.size() > 1 and _spec_offsets[0][0] < now - SPEC_WINDOW_SEC:
 		_spec_offsets.pop_front()
-	if _spec_offsets.size() % 8 == 0:
-		_spec_update_delay()
+	_spec_update_delay()
 
 func _spec_speed() -> float:
 	return max(Spawn.speed_multi, 0.05) if Spawn != null else 1.0
 
-var _spec_stats_ms := -INF # (the update whose numbers are on the HUD)
+var _spec_stats_seq := -1 # (the update whose numbers are on the HUD)
 func _spec_reset_clock():
-	_spec_stats_ms = -INF
+	_spec_stats_seq = -1
 	_spec_samples.clear()
 	_spec_offsets.clear()
 	_spec_clock_set = false
+	_spec_starve_floor = 0.0
+	spec_rate = 1.0
 
 func _spec_best_offset() -> float:
 	var best: float = -INF
@@ -823,17 +859,19 @@ func _spec_best_offset() -> float:
 		best = max(best, o[1])
 	return best
 
-# How late messages come compared with the quickest ones: the delay covers
-# the latest of the last few seconds (plus a little), so the next position is
-# here in time and playback never has to wait.
+# How late updates come compared with the quickest ones: the delay covers
+# nearly all of the last few seconds' (one rare straggler doesn't count), plus
+# a little, and at least what a recent run-out needed.
 func _spec_update_delay():
 	var best := _spec_best_offset()
 	var lates := []
 	for o in _spec_offsets:
 		lates.append((best - o[1]) / (1000.0 * _spec_speed()))
 	lates.sort()
-	var latest: float = lates[lates.size() - 1] if lates.size() > 0 else 0.1
-	_spec_delay_target = clamp(latest + 0.05, SPEC_MIN_DELAY_SEC, SPEC_MAX_DELAY_SEC)
+	var late: float = 0.1
+	if lates.size() > 0:
+		late = lates[int(floor((lates.size() - 1) * 0.97))]
+	_spec_delay_target = clamp(max(late + 0.07, _spec_starve_floor), SPEC_MIN_DELAY_SEC, SPEC_MAX_DELAY_SEC)
 
 func _update_spectate_render(delta: float):
 	if not spectating or spectate_cursor == null or _spec_samples.empty() or Spawn == null:
@@ -841,27 +879,59 @@ func _update_spectate_render(delta: float):
 	var spd := _spec_speed()
 	var now: float = OS.get_ticks_usec() / 1000000.0
 	var best := _spec_best_offset()
-	if not _spec_clock_set or abs(best - _spec_offset) > 400.0 * spd:
+	var jumped := false
+	if not _spec_clock_set or abs(best - _spec_offset) > SPEC_JUMP_MS * spd:
 		_spec_offset = best # start, a skip, or far off: jump
 		_spec_delay = _spec_delay_target
 		_spec_clock_set = true
+		jumped = true
 	else:
-		# small changes are taken in slowly so the speed stays even
-		_spec_offset += (best - _spec_offset) * min(1.0, delta * 0.5)
-		_spec_delay += (_spec_delay_target - _spec_delay) * min(1.0, delta * 0.5)
+		# changes are taken in slowly, so the clock only ever runs a few
+		# percent fast or slow (the music follows it: spec_rate)
+		var step: float = clamp(best - _spec_offset, -SPEC_SHRINK_PER_SEC * 1000.0 * spd * delta, SPEC_GROW_PER_SEC * 1000.0 * spd * delta)
+		var d_delay: float = clamp(_spec_delay_target - _spec_delay, -SPEC_SHRINK_PER_SEC * delta, SPEC_GROW_PER_SEC * delta)
+		# together they never move the clock more than SPEC_MAX_RATE off
+		# real time (the music follows it, its pitch kept: NoteManager)
+		var change: float = step / (1000.0 * spd) - d_delay # (seconds the clock gains this frame)
+		var lim: float = SPEC_MAX_RATE * delta
+		if abs(change) > lim and abs(change) > 0.0:
+			var k: float = lim / abs(change)
+			step *= k
+			d_delay *= k
+			change *= k
+		_spec_offset += step
+		_spec_delay += d_delay
+		_spec_rate_now = 1.0 + (change / delta if delta > 0.0 else 0.0)
+	_spec_starve_floor = max(0.0, _spec_starve_floor - 0.01 * delta) # (let go over about a minute)
 	var play: float = now * 1000.0 * spd + _spec_offset - _spec_delay * 1000.0 * spd
-	if play < _spec_ms and _spec_ms - play < 400.0 * spd:
-		play = _spec_ms # never a little backwards
+	if play < _spec_ms and _spec_ms - play < SPEC_JUMP_MS * spd:
+		play = _spec_ms # never backwards
+	# how fast the clock runs against real time, for the music: worked out
+	# from the change above (measured from frame times it was noisy, and the
+	# music came out sharp)
+	if jumped or delta <= 0.0:
+		spec_rate = 1.0
+		_spec_rate_now = 1.0
+	else:
+		spec_rate += (_spec_rate_now - spec_rate) * min(1.0, delta * 4.0)
+	_spec_prev_play = play
 	var newest: Dictionary = _spec_samples[_spec_samples.size() - 1]
-	_spec_ms = min(play, newest.ms) # no newer position yet: wait on the last one
+	if play > newest.ms:
+		# ran out: wait on the last position, and next time keep this much more in hand
+		var short: float = (play - newest.ms) / (1000.0 * spd)
+		_spec_starve_floor = min(SPEC_MAX_DELAY_SEC, max(_spec_starve_floor, _spec_delay + short + 0.1))
+		_spec_delay_target = max(_spec_delay_target, _spec_starve_floor)
+		play = newest.ms
+	_spec_ms = play
 	spectate_cursor.transform.origin = _spec_cursor_at(_spec_ms)
+	_spec_cursor_turn(delta)
 	_update_spectate_drift(_spec_ms)
 	_update_spectate_vr(_spec_ms)
 	# (the numbers only when a newer update of theirs is reached: redone every
 	# frame, the HUD's texts were laid out again each frame)
 	var sample: Dictionary = _spec_sample_before(_spec_ms)
-	if float(sample.ms) != _spec_stats_ms:
-		_spec_stats_ms = float(sample.ms)
+	if int(sample.get("seq", 0)) != _spec_stats_seq:
+		_spec_stats_seq = int(sample.get("seq", 0))
 		_apply_spectate_stats(sample)
 		update_static_values()
 	Spawn.ms = _spec_ms # NoteManager moves the notes and keeps the music with it
@@ -885,6 +955,32 @@ func apply_vr_view(cam: Camera):
 func _pose_at(arr: Array, o: int) -> Transform:
 	var q := Quat(arr[o + 3], arr[o + 4], arr[o + 5], arr[o + 6]).normalized()
 	return Transform(Basis(q), Vector3(arr[o], arr[o + 1], arr[o + 2]))
+
+# The watched cursor is a copy of yours without its script, so nothing turned
+# it: Cursor Face Velocity (it faces the way it moves, as Cursor.gd does with
+# the mouse) and Cursor Spin are done here. Positions are the scene's (y up),
+# the mouse's go down, hence -y; 0.018 is a mouse count's movement at
+# sensitivity 1, as for replays.
+var _spec_face_spin: float = 0.0
+var _spec_prev_pos = null
+func _spec_cursor_turn(delta: float):
+	var pos: Vector3 = spectate_cursor.transform.origin
+	var m = spectate_cursor.get_node_or_null("Mesh")
+	if m is Spatial:
+		if Rhythia.cursor_face_velocity:
+			if _spec_prev_pos is Vector3:
+				var moved := Vector2(pos.x - _spec_prev_pos.x, -(pos.y - _spec_prev_pos.y))
+				if moved.length() < 1.0: # (not a jump: a skip, a new watch)
+					var ff: Vector2 = moved / 0.018
+					if ff.length() > 0.05:
+						var turn_speed: float = clamp(ff.length() * 0.012, 0.05, 1.0)
+						var target_deg: float = rad2deg(Vector2(ff.x, -ff.y).angle()) - 90
+						var delta_deg: float = wrapf(target_deg - _spec_face_spin, -180, 180) * turn_speed
+						_spec_face_spin = wrapf(_spec_face_spin + delta_deg, -180, 180)
+						m.rotate_z(deg2rad(delta_deg))
+		elif Rhythia.cursor_spin != 0:
+			m.rotate_z(deg2rad(-delta * Rhythia.cursor_spin))
+	_spec_prev_pos = pos
 
 func _spec_make_hands():
 	if _spec_vr_holder != null:
@@ -947,6 +1043,27 @@ func _update_spectate_vr(ms: float):
 # --- a VR play's replay: their head is the camera, their hands and beam show ---
 # (Replay.vr_samples, recorded at about 20 a second; the same pose as spectators get)
 var _replay_vr_i := 0
+# A VR replay's view, as spectating a VR player: no camera unlock or parallax
+# (their head is the camera). Your settings are kept in Rhythia's meta and put
+# back when the song ends; put on when the replay is read, before the song
+# scene reads them.
+static func apply_replay_vr_view():
+	if Rhythia.has_meta("replay_vr_backup"):
+		return
+	var flat: Dictionary = load("res://scripts/SpectateSettings.gd").FLAT_FOR_VR
+	var backup := {}
+	for k in flat:
+		backup[k] = Rhythia.get(k)
+		Rhythia.set(k, flat[k])
+	Rhythia.set_meta("replay_vr_backup", backup)
+
+static func restore_replay_vr_view():
+	if not Rhythia.has_meta("replay_vr_backup"):
+		return
+	var backup: Dictionary = Rhythia.get_meta("replay_vr_backup")
+	for k in backup:
+		Rhythia.set(k, backup[k])
+	Rhythia.remove_meta("replay_vr_backup")
 func replay_vr_on() -> bool:
 	return Rhythia.replaying and not Rhythia.vr and not spectating and Rhythia.replay != null and not Rhythia.replay.vr_samples.empty() and typeof(_spec_vr_head) == TYPE_TRANSFORM
 
@@ -964,6 +1081,7 @@ func _update_replay_vr():
 	while i + 1 < smp.size() and float(smp[i + 1][0]) <= rms:
 		i += 1
 	_replay_vr_i = i
+	apply_replay_vr_view() # (normally done when the replay was read: Replay._read_vr)
 	var pa: Array = smp[i][1]
 	var pb: Array = smp[i + 1][1] if i + 1 < smp.size() else pa
 	var alpha := 0.0
@@ -974,6 +1092,7 @@ func _update_replay_vr():
 	if _spec_vr_hands.size() < 2:
 		return
 	_spec_vr_holder.visible = true
+	_spec_hand_look() # (their hands: yours in your own replay, theirs on a video link)
 	var cursor = spawn.get("_n_cursor")
 	var pointing: int = 0 if pa[0] > 0.5 else 1 # left : right
 	for k in range(2):
@@ -992,19 +1111,47 @@ func _update_replay_vr():
 # checked about once a second until it's there.
 var _spec_hand_sig := ""
 var _spec_hand_check_at := 0
+# whose hands, as [kind, right .obj, left .obj]: the spectated player's (their
+# settings), a video link's player (WebReplay.gd's settings), or, watching a
+# replay in the game, your own
+func _hand_source() -> Array:
+	var spec = _spec_settings()
+	var s = null
+	if spectating:
+		var lm = _get_lobby_manager()
+		s = lm.player_view_settings.get(spectate_peer_id, {}) if lm != null else {}
+	else:
+		var wr = get_node_or_null("/root/WebReplay")
+		var rs = wr.get("_render_settings") if wr != null else null
+		if rs is Dictionary and not rs.empty():
+			s = rs
+	if s is Dictionary:
+		var k: String = String(s.get("vr_hand", "default"))
+		if k != "custom":
+			return [k, "", ""]
+		return [k, spec.cached_asset(String(s.get("vr_hand_file", "")).to_lower(), "obj"), spec.cached_asset(String(s.get("vr_hand_left_file", "")).to_lower(), "obj")]
+	# your own replay: your own hands
+	var mine: String = String(Rhythia.get("vr_hand")) if Rhythia.get("vr_hand") != null else "default"
+	if mine != "custom":
+		return [mine, "", ""]
+	var r := ""
+	var l := ""
+	for hf in spec.own_hand_files():
+		if hf[0] == "vr_hand_file":
+			r = hf[1]
+		else:
+			l = hf[1]
+	return [mine, r, l]
+
 func _spec_hand_look():
 	var now := OS.get_ticks_msec()
 	if now < _spec_hand_check_at:
 		return
 	_spec_hand_check_at = now + 1000
-	var lm = _get_lobby_manager()
-	var s = lm.player_view_settings.get(spectate_peer_id, {}) if lm != null else {}
-	if not (s is Dictionary):
-		s = {}
-	var kind: String = String(s.get("vr_hand", "default"))
-	var spec = _spec_settings()
-	var rpath: String = spec.cached_asset(String(s.get("vr_hand_file", "")).to_lower(), "obj") if kind == "custom" else ""
-	var lpath: String = spec.cached_asset(String(s.get("vr_hand_left_file", "")).to_lower(), "obj") if kind == "custom" else ""
+	var src: Array = _hand_source()
+	var kind: String = src[0]
+	var rpath: String = src[1]
+	var lpath: String = src[2]
 	var sig := "%s|%s|%s" % [kind, rpath, lpath]
 	if sig == _spec_hand_sig:
 		return
@@ -1722,6 +1869,19 @@ func _top_left() -> VBoxContainer:
 		_top_left_ui.add_child(_top_left_box)
 	return _top_left_box
 
+# The lobby's leaderboard (Game.gd _board) is in the same corner: the
+# Spectators list goes under it while it shows (it was drawn over the board)
+func _place_top_left():
+	if _top_left_box == null or not _top_left_box.is_visible_in_tree():
+		return
+	var y := 32.0
+	var g = get_parent()
+	var board = g.get("_board") if g != null else null
+	if board is Control and is_instance_valid(board) and board.is_visible_in_tree():
+		y = max(y, board.rect_global_position.y + board.rect_size.y + 8.0)
+	if abs(_top_left_box.rect_position.y - y) > 0.5:
+		_top_left_box.rect_position.y = y
+
 func _create_spectators_banner():
 	if _spectators_banner != null:
 		return
@@ -1778,6 +1938,7 @@ static func _you_or(lm, peer_id: int, name: String) -> String:
 	return "%s (you)" % name if peer_id == int(lm.local_peer_id) else name
 
 func _exit_tree():
+	restore_replay_vr_view() # (a VR replay's view settings: yours back)
 	if Rhythia.has_meta("vr_third_person"):
 		Rhythia.remove_meta("vr_third_person") # (3rd person ends with the song)
 
@@ -1820,6 +1981,12 @@ func _on_lobby_state_changed_for_spectators_list():
 func _ready():
 	Rhythia.start_log("hud")
 	_timer_hud = get_node_or_null("TimerHud")
+	# the mod icons keep their shape: the speed ones (HUD.tscn) were set to
+	# fill their box, and when the row got taller they were drawn as ovals
+	for c in modicons.get_children():
+		if c is TextureRect:
+			c.expand = true
+			c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_setup_hud_viewports()
 	Game.connect("miss", self, "on_miss")
 	if Rhythia.colorset_hud:

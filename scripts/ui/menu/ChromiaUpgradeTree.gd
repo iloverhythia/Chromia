@@ -30,10 +30,13 @@ signal closed
 # longer be read). LZERO stands for 0. The zoom is kept the same way, so you
 # can zoom out forever; far out the upgrades are drawn as dots.
 #
-# Progress is saved to user://furry_tree.json (the old name, so trees from
-# before carry over).
+# Progress is saved to user://upgrade_tree.json, laid out to be read: the
+# totals first, then a line for each layer and each upgrade (its id, parent
+# and kind first), the long features string last. Saves from before were
+# furry_tree.json: renamed on first load (_load), backups too.
 
-const SAVE_PATH = "user://furry_tree.json"
+const SAVE_PATH = "user://upgrade_tree.json"
+const OLD_SAVE_PATH = "user://furry_tree.json"
 const NODE_SIZE = Vector2(170, 52)
 const MIN_GAP = 195.0
 const LZERO := -1.0e18
@@ -467,7 +470,7 @@ func _ready():
 	_info_label.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(_info_label)
 	# your tree as a file, and a file back (bottom right, clear of the eye button)
-	for e in [["Import", -252, -166, "_import_tree", "Load a tree from a file (yours is kept as furry_tree.before_import.json)"], ["Export", -160, -74, "_export_tree", "Save your whole tree to a file"]]:
+	for e in [["Import", -252, -166, "_import_tree", "Load a tree from a file (yours is kept as upgrade_tree.before_import.json)"], ["Export", -160, -74, "_export_tree", "Save your whole tree to a file"]]:
 		var b := Button.new()
 		b.text = e[0]
 		b.hint_tooltip = e[4]
@@ -929,7 +932,7 @@ func _export_picked(path: String):
 
 func _import_tree():
 	_picker_open()
-	Globals.file_sel.open_file(self, "_import_picked", PoolStringArray([TREE_FILTER, "*.json ; Tree save (furry_tree.json)"]), false)
+	Globals.file_sel.open_file(self, "_import_picked", PoolStringArray([TREE_FILTER, "*.json ; Tree save (upgrade_tree.json)"]), false)
 
 func _import_picked(files):
 	_picker_closed()
@@ -960,8 +963,8 @@ func _import_picked(files):
 	f.store_string(text)
 	f.close()
 	Rhythia.trail("upgrade tree: imported %s" % path.get_file())
-	reload_from_save("Tree imported from %s. Your tree from before is kept as furry_tree.before_import.json." % path.get_file())
-const IMPORT_BACKUP := "user://furry_tree.before_import.json"
+	reload_from_save("Tree imported from %s. Your tree from before is kept as upgrade_tree.before_import.json." % path.get_file())
+const IMPORT_BACKUP := "user://upgrade_tree.before_import.json"
 
 # How far this tree has got, for your other devices (TreeSync.gd): the highest
 # layer reached, its best points, all chrome coins ever, features found.
@@ -2035,9 +2038,49 @@ func _save():
 	if f.open(SAVE_PATH, File.WRITE) != OK: return
 	if _found.size() != FEAT_COUNT:
 		_features_reset()
-	f.store_string(to_json({"v": 3, "coins_l": coins_l, "total_l": total_l, "run_l": run_l, "seed": seed_base,
-		"nodes": nodes, "layers": layers, "feats": _feat_hex(), "recent": _recent, "stats": stats, "t": OS.get_unix_time(), "mini": _mini}))
+	f.store_string(_save_text())
 	f.close()
+
+# The save as text, in an order and layout a person can read (JSON.print
+# sorts every key and puts it all on one line: 1.7 MB of it). The same keys
+# as always, so any version reads it.
+const NODE_KEY_ORDER = ["id", "parent", "depth", "kind", "name", "bought", "gold", "feat_id", "lv", "lc", "value", "x", "y", "children"]
+func _save_text() -> String:
+	var head := PoolStringArray()
+	head.append("\"v\": 3")
+	head.append("\"t\": %d" % OS.get_unix_time())
+	head.append("\"seed\": %s" % JSON.print(seed_base))
+	head.append("\"coins_l\": %s" % JSON.print(coins_l))
+	head.append("\"total_l\": %s" % JSON.print(total_l))
+	head.append("\"run_l\": %s" % JSON.print(run_l))
+	head.append("\"stats\": %s" % JSON.print(stats, "", true))
+	head.append("\"mini\": %s" % JSON.print(_mini, "", true))
+	head.append("\"recent\": %s" % JSON.print(_recent))
+	var lines := PoolStringArray()
+	for l in layers:
+		lines.append(JSON.print(l, "", true))
+	head.append("\"layers\": [\n    %s\n  ]" % lines.join(",\n    "))
+	lines = PoolStringArray()
+	for n in nodes:
+		var o := {}
+		for k in NODE_KEY_ORDER:
+			if n.has(k):
+				o[k] = n[k]
+		for k in n.keys():
+			if not o.has(k):
+				o[k] = n[k]
+		lines.append(JSON.print(o, "", false))
+	head.append("\"nodes\": [\n    %s\n  ]" % lines.join(",\n    "))
+	head.append("\"feats\": %s" % JSON.print(_feat_hex()))
+	return "{\n  %s\n}\n" % head.join(",\n  ")
+
+# saves from before the rename (furry_tree.json, and its backups): moved to
+# the new names once, when there isn't a new one yet
+static func _rename_old_saves():
+	var d := Directory.new()
+	for pair in [[OLD_SAVE_PATH, SAVE_PATH], ["user://furry_tree.before_import.json", IMPORT_BACKUP], ["user://furry_tree.before_sync.json", "user://upgrade_tree.before_sync.json"]]:
+		if d.file_exists(pair[0]) and not d.file_exists(pair[1]):
+			d.rename(pair[0], pair[1])
 
 # a log10 from the file: finite, or LZERO
 static func _fl(v) -> float:
@@ -2050,6 +2093,7 @@ static func _is_num(v) -> bool:
 	return typeof(v) == TYPE_REAL or typeof(v) == TYPE_INT
 
 func _load():
+	_rename_old_saves()
 	var f := File.new()
 	layers = []
 	_features_reset()

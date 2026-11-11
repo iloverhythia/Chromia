@@ -116,11 +116,12 @@ var _rel_has := false
 func _predict_input(p: Vector2):
 	_tp.add(p, OS.get_ticks_usec())
 
+var _pred_frame := false # (placing the cursor for the frame being drawn: the predictor's easing moves on)
 func _predict_offset() -> Vector2:
 	if not _pred:
 		return Vector2.ZERO
 	var cap: float = get_viewport().get_visible_rect().size.y * 0.04 # (the lead is never far off)
-	return _tp.offset(OS.get_ticks_usec(), Rhythia.mobile_predict_ms / 1000.0, cap)
+	return _tp.offset(OS.get_ticks_usec(), Rhythia.mobile_predict_ms / 1000.0, cap, _pred_frame)
 
 func _predicted_mouse() -> Vector2:
 	return get_viewport().get_mouse_position() + _predict_offset()
@@ -257,12 +258,14 @@ func _process(delta):
 	# between touch samples and settles on the real spot when your finger stops
 	# (get_absolute_position() leads while moving and snaps back once it pauses).
 	if _pred and not Rhythia.replaying and move_mode == C_MOUSE and not Rhythia.spin_now():
+		_pred_frame = true
 		if Rhythia.absolute_mode:
 			move_cursor_abs(get_absolute_position() * (-1 if Rhythia.invert_mouse else 1))
 		elif _rel_has and rpos == _rel_shown:
 			var off: Vector2 = _predict_offset() * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1)
 			move_cursor_abs(_rel_true + off)
 			_rel_shown = rpos
+		_pred_frame = false
 	check_debug_mouse_toggle()
 	frame = Engine.get_frames_drawn()
 	if Rhythia.cursor_spin != 0 and not Rhythia.cursor_face_velocity:
@@ -290,13 +293,21 @@ func _process(delta):
 		var p
 		if Rhythia.replay.sv == 1 or Rhythia.replay.autoplayer: p = Rhythia.replay.get_cursor_position(get_parent().ms)
 		else: p = Rhythia.replay.get_cursor_position(get_parent().rms)
+		var before: Vector2 = rpos
 		if Rhythia.replay.sv < 3:
 			transform.origin.x = p.x
 			transform.origin.y = p.y
 		else:
 			move_cursor_abs(Vector2(p.x, p.y))
+			# Face movement: the replay's own movement turns the cursor (there's no
+			# mouse input to do it), as the mouse's would (grid units / 0.018 at
+			# sensitivity 1, as move_cursor turns them into the cursor's movement)
+			if Rhythia.cursor_face_velocity:
+				var moved: Vector2 = rpos - before
+				if moved.length() < 1.0: # (not a jump: a skip or a seek)
+					_face_accum += moved / 0.018
 
-	if Rhythia.show_cursor and Rhythia.cursor_trail and Rhythia.smart_trail and trail_started:
+	if Rhythia.show_cursor and Rhythia.cursor_trail and _smart_trail and trail_started:
 		var start_p = global_transform.origin
 		var end_p = prev_pos
 		var start_r = $Mesh.rotation_degrees.x
@@ -313,7 +324,15 @@ func _process(delta):
 			if _trail_gap > 0.1:
 				_trail_gap = delta # (standing still: the next move starts afresh)
 		else:
-			var amt = min(ceil(Rhythia.trail_detail * diff), 240)
+			# (a headset or a phone: no more pieces than can be told apart, about
+			# eight across the cursor's width. More only overlap, and every piece
+			# is drawn over the others, for each eye.)
+			var detail: float = float(Rhythia.trail_detail)
+			var most: int = 240
+			if _light_trail:
+				detail = min(detail, 30.0 / max(float(Rhythia.cursor_scale), 0.25))
+				most = 96
+			var amt = min(ceil(detail * diff), most)
 			# (all the pieces are one MultiMesh: TrailMulti.gd)
 			if _trail_mm != null and is_instance_valid(_trail_mm):
 				var col: Color = $Mesh.get("material/0").albedo_color
@@ -351,6 +370,16 @@ func _process(delta):
 # Trail Time, each a little after the one before (as CursorTrail.gd's nodes
 # did: the same moments, the same places between two frames, left out when
 # the cursor hasn't moved since that piece's last place).
+var _light_trail: bool = bool(Rhythia.vr) or Rhythia.device("mobile")
+# On a phone or a headset the trail is always the smart one, whatever Smart
+# Trail says. The classic trail is a fixed handful of pieces that each start
+# out invisible on the cursor, grow as they fall behind and then vanish: with
+# a finger's or a hand's fast movement that showed as separate blobs swelling
+# and popping, the fattest of them well behind the cursor, which made the
+# cursor itself look like it lagged. The smart trail is one unbroken tail,
+# thickest at the cursor, and costs next to nothing since its pieces age on
+# the graphics card (TrailMulti.gd).
+var _smart_trail: bool = bool(Rhythia.smart_trail) or _light_trail
 var _trail_cl = null
 var _cl_n := 0
 var _cl_T := 0.0 # time, in Trail Times
@@ -457,14 +486,14 @@ func _ready():
 		load("res://scripts/game/CursorGlow.gd").add_to(self, get_parent())
 
 	if Rhythia.cursor_trail:
-		if Rhythia.smart_trail:
+		if _smart_trail:
 			# one MultiMesh for the whole trail (TrailMulti.gd), next to the old pieces' place
 			_trail_mm = load("res://scripts/game/TrailMulti.gd").make(trail_base)
 			get_node("../..").call_deferred("add_child", _trail_mm)
 		elif OS.get_current_video_driver() == OS.VIDEO_DRIVER_GLES3 and int(Rhythia.trail_detail) >= 2:
 			# the classic trail's pieces as slots of one MultiMesh, aged on the
 			# graphics card (TrailMulti.gd): no node, script and material per piece
-			_cl_n = int(min(int(Rhythia.trail_detail), 4096))
+			_cl_n = int(min(int(Rhythia.trail_detail), 256 if _light_trail else 4096))
 			_trail_cl = load("res://scripts/game/TrailMulti.gd").make(trail_base, _cl_n)
 			get_node("../..").call_deferred("add_child", _trail_cl)
 			for _i in range(_cl_n):

@@ -63,7 +63,7 @@ var lobby_chat_history: Array = []
 var global_chat_history: Array = []
 
 const SERVER_URL: String = "wss://savia.nysr.host/savia-ws"
-const LIVE_STATE_SEND_INTERVAL: float = 0.0167
+const LIVE_STATE_SEND_INTERVAL: float = 0.033 # (about 30 updates a second, each with every frame's position since the last)
 const SPECTATE_DELAY_SEC: float = 3.0
 
 var _announcement_canvas: CanvasLayer
@@ -999,13 +999,34 @@ func _clear_watch_spin():
 func watched_player_spins() -> bool:
 	return watch_mode and Rhythia.has_meta("watch_spin_theirs") and bool(Rhythia.get_meta("watch_spin_theirs"))
 
+# Your cursor each frame while you play (NoteManager), up to about 120 a
+# second: the next update carries them all (pts: ms, x, y, ms, x, y...), so a
+# spectator's cursor follows every move however the updates are spaced
+var _live_pts: Array = []
+func live_sample(chart_ms: float, x: float, y: float):
+	var n: int = _live_pts.size()
+	if n >= 3 and chart_ms - float(_live_pts[n - 3]) < 8.0:
+		return
+	if n >= 3 and chart_ms < float(_live_pts[n - 3]):
+		_live_pts.clear() # (their map time went back: a seek or a restart)
+	_live_pts.append(stepify(chart_ms, 0.1))
+	_live_pts.append(stepify(x, 0.0001))
+	_live_pts.append(stepify(y, 0.0001))
+	while _live_pts.size() > 45:
+		for _i in range(3):
+			_live_pts.pop_front()
+
 func send_live_state(x: float, y: float, combo: int, combo_level: int, energy_pct: float, lvl_progress_pct: float, chart_ms: float, vr_pose = null, paused: bool = false, drift = null):
 	if not broadcasting():
+		_live_pts.clear()
 		return
 	var msg := {
 		"type": "update_live_state", "x": x, "y": y, "combo": combo, "combo_level": combo_level,
 		"energy_pct": energy_pct, "lvl_progress_pct": lvl_progress_pct, "ms": chart_ms,
 	}
+	if _live_pts.size() >= 3:
+		msg["pts"] = _live_pts
+		_live_pts = []
 	if vr_pose is Array:
 		msg["vr"] = vr_pose # in VR: head and hands, for spectators
 	if paused:
@@ -1710,6 +1731,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
+			if msg.has("tester"):
+				Rhythia.set_site_tester(bool(msg.get("tester"))) # (a tester on the website: test builds)
 			if msg.has("perms"):
 				_set_perms(msg.get("perms"))
 			if msg.get("player_number") != null:
@@ -1903,7 +1926,15 @@ func _handle_message(msg: Dictionary):
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
-			my_player_number = int(msg.get("you", -1)) if msg.get("you") != null else -1
+			# (a list without "you" doesn't make you nobody: the number is kept)
+			if msg.get("you") != null and int(msg.get("you")) > 0:
+				my_player_number = int(msg.get("you"))
+			if _number_probe:
+				# (the list was only asked for to learn your number: no more of it,
+				# unless a page wants it by now)
+				_number_probe = false
+				if not _online_subscribed and _connected():
+					_send({"type": "unsubscribe_online"})
 			i_am_staff = bool(msg.get("you_staff", false))
 			Rhythia.is_staff = i_am_staff
 			if msg.has("you_perms"):
@@ -2027,6 +2058,8 @@ func _handle_message(msg: Dictionary):
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
 				Rhythia.is_staff = i_am_staff
+			if msg.has("tester"):
+				Rhythia.set_site_tester(bool(msg.get("tester")))
 			if msg.has("perms"):
 				_set_perms(msg.get("perms"))
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
@@ -2150,8 +2183,25 @@ func broadcasting() -> bool:
 		return not watch_mode
 	return watchers_count > 0
 
+# Your player number comes with the list of who's online, which is only asked
+# for while a page that shows it is open (Spectate, Online). Things that are
+# yours by your number (a hand in Settings > VR only player #3 has) were
+# therefore missing until you had opened one of those pages. So the list is
+# asked for once after connecting, just for the number, and stopped again.
+var _number_probe := false
+func _ask_my_number():
+	if my_player_number > 0 or _number_probe or Rhythia.cid == "" or presence_supported != 1 or not _connected():
+		return
+	if _online_subscribed:
+		return # (the list is coming anyway)
+	_number_probe = true
+	# (with your id: the server answers "you" only to a connection it knows)
+	_send({"type": "subscribe_online", "client_id": Rhythia.cid})
+
 func _set_presence_supported(v: int):
 	if presence_supported == v:
+		if v == 1:
+			_ask_my_number() # (connected again: asked again if it's still not known)
 		return
 	presence_supported = v
 	if v == 1:
@@ -2159,6 +2209,7 @@ func _set_presence_supported(v: int):
 		_send_presence(true)
 		if _online_subscribed:
 			_send({"type": "subscribe_online"})
+		_ask_my_number()
 	emit_signal("presence_support_changed", v == 1)
 
 func _connected() -> bool:

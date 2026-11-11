@@ -59,7 +59,16 @@ const POPUPS_PER_FRAME := 6
 # Notes still on their way are drawn up to this many at a time, nearest
 # first; the ones behind them appear as those are hit or missed. (Each drawn
 # note is placed every frame: thousands at once is what made dense maps lag.)
-const MAX_NOTES_AHEAD := 512
+# The limit follows how long placing them takes: it grows while the pass is
+# quick and shrinks when it's slow, never under MIN. With a fixed 512, visual
+# maps (stacks of notes drawing shapes) had notes popping in partway down the
+# lane, closer than the rest, once more than 512 were on their way.
+const NOTES_AHEAD_MIN := 512
+const NOTES_AHEAD_MAX := 16384
+const NOTES_AHEAD_FAST_USEC := 3000 # a pass under this may draw more
+const NOTES_AHEAD_SLOW_USEC := 6000 # a pass over this draws fewer
+var _notes_ahead_cap: int = 2048
+var _notes_ahead_hit: bool = false # (this pass left notes out)
 var _fx_live := [0] # (shared with the effect copies: how many are playing)
 var _frame_fx := 0
 var _frame_hit_snd := 0
@@ -136,7 +145,10 @@ func _keep_multimeshes():
 	_mm_asq = _n_asq.multimesh
 	_mm_spawn = _n_spawn.multimesh
 
-func note_reposition(i: int):
+# slot: where in the drawn list this note goes. The notes that are drawn are
+# packed one after the other (reposition_notes counts them), so a frame only
+# touches as many slots as it draws notes.
+func note_reposition(i: int, slot: int = -1):
 	if _mm_notes == null:
 		_keep_multimeshes()
 	var nd: Array = notes[i]
@@ -146,9 +158,10 @@ func note_reposition(i: int):
 	var col: Color = nd[3]
 	var chaos_offset: Vector2 = nd[4]
 	var nt: Transform = nd[5]
-	var slot: int = i - current_note
+	if slot < 0:
+		slot = i - current_note
 
-	var current_offset_ms: float = notems - ms
+	var current_offset_ms: float = notems - _draw_ms # (where it's drawn: see _update_draw_clock)
 	var current_dist: float = _f_approach_speed * current_offset_ms / 1000
 
 	if (
@@ -349,6 +362,9 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 	var rerun_required: bool = false
 	if _n_label.text != "": _n_label.text = ""
 	_cache_frame_settings()
+	if force or abs(_draw_ms - ms) > 60.0:
+		_draw_ms = ms # (placed afresh, or the song jumped: by the real clock)
+		_fs_locked = false
 
 	if current_note == notes.size():
 
@@ -388,47 +404,76 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				notes[current_note][2] = Globals.NSTATE_MISS
 			current_note += 1
 
+	# The notes that are drawn are packed into the drawn list one after the
+	# other (slot), so the list is as long as what's on screen, not as long as
+	# the map: a map with hundreds of thousands of notes used to keep a list of
+	# all of them, sent to the graphics card whole every frame.
+	#
+	# More notes on their way than a frame can place (_notes_ahead_cap, set
+	# by how long the pass takes): the nearest half of that many are all drawn,
+	# and of the ones behind them every 2nd, 4th, 8th... (_far_stride) so
+	# that what's drawn still reaches all the way back to where notes come in.
+	# It used to draw the nearest and nothing behind them, so a long stack on
+	# one square was cut short, and the cut moved back and forth as the limit
+	# followed the frame time. Which far notes are drawn goes by their number
+	# in the map, so the same ones stay drawn until they're near, when all are.
 	var ahead := 0
-	var vis_notes := -1
-	var vis_spawn := -1
-	for i in range(max(current_note, rerun_start), notes.size()):
-		var notems: float = notes[i][1]
+	var slot := 0
+	var n_total: int = notes.size()
+	var near_n: int = _notes_ahead_cap / 2
+	var stride := 1
+	var in_far := false
+	var last_ms := -1.0e20
+	var last_pos := Vector2(1.0e20, 1.0e20)
+	var i: int = int(max(current_note, rerun_start))
+	while i < n_total:
+		var nd_i: Array = notes[i]
+		var notems: float = nd_i[1]
 		next_ms = notems
-		if notems > ms and not force:
+		var drawn := false
+		var skip_draw := false
+		if notems > ms:
 			ahead += 1
-			if ahead > MAX_NOTES_AHEAD:
-				# (see MAX_NOTES_AHEAD: the rest wait their turn, like the
-				# notes that are still too far away to see)
-				_mm_visible = i - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
-				if asq: _n_asq.multimesh.visible_instance_count = _mm_visible
-				if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = _mm_visible
+			if not in_far and ahead > near_n and Rhythia.render_fps <= 0:
+				# (never while rendering a video frame by frame: there time doesn't matter)
+				in_far = true
+				stride = _far_stride_for(i, n_total)
+				if stride > 1:
+					_notes_ahead_hit = true
+					i = ((i + stride - 1) / stride) * stride
+					if i >= n_total:
+						break
+					nd_i = notes[i]
+					notems = nd_i[1]
+					next_ms = notems
+			if stride == 1 and in_far and ahead > _notes_ahead_cap:
+				# (notes that don't simply come closer, see _far_stride_for:
+				# the nearest ones only, as before)
+				_notes_ahead_hit = true
+				_set_drawn(slot)
 				return note_passed
-		if force:
+		# (a note in the very place and at the very time of the one drawn
+		# before it: one of them is seen. A thousand notes stacked on one
+		# moment are a thousand hits, and one note to look at.)
+		if nd_i[2] == Globals.NSTATE_ACTIVE and notems == last_ms and nd_i[0] == last_pos:
+			skip_draw = true
+		if not skip_draw:
+			drawn = note_reposition(i, slot)
+			if drawn:
+				slot += 1
+				last_ms = notems
+				last_pos = nd_i[0]
+			elif ms < notems and nd_i[2] == Globals.NSTATE_ACTIVE:
+				# (a note still to come that isn't shown: too far away to see
+				# yet, and so is everything after it. The pass ends here.)
+				_set_drawn(slot)
+				return note_passed
 
-			note_reposition(i)
-		else:
-			if note_reposition(i) == false:
-				# (how many note slots are drawn: worked out here for every
-				# note that isn't shown, as it always was, but told to the
-				# renderer once, when the pass ends. Telling it for each such
-				# note took about a tenth of a millisecond a time on a dense
-				# map: with thousands of notes going by a frame, that alone
-				# was the freeze.)
-				vis_notes = i - current_note + 1
-				vis_spawn = i - current_note
-				if ms < notems:
-
-					if notes[i][2] == Globals.NSTATE_ACTIVE:
-						_mm_visible = vis_notes; _n_notes.multimesh.visible_instance_count = _mm_visible
-						if asq: _n_asq.multimesh.visible_instance_count = vis_notes
-						if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = vis_spawn
-						return note_passed
-
-		if (i - current_note + 2) > _mm_count and _mm_count < notes.size(): # (already all the notes: no use growing)
+		if (slot + 2) > _mm_count and _mm_count < n_total: # (already all the notes: no use growing)
 			rerun_required = true
 			# (doubled, not ten more: each change clears the list and the pass
 			# starts over, so a dense map's first seconds redid it again and again)
-			_mm_count = int(min(max(_mm_count * 2, i - current_note + 12), notes.size()))
+			_mm_count = int(min(max(_mm_count * 2, slot + 12), n_total))
 			_n_notes.multimesh.instance_count = _mm_count
 			if asq: _n_asq.multimesh.instance_count = _mm_count
 			if Rhythia.note_spawn_effect: _n_spawn.multimesh.instance_count = _mm_count
@@ -510,12 +555,120 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 			# frame: hundreds of notes a frame on a dense map.)
 			current_note = i + 1
 
-	_mm_visible = notes.size() - current_note; _n_notes.multimesh.visible_instance_count = _mm_visible
-	if asq: _n_asq.multimesh.visible_instance_count = notes.size() - current_note
-	if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = notes.size() - current_note
+		i += stride
+
+	_set_drawn(slot)
 
 	if rerun_required: reposition_notes()
 	return note_passed
+
+# how many slots of the drawn lists are in use
+func _set_drawn(count: int):
+	_mm_visible = count
+	_n_notes.multimesh.visible_instance_count = count
+	if asq: _n_asq.multimesh.visible_instance_count = count
+	if Rhythia.note_spawn_effect: _n_spawn.multimesh.visible_instance_count = count
+
+# Of the notes on their way from note `from` on, every how-many-th is drawn
+# (1: all of them). As many as fit in the other half of _notes_ahead_cap,
+# spread over everything that's within sight; a power of two, and changed only
+# when it's clearly too small or too large, so the picture doesn't flicker
+# between two of them.
+var _far_stride: int = 1
+func _far_stride_for(from: int, n_total: int) -> int:
+	if _f_approach_sign != 1 or _f_approach_speed <= 0.0:
+		_far_stride = 1
+		return 1 # (notes that don't simply come closer: no thinning, the nearest ones)
+	var window_ms: float = _f_spawn_dist / _f_approach_speed * 1000.0
+	var in_sight: int = _first_note_index_after(ms + window_ms) - from
+	var room: int = int(max(_notes_ahead_cap - _notes_ahead_cap / 2, 64))
+	var need: float = float(in_sight) / float(room)
+	if need > float(_far_stride):
+		while float(_far_stride) < need and _far_stride < 4096:
+			_far_stride *= 2
+	elif need < float(_far_stride) * 0.4:
+		while _far_stride > 1 and need <= float(_far_stride) * 0.5:
+			_far_stride /= 2
+	return _far_stride
+
+# --- Frame Smoothing (Settings > Experimental; on by default on phones and headsets) ---
+# Visual only. The song's clock (ms) moves on by the time measured between
+# two frames being worked out, and that varies by a few milliseconds from
+# frame to frame even when the screen shows every frame exactly one refresh
+# apart. Notes placed by it move in slightly uneven steps: a fine judder,
+# plainest on fast notes, on a phone or in a headset. With this on, notes are
+# drawn by a clock of their own (_draw_ms) that moves on by exactly one
+# refresh's worth of song per frame shown (two for a skipped frame), and is
+# pulled gently towards the real clock so it never drifts from it (it stays
+# within a few milliseconds). Hits, misses, the cursor and the music all go
+# by the real clock, as ever: nothing about how the game plays changes.
+# When frames don't come at a steady rate it knows, or the song jumps
+# (pause, skip, seek), notes are drawn by the real clock.
+const FS_RATES := [60.0, 72.0, 80.0, 90.0, 120.0, 144.0, 165.0, 240.0, 30.0, 36.0, 40.0, 45.0]
+var _draw_ms: float = 0.0
+var _fs_dt: float = 0.0 # the time between frames, smoothed
+var _fs_wobble: float = 0.0 # how much frame times differ from that, smoothed
+var _fs_prev_ms: float = 0.0
+var _fs_locked: bool = false
+var _fs_frame: int = -1
+var _frame_delta: float = 0.0
+
+func _update_draw_clock(delta: float):
+	var true_step: float = ms - _fs_prev_ms
+	_fs_prev_ms = ms
+	if not bool(Rhythia.get("frame_smoothing")) or Rhythia.render_fps > 0 or delta <= 0.0:
+		_draw_ms = ms
+		_fs_locked = false
+		return
+	if delta < 0.1:
+		if _fs_dt <= 0.0:
+			_fs_dt = delta
+		else:
+			_fs_wobble += (abs(delta - _fs_dt) - _fs_wobble) * 0.05
+			_fs_dt += (delta - _fs_dt) * 0.05
+	# the screen's own step, if frames are coming steadily at a rate a screen has
+	# (frame times all over the place only average out to one by chance)
+	var step_s := 0.0
+	if _fs_wobble < 0.22 * _fs_dt:
+		for r in FS_RATES:
+			if abs(_fs_dt * r - 1.0) < 0.05:
+				step_s = 1.0 / r
+				break
+	var shown: float = round(delta / step_s) if step_s > 0.0 else 0.0 # refreshes this frame covers
+	if step_s <= 0.0 or true_step <= 0.0 or shown < 1.0 or shown > 4.0 or abs(delta - shown * step_s) > 0.35 * step_s:
+		_draw_ms = ms # (no steady rate, a jump in the song, or a long stall)
+		_fs_locked = false
+		return
+	if not _fs_locked:
+		_fs_locked = true
+		_draw_ms = ms
+		return
+	# the same share of the song as the real step, for the time the screen
+	# really takes to show this frame
+	var even_step: float = true_step * (shown * step_s / delta)
+	_draw_ms += even_step
+	var err: float = ms - _draw_ms
+	var one: float = true_step / shown # (about one refresh of song)
+	if abs(err) > 1.5 * one:
+		_draw_ms = ms
+	else:
+		_draw_ms += err * 0.08
+
+# reposition_notes, timed, to set how many notes on their way it may draw
+func _reposition_timed() -> bool:
+	var fr: int = Engine.get_frames_drawn()
+	if fr != _fs_frame:
+		_fs_frame = fr
+		_update_draw_clock(_frame_delta)
+	_notes_ahead_hit = false
+	var t0: int = OS.get_ticks_usec()
+	var res: bool = reposition_notes()
+	var took: int = OS.get_ticks_usec() - t0
+	if took > NOTES_AHEAD_SLOW_USEC and _notes_ahead_cap > NOTES_AHEAD_MIN:
+		_notes_ahead_cap = int(max(NOTES_AHEAD_MIN, _notes_ahead_cap * 0.8))
+	elif _notes_ahead_hit and took < NOTES_AHEAD_FAST_USEC and _notes_ahead_cap < NOTES_AHEAD_MAX:
+		_notes_ahead_cap = int(min(NOTES_AHEAD_MAX, _notes_ahead_cap * 1.25 + 16))
+	return res
 
 var color_index: int = 0
 var note_count: int = 0
@@ -588,7 +741,8 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 		notes.append([pos, data[2], Globals.NSTATE_ACTIVE, colors[i % ncolors], chaos_offset, Transform(basis, Vector3(pos.x, pos.y, 4))])
 
 	var last_ms = note_array[-1][2]
-	var inst_count = max(35, ceil(10000 * (float(notes.size()) / float(last_ms))))
+	# (grown when a frame needs more: reposition_notes)
+	var inst_count = min(max(35, ceil(10000 * (float(notes.size()) / float(last_ms)))), 4096)
 	_mm_count = int(inst_count)
 	_n_notes.multimesh.instance_count = _mm_count
 	if asq:
@@ -1068,6 +1222,7 @@ func _process(delta: float):
 	# (a frame that wasn't drawn, e.g. the window minimized, isn't in the video: the song waits)
 	if Rhythia.render_fps > 0:
 		delta = 1.0 / float(Rhythia.render_fps) if Rhythia.render_step_ok else 0.0
+	_frame_delta = delta
 
 	if Rhythia.vr: do_vr_cursor()
 	elif Grid != null and ((Grid.spectating and Grid.vr_view_on()) or Grid.replay_vr_on()):
@@ -1082,6 +1237,9 @@ func _process(delta: float):
 
 	var lobby_manager = _lobby_manager if is_instance_valid(_lobby_manager) else null
 	if lobby_manager != null and lobby_manager.broadcasting() and active and not (Grid != null and Grid.spectating):
+		# every frame's cursor position goes in the next update (spectators
+		# get them all, a few at a time: LobbyManager.live_sample)
+		lobby_manager.live_sample(ms, _n_cursor.transform.origin.x, _n_cursor.transform.origin.y)
 		_live_send_timer += delta
 		if _live_send_timer >= lobby_manager.LIVE_STATE_SEND_INTERVAL:
 			_live_send_timer = fmod(_live_send_timer, lobby_manager.LIVE_STATE_SEND_INTERVAL) # even spacing
@@ -1298,7 +1456,7 @@ func _process(delta: float):
 					_n_music.play((ms + Rhythia.music_offset) / 1000.0)
 
 		_new_frame_budget()
-		var rn_res: bool = reposition_notes()
+		var rn_res: bool = _reposition_timed()
 		if not Rhythia.replaying and Rhythia.record_replays:
 			var should_write_pos: bool = rn_res
 			var ri = 1 / round(max(32, rec_interval))
@@ -1323,7 +1481,7 @@ func _process(delta: float):
 		_spectate_music()
 		emit_signal("timer_update", ms, false)
 		_new_frame_budget()
-		reposition_notes()
+		_reposition_timed()
 
 # VR: where your head and hands are (next to the game, so a spectator can put
 # them in their own scene): which hand points (0 right, 1 left), then head,
@@ -1342,18 +1500,26 @@ func _vr_pose_for_spectators():
 	return out
 
 # Spectating: ms comes from the watched player (HUD.gd), the music keeps up.
+# It plays at the song's own speed and pitch, as it always did; when the
+# playback clock (a few percent off while its delay settles, HUD.gd) has
+# drifted from it by more than ~120 ms, it's put back in place.
 func _spectate_music():
 	if Grid != null and Grid.get("spec_paused"):
 		if music_started:
 			_n_music.stop()
 			music_started = false # (starts again where they are when they go on)
 		return
+	# (always the song's own speed: following the playback clock's few percent
+	# changed its pitch, and a pitch shift to undo that made it sound flat)
+	var want_pitch: float = max(speed_multi * replay_view_speed, 0.05)
+	if abs(_n_music.pitch_scale - want_pitch) > 0.002:
+		_n_music.pitch_scale = want_pitch
 	var at: float = ms + Rhythia.music_offset
 	if at >= Rhythia.start_offset:
 		if not music_started:
 			_n_music.play(at / 1000.0)
 			music_started = true
-		elif _n_music.playing and abs(_n_music.get_playback_position() * 1000.0 - at) > 150.0 * max(speed_multi, 1.0):
+		elif _n_music.playing and abs(_n_music.get_playback_position() * 1000.0 - at) > 120.0 * max(speed_multi, 1.0):
 			_n_music.play(at / 1000.0)
 	elif music_started:
 		_n_music.stop()

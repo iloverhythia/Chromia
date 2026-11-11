@@ -24,6 +24,7 @@ func _ready():
 		call_deferred("_add_map_grid")
 		call_deferred("_add_show_map_rp")
 		call_deferred("_add_new_settings_ui")
+		call_deferred("_add_frame_smoothing")
 	if target == "map_grid":
 		Rhythia.connect("map_grid_changed", self, "upd")
 	if target == "realistic_autoplay":
@@ -97,6 +98,22 @@ func _add_map_grid():
 	cb.hint_tooltip = "Shows your maps as a grid of square covers (like Sound Space Plus's grid menu) instead of a list. Works right away, no restart."
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
+
+# Experimental: "Frame Smoothing" (NoteManager._update_draw_clock)
+func _add_frame_smoothing():
+	var parent = get_parent()
+	if parent == null or parent.has_node("FrameSmoothing"):
+		return
+	var cb = duplicate()
+	cb.name = "FrameSmoothing"
+	cb.target = "frame_smoothing"
+	cb.text = "Frame Smoothing"
+	cb.hint_tooltip = "Notes move in even steps matched to your screen's refresh rate, instead of following the small differences in when each frame is worked out, which shows as a fine judder on fast notes. Visual only: hits, misses and the cursor are exactly as before. On from the start on phones and standalone headsets; on a computer it helps only with VSync or a frame limit at your screen's rate."
+	parent.add_child(cb)
+	var at: Node = parent.get_node_or_null("NewSettingsUI")
+	if at == null:
+		at = parent.get_node_or_null("ShowMapRP")
+	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
 
 # Experimental: "New Settings UI" (on by default): SettingsNewUI.gd
 func _add_new_settings_ui():

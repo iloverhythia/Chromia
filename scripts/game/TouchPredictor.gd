@@ -24,20 +24,27 @@ const KEEP_USEC := 90000.0 # samples older than this are dropped
 const NEW_STROKE_USEC := 120000 # without a sample this long: a new movement
 const RATES := [60.0, 90.0, 120.0, 144.0, 240.0] # what screens deliver
 
-var span_usec := 24000.0 # the longer stretch the speed is measured over
-var w_step := 0.5 # how much of the speed is the newest step's
+var span_usec := 30000.0 # the longer stretch the speed is measured over
+var w_step := 0.25 # how much of the speed is the newest step's
+var lead_tau := 0.06 # s: how quickly the lead grows when the finger speeds up (0: at once)
+var lead_tau_down := 0.02 # s: ...and how quickly it shrinks when the finger slows (so the cursor doesn't run on past where the finger stops)
 var vel := Vector2.ZERO # px/s
 var interval := 1.0 / 60.0 # s between touch samples, as measured
 var _t := [] # usec (float): when each sample was taken, on the rebuilt clock
 var _p := [] # Vector2
 var _arr := [] # usec (int): when the last samples of this movement arrived
 var _arr_last := 0
+var _fresh := false # a sample came since the last drawn frame
+var _age0 := -1.0 # s: how old the newest sample usually is when a frame is drawn
+var _lead := Vector2.ZERO # the lead as it is shown (eased towards speed x lead time)
+var _lead_at := 0
 
 func reset():
 	_t.clear()
 	_p.clear()
 	_arr.clear()
 	vel = Vector2.ZERO
+	# (the lead isn't dropped: it eases out by itself, see offset)
 
 func add(p: Vector2, now_usec: int):
 	if not _t.empty() and now_usec - _arr_last > NEW_STROKE_USEC:
@@ -63,6 +70,7 @@ func add(p: Vector2, now_usec: int):
 		tau = max(tau, float(now_usec) - 1.5 * iv_usec)
 		tau = max(tau, last_tau + 0.5 * iv_usec)
 	_arr_last = now_usec
+	_fresh = true
 	_t.append(tau)
 	_p.append(p)
 	while _t.size() > 2 and tau - _t[0] > KEEP_USEC:
@@ -91,25 +99,56 @@ func _measure():
 	else:
 		vel = ((last_p - _p[n - 2]) / step_dt) * w_step + v_span * (1.0 - w_step)
 
-# How far past the last sample the finger is at now_usec, plus the lead.
+# How far from the last sample the cursor is drawn at now_usec.
 # lead_cap: the most the lead may be, in the same units as the samples.
-func offset(now_usec: int, lead_s: float, lead_cap: float) -> Vector2:
+# frame: asked for a drawn frame (once a frame), not just to place the cursor
+# when a touch comes in: only then do the two things below move on.
+#
+# It used to be speed x (the sample's age + the lead time), all at once. That
+# made the cursor jumpy: the age is some milliseconds on every frame, so the
+# lead was always longer than asked for, and the whole lead appeared the
+# moment the finger moved and vanished the moment it slowed. Now:
+#  - glide only makes up for a sample that is older than usual. How old the
+#    newest sample usually is when a frame is drawn is learned (_age0); a
+#    frame that got no new sample sees an older one and glides on by the
+#    difference, a frame whose sample came a little early or late is evened
+#    out, and a frame like any other adds nothing. The cursor shows the finger
+#    at evenly spaced moments, which is what makes movement look smooth.
+#  - the lead eases towards speed x lead time (lead_tau) instead of jumping
+#    to it, so it grows in as a movement starts and melts away as it ends.
+func offset(now_usec: int, lead_s: float, lead_cap: float, frame: bool = false) -> Vector2:
 	var n := _t.size()
-	if n < 2:
-		return Vector2.ZERO
-	# (easing out goes by when the last one arrived: late samples are still samples)
-	var quiet := float(now_usec - _arr_last) / 1000000.0
-	var hold := 1.25 * interval
-	var gone := 2.75 * interval
-	if quiet >= gone:
-		return Vector2.ZERO
-	var fade := 1.0
-	if quiet > hold:
-		var x := (quiet - hold) / (gone - hold)
-		fade = 1.0 - x * x * (3.0 - 2.0 * x)
-	var age: float = clamp((float(now_usec) - _t[n - 1]) / 1000000.0, 0.0, 2.0 * interval)
-	var glide: Vector2 = vel * age
-	var ahead: Vector2 = vel * lead_s
-	if lead_cap > 0.0 and ahead.length() > lead_cap:
-		ahead = ahead.normalized() * lead_cap
-	return (glide + ahead) * fade
+	var glide := Vector2.ZERO
+	var want := Vector2.ZERO
+	if n >= 2:
+		# (easing out goes by when the last one arrived: late samples are still samples)
+		var quiet := float(now_usec - _arr_last) / 1000000.0
+		var hold := 1.25 * interval
+		var gone := 2.75 * interval
+		if quiet < gone:
+			var fade := 1.0
+			if quiet > hold:
+				var x := (quiet - hold) / (gone - hold)
+				fade = 1.0 - x * x * (3.0 - 2.0 * x)
+			var age: float = clamp((float(now_usec) - _t[n - 1]) / 1000000.0, 0.0, 2.0 * interval)
+			if frame and _fresh:
+				_age0 = age if _age0 < 0.0 else _age0 + (age - _age0) * 0.1
+			var usual: float = _age0 if _age0 >= 0.0 else age
+			glide = vel * clamp(age - usual, -0.5 * interval, 2.0 * interval) * fade
+			want = vel * lead_s
+			if lead_cap > 0.0 and want.length() > lead_cap:
+				want = want.normalized() * lead_cap
+			want *= fade
+	if frame:
+		_fresh = false
+		var dt: float = clamp(float(now_usec - _lead_at) / 1000000.0, 0.0, 0.1) if _lead_at > 0 else 0.1
+		_lead_at = now_usec
+		# (shrinking: the lead wanted is shorter than the one shown, along it)
+		var tau: float = lead_tau_down if want.dot(_lead) < _lead.length_squared() else lead_tau
+		if tau <= 0.0:
+			_lead = want
+		else:
+			_lead += (want - _lead) * (1.0 - exp(-dt / tau))
+			if want == Vector2.ZERO and _lead.length_squared() < 0.01:
+				_lead = Vector2.ZERO
+	return glide + _lead

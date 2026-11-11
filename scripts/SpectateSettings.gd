@@ -465,6 +465,9 @@ static func apply(their: Dictionary, peer_id: int):
 		var sp := sound_file_parts(String(their.get(kind + "_sound_file", "")))
 		var spath: String = cached_asset(sp[0], sp[1]) if not sp.empty() else ""
 		if spath != "":
+			# (kept as a meta too: the song loader reloads the sounds,
+			# Savia.refresh_active_sound_streams, and takes theirs from it)
+			Rhythia.set_meta("spec_%s_snd" % kind, spath)
 			var stream = Globals.audioLoader.load_file(spath)
 			if stream is AudioStream:
 				Rhythia.set(kind + "_snd", stream)
@@ -507,7 +510,7 @@ static func _apply_backgrounds(their: Dictionary):
 					Rhythia.set_meta("spec_bg_dir", Globals.p(ASSET_CACHE))
 
 static func _clear_backgrounds():
-	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font", "spec_hud_panel"]:
+	for k in ["spec_custombg", "spec_panobg", "spec_bg_layers", "spec_bg_dir", "spec_hud_font", "spec_hud_panel", "spec_hit_snd", "spec_miss_snd"]:
 		if Rhythia.has_meta(k):
 			Rhythia.remove_meta(k)
 

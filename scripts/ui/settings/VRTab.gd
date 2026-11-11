@@ -626,6 +626,35 @@ func _bind_row(action: String, title: String):
 		pair.append(o)
 	_pickers[action] = pair
 
+# breck's own hand (player #3 only: SnowLeopardPaw.gd). The game learns who
+# you are a moment after it connects, which can be after this page was filled:
+# it's looked at again every second until the hand is in the list.
+var _own_hand_timer: Timer = null
+func _add_own_hand():
+	if _hand_pick == null:
+		return
+	for i in range(_hand_pick.get_item_count()):
+		if str(_hand_pick.get_item_metadata(i)) == "snowleopard":
+			return
+	if not load("res://vr/SnowLeopardPaw.gd").allowed():
+		if _own_hand_timer == null:
+			_own_hand_timer = Timer.new()
+			_own_hand_timer.wait_time = 1.0
+			_own_hand_timer.connect("timeout", self, "_own_hand_tick")
+			add_child(_own_hand_timer)
+			_own_hand_timer.start()
+		return
+	_hand_pick.add_item("Snow leopard paw (yours, breck)")
+	_hand_pick.set_item_metadata(_hand_pick.get_item_count() - 1, "snowleopard")
+	if _own_hand_timer != null:
+		_own_hand_timer.stop()
+
+func _own_hand_tick():
+	_add_own_hand()
+	# (it was your pick before the game knew you: shown as picked now)
+	if _hand_pick != null and Rhythia.vr_hand == "snowleopard":
+		_select_meta(_hand_pick, Rhythia.vr_hand)
+
 func _load_values():
 	_loading = true
 	for e in _values:
@@ -634,14 +663,7 @@ func _load_values():
 		e[1].text = _value_fmt(v, e[2])
 	if _miss_box:
 		_miss_box.pressed = bool(Rhythia.vr_haptic_miss)
-	# breck's own hand (player #3 only: SnowLeopardPaw.gd)
-	if _hand_pick != null and load("res://vr/SnowLeopardPaw.gd").allowed():
-		var has_it := false
-		for i in range(_hand_pick.get_item_count()):
-			has_it = has_it or str(_hand_pick.get_item_metadata(i)) == "snowleopard"
-		if not has_it:
-			_hand_pick.add_item("Snow leopard paw (yours, breck)")
-			_hand_pick.set_item_metadata(_hand_pick.get_item_count() - 1, "snowleopard")
+	_add_own_hand()
 	_select_meta(_hand_pick, Rhythia.vr_hand)
 	_show_env()
 	_select_meta(_fov_pick, Rhythia.vr_foveation)

@@ -547,19 +547,46 @@ static func app_asset() -> String:
 static func build_channel() -> String:
 	return load("res://scripts/BuildChannel.gd").CHANNEL
 
-# Testers: signed in with one of these Discord accounts, a game always takes
-# test builds, on every device, and updates to them without asking
-# (Savia.do_init, UpdateWatcher.gd). The Update channel button can't switch
-# them back.
+# Testers are set on the website: a Tester (or Lead Tester) role badge from
+# the admin panel, or an owner. The server says so when the game signs in
+# (auth_ok "tester"), and the game keeps the answer in update_channel.json
+# for the update check at the next start (before it's connected). Testers get
+# test builds and the Update channel switch; everyone else gets stable
+# builds, even when they once downloaded a test build. Until a server has
+# answered (an older server, never connected yet), it goes by the Discord
+# accounts below and the channel picked before, as it used to.
 const TESTER_DISCORD_IDS := ["697113209051545640", "998599880324952114", "1356328388188438721"] # breck, Savvy, vroom
 
+# 1 a tester, 0 not, -1 not known yet
+static func site_tester() -> int:
+	var t: int = int(Rhythia.get("site_tester")) if Rhythia.get("site_tester") != null else -1
+	if t != -1:
+		return t
+	var path := shared_read_path("update_channel.json")
+	var f := File.new()
+	if path == "" or f.open(path, File.READ) != OK:
+		return -1
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return -1
+	var v = parsed.result.get("tester", null)
+	if typeof(v) == TYPE_BOOL:
+		return 1 if v else 0
+	return -1
+
 static func is_tester() -> bool:
+	var st := site_tester()
+	if st != -1:
+		return st == 1
 	var du = Rhythia.get("discord_user")
 	return du is Dictionary and TESTER_DISCORD_IDS.has(String(du.get("id", "")))
 
-# the Update channel switch: for anyone who has run a test build once (or
-# picked the test channel, or has a tester account), not for everyone
+# the Update channel switch: testers only (before a server has said, also
+# anyone who had test builds, as before)
 static func shows_channel_switch() -> bool:
+	if site_tester() != -1:
+		return site_tester() == 1
 	return build_channel() == "test" or is_tester() or bool(Rhythia.get("tried_test_builds")) or String(Rhythia.get("update_channel")) == "test"
 
 static func wanted_channel() -> String:
@@ -567,6 +594,8 @@ static func wanted_channel() -> String:
 		# testers start on test builds; the Update channel button switches them
 		var tc = _saved_channel("tester_channel", Rhythia.get("tester_channel"))
 		return String(tc) if tc is String and (tc == "stable" or tc == "test") else "test"
+	if site_tester() == 0:
+		return "stable" # (not a tester on the website: stable builds, whatever was downloaded)
 	var c = _saved_channel("update_channel", Rhythia.get("update_channel"))
 	return String(c) if c is String and (c == "stable" or c == "test") else build_channel()
 

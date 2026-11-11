@@ -476,8 +476,10 @@ func get_cursor_position(ms: float):
 		bp = cursor_positions[0]
 		last_pos_offset = 0
 	elif ms >= end_ms:
+		# (past the end the cursor stays where it was: it used to glide in a
+		# straight line back to the middle, seen at the end of every video)
 		ap = cursor_positions[n - 1]
-		bp = Vector3(1, -1, end_ms + 3000)
+		bp = ap
 		last_pos_offset = n - 1
 	else:
 		var lo: int = 0
@@ -700,6 +702,10 @@ func _read_vr():
 					v -= 65536
 				pose.append(float(v) / 1000.0 if k < 3 else float(v) / 32767.0)
 		vr_samples.append([ms, pose])
+	# watched in VR's own view (not in a headset): the VR player's view settings,
+	# put on now, before the song scene reads them (HUD.gd)
+	if not vr_samples.empty() and not Rhythia.vr:
+		load("res://scripts/game/HUD.gd").apply_replay_vr_view()
 
 func _read_touches():
 	touches = []
