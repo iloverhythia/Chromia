@@ -1443,11 +1443,18 @@ func _fill_fx_pools():
 			pool.append(d)
 
 func _exit_tree():
-	# (copies made ahead for the pools that never went into the song)
+	# (copies made ahead for the pools that never went into the song: they have
+	# no parent, so nothing else frees them. A copy that played and went back
+	# to its pool still has its parent in the song, which frees it. Asking
+	# "not in the tree" here was true for those too, since the song is leaving
+	# the tree at this very moment: they were freed while their parent was busy
+	# taking its children out, the parent kept pointing at them, and the game
+	# crashed going back to the menu after a song with hits in it.)
 	for pool in [_hit_fx_pool, _miss_fx_pool]:
 		for c in pool:
-			if is_instance_valid(c) and not c.is_inside_tree():
+			if is_instance_valid(c) and c.get_parent() == null:
 				c.free()
+		pool.clear()
 	scoreEffect.queue_free()
 	for n in noteCache:
 		n.queue_free()
