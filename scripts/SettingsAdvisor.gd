@@ -1627,7 +1627,7 @@ static func _parallax(sel: Dictionary, cur: Dictionary):
 			(", and you hit %.1f%% fewer corner notes than middle ones" % (og[0] * 100.0)) if og[1] >= 150 and og[0] >= 0.015 else "",
 			txt]
 		return _rec(changes, cur, conf, why, "now", max(og[0], 0.0) * 0.3 + bias * 0.01)
-	return {"note": "Camera: parallax %s%s fits; your outer hits are centred (%+d%%)." % [
+	return {"note": "Camera: parallax %s%s fits; your outer hits are centered (%+d%%)." % [
 		_fmt("parallax", par), (" and grid parallax %s" % _fmt("grid_parallax", gpar)) if gpar > 0.0 else "", int(round(bias * 100.0))]}
 
 static func _precision(sel: Dictionary, cur: Dictionary, abs_mode: bool):
@@ -1858,7 +1858,7 @@ static func _insights(mine: Dictionary, cur: Dictionary) -> Array:
 				dir += "low" if bias.y < 0 else "high"
 			if abs(bias.x) >= 0.12:
 				dir += ("-" if dir != "" else "") + ("left" if bias.x < 0 else "right")
-			out.append("Your hits land a bit %s of centre." % dir)
+			out.append("Your hits land a bit %s of center." % dir)
 	return out
 
 static func _with(sel: Dictionary, what: String) -> String:
@@ -1873,7 +1873,7 @@ static func _cell_name(cell: int) -> String:
 	var cols := ["left", "middle", "right"]
 	var rows := ["top", "middle", "bottom"]
 	if x == 1 and y == 1:
-		return "centre"
+		return "center"
 	if x == 1:
 		return "%s middle" % rows[y]
 	if y == 1:

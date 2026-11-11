@@ -24,7 +24,7 @@ const THEME := "res://uitheme.tres"
 const PATTERNS := ["contour", "grid", "dots", "waves", "hex", "stripes", "stars", "solid", "off"]
 const PATTERN_NAMES := {
 	"contour": "Contour lines", "grid": "Grid", "dots": "Dots", "waves": "Waves", "hex": "Hexagons",
-	"stripes": "Stripes", "stars": "Starfield", "solid": "Plain colour", "off": "Off (the 3D background)",
+	"stripes": "Stripes", "stars": "Starfield", "solid": "Plain color", "off": "Off (the 3D background)",
 }
 # the pattern colours when you haven't picked any: background, lines, accent
 const PATTERN_COLORS := [Color(0.07, 0.03, 0.08), Color(0.46, 0.2, 0.42), Color(1.0, 0.45, 0.62)]

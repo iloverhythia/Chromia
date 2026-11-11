@@ -70,7 +70,7 @@ func _ready():
 	m.add_child(box)
 
 	_label("Chromia skins (.cskin)", f_title, ACCENT)
-	_label("A skin is everything you have on in one file: your look settings (notes, cursor, trail, grid, HUD, camera, colours, fonts, panels, avatar, VR hands), what you have equipped (colorset, note mesh, border, hit and miss sounds, space, effects) and your custom files (cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture) and your menu's look from the Menu Customizer. Your device settings (window, sensitivity, volume, offset) and the hit window stay yours.", f_body, DIM, true)
+	_label("A skin is everything you have on in one file: your look settings (notes, cursor, trail, grid, HUD, camera, colors, fonts, panels, avatar, VR hands), what you have equipped (colorset, note mesh, border, hit and miss sounds, space, effects) and your custom files (cursor and trail pictures, sounds, backgrounds and Background Editor layers, HUD font and panel picture) and your menu's look from the Menu Customizer. Your device settings (window, sensitivity, volume, offset) and the hit window stay yours.", f_body, DIM, true)
 
 	box.add_child(HSeparator.new())
 	_label("Export what you have on", f_title, ACCENT)

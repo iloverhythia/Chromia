@@ -51,7 +51,7 @@ func _init():
 	S.button(x)
 	x.connect("pressed", self, "close")
 	head.add_child(x)
-	v.add_child(S.label("The colours of your card in the Spectate grid, and the border of your website profile. Some cards are unlocked by what you do; how is a secret.", S.f_small, S.DIM, true))
+	v.add_child(S.label("The colors of your card in the Spectate grid, and the border of your website profile. Some cards are unlocked by what you do; how is a secret.", S.f_small, S.DIM, true))
 	v.add_child(S.rule())
 	_grid = GridContainer.new()
 	_grid.columns = 3

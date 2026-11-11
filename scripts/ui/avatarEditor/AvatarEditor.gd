@@ -73,7 +73,7 @@ func _build_panel():
 	hint.autowrap = true
 	v.add_child(hint)
 	v.add_child(HSeparator.new())
-	v.add_child(_label("Colours", _fb))
+	v.add_child(_label("Colors", _fb))
 	for c in [["head", "Head"], ["body", "Body and arms"], ["eyes", "Eyes"]]:
 		var row := HBoxContainer.new()
 		row.add_constant_override("separation", 10)

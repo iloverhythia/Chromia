@@ -1586,7 +1586,7 @@ func _st_tab(t: String):
 			_st_note_colors()
 		"GRAPHICS":
 			_sr_section("Look", "")
-			_sr_toggle("Legacy UI", "The editor in Sound Space Quantum Editor Plus's own look: its fonts, controls and colours", "legacyUI")
+			_sr_toggle("Legacy UI", "The editor in Sound Space Quantum Editor Plus's own look: its fonts, controls and colors", "legacyUI")
 			_sr_slider("Font scale", "Every text in the editor", "fontScale", 0.5, 2.0, 0.05)
 			_sr_section("Display", "")
 			_sr_slider("Editor background opacity", "", "editorBGOpacity", 0, 255, 1)
@@ -1890,8 +1890,8 @@ const MAX_NOTE_COLORS = 32
 
 func _st_note_colors():
 	var k: float = _st.k
-	_sr_section("Note colors", "The notes cycle through these. Left click a colour to remove it, right click to move it left.")
-	_sr_toggle("Use these note colors", "Off: your colour set from the game's settings", "customNoteColors")
+	_sr_section("Note colors", "The notes cycle through these. Left click a color to remove it, right click to move it left.")
+	_sr_toggle("Use these note colors", "Off: your color set from the game's settings", "customNoteColors")
 	var h := _sr_row("Colors", "")
 	var box := GridContainer.new()
 	box.columns = 8
@@ -1902,7 +1902,7 @@ func _st_note_colors():
 	_st.note_box = box
 	_st.note_k = k
 	_st_note_swatches()
-	var h2 := _sr_row("Add a colour", "")
+	var h2 := _sr_row("Add a color", "")
 	var pick := ColorPickerButton.new()
 	pick.theme = theme_res
 	pick.edit_alpha = false
@@ -1942,7 +1942,7 @@ func _st_note_swatches():
 		var sb := _st_box(Color8(int(col[0]), int(col[1]), int(col[2])), int(6 * k), Color(1, 1, 1, 0.35), 1)
 		sw.add_stylebox_override("panel", sb)
 		sw.rect_min_size = Vector2(26, 26) * k
-		sw.hint_tooltip = "Colour %d: left click removes it, right click moves it left" % (i + 1)
+		sw.hint_tooltip = "Color %d: left click removes it, right click moves it left" % (i + 1)
 		sw.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 		sw.connect("gui_input", self, "_st_note_click", [i])
 		box.add_child(sw)
@@ -1955,7 +1955,7 @@ func _st_note_click(ev: InputEvent, i: int):
 		return
 	if ev.button_index == BUTTON_LEFT:
 		if cols.size() <= 1:
-			message("Keep at least one note colour.", "Note Colors")
+			message("Keep at least one note color.", "Note Colors")
 			return
 		cols.remove(i)
 	elif ev.button_index == BUTTON_RIGHT and i > 0:
@@ -1977,7 +1977,7 @@ func _st_note_pick():
 func _st_note_add():
 	var cols: Array = ed.s.get("noteColors", []).duplicate(true)
 	if cols.size() >= MAX_NOTE_COLORS:
-		message("There can be up to %d note colours." % MAX_NOTE_COLORS, "Note Colors")
+		message("There can be up to %d note colors." % MAX_NOTE_COLORS, "Note Colors")
 		return
 	var col: Color = _st.note_pick.color if _st.has("note_pick") and is_instance_valid(_st.note_pick) else Color(1, 1, 1)
 	cols.append([int(round(col.r * 255)), int(round(col.g * 255)), int(round(col.b * 255))])
@@ -2067,7 +2067,7 @@ func _st_kb_input(ev: InputEventKey) -> bool:
 	return true
 
 func _st_reset():
-	confirm("Reset every editor setting (colours, keybinds and all) to the defaults?", self, "_st_reset_answer")
+	confirm("Reset every editor setting (colors, keybinds and all) to the defaults?", self, "_st_reset_answer")
 
 func _st_reset_answer(answer: String):
 	if answer != "yes":

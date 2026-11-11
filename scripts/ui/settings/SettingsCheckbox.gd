@@ -158,7 +158,7 @@ func _add_touch_toggle():
 	b.theme = theme
 	b.add_font_override("font", get_font("font"))
 	b.rect_min_size = Vector2(rect_size.x, 40)
-	b.hint_tooltip = "Shape, colours, size, trail, ripple, rainbow and more."
+	b.hint_tooltip = "Shape, colors, size, trail, ripple, rainbow and more."
 	b.connect("pressed", self, "_open_touch_editor")
 	parent.add_child(b)
 	parent.move_child(b, cb.get_index() + 1)

@@ -514,7 +514,7 @@ func _build_window():
 	fav_filter.toggle_mode = true
 	fav_filter.focus_mode = FOCUS_NONE
 	fav_filter.size_flags_vertical = SIZE_SHRINK_CENTER
-	fav_filter.hint_tooltip = "Only your favourites (heart someone on their card)"
+	fav_filter.hint_tooltip = "Only your favorites (heart someone on their card)"
 	fav_filter.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	fav_filter.add_stylebox_override("normal", _flat(FIELD_BG, 3))
 	fav_filter.add_stylebox_override("hover", _flat(BTN_HOVER, 3))
@@ -899,7 +899,7 @@ func _update_info():
 	elif _list.empty():
 		text = "Nobody else is online right now."
 	elif fav_filter.pressed and grid.get_child_count() == 0:
-		text = "None of your favourites are online. Heart someone on their card to add them."
+		text = "None of your favorites are online. Heart someone on their card to add them."
 	elif not Rhythia.allow_spectators:
 		text = "Spectators are off for you (Settings > Online), so nobody can watch you."
 	info.text = text

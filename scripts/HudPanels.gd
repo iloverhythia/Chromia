@@ -15,7 +15,7 @@ const STYLES := [
 	["outlined", "Outlined"],
 	["glass", "Glass"],
 	["neon", "Neon glow"],
-	["tinted", "Tinted (panel text colour)"],
+	["tinted", "Tinted (panel text color)"],
 	["solid", "Solid dark"],
 	["sharp", "Sharp corners"],
 	["pill", "Pill"],

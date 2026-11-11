@@ -94,7 +94,7 @@ func _ready():
 	body.add_child(search)
 	fav_btn = ui._button(Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.09), 6)
 	fav_btn.toggle_mode = true
-	fav_btn.hint_tooltip = "Only your favourites"
+	fav_btn.hint_tooltip = "Only your favorites"
 	fav_icon = ui.MIcon.make("heart", 15 * k, Color("#d7d6dc"))
 	fav_btn.add_child(fav_icon)
 	fav_btn.connect("toggled", self, "_on_fav_filter")
@@ -321,7 +321,7 @@ func _update_sub():
 	elif not lm._connected() or lm.presence_supported == -1:
 		t = "Connecting to the server..."
 	else:
-		t = "None of your favourites are online." if fav_btn.pressed else ("Nobody matches that." if search.text != "" else "Nobody else is online right now.")
+		t = "None of your favorites are online." if fav_btn.pressed else ("Nobody matches that." if search.text != "" else "Nobody else is online right now.")
 	info.text = t
 	info.visible = t != ""
 
