@@ -73,3 +73,5 @@ in scripts/Savia.gd and empties this list.
 - Spectating and Save video show long custom colorsets too (more than 64 colors, like big gradients): they were left out, so the default colors showed
 - Settings > Update channel asks before switching for tester accounts too (one click switched builds and downloaded the other one at once)
 - The crash report (and other question boxes) always show on top in the menu: on some screens they opened hidden behind the menu and then popped up in the middle of the next map
+- Map list: the BOTTOM button is no longer cut off at the bottom of the screen
+- The purple "Controller checking disabled" bar is gone (it stayed at the bottom of every menu while Disable Controller Detection was on)

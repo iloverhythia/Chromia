@@ -805,6 +805,13 @@ func _make_top_button(sc: Node):
 		bottom.action_mode = b.action_mode
 		sc.add_child(bottom)
 		_style_jump_button(bottom, up, "BOTTOM", "To the bottom of the map list", "go_to_bottom", 11)
+		# (the map panel reaches past the bottom of the screen: a gap keeps
+		# BOTTOM fully on it)
+		var gap := Control.new()
+		gap.name = "bottom_gap"
+		gap.rect_min_size = Vector2(0, 28)
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sc.add_child(gap)
 	_style_jump_button(b, up, "TOP", "Back to the top of the map list", "go_to_top", 14)
 
 func _style_jump_button(b: Button, up: Button, text: String, tip: String, method: String, size: int):
