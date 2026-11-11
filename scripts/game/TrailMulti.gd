@@ -176,9 +176,11 @@ func _make_gpu(src):
 		_mat.set_shader_param("grad", gt)
 	_mat.set_shader_param("use_grad", 1.0 if _grad else 0.0)
 	_mat.set_shader_param("grow", 1.0 if classic else 0.0)
-	# (the classic trail's colours went through the material's colour, which is
-	# read as sRGB; the smart trail's are per piece and always were used as given)
-	_mat.set_shader_param("srgb_in", 1.0 if classic else 0.0)
+	# (the pieces' colours are the cursor's colour, an sRGB colour like any
+	# colour picked on screen: read as one, the trail is the cursor's own
+	# colour. Used as they were, the smart trail came out paler than the
+	# cursor: a pink cursor had a whitish trail.)
+	_mat.set_shader_param("srgb_in", 1.0)
 	material_override = _mat
 	# (pieces are anywhere on the grid: no working out their bounds every frame)
 	set_custom_aabb(AABB(Vector3(-40, -40, -40), Vector3(80, 80, 80)))

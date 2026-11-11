@@ -307,7 +307,7 @@ func _process(delta):
 				if moved.length() < 1.0: # (not a jump: a skip or a seek)
 					_face_accum += moved / 0.018
 
-	if Rhythia.show_cursor and Rhythia.cursor_trail and Rhythia.smart_trail and trail_started:
+	if Rhythia.show_cursor and Rhythia.cursor_trail and _smart_trail and trail_started:
 		var start_p = global_transform.origin
 		var end_p = prev_pos
 		var start_r = $Mesh.rotation_degrees.x
@@ -371,6 +371,15 @@ func _process(delta):
 # did: the same moments, the same places between two frames, left out when
 # the cursor hasn't moved since that piece's last place).
 var _light_trail: bool = bool(Rhythia.vr) or Rhythia.device("mobile")
+# On a phone or a headset the trail is always the smart one, whatever Smart
+# Trail says. The classic trail is a fixed handful of pieces that each start
+# out invisible on the cursor, grow as they fall behind and then vanish: with
+# a finger's or a hand's fast movement that showed as separate blobs swelling
+# and popping, the fattest of them well behind the cursor, which made the
+# cursor itself look like it lagged. The smart trail is one unbroken tail,
+# thickest at the cursor, and costs next to nothing since its pieces age on
+# the graphics card (TrailMulti.gd).
+var _smart_trail: bool = bool(Rhythia.smart_trail) or _light_trail
 var _trail_cl = null
 var _cl_n := 0
 var _cl_T := 0.0 # time, in Trail Times
@@ -477,7 +486,7 @@ func _ready():
 		load("res://scripts/game/CursorGlow.gd").add_to(self, get_parent())
 
 	if Rhythia.cursor_trail:
-		if Rhythia.smart_trail:
+		if _smart_trail:
 			# one MultiMesh for the whole trail (TrailMulti.gd), next to the old pieces' place
 			_trail_mm = load("res://scripts/game/TrailMulti.gd").make(trail_base)
 			get_node("../..").call_deferred("add_child", _trail_mm)
