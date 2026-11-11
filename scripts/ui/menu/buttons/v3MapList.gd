@@ -21,6 +21,7 @@ var difficulty_filter: Array = Rhythia.last_difficulty_filter
 var show_broken_maps: bool = false
 var show_online_maps: bool = true
 var xp_only_maps: bool = false
+var embossed_only: bool = false # Filters > Show > embossed: only Embossed's maps (same sort)
 var ranked_song_ids: Dictionary = {}
 var flip_display: bool = false
 var flip_name: bool = false
@@ -100,6 +101,7 @@ func search_matches(s: Song):
 		(_st == "" or s.lname().find(_st) != -1) and
 		(_at == "" or s.creator.to_lower().find(_at) != -1) and
 		(not xp_only_maps or ranked_song_ids.has(_canon(s.id))) and
+		(not embossed_only or String(s.creator).to_lower().find("embossed") != -1) and
 		(folder_filter == null or folder_filter.has(s.id))
 	)
 
@@ -476,6 +478,10 @@ func update_search_xponly(show: bool):
 	xp_only_maps = show
 	if ready: reload_to_current_page()
 
+func update_search_embossed(show: bool):
+	embossed_only = show
+	if ready: reload_to_current_page()
+
 # The server keeps ranked maps by a cleaned-up key (savia_web src/util.js
 # canonSongKey): lowercase, anything but a-z 0-9 _ - made "_", "m" in front
 # of an empty key or one starting with "_". A map's own id can have capitals,
@@ -563,6 +569,7 @@ func reset_filters():
 	update_search_flipped(false)
 	update_search_flip_name(false)
 	update_search_xponly(false)
+	update_search_embossed(false)
 	folders.set_active(-1)
 
 # Groups maps by difficulty. The groups are rebuilt from scratch so maps that

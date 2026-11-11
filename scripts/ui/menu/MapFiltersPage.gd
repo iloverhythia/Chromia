@@ -137,6 +137,18 @@ func _build():
 	box.add_child(_heading("Show", title, true))
 	for n in ["Broken", "Online", "XPOnly"]:
 		_move(n, box)
+	# only Embossed's maps (sorted as usual)
+	var emb: CheckBox = tmpl.duplicate(0)
+	emb.name = "EmbossedOnly"
+	emb.text = "embossed"
+	emb.group = null
+	emb.pressed = false
+	emb.hint_tooltip = "only show maps by Embossed"
+	emb.connect("toggled", self, "_on_embossed")
+	box.add_child(emb)
+	var ml = load("res://scripts/ui/menu/MapListOf.gd").find(filters)
+	if ml != null and ml.has_signal("reset_filters"):
+		ml.connect("reset_filters", self, "_embossed_reset", [emb])
 	box.add_child(_heading("Sort by", title, true))
 	var cur := _current_key()
 	for s in SORTS:
@@ -196,6 +208,15 @@ func _move(n: String, to: Control) -> Control:
 	if c is CheckBox:
 		c.clip_text = false
 	return c
+
+func _embossed_reset(emb: CheckBox):
+	if is_instance_valid(emb):
+		emb.set_pressed_no_signal(false)
+
+func _on_embossed(on: bool):
+	var list = load("res://scripts/ui/menu/MapListOf.gd").find(filters)
+	if list != null and list.has_method("update_search_embossed"):
+		list.update_search_embossed(on)
 
 func _on_grid_view(on: bool):
 	if on != bool(Rhythia.get("map_grid")):
