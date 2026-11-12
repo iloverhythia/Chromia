@@ -4152,6 +4152,11 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			print("!!! settings file is not a JSON object")
 			return -3
 		var data: Dictionary = decode.result
+		# (settings an older version left out when it saved: back from the copy)
+		var kept: Dictionary = _kept_settings(saveFile)
+		for k in kept.keys():
+			if not data.has(k):
+				data[k] = kept[k]
 		# A value of an unexpected type (hand-edited file, another version) stopped
 		# the loading at that line, which also left the loading screen stuck.
 		# Such values are left out so every other setting still loads.
@@ -5064,6 +5069,30 @@ func save_settings(saveFile: String = Globals.p("user://settings.json")):
 	spec.swap_in(theirs)
 	return result
 
+# A copy of every setting this version saved, next to the settings file.
+# An older version (a phone going back to its installed app, a switch to the
+# other update channel) only saves the settings it knows, so the newer ones
+# were reset; loading takes the ones missing from the file from this copy.
+func _kept_settings_path(saveFile: String) -> String:
+	return Globals.p("user://chromia/settings_keep").plus_file(Globals.p(saveFile).md5_text() + ".json")
+
+func _keep_settings(saveFile: String, data: Dictionary):
+	var path := _kept_settings_path(saveFile)
+	Directory.new().make_dir_recursive(path.get_base_dir())
+	var f := File.new()
+	if f.open(path, File.WRITE) == OK:
+		f.store_string(JSON.print(data))
+		f.close()
+
+func _kept_settings(saveFile: String) -> Dictionary:
+	var f := File.new()
+	var path := _kept_settings_path(saveFile)
+	if not f.file_exists(path) or f.open(path, File.READ) != OK:
+		return {}
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	return parsed.result if parsed.error == OK and typeof(parsed.result) == TYPE_DICTIONARY else {}
+
 func _write_settings_file(saveFile: String):
 	var dir = Directory.new()
 	var folder_path = "user://"
@@ -5362,6 +5391,7 @@ func _write_settings_file(saveFile: String):
 		file.store_string(JSON.print(data, "\t"))
 
 		file.close()
+		_keep_settings(saveFile, data)
 		return "OK"
 	else:
 		print("error code %s" % err)

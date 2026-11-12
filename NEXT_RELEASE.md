@@ -26,3 +26,5 @@ in scripts/Savia.gd and empties this list.
 - VR: the Save video button shows on the results after a play (the link opens in the computer's browser)
 - VR: replays remember which hands you had (furry paws, custom vr_hand.obj, ...), so watching them shows your hands instead of the default ones (needs the updated server)
 - Seasonal themes: Christmas! From 1 to 26 December the menu waves turn red, green and gold, snow falls over the menu and a string of lights twinkles along the top (Settings > Replays & Misc > Seasonal Themes turns it off)
+- Phones (iPhone, Quest): switching between the test and stable builds no longer loops (the app threw the test build away at the next start and downloaded it again)
+- Settings no longer reset when you switch between test and stable builds (an older version only saved the settings it knew; the others now come back)

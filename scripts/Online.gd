@@ -733,8 +733,10 @@ func update_snoozed() -> bool:
 # otherwise the automatic checks, which never undo an update they just made
 func attempt_update(manual: bool = false):
 	update_blocked_reason = ""
+	# (the signals before the first yield are sent next frame: the callers
+	# start waiting for them only after this returns)
 	if not latest_version_data or not latest_version_data.has("assets"):
-		emit_signal("update_finished")
+		call_deferred("emit_signal", "update_finished")
 		return
 	var to := String(latest_version_data.get("tag_name", ""))
 	var from := String(ProjectSettings.get_setting("application/config/version"))
@@ -742,7 +744,15 @@ func attempt_update(manual: bool = false):
 		update_installed = false
 		update_blocked_reason = "Not updating to %s: this game just updated from it, and going back would start an update loop. Pick a version in Settings > Update channel." % to
 		Rhythia.trail("update loop stopped: %s -> %s" % [from, to])
-		emit_signal("update_finished")
+		call_deferred("emit_signal", "update_finished")
+		return
+	if updates_by_pack() and to.to_lower().begins_with("test-") and not _app_keeps_test_packs():
+		# (the installed app would drop it at the next start, and this would
+		# download it again, over and over)
+		update_installed = false
+		update_blocked_reason = "This installed app can't keep test builds as an update. Install %s from the latest test build once (GitHub releases); after that they update in the app." % app_asset()
+		Rhythia.trail("test pack blocked: the installed app drops them")
+		call_deferred("emit_signal", "update_finished")
 		return
 	_note_update(from, to)
 
@@ -778,6 +788,15 @@ func attempt_update(manual: bool = false):
 	update_hr.request(download_url)
 
 var update_installed: bool = false # the last attempt_update() worked
+
+# The installed app's PackUpdate.gd keeps test builds. (It runs before a
+# downloaded pack loads, so it's always the installed app's; older ones drop
+# a test build at the next start.)
+func _app_keeps_test_packs() -> bool:
+	var pu = get_node_or_null("/root/PackUpdate")
+	if pu == null or pu.get_script() == null:
+		return true
+	return pu.get_script().get_script_constant_map().has("KEEPS_TEST_PACKS")
 
 # Update-loop guard: the last update (from -> to). An automatic update straight
 # back to the version just left within a few minutes is stopped (two versions

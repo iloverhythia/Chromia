@@ -51,7 +51,7 @@ func _init():
 	var tag := f.get_as_text().strip_edges()
 	f.close()
 	var installed := String(ProjectSettings.get_setting("application/config/version"))
-	if compare_versions(tag, installed) <= 0:
+	if pack_outdated(tag, installed):
 		# the installed app is as new or newer (it was reinstalled)
 		_remove_all()
 		return
@@ -77,9 +77,43 @@ func _remove_all():
 
 const MONTHS := ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 
-# "oct20-2026-s" -> [2026, 10, 20, "s"]; unknown formats sort first.
+# (Online.gd: this installed app keeps a downloaded test build. Older apps
+# don't have this and drop one at the next start.)
+const KEEPS_TEST_PACKS := true
+
+static func is_test_version(v: String) -> bool:
+	return v.to_lower().begins_with("test-")
+
+# The downloaded pack is no newer than the installed app (it was reinstalled).
+# A test build ("test-nov11-123") and a release ("nov11-2026-a") are told
+# apart by their dates only: test builds used to sort before every release,
+# so a phone with a release installed dropped every test build it downloaded
+# and downloaded it again (stable <-> test, over and over).
+static func pack_outdated(tag: String, installed: String) -> bool:
+	if tag == installed:
+		return true
+	if is_test_version(tag) != is_test_version(installed):
+		var a := _version_key(tag)
+		var b := _version_key(installed)
+		for i in range(3):
+			if a[i] != b[i]:
+				return a[i] < b[i]
+		return false # (the same day: the one they downloaded)
+	return compare_versions(tag, installed) <= 0
+
+# "oct20-2026-s" -> [2026, 10, 20, "s"]; "test-nov11-123" -> [<year>, 11, 11,
+# "123"] (the year isn't in it: the latest one that isn't in the future);
+# unknown formats sort first.
 static func _version_key(v: String) -> Array:
 	var parts := v.to_lower().split("-")
+	if parts.size() == 3 and parts[0] == "test" and parts[1].length() >= 4:
+		var tm: int = MONTHS.find(parts[1].substr(0, 3)) + 1
+		var td: int = int(parts[1].substr(3))
+		var now: Dictionary = OS.get_date(true)
+		var ty: int = int(now.year)
+		if tm > int(now.month) or (tm == int(now.month) and td > int(now.day)):
+			ty -= 1
+		return [ty, tm, td, parts[2]]
 	if parts.size() < 3 or parts[0].length() < 4:
 		return [0, 0, 0, ""]
 	var month := MONTHS.find(parts[0].substr(0, 3)) + 1
