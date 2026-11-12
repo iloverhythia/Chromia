@@ -549,6 +549,7 @@ func _on_unlock_rate(on: bool):
 	if _loading:
 		return
 	Rhythia.vr_refresh_unlock = on
+	load("res://scripts/game/SteadyRate.gd").let_go() # (picked by hand: Frame Smoothing starts over from it)
 	if _rate_pick:
 		_rate_pick.disabled = on
 	_apply_xr()
@@ -557,6 +558,7 @@ func _on_rate(i: int):
 	if _loading:
 		return
 	Rhythia.vr_refresh = float(_rate_pick.get_item_metadata(i))
+	load("res://scripts/game/SteadyRate.gd").let_go() # (picked by hand: Frame Smoothing starts over from it)
 	_apply_xr()
 
 func _on_glow(i: int):

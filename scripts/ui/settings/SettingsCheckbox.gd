@@ -108,12 +108,33 @@ func _add_frame_smoothing():
 	cb.name = "FrameSmoothing"
 	cb.target = "frame_smoothing"
 	cb.text = "Frame Smoothing"
-	cb.hint_tooltip = "Notes move in even steps matched to your screen's refresh rate, instead of following the small differences in when each frame is worked out, which shows as a fine judder on fast notes. Visual only: hits, misses and the cursor are exactly as before. On from the start on phones and standalone headsets; on a computer it helps only with VSync or a frame limit at your screen's rate."
+	cb.hint_tooltip = "Makes the game look steadier, mostly on phones and headsets. Notes move in even steps matched to the screen's frames instead of following the small differences in when each frame is worked out. And when a song keeps dropping frames at a high refresh rate (a headset's 120 or 90 Hz, an iPhone's 120 Hz), the next songs run one rate lower, which looks smoother than a high rate that stutters; the higher rate is tried again after a few clean songs. Visual only: hits, misses and the cursor are exactly as before."
 	parent.add_child(cb)
 	var at: Node = parent.get_node_or_null("NewSettingsUI")
 	if at == null:
 		at = parent.get_node_or_null("ShowMapRP")
 	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
+	# how the last song went here (frames a second, late frames, the rate held)
+	var info := Label.new()
+	info.name = "FrameSmoothingInfo"
+	info.autowrap = true
+	info.rect_min_size = Vector2(rect_size.x, 0)
+	info.modulate = Color(1, 1, 1, 0.7)
+	parent.add_child(info)
+	parent.move_child(info, cb.get_index() + 1)
+	var tm := Timer.new()
+	tm.wait_time = 1.0
+	tm.autostart = true
+	info.add_child(tm)
+	tm.connect("timeout", self, "_frame_smoothing_info", [info])
+	_frame_smoothing_info(info)
+
+func _frame_smoothing_info(info: Label):
+	if not is_instance_valid(info) or (info.text != "" and not info.is_visible_in_tree()):
+		return
+	var t: String = load("res://scripts/game/SteadyRate.gd").summary()
+	info.text = t
+	info.visible = t != ""
 
 # Experimental: "New Settings UI" (on by default): SettingsNewUI.gd
 func _add_new_settings_ui():
@@ -239,6 +260,9 @@ func _on_predict_changed(v: float, val: Label):
 
 # iPhone: say when the app needs reinstalling for these
 func _mobile_tuning_pressed(box: CheckBox, key: String):
+	if key == "mobile_high_hz":
+		# (picked by hand: Frame Smoothing starts over from it)
+		load("res://scripts/game/SteadyRate.gd").let_go()
 	if not box.pressed or not OS.has_feature("iOS") or key == "mobile_old_cursor":
 		return
 	yield(get_tree().create_timer(0.3), "timeout")

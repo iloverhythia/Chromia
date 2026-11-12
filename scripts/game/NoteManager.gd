@@ -591,19 +591,25 @@ func _far_stride_for(from: int, n_total: int) -> int:
 			_far_stride /= 2
 	return _far_stride
 
-# --- Frame Smoothing (Settings > Experimental; on by default on phones and headsets) ---
-# Visual only. The song's clock (ms) moves on by the time measured between
-# two frames being worked out, and that varies by a few milliseconds from
-# frame to frame even when the screen shows every frame exactly one refresh
-# apart. Notes placed by it move in slightly uneven steps: a fine judder,
-# plainest on fast notes, on a phone or in a headset. With this on, notes are
-# drawn by a clock of their own (_draw_ms) that moves on by exactly one
-# refresh's worth of song per frame shown (two for a skipped frame), and is
-# pulled gently towards the real clock so it never drifts from it (it stays
-# within a few milliseconds). Hits, misses, the cursor and the music all go
-# by the real clock, as ever: nothing about how the game plays changes.
-# When frames don't come at a steady rate it knows, or the song jumps
-# (pause, skip, seek), notes are drawn by the real clock.
+# Frame Smoothing (Settings > Experimental; on from the start on phones and
+# standalone headsets). The song clock moves on by the time measured between
+# two frames being worked out, and that differs from frame to frame even when
+# the screen shows every frame exactly one refresh apart. Notes placed by it
+# move in uneven steps: a judder, plainest on fast notes, on a phone or in a
+# headset. With this on, notes are drawn by a clock of their own (_draw_ms)
+# that moves on by a whole number of the device's frames each time (one, or
+# two or three when frames were late), and is pulled gently towards the real
+# clock so it never drifts from it. Hits, misses, the cursor and the music all
+# go by the real clock, as ever: nothing about how the game plays changes.
+#
+# The length of a frame comes from the device (the headset's refresh rate, the
+# screen's: SteadyRate.current_hz), so it holds through uneven frame times and
+# late frames, which is when it matters. (It used to work the rate out from the
+# frame times themselves and gave up when they were uneven or some were late.)
+# Without a rate from the device, that's still how it finds one. When frames
+# come faster than the screen shows them (no vsync), or the song jumps (pause,
+# skip, seek), notes are drawn by the real clock.
+const SteadyRate = preload("res://scripts/game/SteadyRate.gd")
 const FS_RATES := [60.0, 72.0, 80.0, 90.0, 120.0, 144.0, 165.0, 240.0, 30.0, 36.0, 40.0, 45.0]
 var _draw_ms: float = 0.0
 var _fs_dt: float = 0.0 # the time between frames, smoothed
@@ -612,6 +618,25 @@ var _fs_prev_ms: float = 0.0
 var _fs_locked: bool = false
 var _fs_frame: int = -1
 var _frame_delta: float = 0.0
+var _fs_period: float = 0.0 # the device's frame time (0: it doesn't say)
+var _fs_period_at: int = -100000
+# for the song's report (SteadyRate.song_done): frames, frames in step, and how
+# uneven the real clock's steps were / the drawn ones are (ms of song, summed)
+var _fs_late: float = 0.0 # share of frames that came late, lately
+var _fs_noise: float = 0.0 # how far frames are from whole steps, lately (in frames)
+var _fs_rough: bool = false
+var _fs_count: int = 0
+var _fs_in_step: int = 0
+var _fs_rough_real: float = 0.0
+var _fs_rough_drawn: float = 0.0
+
+func _fs_frame_period() -> float:
+	var now: int = OS.get_ticks_msec()
+	if now - _fs_period_at >= 1000:
+		_fs_period_at = now
+		var hz: float = SteadyRate.current_hz()
+		_fs_period = 1.0 / hz if hz >= 20.0 else 0.0
+	return _fs_period
 
 func _update_draw_clock(delta: float):
 	var true_step: float = ms - _fs_prev_ms
@@ -626,33 +651,57 @@ func _update_draw_clock(delta: float):
 		else:
 			_fs_wobble += (abs(delta - _fs_dt) - _fs_wobble) * 0.05
 			_fs_dt += (delta - _fs_dt) * 0.05
-	# the screen's own step, if frames are coming steadily at a rate a screen has
-	# (frame times all over the place only average out to one by chance)
-	var step_s := 0.0
-	if _fs_wobble < 0.22 * _fs_dt:
+	var step_s: float = _fs_frame_period()
+	if step_s > 0.0:
+		# frames must really be paced by it: one, or a few, of its frames each
+		# (far more frames than the screen shows: nothing to be in step with)
+		var per: float = _fs_dt / step_s
+		if per < 0.85 or per > 4.2:
+			step_s = 0.0
+	elif _fs_wobble < 0.22 * _fs_dt:
+		# the device doesn't say: a rate screens have, if frames come steadily at one
 		for r in FS_RATES:
 			if abs(_fs_dt * r - 1.0) < 0.05:
 				step_s = 1.0 / r
 				break
-	var shown: float = round(delta / step_s) if step_s > 0.0 else 0.0 # refreshes this frame covers
-	if step_s <= 0.0 or true_step <= 0.0 or shown < 1.0 or shown > 4.0 or abs(delta - shown * step_s) > 0.35 * step_s:
-		_draw_ms = ms # (no steady rate, a jump in the song, or a long stall)
+	if step_s <= 0.0 or true_step <= 0.0 or delta >= 0.1:
+		_draw_ms = ms # (nothing to be in step with, a jump in the song, or a long stall)
 		_fs_locked = false
 		return
+	var one: float = step_s * true_step / delta # one frame of song
 	if not _fs_locked:
 		_fs_locked = true
 		_draw_ms = ms
 		return
-	# the same share of the song as the real step, for the time the screen
-	# really takes to show this frame
-	var even_step: float = true_step * (shown * step_s / delta)
-	_draw_ms += even_step
-	var err: float = ms - _draw_ms
-	var one: float = true_step / shown # (about one refresh of song)
-	if abs(err) > 1.5 * one:
+	# how many frames the real clock is ahead by: that many are moved on, whole
+	# (one as a rule; two when a frame came late). Counted from where the two
+	# clocks stand, not from this frame's time alone, so a frame worked out a
+	# little early or late doesn't change the count.
+	var lead: float = (ms - _draw_ms) / one
+	_fs_count += 1
+	if lead > 4.6 or lead < -0.6:
 		_draw_ms = ms
-	else:
-		_draw_ms += err * 0.08
+		return
+	# (two only when it's plainly two: a frame worked out late isn't a frame missed)
+	var n: float = max(1.0, floor(lead + 0.3))
+	# Many frames late, or frames worked out at very uneven moments: the real
+	# clock does as well or better there (a frame that starts late is also
+	# shown late), and what helps is a rate the device holds (SteadyRate).
+	_fs_late += ((1.0 if n >= 2.0 else 0.0) - _fs_late) * 0.02
+	_fs_noise += (abs(lead - n) - _fs_noise) * 0.02
+	if _fs_late > 0.15 or _fs_noise > 0.12:
+		_fs_rough = true
+	elif _fs_late < 0.08 and _fs_noise < 0.09:
+		_fs_rough = false
+	if _fs_rough:
+		_draw_ms = ms
+		return
+	_draw_ms += n * one
+	var pull: float = (ms - _draw_ms) * 0.04 # (kept together)
+	_draw_ms += pull
+	_fs_in_step += 1
+	_fs_rough_real += abs(true_step - n * one)
+	_fs_rough_drawn += abs(pull)
 
 # reposition_notes, timed, to set how many notes on their way it may draw
 func _reposition_timed() -> bool:
@@ -1609,6 +1658,7 @@ func _fill_fx_pools():
 			pool.append(d)
 
 func _exit_tree():
+	SteadyRate.song_notes(_fs_count, _fs_in_step, _fs_rough_real, _fs_rough_drawn)
 	# (copies made ahead for the pools that never went into the song: they have
 	# no parent, so nothing else frees them. A copy that played and went back
 	# to its pool still has its parent in the song, which frees it. Asking

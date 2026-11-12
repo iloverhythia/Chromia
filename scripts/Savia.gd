@@ -142,6 +142,8 @@ func apply_mobile_tuning():
 		return
 	_tuned_once = true
 	var fps := 120 if mobile_high_hz else 60
+	if fps > 60 and frame_smoothing and fs_cap_hz > 0.0 and fs_cap_hz < 100.0:
+		fps = 60 # (Frame Smoothing: this phone kept dropping frames at 120 Hz)
 	var delay := 0.0 if mobile_no_delay else 0.15
 	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay)
 	print("[mobile tuning] ", mobile_tuning_status if mobile_tuning_status != "" else "native helper not in this app")
@@ -3367,7 +3369,18 @@ var new_settings_ui: bool = true setget _set_new_settings_ui
 # Experimental: notes move in even steps matched to the screen's refresh rate
 # (visual only: NoteManager._update_draw_clock). On from the start on phones
 # and standalone headsets, where every frame is shown one refresh apart.
-var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android") or OS.has_feature("iOS")
+var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android") or OS.has_feature("iOS") setget _set_frame_smoothing
+# Frame Smoothing: the rate the device is held at because it kept dropping
+# frames at a higher one (0: none; scripts/game/SteadyRate.gd)
+var fs_cap_hz: float = 0.0
+func _set_frame_smoothing(v: bool):
+	var was: bool = frame_smoothing
+	frame_smoothing = v
+	if is_inside_tree() and was != v:
+		# (off: the device goes back to the rate the settings ask for)
+		call_deferred("_fs_apply")
+func _fs_apply():
+	load("res://scripts/game/SteadyRate.gd").apply()
 func _set_new_settings_ui(v: bool):
 	if new_settings_ui == v:
 		return
@@ -4383,6 +4396,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			show_map_rp = bool(data.show_map_rp)
 		if data.has("frame_smoothing"):
 			frame_smoothing = bool(data.frame_smoothing)
+		if data.has("fs_cap_hz"):
+			fs_cap_hz = clamp(float(data.fs_cap_hz), 0.0, 240.0)
 		if data.has("new_settings_ui"):
 			new_settings_ui = bool(data.new_settings_ui)
 		if data.has("modern_ui"):
@@ -5200,6 +5215,7 @@ func _write_settings_file(saveFile: String):
 			show_map_rp = show_map_rp,
 			new_settings_ui = new_settings_ui,
 			frame_smoothing = frame_smoothing,
+			fs_cap_hz = fs_cap_hz,
 			modern_ui = modern_ui,
 			map_grid = map_grid,
 			is_staff = is_staff,
