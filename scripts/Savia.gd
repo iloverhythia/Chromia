@@ -3293,7 +3293,7 @@ func _set_wave_menu(v: bool):
 	wave_menu = v
 	emit_signal("wave_menu_changed", v)
 # Wave Menu option: colour the waves with the selected colorset.
-# Seasonal themes (scripts/ui/menu/Seasonal.gd): Halloween on 31 October
+# Seasonal themes (scripts/ui/menu/Seasonal.gd): Halloween on 31 October, Christmas 1 to 26 December
 var seasonal_themes: bool = true setget _set_seasonal_themes
 func _set_seasonal_themes(v: bool):
 	seasonal_themes = v

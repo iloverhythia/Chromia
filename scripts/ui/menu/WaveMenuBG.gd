@@ -36,6 +36,17 @@ const HALLOWEEN_COLORS = {
 	"color_count": 4.0,
 }
 
+# Christmas (Seasonal.gd): pine green night, holly red, gold and snow white
+const CHRISTMAS_COLORS = {
+	"bg_color": Color(0.02, 0.06, 0.05, 1.0),
+	"minor_color": Color(0.1, 0.36, 0.2, 0.75),
+	"major_a": Color(0.95, 0.18, 0.22, 1.0),
+	"major_b": Color(1.0, 0.8, 0.3, 1.0),
+	"major_c": Color(0.3, 0.88, 0.45, 1.0),
+	"major_d": Color(0.92, 0.96, 1.0, 1.0),
+	"color_count": 4.0,
+}
+
 # Wave colours: the default pink/orange, or (option) the selected colorset.
 # In colorset mode the lines fade through every colour in the set over time.
 const COLOR_STEP_SECONDS = 3.0
@@ -126,6 +137,8 @@ func _pattern_colors() -> Array:
 		return [Color(a.r, a.g, a.b).darkened(0.88), Color(a.r, a.g, a.b).darkened(0.35), Color(b.r, b.g, b.b)]
 	if preload("res://scripts/ui/menu/Seasonal.gd").halloween():
 		return [Color(0.06, 0.02, 0.09), Color(0.42, 0.18, 0.55), Color(1.0, 0.52, 0.08)]
+	if preload("res://scripts/ui/menu/Seasonal.gd").christmas():
+		return [Color(0.02, 0.06, 0.05), Color(0.12, 0.42, 0.24), Color(0.95, 0.2, 0.24)]
 	return MenuStyle.PATTERN_COLORS
 
 func _apply_colors(_v = null):
@@ -156,6 +169,10 @@ func _apply_colors(_v = null):
 	if not Rhythia.wave_menu_colorset and preload("res://scripts/ui/menu/Seasonal.gd").halloween():
 		for k in HALLOWEEN_COLORS.keys():
 			mat.set_shader_param(k, HALLOWEEN_COLORS[k])
+		return
+	if not Rhythia.wave_menu_colorset and preload("res://scripts/ui/menu/Seasonal.gd").christmas():
+		for k in CHRISTMAS_COLORS.keys():
+			mat.set_shader_param(k, CHRISTMAS_COLORS[k])
 		return
 	if not Rhythia.wave_menu_colorset or Rhythia.selected_colorset == null:
 		return
