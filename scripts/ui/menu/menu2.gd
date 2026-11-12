@@ -3258,6 +3258,8 @@ func _ready():
 		get_tree().create_timer(300).connect("timeout", self, "idle_status")
 var black_fade_target: bool = false
 var black_fade: float = 1
+const BLACK_TOO_LONG := 8.0
+var _black_for: float = 0.0
 
 func _on_mods_changed_for_lobby():
 	var lobby_manager = _get_lobby_manager()
@@ -3302,6 +3304,17 @@ func _process(delta):
 		black_fade = max(black_fade - (delta / 0.5), 0)
 		$BlackFade.color = Color(0, 0, 0, black_fade)
 	$BlackFade.visible = (black_fade != 0)
+	# The menu fades to black just before it's left (a song, a profile switch,
+	# a reload). If what was to follow never came, it stayed black for good
+	# (in a headset: nothing at all to see). After a while it's shown again.
+	if black_fade_target and black_fade == 1:
+		_black_for += delta
+		if _black_for > BLACK_TOO_LONG:
+			_black_for = 0.0
+			black_fade_target = false
+			Rhythia.trail("menu was left black for %d s with nothing following: shown again" % int(BLACK_TOO_LONG))
+	else:
+		_black_for = 0.0
 
 
 # Secret: clicking the little Chromia icon by the version text opens the

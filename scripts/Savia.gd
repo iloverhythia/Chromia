@@ -2614,6 +2614,14 @@ func start_vr():
 	menu_target = "res://vr/vrmenu.tscn"
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
+# VR: an error screen (flat window only) goes back to the menu (vr/VRNotice.gd)
+func vr_back_to_menu():
+	if not vr:
+		return
+	var cs = get_tree().current_scene
+	if cs != null and cs.filename.begins_with("res://scenes/errors/"):
+		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
 # The menu (menu2.tscn): at /root/Menu, or in VR on the floating screen
 # (vrmenu.tscn). path is inside it ("Main/Maps/..."); "" gives the menu.
 func menu_node(path: String = "") -> Node:
@@ -6511,7 +6519,10 @@ func do_init(_ud = null):
 	emit_signal("init_stage_reached", "Init filesystem")
 	emit_signal("init_stage_num", -1)
 	yield(get_tree(), "idle_frame")
-	if OS.has_feature("Android"): OS.request_permissions()
+	if OS.has_feature("Android") and not Engine.has_meta("permissions_asked_init"):
+		# (once a run: not again on Reload Content, see init.gd)
+		Engine.set_meta("permissions_asked_init", true)
+		OS.request_permissions()
 	var user_dir = Globals.p("user://")
 	if user_dir == "RETRY":
 		yield(get_tree().create_timer(7), "timeout")

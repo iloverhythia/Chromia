@@ -32,3 +32,6 @@ in scripts/Savia.gd and empties this list.
 - Frame Smoothing: the even note steps now go by the real refresh rate of the headset or screen, so they hold while frame times are a little uneven (before, the game worked the rate out from the frame times and gave up when they weren't steady, which is when it was needed).
 - Settings > Replays & Misc > Experimental: under Frame Smoothing, a line says how the last song went on this device (frames a second, how many frames came late, and the rate it is held at, if any).
 - Your FOV setting works again for everyone: with Hit FOV decay at 0 the game always played at 70
+- VR: switching settings profiles (also skins and Reload Content) no longer leaves the headset black at times. The loading screen behind those asked Android for the storage permission again every time, which takes the game out of focus for a moment on a Quest; it now asks once when the game starts. That screen also always brings back the menu in the headset, never the flat one on the window.
+- VR: if the menu or a song fails to load, the message shows in the headset and the game goes back to the menu by itself (it was only on the flat window: black in the headset until a restart)
+- If the menu fades to black to go somewhere and nothing follows, it comes back after a few seconds instead of staying black
