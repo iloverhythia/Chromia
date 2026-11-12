@@ -16,6 +16,8 @@ func _physics_process(delta):
 		fov = Rhythia.get("fov")
 	elif Rhythia.hit_fov_decay != 0:
 		fov += (Rhythia.get("fov") - fov) / Rhythia.hit_fov_decay
+	elif not Rhythia.hit_fov:
+		fov = clamp(float(Rhythia.get("fov")), 1.0, 179.0) # (changed while paused, a replay's own FOV)
 
 func _is_spectating() -> bool:
 	return hud != null and hud.spectating and hud.spectate_cursor != null
@@ -82,4 +84,6 @@ func _input(event):
 			rotation = Vector3(deg2rad(pitch), deg2rad(yaw), 0)
 
 func _ready():
-	pass
+	# your FOV from the start (it was only copied in by the hit FOV's
+	# instant / decay code: with decay at 0 the camera stayed at 70)
+	fov = clamp(float(Rhythia.get("fov")), 1.0, 179.0)
