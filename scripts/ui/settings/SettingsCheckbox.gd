@@ -25,6 +25,7 @@ func _ready():
 		call_deferred("_add_show_map_rp")
 		call_deferred("_add_new_settings_ui")
 		call_deferred("_add_frame_smoothing")
+		call_deferred("_add_stream_mode")
 	if target == "map_grid":
 		Rhythia.connect("map_grid_changed", self, "upd")
 	if target == "realistic_autoplay":
@@ -98,6 +99,24 @@ func _add_map_grid():
 	cb.hint_tooltip = "Shows your maps as a grid of square covers (like Sound Space Plus's grid menu) instead of a list. Works right away, no restart."
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
+
+# Experimental: "Streaming Mode" (scripts/StreamMode.gd), computers only
+func _add_stream_mode():
+	var parent = get_parent()
+	if parent == null or parent.has_node("StreamMode") or Rhythia.device("mobile") or OS.has_feature("JavaScript") or OS.has_feature("quest"):
+		return
+	var cb = duplicate()
+	cb.name = "StreamMode"
+	cb.target = "stream_mode"
+	cb.text = "Streaming Mode (Discord / OBS)"
+	cb.hint_tooltip = "For when you share your screen or record. The game draws at three quarters of the frame rate your computer manages and leaves the rest of the graphics card free, so the stream and the game stop stuttering each other. It works the limit out by itself (never above your own Max FPS) and lowers it if the stream needs more. Nothing about the game changes, it's only a frame limit. Does nothing with VSync on or in VR."
+	parent.add_child(cb)
+	var at: Node = parent.get_node_or_null("FrameSmoothingInfo")
+	if at == null:
+		at = parent.get_node_or_null("FrameSmoothing")
+	if at == null:
+		at = parent.get_node_or_null("NewSettingsUI")
+	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
 
 # Experimental: "Frame Smoothing" (NoteManager._update_draw_clock)
 func _add_frame_smoothing():

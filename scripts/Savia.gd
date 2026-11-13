@@ -2730,6 +2730,9 @@ func _log_stage(name, _extra = null):
 func _ready():
 	detect_device()
 	_trail_start()
+	var sm = load("res://scripts/StreamMode.gd").new() # (Streaming Mode: a frame limit that leaves room for Discord / OBS)
+	sm.name = "StreamMode"
+	add_child(sm)
 	# iOS: a downloaded update got this far; don't throw it away if this start is cut short
 	if PackUpdate.loaded_version != "":
 		load("res://scripts/PackGuard.gd").started(PackUpdate.loaded_version)
@@ -3378,6 +3381,11 @@ var new_settings_ui: bool = true setget _set_new_settings_ui
 # (visual only: NoteManager._update_draw_clock). On from the start on phones
 # and standalone headsets, where every frame is shown one refresh apart.
 var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android") or OS.has_feature("iOS") setget _set_frame_smoothing
+# Streaming Mode (scripts/StreamMode.gd): the game draws at three quarters of
+# what the computer manages, so Discord / OBS have room. stream_user_fps is
+# your own Max FPS while it holds the frame limit (-1: it doesn't).
+var stream_mode: bool = false
+var stream_user_fps: int = -1
 # Frame Smoothing: the rate the device is held at because it kept dropping
 # frames at a higher one (0: none; scripts/game/SteadyRate.gd)
 var fs_cap_hz: float = 0.0
@@ -4404,6 +4412,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			show_map_rp = bool(data.show_map_rp)
 		if data.has("frame_smoothing"):
 			frame_smoothing = bool(data.frame_smoothing)
+		if data.has("stream_mode"):
+			stream_mode = bool(data.stream_mode)
 		if data.has("fs_cap_hz"):
 			fs_cap_hz = clamp(float(data.fs_cap_hz), 0.0, 240.0)
 		if data.has("new_settings_ui"):
@@ -4708,7 +4718,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("vr_refresh_unlock"):
 			vr_refresh_unlock = bool(data.vr_refresh_unlock)
 		if data.has("vr_refresh"):
-			vr_refresh = clamp(float(data.vr_refresh), 0.0, 144.0)
+			vr_refresh = clamp(float(data.vr_refresh), 0.0, 480.0) # (whatever a headset offers: the list in Settings > VR is the headset's own)
 		if data.has("vr_render_scale"):
 			vr_render_scale = clamp(float(data.vr_render_scale), 0.5, 1.5)
 		if data.has("vr_glow"):
@@ -5224,6 +5234,7 @@ func _write_settings_file(saveFile: String):
 			new_settings_ui = new_settings_ui,
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
+			stream_mode = stream_mode,
 			modern_ui = modern_ui,
 			map_grid = map_grid,
 			is_staff = is_staff,
@@ -5276,7 +5287,7 @@ func _write_settings_file(saveFile: String):
 			cursor_color_type = cursor_color_type,
 			half_ghost = half_ghost,
 			note_spawn_effect = note_spawn_effect,
-			target_fps = _desk_fps if vr else (int(get_meta("no_delay_saved")[1]) if has_meta("no_delay_saved") else Engine.target_fps),
+			target_fps = _desk_fps if vr else (stream_user_fps if stream_user_fps >= 0 else (int(get_meta("no_delay_saved")[1]) if has_meta("no_delay_saved") else Engine.target_fps)),
 			disable_intro = disable_intro,
 			wave_menu = wave_menu,
 			wave_menu_colorset = wave_menu_colorset,

@@ -229,6 +229,8 @@ static func _restyle(bg: ColorRect, style: String, accent: Color, tex: Texture, 
 				m.set_shader_param("base", col)
 				m.set_shader_param("size", bg.rect_size if bg.rect_size.x > 1 else Vector2(300, 900))
 				r.material = m
+				# (rainbow, hologram and aurora move: HUD.gd redraws their panel every frame)
+				r.set_meta("hud_animated", [4, 9, 12].has(int(SHADER_MODES[style])))
 				r.anchor_right = 1.0
 				r.anchor_bottom = 1.0
 				under = r

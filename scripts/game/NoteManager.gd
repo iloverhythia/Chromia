@@ -705,7 +705,9 @@ func _update_draw_clock(delta: float):
 
 # reposition_notes, timed, to set how many notes on their way it may draw
 func _reposition_timed() -> bool:
-	var fr: int = Engine.get_frames_drawn()
+	# (once a frame; by the frames worked out, not the frames drawn: with the
+	# window minimized nothing is drawn and the draw clock stood still)
+	var fr: int = Engine.get_idle_frames()
 	if fr != _fs_frame:
 		_fs_frame = fr
 		_update_draw_clock(_frame_delta)
