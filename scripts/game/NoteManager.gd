@@ -813,6 +813,12 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 	call_deferred("reposition_notes", true)
 
 func _on_networked_skip(target_ms: float):
+	# (the host's skip is for those still playing. Watching someone, the time
+	# comes from them (HUD.gd): moved here too, the notes between where you
+	# see them and the skip were counted as gone and never showed, the music
+	# jumped, and a skip went in your own replay after you'd failed.)
+	if not active or (Grid != null and Grid.spectating):
+		return
 	prev_ms = ms
 	if Rhythia.record_replays:
 		Rhythia.replay.store_sig(rms, Globals.RS_SKIP)
@@ -1336,6 +1342,12 @@ func _process(delta: float):
 						ms = next_ms - 1000 - (1000 * speed_multi)
 						emit_signal("ms_change", ms)
 						do_note_queue()
+						# the music goes there too, as with a lobby skip (left to the
+						# music sync, it played on from before the skip for a moment,
+						# and for good with Disable Desync on)
+						if (ms + Rhythia.music_offset) >= Rhythia.start_offset:
+							_n_music.play((ms + Rhythia.music_offset) / 1000)
+							music_started = true
 				else:
 					var in_lobby = lobby_manager != null and lobby_manager.lobby_active
 					if in_lobby:

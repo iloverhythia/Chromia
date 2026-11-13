@@ -700,6 +700,7 @@ var _spec_starve_floor: float = 0.0 # (after running out: the delay stays at lea
 var _spec_prev_play: float = 0.0
 var _spec_seq: int = 0            # (each update's number: its numbers go on the HUD once)
 var spec_rate: float = 1.0        # playback speed against real time (NoteManager: the music's)
+var _spec_last_at: float = 0.0    # (when their last update came, your clock)
 var _spec_reloading: bool = false
 
 func _get_lobby_manager():
@@ -901,15 +902,26 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 	_set_spec_paused(paused_now)
 	if paused_now:
 		return
+	var now: float = OS.get_ticks_usec() / 1000000.0
 	var last_ms: float = -INF
+	var keep_from: float = -INF # (positions before this are left out)
 	if not _spec_samples.empty():
 		last_ms = _spec_samples[_spec_samples.size() - 1].ms
+		# far further on than the time since their last update explains: they
+		# skipped. Started over like after a pause; kept, their old times made
+		# it look like every update came 20 seconds late, so the playback delay
+		# went to its most (2 s) and came down only slowly.
+		var expected: float = (now - _spec_last_at) * 1000.0 * _spec_speed()
 		if chart_ms < last_ms - 1000.0:
 			_spec_reset_clock() # their map time went back: start over
 			last_ms = -INF
+		elif chart_ms - last_ms - expected > SPEC_JUMP_MS * _spec_speed():
+			_spec_reset_clock()
+			last_ms = -INF
+			keep_from = chart_ms - 1000.0 * _spec_speed() # (their positions from before the skip go too)
 		elif chart_ms <= last_ms:
 			return # late or repeated
-	var now: float = OS.get_ticks_usec() / 1000000.0
+	_spec_last_at = now
 	var vr_pose = null
 	var dx := 0.0
 	var dy := 0.0
@@ -935,7 +947,7 @@ func _on_spectate_live_state(peer_id, x, y, combo, combo_level, score, hits, mis
 		var i := 0
 		while i < pts.size():
 			var pm: float = float(pts[i])
-			if pm > last_ms and pm < chart_ms:
+			if pm > last_ms and pm >= keep_from and pm < chart_ms:
 				var s: Dictionary = base.duplicate()
 				s["ms"] = pm
 				s["x"] = float(pts[i + 1])
