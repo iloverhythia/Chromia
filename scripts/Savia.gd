@@ -3358,6 +3358,8 @@ signal modern_ui_changed
 # so at sign-in (LobbyManager); remembered for a start before it answers
 var is_staff: bool = false setget _set_is_staff
 func _set_is_staff(v: bool):
+	if not _settings_read:
+		_staff_early = v # (settings aren't read yet: taken up right after, do_init)
 	if v == is_staff:
 		return
 	is_staff = v
@@ -4166,12 +4168,34 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		return -1
 	var file: File = File.new()
 
+	if not file.file_exists(saveFile) and saveFile.ends_with(".json"):
+		# (closed in the instant a save was swapping the new file in: the new
+		# one, complete, is still beside it; else the copy from the run before)
+		for ext in [".tmp", ".bak"]:
+			if not file.file_exists(saveFile) and file.file_exists(saveFile + ext) and file.open(saveFile + ext, File.READ) == OK:
+				var side = JSON.parse(file.get_as_text())
+				file.close()
+				if not side.error and typeof(side.result) == TYPE_DICTIONARY and not side.result.empty():
+					Directory.new().copy(saveFile + ext, saveFile)
+					trail("settings file missing: %s put in its place" % (saveFile + ext).get_file())
+
 	if file.file_exists(saveFile):
 		var err = file.open(saveFile, File.READ)
 		if err != OK:
 			print("file.open failed"); return -2
 		var decode = JSON.parse(file.get_as_text())
 		file.close()
+		if decode.error or typeof(decode.result) != TYPE_DICTIONARY or decode.result.empty():
+			# empty or damaged (the game was closed while writing it, in older
+			# versions): the copy kept from the run before, if it's good
+			var bf := File.new()
+			if bf.file_exists(saveFile + ".bak") and bf.open(saveFile + ".bak", File.READ) == OK:
+				var bdec = JSON.parse(bf.get_as_text())
+				bf.close()
+				if not bdec.error and typeof(bdec.result) == TYPE_DICTIONARY and not bdec.result.empty():
+					decode = bdec
+					trail("settings file unreadable: the copy from the run before was used (%s)" % (saveFile + ".bak").get_file())
+					Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Your settings file was damaged, so the copy kept from last time was used. A few recent changes may be missing.", "Settings")
 
 		if decode.error:
 			print("!!! Error on line " + str(decode.error_line) + ": " + decode.error_string)
@@ -4935,7 +4959,6 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			else:
 
 				alert = "The behavior of the Smart Trail setting has been significantly changed, so it has been turned off. See its description in Settings for the new behavior."
-				save_settings()
 		if sv >= 31:
 			var eff = false
 			if eff:
@@ -4996,7 +5019,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if sv >= 50:
 			last_search_incl_online = bool(file.get_8())
 		file.close()
-		save_settings()
+		save_settings(Globals.p("user://settings.json"), true) # (the old format read in full: written in the new one)
 	return 0
 
 func ser_float(n: float):
@@ -5037,7 +5060,9 @@ func get_active_profile_path() -> String:
 	if name == "":
 		return ""
 	var path: String = Globals.p(PROFILES_DIR).plus_file(name)
-	if not f.file_exists(path):
+	# (a profile whose file went missing while a save was swapping it in is
+	# still the active one: load_saved_settings puts the copy beside it back)
+	if not f.file_exists(path) and not f.file_exists(path + ".tmp") and not f.file_exists(path + ".bak"):
 		return ""
 	return path
 
@@ -5089,7 +5114,19 @@ func _load_update_channel():
 	if bool(d.get("tried_test_builds", false)):
 		tried_test_builds = true
 
-func save_settings(saveFile: String = Globals.p("user://settings.json")):
+# Until the settings have been read at the start, the game holds only its
+# defaults: a save then would write those over your file (and over the active
+# profile). It happened when something saved early, e.g. the server's answer
+# at sign-in (staff or not, _set_is_staff) arriving before the "Read user
+# settings" step, which takes longer after a channel switch or an update:
+# everything was back to default at that start. Such a save is left out now.
+var _settings_read: bool = false
+var _staff_early = null # (what the server said before the settings were read)
+
+func save_settings(saveFile: String = Globals.p("user://settings.json"), even_early: bool = false):
+	if not _settings_read and not even_early:
+		trail("settings not saved: they haven't been read yet")
+		return "OK"
 	save_update_channel()
 	# spectating with someone else's settings: yours are what gets written
 	var spec = load("res://scripts/SpectateSettings.gd")
@@ -5126,6 +5163,26 @@ func _kept_settings(saveFile: String) -> Dictionary:
 	f.close()
 	return parsed.result if parsed.error == OK and typeof(parsed.result) == TYPE_DICTIONARY else {}
 
+# The settings as they were when this run of the game first saved over them
+# (<file>.bak): what load_saved_settings falls back on when the file itself
+# is empty or damaged, and something to go back to by hand.
+var _settings_backed_up := {}
+func _settings_backup(final_path: String):
+	if _settings_backed_up.has(final_path):
+		return
+	_settings_backed_up[final_path] = true
+	var f := File.new()
+	if not f.file_exists(final_path) or f.open(final_path, File.READ) != OK:
+		return
+	var text := f.get_as_text()
+	f.close()
+	var parsed := JSON.parse(text)
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY or parsed.result.empty():
+		return # (not a good copy: the backup there is keeps the last one that was)
+	if f.open(final_path + ".bak", File.WRITE) == OK:
+		f.store_string(text)
+		f.close()
+
 func _write_settings_file(saveFile: String):
 	var dir = Directory.new()
 	var folder_path = "user://"
@@ -5133,8 +5190,17 @@ func _write_settings_file(saveFile: String):
 		dir.make_dir_recursive(folder_path)
 		print("Created profiles directory")
 
+	# Written next to the file and put in its place when it's complete: opening
+	# the file itself empties it first, and a game closed or killed at that
+	# moment (a restart for an update does both at once: the new copy starts
+	# while the old one is still saving) left an empty settings file.
+	var final_path: String = Globals.p(saveFile)
+	var tmp_path: String = final_path + ".tmp"
 	var file: File = File.new()
-	var err: int = file.open(Globals.p(saveFile), File.WRITE)
+	var err: int = file.open(tmp_path, File.WRITE)
+	if err != OK:
+		tmp_path = final_path # (can't write beside it: as before)
+		err = file.open(final_path, File.WRITE)
 	if err == OK:
 		var data = {
 			hlm_converted = hlm_converted,
@@ -5426,6 +5492,14 @@ func _write_settings_file(saveFile: String):
 		file.store_string(JSON.print(data, "\t"))
 
 		file.close()
+		if tmp_path != final_path:
+			_settings_backup(final_path)
+			if dir.rename(tmp_path, final_path) != OK:
+				# (couldn't be swapped in: written straight into it)
+				dir.remove(tmp_path)
+				if file.open(final_path, File.WRITE) == OK:
+					file.store_string(JSON.print(data, "\t"))
+					file.close()
 		_keep_settings(saveFile, data)
 		return "OK"
 	else:
@@ -6922,18 +6996,24 @@ func do_init(_ud = null):
 	emit_signal("init_stage_reached", "Read user settings")
 	yield(get_tree(), "idle_frame")
 	var result = load_saved_settings(get_startup_settings_path())
-	call_deferred("apply_mobile_tuning")
-	load("res://scripts/game/SoundSpaceMode.gd").recover()
-	load("res://scripts/SpectateSettings.gd").recover() # closed while watching with someone's settings
 	if typeof(result) != TYPE_INT:
 		# load_saved_settings stopped on an error part-way (null): keep the
 		# settings read so far instead of getting stuck on this screen
 		result = 0
 	if result != 0:
 		errornum = result
-
+		# (nothing may be saved over a file that couldn't be read: _settings_read stays off)
 		get_tree().change_scene("res://scenes/errors/settings.tscn")
 		return
+	_settings_read = true
+	if _staff_early != null:
+		# (the server answered before the settings were read: its word counts)
+		var st: bool = bool(_staff_early)
+		_staff_early = null
+		_set_is_staff(st)
+	call_deferred("apply_mobile_tuning")
+	load("res://scripts/game/SoundSpaceMode.gd").recover()
+	load("res://scripts/SpectateSettings.gd").recover() # closed while watching with someone's settings
 
 
 	if not hlm_converted:
