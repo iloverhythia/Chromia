@@ -24,7 +24,13 @@ func _pressed():
 	var latest = yield(Online, "latest_version")
 	var current: String = ProjectSettings.get_setting("application/config/version")
 	if String(latest) == current:
-		Globals.notify(Globals.NOTIFY_SUCCEED, "You're on the latest version (%s)." % current, "No Updates")
+		if Online.pack_stuck_reason != "":
+			# (the other channel's build can't be reached from this installed app)
+			Globals.confirm_prompt.open(Online.pack_stuck_reason, "Can't switch by updating", [{text = "OK", wait = 0}])
+			yield(Globals.confirm_prompt, "option_selected")
+			Globals.confirm_prompt.close()
+		else:
+			Globals.notify(Globals.NOTIFY_SUCCEED, "You're on the latest version (%s)." % current, "No Updates")
 		_reset()
 		return
 

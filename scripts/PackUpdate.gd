@@ -17,8 +17,18 @@ const PACK := DIR + "/chromia.pck"
 const VERSION_FILE := DIR + "/version.txt"
 const BOOT_FILE := DIR + "/booting.txt"
 const BAD_FILE := DIR + "/bad_version.txt" # an update that failed to start; not offered again
+# A pack older than the installed app is normally thrown away (the app was
+# reinstalled and is newer). Switching the update channel can want exactly
+# that, though: the stable build on a phone whose installed app is a newer
+# test build. Online.gd then writes the installed app's version here, and the
+# pack is kept for as long as that same app is installed.
+const CHOSEN_FILE := DIR + "/chosen.txt"
+const APP_FILE := DIR + "/app_version.txt" # the installed app's version (Online.gd, for apps without app_version)
+# (Online.gd: this installed app keeps a chosen older pack)
+const KEEPS_CHOSEN_PACKS := true
 
 var loaded_version: String = "" # the pack's version when one was loaded
+var app_version: String = "" # the installed app's own version (the game's version setting becomes the pack's)
 var discarded_version: String = "" # an update that failed to start and was removed this start
 
 static func supported() -> bool:
@@ -31,6 +41,7 @@ func _init():
 	load("res://scripts/DataFolder.gd").migrate()
 	if not supported():
 		return
+	app_version = String(ProjectSettings.get_setting("application/config/version"))
 	var f := File.new()
 	var d := Directory.new()
 	if f.file_exists(BOOT_FILE):
@@ -51,8 +62,11 @@ func _init():
 	var tag := f.get_as_text().strip_edges()
 	f.close()
 	var installed := String(ProjectSettings.get_setting("application/config/version"))
-	if pack_outdated(tag, installed):
-		# the installed app is as new or newer (it was reinstalled)
+	var chosen := ""
+	if f.file_exists(CHOSEN_FILE) and f.open(CHOSEN_FILE, File.READ) == OK:
+		chosen = f.get_as_text().strip_edges()
+		f.close()
+	if not keeps_pack(tag, installed, chosen):
 		_remove_all()
 		return
 	if f.open(BOOT_FILE, File.WRITE) == OK:
@@ -74,12 +88,21 @@ func _remove_all():
 	d.remove(BOOT_FILE)
 	d.remove(PACK)
 	d.remove(VERSION_FILE)
+	d.remove(CHOSEN_FILE)
 
 const MONTHS := ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 
 # (Online.gd: this installed app keeps a downloaded test build. Older apps
 # don't have this and drop one at the next start.)
 const KEEPS_TEST_PACKS := true
+
+# Is the downloaded pack `tag` used over the installed app? Not when the app
+# is as new or newer (it was reinstalled), unless the pack was picked on
+# purpose over this very app (`chosen`: the app's version when it was picked).
+static func keeps_pack(tag: String, installed: String, chosen: String) -> bool:
+	if not pack_outdated(tag, installed):
+		return true
+	return tag != installed and chosen != "" and chosen == installed
 
 static func is_test_version(v: String) -> bool:
 	return v.to_lower().begins_with("test-")
