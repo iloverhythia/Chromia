@@ -108,6 +108,71 @@ $GODOT_HEAD_INCLUDE
 	};
 })();
 </script>
+<script>
+// Keeps the game going while its tab isn't the one in front. A browser stops
+// requestAnimationFrame in a hidden tab, and the game (and its upgrade tree,
+// which earns while it's open) stood still until you came back. While the
+// page is hidden, the frames are driven by a worker's clock instead (a
+// worker's timers aren't slowed down the way a hidden page's are), about ten
+// a second. In front, everything is as it was.
+(function () {
+	var realRaf = window.requestAnimationFrame.bind(window);
+	var realCancel = window.cancelAnimationFrame.bind(window);
+	var waiting = new Map(); // our id -> [callback, the browser's id]
+	var next = 1;
+	function run(id, t) {
+		var w = waiting.get(id);
+		if (!w) return;
+		waiting.delete(id);
+		w[0](t);
+	}
+	window.requestAnimationFrame = function (cb) {
+		var id = next++;
+		waiting.set(id, [cb, realRaf(function (t) { run(id, t); })]);
+		return id;
+	};
+	window.cancelAnimationFrame = function (id) {
+		var w = waiting.get(id);
+		if (w) { realCancel(w[1]); waiting.delete(id); }
+	};
+	function tick() {
+		if (!document.hidden || !waiting.size) return;
+		var ids = Array.from(waiting.keys()), now = performance.now();
+		for (var i = 0; i < ids.length; i++) {
+			var w = waiting.get(ids[i]);
+			if (w) realCancel(w[1]);
+			try { run(ids[i], now); } catch (e) { console.error(e); }
+		}
+	}
+	// back in front: the browser's own frames again, asked for afresh
+	document.addEventListener('visibilitychange', function () {
+		if (document.hidden) return;
+		waiting.forEach(function (w, id) {
+			realCancel(w[1]);
+			w[1] = realRaf(function (t) { run(id, t); });
+		});
+	});
+	var slow = null;
+	function fallBack() { if (!slow) slow = setInterval(tick, 250); } // (a hidden page's own timers: once a second or so, still better than never)
+	function start(make) {
+		try {
+			var w = make();
+			w.onmessage = tick;
+			return w;
+		} catch (e) { return null; }
+	}
+	var worker = start(function () { return new Worker(URL.createObjectURL(new Blob(['setInterval(function(){postMessage(0)},100)'], { type: 'text/javascript' }))); });
+	if (worker) {
+		worker.onerror = function () {
+			var b = start(function () { return new Worker('bgtick.js'); }); // (hosts that don't allow the one above: a file next to the page)
+			if (b) b.onerror = fallBack; else fallBack();
+		};
+	} else {
+		fallBack();
+	}
+	window.CHROMIA_BACKGROUND = true;
+})();
+</script>
 <script src="$GODOT_URL"></script>
 <script>
 	const GODOT_CONFIG = $GODOT_CONFIG;

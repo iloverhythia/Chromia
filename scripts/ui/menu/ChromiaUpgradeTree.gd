@@ -13,16 +13,25 @@ signal closed
 # of the layers below. Each layer also has its own perk, unlocked for good the
 # first time you reach it (the higher the layer, the stronger it is).
 #
-# Features: 110,000 of them, each found once and kept for good (prestige
+# Features: 165,000 of them, each found once and kept for good (prestige
 # doesn't take them). "New Feature" upgrades in the tree find one each, and a
-# reset of layer k finds k. Every feature is one of 20 effects (coins, clicks,
-# prices, layer gains, auto-clicks, critical clicks, golden upgrades, combos,
-# offline earnings ...) that grows with one of 25 things (upgrades bought,
+# reset of layer k finds k. Every feature is one of 30 effects (coins, clicks,
+# prices, layer gains, auto-clicks, critical clicks, golden upgrades and the
+# ten rarer kinds after them, combos, offline earnings ...) that grows with
+# one of 25 things (upgrades bought,
 # clicks, digits of your coins, features found ...), at one of 20 strengths
 # (I to XX), in 11 marks (the first 10,000 are Mark I; Mark II to XI are the
 # same 10,000 again, each mark a quarter stronger). The ones found are added
-# up per effect and source (_coef), so 110,000 of them cost no more to work
-# out than a few.
+# up per effect and source (_coef), so 165,000 of them cost no more to work
+# out than a few. (The first 110,000 are the 20 effects there were at first;
+# the 55,000 after them are the ten "... upgrade chance" effects of the rare
+# upgrades, numbered on from there so every save keeps what it had found.)
+#
+# Rare upgrades (RARE): a coin or click upgrade can come up Golden (5 times
+# stronger), or one of ten rarer kinds after it, Titanium to Chromia, each far
+# stronger than the one before and with its own button colour. None of them
+# appears until a feature of its "... upgrade chance" effect is found, as
+# with Golden ones; the more of those found, the more often it comes up.
 #
 # Endless numbers: every amount (coins, prices, rates, points) is kept as its
 # number of digits, log10 of it, so it can grow forever. Plain numbers stop
@@ -68,8 +77,14 @@ const PERKS = ["rate", "click", "cheap", "start", "auto", "boost_prev", "branch"
 const FIRST_REQ_L := 6.0 # 1e6 chrome coins in a run for the first Polish point
 
 # --- Features ---------------------------------------------------------------
-const FEAT_COUNT = 110000
+const FEAT_COUNT = 165000
 const FEAT_MARK = 10000 # features in one mark (a save from before has mark I only)
+# the features of the first 20 effects, then those of the 10 added after
+# (250 of them a grade, 5,000 a mark)
+const FEAT_OLD = 110000
+const FT_OLD = 20
+const FT_NEW = 10
+const FEAT_NEW_MARK = 5000
 const FEAT_NODE_CHANCE = 0.08
 # the 20 effects: [name, strength per unit, how it shows]
 #   x: a multiplier (log10)   div: a divider (log10)   pct: a share   num: a count
@@ -94,9 +109,38 @@ const FT = [
 	["Lucky prestige chance", 0.002, "pct"],
 	["Auto-buy speed", 0.02, "pct"],
 	["Extra branch chance", 0.002, "pct"],
+	# the rare upgrades after Golden (RARE, in the same order)
+	["Titanium upgrade chance", 0.0018, "pct"],
+	["Diamond upgrade chance", 0.0016, "pct"],
+	["Ruby upgrade chance", 0.0014, "pct"],
+	["Emerald upgrade chance", 0.0012, "pct"],
+	["Amethyst upgrade chance", 0.001, "pct"],
+	["Obsidian upgrade chance", 0.0009, "pct"],
+	["Rainbow upgrade chance", 0.0008, "pct"],
+	["Galactic upgrade chance", 0.0007, "pct"],
+	["Mythic upgrade chance", 0.0006, "pct"],
+	["Chromia upgrade chance", 0.0005, "pct"],
+]
+# The rare upgrades after Golden: [id, name, how many times stronger (as
+# digits, log10: 25x, 100x, 500x, 2,500x, 10,000x, 100,000x, a million, a
+# hundred million, ten billion, a million billion), colour]. Effect
+# FT_OLD + k is the chance of kind k. (None is named like one of ADJ: a
+# "Platinum Rhythm" is an ordinary upgrade.)
+const RARE = [
+	["titanium", "Titanium", 1.39794, Color(0.86, 0.9, 0.96)],
+	["diamond", "Diamond", 2.0, Color(0.5, 0.9, 1.0)],
+	["ruby", "Ruby", 2.69897, Color(1.0, 0.38, 0.45)],
+	["emerald", "Emerald", 3.39794, Color(0.38, 0.92, 0.56)],
+	["amethyst", "Amethyst", 4.0, Color(0.74, 0.52, 1.0)],
+	["obsidian", "Obsidian", 5.0, Color(0.42, 0.45, 0.55)],
+	["rainbow", "Rainbow", 6.0, Color(1.0, 0.62, 0.9)],
+	["galactic", "Galactic", 8.0, Color(0.42, 0.56, 1.0)],
+	["mythic", "Mythic", 10.0, Color(1.0, 0.58, 0.28)],
+	["chromia", "Chromia", 15.0, Color(1.0, 1.0, 1.0)],
 ]
 # the most each effect can reach (shares), or 0 for no limit
-const FT_CAP = [0, 0, 0, 0, 0, 30.0, 0, 0, 0, 0, 0, 100.0, 0.5, 0, 0.5, 1.0, 0, 0.5, 0, 0.6]
+const FT_CAP = [0, 0, 0, 0, 0, 30.0, 0, 0, 0, 0, 0, 100.0, 0.5, 0, 0.5, 1.0, 0, 0.5, 0, 0.6,
+	0.4, 0.34, 0.28, 0.24, 0.2, 0.16, 0.13, 0.1, 0.08, 0.05]
 # the 25 things a feature grows with
 const FS = [
 	"", "upgrades bought this run", "the deepest tier you've bought", "features found",
@@ -104,10 +148,10 @@ const FS = [
 	"prestige layers reached", "prestige resets done", "digits of Polish points",
 	"digits of your highest layer's points", "clicks made", "clicks this run", "minutes in the tree",
 	"coin upgrades owned", "click upgrades owned", "multiplier upgrades owned", "discount upgrades owned",
-	"golden upgrades owned", "upgrades bought ever", "auto-buys done", "critical clicks landed",
+	"golden and rarer upgrades owned", "upgrades bought ever", "auto-buys done", "critical clicks landed",
 	"", "features of the same effect found", "your best combo",
 ]
-const FT_N = 20
+const FT_N = 30
 const FS_N = 25
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X",
 	"XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"]
@@ -174,6 +218,25 @@ var _ac_acc := 0.0
 var _crit_chance := 0.0
 var _crit_l := 1.0
 var _gold_chance := 0.0
+var _rare_chance := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] # one for each of RARE
+var _rare_sb := {} # rare kind -> [button style, hovered, bought]
+
+# which of RARE an upgrade is (-1: none)
+static func rare_index(n) -> int:
+	var id = n.get("rare", "")
+	if typeof(id) != TYPE_STRING or id == "":
+		return -1
+	for k in range(RARE.size()):
+		if RARE[k][0] == id:
+			return k
+	return -1
+
+# "Golden " / "Diamond " ... in front of a special upgrade's name
+static func special_prefix(n) -> String:
+	var k: int = rare_index(n)
+	if k >= 0:
+		return String(RARE[k][1]) + " "
+	return "Golden " if n.get("gold", false) else ""
 var _offline := 0.0
 var _combo_l := 0.0
 var _lucky := 0.0
@@ -312,6 +375,13 @@ func _ready():
 	_sb_gold = _sb(Color(0.33, 0.26, 0.12), GOLD)
 	_sb_gold_hover = _sb(Color(0.42, 0.33, 0.15), Color(1, 0.9, 0.55))
 	_sb_gold_bought = _sb(GOLD, GOLD, 0)
+	for k in range(RARE.size()):
+		var rc: Color = RARE[k][3]
+		_rare_sb[RARE[k][0]] = [
+			_sb(Color(rc.r * 0.3 + 0.03, rc.g * 0.3 + 0.03, rc.b * 0.3 + 0.03), rc, 3),
+			_sb(Color(rc.r * 0.4 + 0.04, rc.g * 0.4 + 0.04, rc.b * 0.4 + 0.04), rc.linear_interpolate(Color(1, 1, 1), 0.4), 3),
+			_sb(rc, rc, 0),
+		]
 	_sb_feat = _sb(Color(0.36, 0.17, 0.36), PINK, 3)
 	_sb_feat_hover = _sb(Color(0.46, 0.22, 0.46), Color(1, 0.88, 0.98), 3)
 
@@ -464,7 +534,7 @@ func _ready():
 	_info_label.margin_right = -262 # (Import / Export on the right)
 	_info_label.margin_top = -90
 	_info_label.margin_bottom = -16
-	_info_label.text = "Click the Chromia logo for chrome coins. Click an upgrade to buy it. Drag to move, scroll (or - / +) to zoom, as far out as you like. New Feature upgrades find one of 110,000 features, kept for good."
+	_info_label.text = "Click the Chromia logo for chrome coins. Click an upgrade to buy it. Drag to move, scroll (or - / +) to zoom, as far out as you like. New Feature upgrades find one of 165,000 features, kept for good. Some features unlock rare upgrades: Golden, then Titanium, Diamond and rarer still."
 	_info_label.valign = Label.VALIGN_BOTTOM
 	_info_label.autowrap = true
 	_info_label.mouse_filter = MOUSE_FILTER_IGNORE
@@ -554,10 +624,23 @@ func _new_node(parent_id: int, pos: Vector2) -> Dictionary:
 			n.name = "New Feature"
 			n.erase("lv")
 			n.erase("value")
-		elif (n.kind == "rate" or n.kind == "pet") and r.randf() < _gold_chance:
-			n.gold = true
-			n.lv += lg(5.0)
-			n.name = "Golden " + n.name
+		elif n.kind == "rate" or n.kind == "pet":
+			# (Golden's roll first, as it always was, so a tree grows the same
+			# golden upgrades as before; then one roll for each rarer kind, and
+			# the rarest that comes up is what it is)
+			var golden: bool = r.randf() < _gold_chance
+			var rare := -1
+			for k in range(RARE.size()):
+				if r.randf() < float(_rare_chance[k]):
+					rare = k
+			if rare >= 0:
+				n.rare = RARE[rare][0]
+				n.lv += float(RARE[rare][2])
+				n.name = "%s %s" % [RARE[rare][1], n.name]
+			elif golden:
+				n.gold = true
+				n.lv += lg(5.0)
+				n.name = "Golden " + n.name
 	nodes.append(n)
 	_index_node(n)
 	if parent_id >= 0:
@@ -633,16 +716,24 @@ func _new_tree():
 # feature i: effect t, source s, grade g (1-20)
 
 static func feat_effect(i: int) -> int:
-	return (i % 500) % FT_N
+	if i >= FEAT_OLD:
+		return FT_OLD + ((i - FEAT_OLD) % 250) % FT_NEW
+	return (i % 500) % FT_OLD
 
 static func feat_source(i: int) -> int:
-	return (i % 500) / FT_N
+	if i >= FEAT_OLD:
+		return ((i - FEAT_OLD) % 250) / FT_NEW
+	return (i % 500) / FT_OLD
 
 static func feat_grade(i: int) -> int:
+	if i >= FEAT_OLD:
+		return ((i - FEAT_OLD) % FEAT_NEW_MARK) / 250 + 1
 	return (i % FEAT_MARK) / 500 + 1
 
 # 0 = Mark I (the first 10,000), up to 10 = Mark XI
 static func feat_mark(i: int) -> int:
+	if i >= FEAT_OLD:
+		return (i - FEAT_OLD) / FEAT_NEW_MARK
 	return i / FEAT_MARK
 
 # how strong feature i is (its grade, and a quarter more per mark)
@@ -654,6 +745,8 @@ static func _feat_power(g: int) -> float:
 
 static func feat_name(i: int) -> String:
 	var c := i % 500
+	if i >= FEAT_OLD:
+		c = 500 + (i - FEAT_OLD) % 250
 	var n := "%s %s %s" % [ADJ[c % 24], NOUN[(c / 24 + c % 24) % 24], ROMAN[feat_grade(i) - 1]]
 	return n if feat_mark(i) == 0 else "%s, Mark %s" % [n, ROMAN[feat_mark(i)]]
 
@@ -1047,7 +1140,7 @@ func _recalc():
 		_bought_count += 1
 		max_depth = max(max_depth, int(n.depth))
 		owned[n.kind] = owned.get(n.kind, 0) + 1
-		if n.get("gold", false):
+		if n.get("gold", false) or n.has("rare"):
 			owned["gold"] = owned.get("gold", 0) + 1
 		match n.kind:
 			"rate": rate = ladd(rate, float(n.lv))
@@ -1133,6 +1226,8 @@ func _recalc():
 	_crit_chance = _fv[12]
 	_crit_l = 1.0 + _fv[13]
 	_gold_chance = _fv[14]
+	for k in range(RARE.size()):
+		_rare_chance[k] = _fv[FT_OLD + k]
 	_offline = _fv[15]
 	_combo_l = _fv[16]
 	_lucky = _fv[17]
@@ -1311,7 +1406,7 @@ func _describe(n) -> String:
 		"feat":
 			if n.has("feat_id"):
 				return feat_text(int(n.feat_id))
-			return "Finds one of the 110,000 features"
+			return "Finds one of the 165,000 features"
 	return ""
 
 # Every upgrade that's shown (bought, or ready to buy) is filed by area
@@ -1458,9 +1553,12 @@ func _style_buttons(force: bool = false):
 		nm.text = n.name
 		var hover: StyleBoxFlat
 		var gold: bool = n.get("gold", false)
+		var rare: int = rare_index(n)
 		var feat: bool = n.kind == "feat"
 		if n.bought:
 			sb = _sb_gold_bought if gold else _sb_bought
+			if rare >= 0:
+				sb = _rare_sb[RARE[rare][0]][2]
 			hover = _sb_bought_hover
 			cost.text = _feat_short(int(n.feat_id)) if feat and n.has("feat_id") else _describe(n)
 			nm.add_color_override("font_color", DARK_TEXT)
@@ -1470,6 +1568,9 @@ func _style_buttons(force: bool = false):
 				if feat:
 					sb = _sb_feat
 					hover = _sb_feat_hover
+				elif rare >= 0:
+					sb = _rare_sb[RARE[rare][0]][0]
+					hover = _rare_sb[RARE[rare][0]][1]
 				elif gold:
 					sb = _sb_gold
 					hover = _sb_gold_hover
@@ -1483,6 +1584,8 @@ func _style_buttons(force: bool = false):
 			var accent := Color(1, 1, 1)
 			if feat:
 				accent = PINK
+			elif rare >= 0:
+				accent = RARE[rare][3]
 			elif gold:
 				accent = GOLD
 			nm.add_color_override("font_color", accent if ok else Color(accent.r, accent.g, accent.b, 0.45))
@@ -1537,11 +1640,16 @@ func _draw_links():
 	for id in _ids_on_screen():
 		var n = nodes[id]
 		var c: Color
+		var rk: int = rare_index(n)
 		if n.bought:
 			c = GOLD if n.get("gold", false) else LILAC
+			if rk >= 0:
+				c = RARE[rk][3]
 		elif _affordable(n):
 			if n.kind == "feat":
 				c = PINK
+			elif rk >= 0:
+				c = RARE[rk][3]
 			elif n.get("gold", false):
 				c = GOLD
 			else:
@@ -1809,7 +1917,7 @@ func _on_prestige_pressed(k: int):
 
 # --- The features panel ------------------------------------------------------------
 # What the features found add up to per effect, the latest finds, and all
-# 110,000 page by page (the ones not found yet as ???).
+# 165,000 page by page (the ones not found yet as ???).
 
 const FEAT_PAGE = 40
 var _feat_btn: Button
@@ -1824,7 +1932,7 @@ var _feat_page := 0
 var _feat_t := 0.0
 
 func _build_feature_panel():
-	var p := _make_panel("Features", "110,000 features to find, kept for good (prestige doesn't take them). New Feature upgrades (pink) in the tree find one each, and a reset of prestige layer N finds N. Each one is one of 20 effects, growing with one of 25 things, at a strength from I to XX, in 11 marks (each mark a quarter stronger).")
+	var p := _make_panel("Features", "165,000 features to find, kept for good (prestige doesn't take them). New Feature upgrades (pink) in the tree find one each, and a reset of prestige layer N finds N. Each one is one of 30 effects (ten of them are the chances of the rare upgrades after Golden: Titanium, Diamond, Ruby, Emerald, Amethyst, Obsidian, Rainbow, Galactic, Mythic and Chromia, each far stronger than the last and only seen once you've found a feature for it), growing with one of 25 things, at a strength from I to XX, in 11 marks (each mark a quarter stronger).")
 	_feat_panel = p[0]
 	var v: VBoxContainer = p[1]
 	_feat_title = p[2]
@@ -2044,7 +2152,7 @@ func _save():
 # The save as text, in an order and layout a person can read (JSON.print
 # sorts every key and puts it all on one line: 1.7 MB of it). The same keys
 # as always, so any version reads it.
-const NODE_KEY_ORDER = ["id", "parent", "depth", "kind", "name", "bought", "gold", "feat_id", "lv", "lc", "value", "x", "y", "children"]
+const NODE_KEY_ORDER = ["id", "parent", "depth", "kind", "name", "bought", "gold", "rare", "feat_id", "lv", "lc", "value", "x", "y", "children"]
 func _save_text() -> String:
 	var head := PoolStringArray()
 	head.append("\"v\": 3")
@@ -2151,7 +2259,7 @@ func _load():
 					else:
 						n.name = "New Feature"
 				else:
-					n.name = ("Golden " if n.get("gold", false) else "") + _node_name(_rng_for(n.id))
+					n.name = special_prefix(n) + _node_name(_rng_for(n.id))
 				if not n.has("lc"):
 					# a save from before: plain numbers to digits
 					n.lc = lg(float(n.get("cost", 10.0)))

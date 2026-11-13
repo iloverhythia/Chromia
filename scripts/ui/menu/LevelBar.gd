@@ -7,12 +7,7 @@ const PlayerLevel = preload("res://scripts/PlayerLevel.gd")
 const LILAC = Color(0.764706, 0.65098, 0.8)
 const ACCENT = Color(1, 0.756863, 0.960784)
 const TEXT = Color(0.898039, 0.94902, 1, 1)
-# badge color per prestige (0 = gray, then up the rainbow)
-const PRESTIGE_COLORS = [
-	Color(0.45, 0.42, 0.5), Color(0.55, 0.85, 1.0), Color(0.5, 1.0, 0.65), Color(1.0, 0.92, 0.45),
-	Color(1.0, 0.65, 0.35), Color(1.0, 0.45, 0.45), Color(1.0, 0.5, 0.85), Color(0.75, 0.55, 1.0),
-	Color(0.5, 0.6, 1.0), Color(0.6, 1.0, 1.0), Color(1.0, 1.0, 1.0),
-]
+const PrestigeBadge = preload("res://scripts/ui/PrestigeBadge.gd") # (a badge of its own for every prestige)
 
 var store
 var badge: Control
@@ -39,7 +34,7 @@ func _ready():
 	add_child(h)
 
 	badge = Control.new()
-	badge.rect_min_size = Vector2(30, 30)
+	badge.rect_min_size = Vector2(36, 36)
 	badge.connect("draw", self, "_draw_badge")
 	h.add_child(badge)
 
@@ -89,14 +84,18 @@ func use_style(S):
 func _refresh():
 	if not is_instance_valid(prestige_label):
 		return
-	prestige_label.text = "Prestige: %d" % store.prestige
-	level_label.text = str(store.level)
+	prestige_label.text = "Prestige: %s" % Globals.comma_sep(store.prestige)
+	level_label.text = Globals.comma_sep(store.level) if store.level >= 1000 else str(store.level)
 	prestige_btn.visible = store.can_prestige()
-	if store.level >= PlayerLevel.MAX_LEVEL:
-		hint_tooltip = "Level %d (max). %s" % [store.level, "You can Prestige now!" if store.can_prestige() else "Max prestige reached."]
+	var badge_line: String = PrestigeBadge.describe(store.prestige)
+	if store.level >= store.max_level():
+		hint_tooltip = "Level %d (max). %s\n%s" % [store.level, "You can Prestige now!" if store.can_prestige() else "Max prestige reached.", badge_line]
+	elif store.endless():
+		hint_tooltip = "Level %s — %s | %s to level %s\nPrestige 10,000 is the last one: from here your level has no end.\nTotal earned: %s\n%s" % [
+			Globals.comma_sep(store.level), Globals.comma_sep(store.cur_exp), Globals.comma_sep(store.required()), Globals.comma_sep(store.level + 1), Globals.comma_sep(store.total_exp), badge_line]
 	else:
-		hint_tooltip = "Level %d — %d | %d to level %d\nEarn experience by playing any map, even failing.\nReach level 100 to Prestige.\nTotal earned: %s" % [
-			store.level, store.cur_exp, store.required(), store.level + 1, Globals.comma_sep(store.total_exp)]
+		hint_tooltip = "Level %d — %d | %d to level %d\nEarn experience by playing any map, even failing.\nReach level 100 to Prestige (there are 10,000, each with its own badge).\nTotal earned: %s\n%s" % [
+			store.level, store.cur_exp, store.required(), store.level + 1, Globals.comma_sep(store.total_exp), badge_line]
 	badge.update()
 	set_process(true)
 
@@ -126,20 +125,13 @@ func _rounded(c: Color, rad: float) -> StyleBoxFlat:
 
 func _draw_badge():
 	var c = badge.rect_size / 2
-	var rad = min(c.x, c.y) - 1
-	var pts = PoolVector2Array()
-	for i in range(7):
-		var a = PI / 6.0 + i * PI / 3.0
-		pts.append(c + Vector2(cos(a), sin(a)) * rad)
-	var col: Color = PRESTIGE_COLORS[clamp(store.prestige, 0, PRESTIGE_COLORS.size() - 1)]
-	badge.draw_polyline(pts, col, 3.5, true)
-	if store.prestige > 0:
-		var inner = PoolVector2Array()
-		for i in range(6):
-			var a = PI / 6.0 + i * PI / 3.0
-			inner.append(c + Vector2(cos(a), sin(a)) * (rad - 5))
-		badge.draw_colored_polygon(inner, Color(col.r, col.g, col.b, 0.25))
+	PrestigeBadge.draw(badge, c, min(c.x, c.y) - 1, store.prestige)
 
 func _on_prestige():
 	if store.do_prestige():
-		Globals.notify(Globals.NOTIFY_INFO, "You're now Prestige %d. Every level costs 20%% more experience." % store.prestige, "Prestige!")
+		var note: String = "You're now Prestige %s, with a new badge." % Globals.comma_sep(store.prestige)
+		if store.prestige >= PlayerLevel.MAX_PRESTIGE:
+			note = "Prestige 10,000: the last one. Your level has no end from here."
+		elif store.prestige <= PlayerLevel.COST_PRESTIGES:
+			note += " Every level costs 20% more experience."
+		Globals.notify(Globals.NOTIFY_INFO, note, "Prestige!")

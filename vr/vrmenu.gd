@@ -10,6 +10,8 @@ extends Spatial
 
 func _ready():
 	Rhythia.vr_menu = $PointerScreen # VRPlayer.recenter_to_head puts it back in front of you
+	if Engine.has_meta("vr_error_retries"):
+		Engine.remove_meta("vr_error_retries") # (the menu is up: VRNotice.error_screen starts counting afresh)
 	$PointerScreen.set_meta("home", $PointerScreen.transform)
 	call_deferred("_adopt_overlays")
 	_classic_env = $WorldEnvironment.environment

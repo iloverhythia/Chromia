@@ -665,6 +665,54 @@ func store_vr(ms: float, pose: Array):
 	_vr_last_ms = int(ms)
 	vr_samples.append([int(max(0, floor(ms))), pose])
 
+# Which hands they had (Settings > VR > Hands), right after the VR block as
+# "CVRH": u16 version 1, then three u8-length strings: the kind ("paw",
+# "custom", ...) and, for custom, the sha256 of vr_hand.obj and
+# vr_hand_left.obj (uploaded like a spectator's: LobbyManager.upload_spectate_assets).
+# Only when the server takes it (server_hello "replay_vr_hand": older servers
+# refuse a replay with anything after the VR block).
+const VR_HAND_SIG := PoolByteArray([67, 86, 82, 72]) # "CVRH"
+var vr_hand := "" # the hands in a replay read back ("" = not in it)
+var vr_hand_files := ["", ""] # [right sha256, left sha256] for custom
+
+func _write_vr_hand():
+	var lm = Engine.get_main_loop().root.get_node_or_null("LobbyManager") if Engine.get_main_loop() is SceneTree else null
+	if lm == null or not bool(lm.get("replay_vr_hand_supported")):
+		return
+	var kind := String(Rhythia.vr_hand)
+	var shas := ["", ""]
+	if kind == "custom":
+		var spec = load("res://scripts/SpectateSettings.gd")
+		for hf in spec.own_hand_files():
+			shas[0 if hf[0] == "vr_hand_file" else 1] = String(spec.sha_of(hf[1]))
+		if lm.has_method("upload_spectate_assets"):
+			lm.upload_spectate_assets() # (sent once; also when nobody may spectate)
+	file.store_buffer(VR_HAND_SIG)
+	file.store_16(1)
+	for s in [kind, shas[0], shas[1]]:
+		var b: PoolByteArray = String(s).left(64).to_ascii()
+		file.store_8(b.size())
+		file.store_buffer(b)
+
+func _read_vr_hand():
+	vr_hand = ""
+	vr_hand_files = ["", ""]
+	if file.get_len() - file.get_position() < 9 or file.get_buffer(4) != VR_HAND_SIG or file.get_16() != 1:
+		return
+	var parts := []
+	for i in range(3):
+		var n := int(file.get_8())
+		if file.get_len() - file.get_position() < n:
+			return
+		parts.append(file.get_buffer(n).get_string_from_ascii())
+	vr_hand = String(parts[0])
+	if vr_hand == "custom":
+		vr_hand_files = [String(parts[1]).to_lower(), String(parts[2]).to_lower()]
+		# their models, downloaded into the cache like a spectator's (HUD.gd)
+		var lm = Engine.get_main_loop().root.get_node_or_null("LobbyManager") if Engine.get_main_loop() is SceneTree else null
+		if lm != null and lm.has_method("fetch_spectate_assets"):
+			lm.fetch_spectate_assets({"vr_hand_file": vr_hand_files[0], "vr_hand_left_file": vr_hand_files[1]})
+
 func _write_vr():
 	if vr_samples.empty():
 		return
@@ -681,10 +729,13 @@ func _write_vr():
 				var v: float = float(pose[o + k])
 				var q: int = int(round(v * 1000.0)) if k < 3 else int(round(v * 32767.0))
 				file.store_16(int(clamp(q, -32767, 32767)) & 0xFFFF) # (two's complement)
+	_write_vr_hand()
 
 # the VR block, if there is one: vr_samples = [[replay ms, pose (22 floats, as sent to spectators)], ...]
 func _read_vr():
 	vr_samples = []
+	vr_hand = ""
+	vr_hand_files = ["", ""]
 	if file.get_len() - file.get_position() < 10:
 		return
 	if file.get_buffer(4) != VR_SIG or file.get_16() != 1:
@@ -702,6 +753,7 @@ func _read_vr():
 					v -= 65536
 				pose.append(float(v) / 1000.0 if k < 3 else float(v) / 32767.0)
 		vr_samples.append([ms, pose])
+	_read_vr_hand()
 	# watched in VR's own view (not in a headset): the VR player's view settings,
 	# put on now, before the song scene reads them (HUD.gd)
 	if not vr_samples.empty() and not Rhythia.vr:

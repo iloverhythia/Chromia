@@ -95,6 +95,8 @@ func _check():
 	yield(Online, "update_finished")
 	if not Online.update_installed:
 		Globals.notify(Globals.NOTIFY_WARN, Online.update_blocked_reason if Online.update_blocked_reason != "" else "The update couldn't be downloaded. It'll try again in a few minutes.", "Update Failed")
+		if Online.update_blocked_reason != "":
+			_skip = latest # (it'd be blocked again: not every few minutes)
 		_busy = false
 		return
 	if Online.updates_by_pack():

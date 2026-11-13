@@ -441,20 +441,63 @@ func apply_xr_settings():
 	if cfg.has_method("set_foveation_level"):
 		var lvl: int = int(clamp(Rhythia.vr_foveation, 0, 3))
 		cfg.set_foveation_level(lvl, lvl > 0)
+	if _base_hz <= 0.0 and cfg.has_method("get_refresh_rate"):
+		# (the headset's own rate, before anything is asked of it)
+		_base_hz = float(cfg.get_refresh_rate())
+		Engine.set_meta("vr_base_hz", _base_hz)
 	var unlocked := _unlocked_rate()
-	if unlocked > 0.0 and cfg.has_method("set_refresh_rate"):
-		cfg.set_refresh_rate(unlocked)
-		_watch_refresh()
-	elif Rhythia.vr_refresh > 0.0 and cfg.has_method("set_refresh_rate"):
-		var ok := true
-		if cfg.has_method("get_available_refresh_rates"):
-			ok = false
-			for r in cfg.get_available_refresh_rates():
-				if abs(float(r) - Rhythia.vr_refresh) < 0.5:
-					ok = true
-		if ok:
-			cfg.set_refresh_rate(Rhythia.vr_refresh)
+	apply_refresh()
 	Rhythia.trail("VR graphics: foveation %d, refresh %s" % [Rhythia.vr_foveation, ("unlocked %s" % str(unlocked)) if unlocked > 0 else (str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default")])
+
+# The refresh rate: the one the settings ask for (Unlock refresh rate, or a
+# rate picked in Settings > VR), no higher than the one Frame Smoothing holds
+# the headset at when it kept dropping frames (scripts/game/SteadyRate.gd).
+const SteadyRate = preload("res://scripts/game/SteadyRate.gd")
+var _base_hz := 0.0
+var _fs_held := false # (a lower rate was set for Frame Smoothing in this session)
+
+# what the settings ask for (0: the headset's own rate)
+static func wanted_rate() -> float:
+	var u := _unlocked_rate()
+	if u > 0.0:
+		return u
+	if Rhythia.vr_refresh > 0.0:
+		var rs: Array = refresh_rates()
+		if rs.empty():
+			return float(Rhythia.vr_refresh)
+		for r in rs:
+			if abs(float(r) - Rhythia.vr_refresh) < 0.5:
+				return float(r)
+	return 0.0
+
+func _target_rate() -> float:
+	var want := wanted_rate()
+	var cap: float = SteadyRate.cap()
+	if cap <= 0.0:
+		# (let go of: back to the headset's own rate if nothing else is asked)
+		return want if want > 0.0 or not _fs_held else _base_hz
+	if want <= 0.0:
+		want = _base_hz
+	if want <= 0.0:
+		return 0.0
+	var best := 0.0
+	for r in refresh_rates():
+		if float(r) <= min(want, cap) + 0.5:
+			best = float(r)
+	return best if best > 0.0 else want
+
+func apply_refresh():
+	var cfg = Rhythia.vr_xr_config
+	if cfg == null or not cfg.has_method("set_refresh_rate"):
+		return
+	var want := _target_rate()
+	if want <= 0.0:
+		return
+	_fs_held = SteadyRate.cap() > 0.0
+	if not (cfg.has_method("get_refresh_rate") and abs(float(cfg.get_refresh_rate()) - want) < 0.5):
+		cfg.set_refresh_rate(want)
+	if _unlocked_rate() > 0.0 or _fs_held:
+		_watch_refresh()
 
 # Unlock refresh rate: the highest rate the headset offers (0: not on, or the
 # headset doesn't say)
@@ -478,9 +521,11 @@ func _watch_refresh():
 	add_child(_refresh_timer)
 
 func _check_refresh():
-	var want := _unlocked_rate()
+	var want := _target_rate()
 	var cfg = Rhythia.vr_xr_config
 	if want <= 0.0 or cfg == null or not cfg.has_method("set_refresh_rate"):
+		return
+	if _unlocked_rate() <= 0.0 and not _fs_held:
 		return
 	if cfg.has_method("get_refresh_rate") and abs(float(cfg.get_refresh_rate()) - want) < 0.5:
 		return

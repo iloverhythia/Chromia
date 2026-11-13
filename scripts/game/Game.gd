@@ -150,7 +150,8 @@ func end(end_type: int):
 		Rhythia.replay.end_recording()
 		Rhythia.trail("song end: replay saved")
 
-	if end_type == Globals.END_PASS and not Rhythia.replaying and Rhythia.selected_song != null and not Rhythia.mod_reverse: # (Reverse: never ranked)
+	# (Reverse: never ranked. No Fail and Visual Map Mode: not sent at all, not even as unranked)
+	if end_type == Globals.END_PASS and not Rhythia.replaying and Rhythia.selected_song != null and not Rhythia.mod_reverse and not Rhythia.mod_nofail and not Rhythia.visual_mode:
 		Rhythia.report_map_completion(String(Rhythia.selected_song.id))
 		Rhythia.award_offline_rp()
 

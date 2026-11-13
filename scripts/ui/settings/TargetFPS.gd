@@ -17,8 +17,11 @@ func upd():
 func _process(_d):
 	if Rhythia.has_meta("spec_backup"): return # (watching with their settings: the box would put yours back)
 	if Rhythia.vr: return
+	# (Streaming Mode holds the frame limit lower: the box keeps showing yours,
+	# and changing it here still sets it, scripts/StreamMode.gd)
+	if Rhythia.stream_user_fps >= 0: return
 	if value != Engine.target_fps: upd()
 
 func _ready():
-	value = Rhythia._desk_fps if Rhythia.vr else Engine.target_fps
+	value = Rhythia._desk_fps if Rhythia.vr else (Rhythia.stream_user_fps if Rhythia.stream_user_fps >= 0 else Engine.target_fps)
 	connect("changed",self,"upd")

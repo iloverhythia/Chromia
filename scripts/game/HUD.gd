@@ -86,6 +86,7 @@ var grade_f_color: Color = Rhythia.grade_f_color
 
 var last_combo: int = 0
 var rainbow_letter_grade: bool = false
+var _rainbow_grade_t: float = 1.0
 
 
 
@@ -229,6 +230,9 @@ func update_static_values():
 	if shine != _grade_shine:
 		_grade_shine = shine
 		lettergrade.material.set_shader_param("amount", shine)
+		lettergrade.set_meta("hud_animated", shine > 0.0) # (its shine moves: the panel is redrawn every frame then)
+		lettergrade.update()
+		_hud_scan_t = 1.0
 
 	if not _tinted_hud():
 		lettergrade.set("custom_colors/font_color", gcol)
@@ -335,6 +339,7 @@ func update_timer(ms: float, canSkip: bool = false):
 		var mcol = Color(1, 0.1, 0.1, 1) if skip_expires_sec < 1 else Color(1, 1, 1, 1)
 		if timelabel.modulate != mcol:
 			timelabel.set_modulate(mcol)
+			timelabel.update()
 	else:
 		if int(s) != _timer_shown_s or int(ls) != _timer_shown_ls or _timer_was_skip:
 			_timer_shown_s = int(s)
@@ -366,11 +371,13 @@ func paint(node: Control, color: Color):
 	elif node is Label:
 		if node.has_color_override("font_color"):
 			node.set("custom_colors/font_color", color)
-		else:
+		elif node.modulate != color:
 			node.modulate = color
+			node.update() # (a tint announces nothing: its panel is redrawn, _hud_changed)
 
-	else:
+	elif node.modulate != color:
 		node.modulate = color
+		node.update()
 
 var config_time: float = 2.5
 
@@ -384,13 +391,32 @@ func _build_replay_controls():
 	add_child(replay_controls)
 	replay_controls.setup(Spawn)
 
-# The HUD panels are drawn into off-screen viewports. Redrawing all of them
-# every frame is a big cost at high FPS, so they refresh at most
-# HUD_REFRESH_HZ times a second (looks identical; monitors don't go higher).
+# The HUD panels are drawn into off-screen viewports (one extra picture each,
+# every time). They used to be redrawn on every frame up to 240 a second,
+# though most of the time nothing on them changes: the timer ticks once a
+# second, the score moves when you hit. Now a panel is redrawn when something
+# on it changed:
+#  - anything on it redrew itself, moved, was shown / hidden, added or removed
+#    (the signals every text, bar and picture gives; in time for the same frame)
+#  - it has a moving background or shine (an animated shader): HUD_ANIM_HZ
+#    times a second
+#  - and at least HUD_FLOOR_HZ times a second anyway, so a change nothing
+#    announced still shows at once.
+# Never more than HUD_REFRESH_HZ times a second; hidden panels (pause, give
+# up, config) not at all until they show.
 const HUD_REFRESH_HZ = 240.0
+const HUD_FLOOR_HZ = 20.0
+const HUD_MIN_USEC := int(1000000.0 / HUD_REFRESH_HZ)
+const HUD_FLOOR_USEC := int(1000000.0 / HUD_FLOOR_HZ)
+const HUD_ANIM_HZ = 120.0
+const HUD_ANIM_USEC := int(1000000.0 / HUD_ANIM_HZ)
 var _hud_vps: Array = []
 var _hud_shown_by: Array = []
-var _hud_refresh_t: float = 0.0
+var _hud_last: Array = [] # when each was last redrawn (usec)
+var _hud_pending: Array = [] # changed, not redrawn yet
+var _hud_always: Array = [] # something on it moves by itself
+var _hud_scan_t: float = 0.0
+var _hud_floor_usec: int = HUD_FLOOR_USEC
 var _stats_t: float = 0.0
 
 func _setup_hud_viewports():
@@ -398,21 +424,100 @@ func _setup_hud_viewports():
 		if c is Viewport:
 			c.msaa = Viewport.MSAA_DISABLED # 2D-only, anti-aliasing does nothing here
 			c.render_target_update_mode = Viewport.UPDATE_ONCE
+			var idx: int = _hud_vps.size()
 			_hud_vps.append(c)
 			# The 3D sprite showing this viewport (TimerVP -> TimerHud).
-			_hud_shown_by.append(get_node_or_null(c.name.trim_suffix("VP") + "Hud"))
+			var shown = get_node_or_null(c.name.trim_suffix("VP") + "Hud")
+			_hud_shown_by.append(shown)
+			_hud_last.append(OS.get_ticks_usec())
+			_hud_pending.append(false)
+			_hud_always.append(false)
+			_hud_watch(c, idx)
+			if shown != null and not shown.is_connected("visibility_changed", self, "_hud_changed"):
+				shown.connect("visibility_changed", self, "_hud_changed", [idx])
+	# (the grade's shine only moves from an S up: update_score says when)
+	if lettergrade != null and not lettergrade.has_meta("hud_animated"):
+		lettergrade.set_meta("hud_animated", false)
+	if not get_tree().is_connected("node_added", self, "_hud_node_added"):
+		get_tree().connect("node_added", self, "_hud_node_added")
+	_hud_scan()
+
+func _hud_watch(n: Node, idx: int):
+	if n is CanvasItem and not n.is_connected("draw", self, "_hud_changed"):
+		n.connect("draw", self, "_hud_changed", [idx])
+		n.connect("visibility_changed", self, "_hud_changed", [idx])
+		n.connect("item_rect_changed", self, "_hud_moved", [idx, n])
+		n.connect("tree_exiting", self, "_hud_changed", [idx])
+	for c in n.get_children():
+		_hud_watch(c, idx)
+
+# (something put on a panel later: mod icons, leaderboard rows, a panel style)
+func _hud_node_added(n: Node):
+	if not (n is CanvasItem) or _hud_vps.empty():
+		return
+	var idx: int = _hud_vps.find(n.get_viewport())
+	if idx < 0:
+		return
+	_hud_watch(n, idx)
+	_hud_changed(idx)
+	_hud_scan_t = 1.0 # (it may be an animated one: looked at on the next frame)
+
+# (something moved: only if it's there to be seen)
+func _hud_moved(idx: int, n: CanvasItem):
+	if n.is_visible_in_tree():
+		_hud_changed(idx)
+
+func _hud_changed(idx: int):
+	if idx >= _hud_pending.size() or _hud_pending[idx]:
+		return
+	_hud_pending[idx] = true
+	_hud_arm(idx, OS.get_ticks_usec())
+
+# redraws panel idx on this frame if it may be (it stays pending otherwise)
+func _hud_arm(idx: int, now: int):
+	if now - _hud_last[idx] < HUD_MIN_USEC:
+		return
+	var shown = _hud_shown_by[idx]
+	if shown != null and not shown.is_visible_in_tree():
+		return
+	_hud_vps[idx].render_target_update_mode = Viewport.UPDATE_ONCE
+	_hud_last[idx] = now
+	_hud_pending[idx] = false
+
+# a shader that moves by itself (the panel styles' rainbow / hologram / glow,
+# the SS grade's shine): HudPanels and the grade say so with the "hud_animated"
+# meta; any other shader that reads TIME counts
+static func _hud_moves(n: Node) -> bool:
+	if n is CanvasItem and n.visible:
+		if n.has_meta("hud_animated"):
+			if bool(n.get_meta("hud_animated")):
+				return true
+		elif n.material is ShaderMaterial and n.material.shader != null and n.material.shader.code.find("TIME") != -1:
+			return true
+		for c in n.get_children():
+			if _hud_moves(c):
+				return true
+	elif not (n is CanvasItem):
+		for c in n.get_children():
+			if _hud_moves(c):
+				return true
+	return false
+
+func _hud_scan():
+	_hud_scan_t = 0.0
+	for i in range(_hud_vps.size()):
+		_hud_always[i] = _hud_moves(_hud_vps[i])
 
 func _refresh_hud_viewports(delta: float):
-	_hud_refresh_t += delta
-	if _hud_refresh_t < 1.0 / HUD_REFRESH_HZ:
-		return
-	_hud_refresh_t = 0.0
-	# Panels that aren't on screen (pause, give up, config...) aren't redrawn.
+	_hud_scan_t += delta
+	if _hud_scan_t >= 1.0:
+		_hud_scan()
+	var now: int = OS.get_ticks_usec()
 	for i in range(_hud_vps.size()):
-		var shown = _hud_shown_by[i]
-		if shown != null and not shown.is_visible_in_tree():
-			continue
-		_hud_vps[i].render_target_update_mode = Viewport.UPDATE_ONCE
+		# (a moving background or shine: slow, drawn afresh HUD_ANIM_HZ times a second)
+		if _hud_pending[i] or (_hud_always[i] and now - _hud_last[i] >= HUD_ANIM_USEC) or now - _hud_last[i] >= _hud_floor_usec:
+			_hud_pending[i] = true
+			_hud_arm(i, now)
 
 var _timer_hud = null
 
@@ -463,7 +568,12 @@ func _process(delta: float):
 			((combo_ring_target - combo_ring_value) * delta * 6)
 		), combo_ring_target)
 
-	if comboring.percent != combo_ring_value:
+	# (the ring glides towards its value and never quite arrives: the last
+	# five-hundredth is taken in one step, and it's redrawn when it has moved
+	# by that much, not on every frame for a change too small to see)
+	if abs(combo_ring_target - combo_ring_value) < 0.002:
+		combo_ring_value = combo_ring_target
+	if comboring.percent != combo_ring_value and (abs(comboring.percent - combo_ring_value) >= 0.002 or combo_ring_value == combo_ring_target):
 		comboring._set_percent(combo_ring_value)
 
 	if Input.is_action_pressed("give_up"):
@@ -480,7 +590,12 @@ func _process(delta: float):
 		get_node("GiveUpHud").opacity = 0
 
 	if rainbow_letter_grade and not _tinted_hud():
-		lettergrade.set("custom_colors/font_color", Color.from_hsv(Rhythia.rainbow_t * 0.1, grade_ss_saturation, grade_ss_value))
+		# (a slow turn through the colours, once round in 20 s: a new shade 60
+		# times a second is every shade there is; each one redraws the panel)
+		_rainbow_grade_t += delta
+		if _rainbow_grade_t >= 1.0 / 60.0:
+			_rainbow_grade_t = 0.0
+			lettergrade.set("custom_colors/font_color", Color.from_hsv(Rhythia.rainbow_t * 0.1, grade_ss_saturation, grade_ss_value))
 
 	if miss_flash != 0:
 		var miss_col = lerp(miss_text_color, miss_flash_color, miss_flash)
@@ -1125,6 +1240,10 @@ func _hand_source() -> Array:
 		var rs = wr.get("_render_settings") if wr != null else null
 		if rs is Dictionary and not rs.empty():
 			s = rs
+	# a replay that says which hands they had (Replay.gd "CVRH"): those
+	if not (s is Dictionary) and Rhythia.replaying and Rhythia.replay != null and String(Rhythia.replay.get("vr_hand")) != "":
+		var rh = Rhythia.replay
+		s = {"vr_hand": rh.vr_hand, "vr_hand_file": rh.vr_hand_files[0], "vr_hand_left_file": rh.vr_hand_files[1]}
 	if s is Dictionary:
 		var k: String = String(s.get("vr_hand", "default"))
 		if k != "custom":

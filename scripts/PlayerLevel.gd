@@ -1,10 +1,15 @@
 extends Reference
 # Offline level system, like BeatLeader's: every play gives experience (even a
 # fail), levels go up to 100, and at 100 you can Prestige, which resets your
-# level and makes every next level cost 20% more. Saved in user://level.json.
+# level. There are 10,000 prestiges, each with its own badge
+# (scripts/ui/PrestigeBadge.gd). The first ten make every next level cost 20%
+# more; from the tenth on the cost stays where it is (x6.19), or the numbers
+# would run away long before 10,000. At prestige 10,000, the last one, the
+# level doesn't stop at 100 any more: it goes on for good.
+# Saved in user://level.json.
 #
 # Experience needed for the next level (BeatLeader's formula):
-#   (500 + 50 * level) * 1.2 ^ prestige
+#   (500 + 50 * level) * 1.2 ^ min(prestige, 10)
 # Experience for a play (BeatLeader computes it on their server; this is ours):
 #   ~2 per second actually played, x a star bonus, x an accuracy factor,
 #   x1.5 for a pass.
@@ -13,8 +18,14 @@ signal changed
 
 const SAVE_PATH = "user://level.json"
 const META_KEY = "chromia_level_store"
-const MAX_LEVEL = 100
-const MAX_PRESTIGE = 10
+const MAX_LEVEL = 100 # (below the last prestige)
+const MAX_PRESTIGE = 10000
+const COST_PRESTIGES = 10 # the level cost grows up to this prestige
+const NO_END = 2000000000
+
+# the highest level at a prestige (the last prestige has none to speak of)
+static func level_cap(prest: int) -> int:
+	return MAX_LEVEL if prest < MAX_PRESTIGE else NO_END
 
 var level: int = 0
 var cur_exp: int = 0          # experience inside the current level
@@ -33,7 +44,7 @@ static func get_store():
 static func required_exp(lvl: int, prest: int) -> int:
 	var req := 500 + 50 * lvl
 	if prest != 0:
-		req = int(round(req * pow(1.2, prest)))
+		req = int(round(req * pow(1.2, min(prest, COST_PRESTIGES))))
 	return req
 
 static func exp_for_play(seconds: float, stars: float, accuracy: float, passed: bool) -> int:
@@ -54,9 +65,9 @@ func load_data():
 		f.close()
 		if res.error == OK and typeof(res.result) == TYPE_DICTIONARY:
 			var d: Dictionary = res.result
-			level = int(clamp(int(d.get("level", 0)), 0, MAX_LEVEL))
-			cur_exp = int(max(0, int(d.get("exp", 0))))
 			prestige = int(clamp(int(d.get("prestige", 0)), 0, MAX_PRESTIGE))
+			level = int(clamp(int(d.get("level", 0)), 0, level_cap(prestige)))
+			cur_exp = int(max(0, int(d.get("exp", 0))))
 			total_exp = int(max(0, int(d.get("total_exp", 0))))
 
 func save():
@@ -68,8 +79,15 @@ func save():
 func required() -> int:
 	return required_exp(level, prestige)
 
+func max_level() -> int:
+	return level_cap(prestige)
+
+# no top level any more (the last prestige)
+func endless() -> bool:
+	return prestige >= MAX_PRESTIGE
+
 func progress() -> float:
-	if level >= MAX_LEVEL:
+	if level >= max_level():
 		return 1.0
 	return clamp(float(cur_exp) / float(max(required(), 1)), 0.0, 1.0)
 
@@ -81,12 +99,13 @@ func add_exp(amount: int) -> Dictionary:
 	var start_level := level
 	if amount > 0:
 		total_exp += amount
-		if level < MAX_LEVEL:
+		var top: int = max_level()
+		if level < top:
 			cur_exp += amount
-			while level < MAX_LEVEL and cur_exp >= required():
+			while level < top and cur_exp >= required():
 				cur_exp -= required()
 				level += 1
-			if level >= MAX_LEVEL:
+			if level >= top:
 				cur_exp = 0
 		save()
 		emit_signal("changed")
@@ -95,15 +114,15 @@ func add_exp(amount: int) -> Dictionary:
 # Your level from another device (the server's answer, Savia.report_level):
 # taken when it's above this one (prestige, then level, then progress).
 func take_if_higher(lvl: int, prest: int, xp: int, total: int) -> bool:
-	lvl = int(clamp(lvl, 0, MAX_LEVEL))
 	prest = int(clamp(prest, 0, MAX_PRESTIGE))
+	lvl = int(clamp(lvl, 0, level_cap(prest)))
 	xp = int(max(0, xp))
 	var above: bool = prest > prestige or (prest == prestige and (lvl > level or (lvl == level and xp > cur_exp)))
 	if not above:
 		return false
 	prestige = prest
 	level = lvl
-	cur_exp = 0 if level >= MAX_LEVEL else xp
+	cur_exp = 0 if level >= max_level() else xp
 	total_exp = int(max(total_exp, total))
 	save()
 	emit_signal("changed")

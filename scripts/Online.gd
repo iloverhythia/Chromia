@@ -697,6 +697,19 @@ func _on_version_request_completed(result, response_code, headers, body):
 		# iOS: an update that failed to start on this phone isn't offered again
 		if updates_by_pack() and tag == _read_text(PackUpdate.DIR + "/bad_version.txt"):
 			tag = current
+		# The app installed here is newer than that build and would throw its
+		# pack away at the next start (a test build installed, the stable
+		# channel picked): it was downloaded, dropped and downloaded again, and
+		# the channel never changed. Not offered; the Update channel button
+		# says why (pack_stuck_reason).
+		pack_stuck_reason = ""
+		if updates_by_pack() and tag != current and _app_drops(tag):
+			if tag.to_lower().begins_with("test-") and not _app_keeps_test_packs():
+				pack_stuck_reason = "This installed app can't keep test builds as an update. Install %s from the latest test build once (GitHub releases); after that they update in the app." % app_asset()
+			else:
+				pack_stuck_reason = "The app installed here (%s) is newer than %s, and an installed app can't be taken back to an older build by an update. To use %s now, install its %s (GitHub releases). Or just stay: the next %s build that is newer than your app comes as a normal update." % [app_version(), tag, tag, app_asset(), "test" if tag.to_lower().begins_with("test-") else "stable"]
+			Rhythia.trail("update not offered: the installed app %s would drop %s" % [app_version(), tag])
+			tag = current
 		emit_signal("latest_version", tag)
 	else:
 		emit_signal("latest_version", ProjectSettings.get_setting("application/config/version"))
@@ -733,8 +746,10 @@ func update_snoozed() -> bool:
 # otherwise the automatic checks, which never undo an update they just made
 func attempt_update(manual: bool = false):
 	update_blocked_reason = ""
+	# (the signals before the first yield are sent next frame: the callers
+	# start waiting for them only after this returns)
 	if not latest_version_data or not latest_version_data.has("assets"):
-		emit_signal("update_finished")
+		call_deferred("emit_signal", "update_finished")
 		return
 	var to := String(latest_version_data.get("tag_name", ""))
 	var from := String(ProjectSettings.get_setting("application/config/version"))
@@ -742,7 +757,26 @@ func attempt_update(manual: bool = false):
 		update_installed = false
 		update_blocked_reason = "Not updating to %s: this game just updated from it, and going back would start an update loop. Pick a version in Settings > Update channel." % to
 		Rhythia.trail("update loop stopped: %s -> %s" % [from, to])
-		emit_signal("update_finished")
+		call_deferred("emit_signal", "update_finished")
+		return
+	if updates_by_pack() and to.to_lower().begins_with("test-") and not _app_keeps_test_packs():
+		# (the installed app would drop it at the next start, and this would
+		# download it again, over and over)
+		update_installed = false
+		update_blocked_reason = "This installed app can't keep test builds as an update. Install %s from the latest test build once (GitHub releases); after that they update in the app." % app_asset()
+		Rhythia.trail("test pack blocked: the installed app drops them")
+		call_deferred("emit_signal", "update_finished")
+		return
+	if updates_by_pack() and to == app_version() and to != "":
+		# the build the installed app itself is: nothing to download, the pack
+		# on top of it goes and the app runs as installed
+		var pd := Directory.new()
+		for pf in [PackUpdate.PACK, PackUpdate.VERSION_FILE, PackUpdate.DIR + "/chosen.txt", PackUpdate.DIR + "/booting.txt"]:
+			pd.remove(pf)
+		_note_update(from, to)
+		update_installed = true
+		Rhythia.trail("update: back to the installed app (%s), its pack removed" % to)
+		call_deferred("emit_signal", "update_finished")
 		return
 	_note_update(from, to)
 
@@ -778,6 +812,67 @@ func attempt_update(manual: bool = false):
 	update_hr.request(download_url)
 
 var update_installed: bool = false # the last attempt_update() worked
+
+# The version of the app installed on this phone / headset, whatever pack is
+# loaded on top of it ("" when it can't be told: an older app running a pack,
+# that hasn't run without one since this was added).
+func app_version(pu = null) -> String:
+	if pu == null:
+		pu = get_node_or_null("/root/PackUpdate")
+	if pu == null:
+		return ""
+	var v = pu.get("app_version")
+	if v is String and v != "":
+		return v
+	if String(pu.get("loaded_version")) == "":
+		return String(ProjectSettings.get_setting("application/config/version")) # (no pack: what runs is the app)
+	return _read_text(PackUpdate.DIR + "/app_version.txt")
+
+# (noted whenever the game runs as installed, for the case above)
+func _note_app_version():
+	if not updates_by_pack():
+		return
+	var pu = get_node_or_null("/root/PackUpdate")
+	if pu == null or String(pu.get("loaded_version")) != "":
+		return
+	var d := Directory.new()
+	if not d.dir_exists(PackUpdate.DIR):
+		d.make_dir_recursive(PackUpdate.DIR)
+	var f := File.new()
+	if f.open(PackUpdate.DIR + "/app_version.txt", File.WRITE) == OK:
+		f.store_string(String(ProjectSettings.get_setting("application/config/version")))
+		f.close()
+
+# Would the installed app throw the downloaded pack `tag` away at the next
+# start? It decides with its own PackUpdate.gd (the one that ran before any
+# pack loaded): a pack that is older than the app goes, unless that app keeps
+# a chosen one (KEEPS_CHOSEN_PACKS). The same version as the app isn't asked
+# here: attempt_update just takes the pack away then.
+func _app_drops(tag: String, pu = null) -> bool:
+	if pu == null:
+		pu = get_node_or_null("/root/PackUpdate")
+	var app := app_version(pu)
+	if app == "" or pu == null or pu.get_script() == null or tag == app:
+		return false
+	var older: bool
+	if pu.has_method("pack_outdated"):
+		older = bool(pu.pack_outdated(tag, app))
+	elif pu.has_method("compare_versions"):
+		older = int(pu.compare_versions(tag, app)) <= 0
+	else:
+		return false
+	return older and not pu.get_script().get_script_constant_map().has("KEEPS_CHOSEN_PACKS")
+
+var pack_stuck_reason: String = "" # the wanted build can't be reached by an update on this install (why)
+
+# The installed app's PackUpdate.gd keeps test builds. (It runs before a
+# downloaded pack loads, so it's always the installed app's; older ones drop
+# a test build at the next start.)
+func _app_keeps_test_packs() -> bool:
+	var pu = get_node_or_null("/root/PackUpdate")
+	if pu == null or pu.get_script() == null:
+		return true
+	return pu.get_script().get_script_constant_map().has("KEEPS_TEST_PACKS")
 
 # Update-loop guard: the last update (from -> to). An automatic update straight
 # back to the version just left within a few minutes is stopped (two versions
@@ -856,6 +951,16 @@ func _on_update_request_completed(result, response_code, headers, body):
 				f.store_string(String(latest_version_data.tag_name))
 				f.close()
 				update_installed = true
+				# A pack older than the installed app is only ever wanted on
+				# purpose (the other update channel): marked, so an app that
+				# knows the mark keeps it (PackUpdate.CHOSEN_FILE).
+				var app := app_version()
+				var chosen_path: String = PackUpdate.DIR + "/chosen.txt"
+				dir.remove(chosen_path)
+				if app != "" and load("res://scripts/PackUpdate.gd").pack_outdated(String(latest_version_data.tag_name), app):
+					if f.open(chosen_path, File.WRITE) == OK:
+						f.store_string(app)
+						f.close()
 				load("res://scripts/PackGuard.gd").fresh_download()
 				print("Pack update downloaded: ", latest_version_data.tag_name)
 		emit_signal("update_finished")
@@ -890,6 +995,7 @@ func _on_update_request_completed(result, response_code, headers, body):
 	emit_signal("update_finished")
 
 func _ready():
+	_note_app_version()
 	add_child(ctest_hr)
 	ctest_hr.use_threads = OS.can_use_threads()
 	ctest_hr.timeout = 5

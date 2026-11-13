@@ -247,6 +247,7 @@ func on_pressed(i):
 
 	var profile = profiles[i]
 	print("Loading profile: " + profile)
+	Rhythia.trail("profile switch: " + profile.get_file())
 	_set_active_profile_path(profile)
 	get_viewport().get_node("Menu").black_fade_target = true
 	yield(get_tree().create_timer(0.35), "timeout")

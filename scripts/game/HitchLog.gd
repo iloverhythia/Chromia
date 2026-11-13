@@ -25,6 +25,12 @@ var _worst := 0.0
 var _script_sum := 0.0
 var _script_n := 0
 var _script_at := 0.0
+# frames that came late for the rate the device is at (over one and a half
+# frames long), for Frame Smoothing's steady rate (SteadyRate.song_done)
+const SteadyRate = preload("res://scripts/game/SteadyRate.gd")
+var _hz := 0.0
+var _late := 0
+var _hz_frames := 0
 
 func _exit_tree():
 	if _frames < 60 or _time <= 0.0:
@@ -45,9 +51,12 @@ func _exit_tree():
 		what.append("spectating")
 	if Rhythia.replaying:
 		what.append("replay")
+	if _hz > 0.0 and _hz_frames > 0:
+		what.append("%d Hz, late frames %.1f%%%s" % [int(round(_hz)), 100.0 * float(_late) / float(_hz_frames), (", held at %d Hz" % int(round(SteadyRate.cap()))) if SteadyRate.cap() > 0.0 else ""])
 	Rhythia.trail("song perf: %d frames in %d s (%.0f fps), over 20 ms: %d, over 33 ms: %d, over 50 ms: %d, worst %d ms, scripts %.1f ms a frame; %s" % [
 		_frames, int(_time), float(_frames) / _time, _over_20, _over_33, _over_50, int(_worst * 1000.0),
 		(_script_sum / _script_n) if _script_n > 0 else 0.0, what.join("; ")])
+	SteadyRate.song_done(_hz_frames if _hz > 0.0 else _frames, _late, _time, _hz)
 
 func _ready():
 	pause_mode = PAUSE_MODE_PROCESS
@@ -67,10 +76,17 @@ func _process(delta):
 			_over_50 += 1
 		if delta > _worst:
 			_worst = delta
+		if _hz <= 0.0 and _frames == 1:
+			_hz = SteadyRate.current_hz()
+		if _hz > 0.0:
+			_hz_frames += 1
+			if delta > 1.5 / _hz:
+				_late += 1
 		# (the engine keeps the scripts' time as a reading renewed once a second)
 		_script_at += delta
 		if _script_at >= 1.0:
 			_script_at = 0.0
+			_hz = SteadyRate.current_hz()
 			_script_sum += Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
 			_script_n += 1
 	if delta < SLOW_SEC or _logged >= MAX_LOGGED or get_tree().paused:

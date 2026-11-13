@@ -1,7 +1,8 @@
 extends ColorRect
 
 func _ready():
-	Engine.target_fps = 30
+	if not Rhythia.vr:
+		Engine.target_fps = 30 # (never in VR: the headset paces the frames)
 	$Info.text = \
 	 \
 	 \
@@ -12,6 +13,7 @@ func _ready():
 		Rhythia.errorstr,
 		Rhythia.menu_target,
 	]
+	load("res://vr/VRNotice.gd").error_screen(self, $Info.text) # (in the headset too)
 	if OS.has_feature("mobile"):
 		$Info.get("custom_fonts/font").size = 28
 	if ProjectSettings.get_setting("application/config/discord_rpc"):

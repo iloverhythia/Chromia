@@ -958,7 +958,7 @@ class PlayerCard extends RoundedBox:
 			var lf = ui.font(ui.BOLD, 24, 2, Color(0.1, 0.1, 0.1))
 			ui.label(self, "Log in with Discord", lf, Color8(140, 155, 255), Vector2(100, 8), Vector2(270, 36))
 			hint_tooltip = "Tap to log in with Discord (Profile page)"
-		ui.label(self, "Level %d/%d" % [store.level, ui.PlayerLevel.MAX_LEVEL], ui.font(ui.BOLD, 18, 2, Color(0.1, 0.1, 0.1)), Color(0.9, 0.9, 0.9), Vector2(100, 50), Vector2(180, 26))
+		ui.label(self, ("Level %d" % store.level) if store.endless() else ("Level %d/%d" % [store.level, ui.PlayerLevel.MAX_LEVEL]), ui.font(ui.BOLD, 18, 2, Color(0.1, 0.1, 0.1)), Color(0.9, 0.9, 0.9), Vector2(100, 50), Vector2(180, 26))
 		ui.label(self, "%s / %s" % [Globals.comma_sep(store.cur_exp), Globals.comma_sep(store.required())], ui.font(ui.BOLD, 12, 1, Color(0, 0, 0)), Color(0.75, 0.75, 0.75), Vector2(100, 74), Vector2(180, 18))
 		ui.label(self, "Prestige %d" % store.prestige, ui.font(ui.BOLD, 16, 2, Color(0.2, 0.15, 0)), Color8(255, 200, 40), Vector2(260, 52), Vector2(110, 24), Label.ALIGN_RIGHT)
 		avatar.texture = null
