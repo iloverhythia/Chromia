@@ -410,6 +410,7 @@ func _get_active_mods_dict() -> Dictionary:
 		"mobile": device("mobile"),
 		"quest": vr and OS.has_feature("quest"), # (the Quest leaderboards)
 		"nofail": mod_nofail,
+		"visual": visual_mode, # (Visual Map Mode: never sent as a pass, the server refuses it too)
 		"extra_energy": mod_extra_energy,
 		"no_regen": mod_no_regen,
 		"speed_level": mod_speed_level,
@@ -578,7 +579,7 @@ func sp_for_accuracy(accuracy: float) -> int:
 	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
 
 func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
-	if mod_nofail or mod_extra_energy or mod_reverse or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
+	if mod_nofail or visual_mode or mod_extra_energy or mod_reverse or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
 	if replay != null and replay.autoplayer:
 		return false
@@ -3081,11 +3082,13 @@ func set_mod_extra_energy(v: bool):
 	if v:
 		mod_sudden_death = false
 		mod_nofail = false
+		visual_mode = false # (Visual Map Mode needs No Fail)
 	mod_extra_energy = v; emit_signal("mods_changed")
 func set_mod_no_regen(v: bool):
 	if v:
 		mod_sudden_death = false
 		mod_nofail = false
+		visual_mode = false
 	mod_no_regen = v; emit_signal("mods_changed")
 func set_mod_speed_level(v: int):
 	mod_speed_level = v; emit_signal("mods_changed"); emit_signal("speed_mod_changed")
@@ -3110,6 +3113,7 @@ func set_mod_sudden_death(v: bool):
 		mod_extra_energy = false
 		mod_no_regen = false
 		mod_nofail = false
+		visual_mode = false
 	mod_sudden_death = v; emit_signal("mods_changed")
 
 func set_mod_chaos(v: bool):

@@ -45,3 +45,4 @@ in scripts/Savia.gd and empties this list.
 - Every prestige has its own badge next to your level in the Profile tab. The last digit of your prestige sets its colour, the tens add dots inside, the hundreds change its shape (hexagon, diamond, pentagon, stars, shield, circle...) and the thousands add spikes round it. Prestige 10,000 is the Chromia note in all its colours.
 - At prestige 10,000, the last one, your level no longer stops at 100: it keeps going for good.
 - Levels cost more with each of the first ten prestiges, as before (20% each); from the tenth on the cost stays the same, so the later prestiges are never out of reach.
+- Passes with No Fail or Visual Map Mode on are no longer sent to the server (they showed up on your website profile as unranked passes). Turning on No Regen, Extra Energy or Sudden Death now turns Visual Map Mode off along with No Fail
