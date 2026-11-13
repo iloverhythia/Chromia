@@ -31,6 +31,7 @@ var level: int = 0
 var cur_exp: int = 0          # experience inside the current level
 var prestige: int = 0
 var total_exp: int = 0    # everything ever earned
+var staff_set: String = "" # the last level set by staff that was taken (take_staff_set)
 
 static func get_store():
 	var root: Viewport = Engine.get_main_loop().root
@@ -69,11 +70,12 @@ func load_data():
 			level = int(clamp(int(d.get("level", 0)), 0, level_cap(prestige)))
 			cur_exp = int(max(0, int(d.get("exp", 0))))
 			total_exp = int(max(0, int(d.get("total_exp", 0))))
+			staff_set = str(d.get("staff_set", ""))
 
 func save():
 	var f := File.new()
 	if f.open(Globals.p(SAVE_PATH), File.WRITE) == OK:
-		f.store_string(to_json({"level": level, "exp": cur_exp, "prestige": prestige, "total_exp": total_exp}))
+		f.store_string(to_json({"level": level, "exp": cur_exp, "prestige": prestige, "total_exp": total_exp, "staff_set": staff_set}))
 		f.close()
 
 func required() -> int:
@@ -124,6 +126,20 @@ func take_if_higher(lvl: int, prest: int, xp: int, total: int) -> bool:
 	level = lvl
 	cur_exp = 0 if level >= max_level() else xp
 	total_exp = int(max(total_exp, total))
+	save()
+	emit_signal("changed")
+	return true
+
+# A level and prestige set by staff on the admin panel (the server's answer
+# to Savia.report_level carries it with an id): taken as it is, also when it's
+# lower, once per id. -> whether it was new
+func take_staff_set(lvl: int, prest: int, id: String) -> bool:
+	if id == "" or id == staff_set:
+		return false
+	staff_set = id
+	prestige = int(clamp(prest, 0, MAX_PRESTIGE))
+	level = int(clamp(lvl, 0, level_cap(prestige)))
+	cur_exp = 0
 	save()
 	emit_signal("changed")
 	return true

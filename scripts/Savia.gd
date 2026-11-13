@@ -3873,7 +3873,7 @@ func report_level(force: bool = false):
 	if cid == "" or not ProjectSettings.get_setting("application/networking/enabled"):
 		return
 	var store = preload("res://scripts/PlayerLevel.gd").get_store()
-	var key := "%s/%d/%d/%d/%d" % [cid, store.level, store.prestige, store.total_exp, store.cur_exp]
+	var key := "%s/%d/%d/%d/%d/%s" % [cid, store.level, store.prestige, store.total_exp, store.cur_exp, store.staff_set]
 	if key == _level_sent and not force:
 		return
 	_level_sent = key
@@ -3882,7 +3882,8 @@ func report_level(force: bool = false):
 	add_child(r)
 	r.connect("request_completed", self, "_on_level_sent", [r, cid])
 	# (exp: how far into this level, for the website's ring around the picture)
-	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d&exp=%d" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp, store.cur_exp], [], true, HTTPClient.METHOD_POST, "") != OK:
+	# (staff_set: the last level set by staff that this device took, PlayerLevel.take_staff_set)
+	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d&exp=%d&staff_set=%s" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp, store.cur_exp, store.staff_set.http_escape()], [], true, HTTPClient.METHOD_POST, "") != OK:
 		r.queue_free()
 		_level_sent = ""
 
@@ -3898,6 +3899,13 @@ func _on_level_sent(_result, code, _headers, body, r: HTTPRequest, for_cid: Stri
 		return
 	var L: Dictionary = res.result.level
 	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	# set by staff on the admin panel: taken as it is (also lower)
+	if store.take_staff_set(int(L.get("level", 0)), int(L.get("prestige", 0)), str(L.get("staff_set", ""))):
+		var st: String = "Level %d" % store.level
+		if store.prestige > 0:
+			st += ", prestige %d" % store.prestige
+		Globals.notify(Globals.NOTIFY_INFO, st + " (set by staff)", "Level changed")
+		return
 	if store.take_if_higher(int(L.get("level", 0)), int(L.get("prestige", 0)), int(L.get("exp", 0)), int(L.get("total_exp", 0))):
 		var txt: String = "Level %d" % store.level
 		if store.prestige > 0:
