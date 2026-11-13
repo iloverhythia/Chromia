@@ -740,6 +740,79 @@ const DISCORD_LOGIN_START_URL = "https://savia.nysr.host/savia-discord-login-sta
 const DISCORD_LOGIN_POLL_URL = "https://savia.nysr.host/savia-discord-login-poll"
 const DISCORD_LINK_URL = "https://savia.nysr.host/savia-discord-link"
 const DISCORD_UNLINK_URL = "https://savia.nysr.host/savia-discord-unlink"
+const ACCOUNTS_URL = "https://savia.nysr.host/savia-accounts"
+
+# Owners' alt account for testing (server src/alts.js): their main account and
+# one alt, switched between in Settings (DiscordAccount.gd). The alt is a
+# separate player with no staff permissions; the main stays the Discord's.
+signal accounts_changed
+var accounts: Array = [] # [{client_id, number, name, main}], empty: no switcher
+var can_make_alt: bool = false
+
+func check_accounts():
+	if cid == "":
+		return
+	var r := HTTPRequest.new()
+	add_child(r)
+	r.connect("request_completed", self, "_on_accounts_received", [r, ""])
+	if r.request(ACCOUNTS_URL + "?client_id=" + cid.http_escape()) != OK:
+		r.queue_free()
+
+func make_alt_account():
+	if cid == "":
+		return
+	var r := HTTPRequest.new()
+	add_child(r)
+	r.connect("request_completed", self, "_on_accounts_received", [r, "alt"])
+	if r.request(ACCOUNTS_URL + "/alt?client_id=" + cid.http_escape(), [], true, HTTPClient.METHOD_POST, "") != OK:
+		r.queue_free()
+
+func _on_accounts_received(_result, code, _h, body, r: HTTPRequest, then: String):
+	r.queue_free()
+	var j = JSON.parse(body.get_string_from_utf8()) if code == 200 else null
+	if j == null or j.error != OK or typeof(j.result) != TYPE_DICTIONARY:
+		if then == "alt":
+			Globals.notify(Globals.NOTIFY_ERROR, "Couldn't reach the server.", "Alt Account")
+		return
+	var d: Dictionary = j.result
+	if then == "alt" and not bool(d.get("ok", false)):
+		Globals.notify(Globals.NOTIFY_ERROR, String(d.get("error", "Couldn't make the alt account.")), "Alt Account")
+		return
+	accounts = d.get("accounts") if d.get("accounts") is Array else []
+	can_make_alt = bool(d.get("can_make_alt", false))
+	emit_signal("accounts_changed")
+	if then == "alt":
+		# straight onto the new alt
+		for a in accounts:
+			if not bool(a.get("main", false)):
+				switch_to_account(String(a.get("client_id", "")))
+				break
+
+func on_alt_account() -> bool:
+	for a in accounts:
+		if String(a.get("client_id", "")) == cid:
+			return not bool(a.get("main", false))
+	return false
+
+# to the other account in the list (main <-> alt)
+func switch_to_account(id: String):
+	if id == "" or id == cid:
+		return
+	var known := false
+	for a in accounts:
+		if String(a.get("client_id", "")) == id:
+			known = true
+	if not known:
+		return
+	switch_account(id)
+	var name := ""
+	for a in accounts:
+		if String(a.get("client_id", "")) == id:
+			name = "%s (#%s)" % [String(a.get("name", "")), str(a.get("number", ""))]
+	Globals.notify(Globals.NOTIFY_INFO, "You're playing as %s now." % name, "Switched Account")
+	emit_signal("accounts_changed")
+	emit_signal("discord_login_changed")
+
 const DISCORD_LOGIN_POLL_INTERVAL_SEC = 2.0
 const DISCORD_LOGIN_TIMEOUT_SEC = 180.0
 # VR: logging in in the headset's browser or on the computer
@@ -794,6 +867,7 @@ func _apply_discord_user(du: Dictionary):
 	}
 	_save_discord_profile()
 	emit_signal("discord_login_changed")
+	check_accounts() # (an owner: the alt account switcher)
 	if Online.is_tester():
 		# a tester account: get the test build now (UpdateWatcher.gd)
 		var w = get_tree().root.get_node_or_null("UpdateWatcher")
@@ -6487,6 +6561,7 @@ func do_init(_ud = null):
 	load_keybinds()
 	load_profile()
 	check_discord_link()
+	check_accounts() # (an owner on their alt: the switcher, DiscordAccount.gd)
 	check_player_xp()
 	installed_packs = []
 	yield(get_tree().create_timer(0.05), "timeout")

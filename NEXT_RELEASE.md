@@ -46,3 +46,4 @@ in scripts/Savia.gd and empties this list.
 - At prestige 10,000, the last one, your level no longer stops at 100: it keeps going for good.
 - Levels cost more with each of the first ten prestiges, as before (20% each); from the tenth on the cost stays the same, so the later prestiges are never out of reach.
 - Passes with No Fail or Visual Map Mode on are no longer sent to the server (they showed up on your website profile as unranked passes). Turning on No Regen, Extra Energy or Sudden Death now turns Visual Map Mode off along with No Fail
+- Owners: the Profile page has a Make alt account button: a second account for testing (a separate player with no staff permissions, tied to your Discord). The same button then switches between it and your main account

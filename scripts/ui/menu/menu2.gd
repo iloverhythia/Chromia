@@ -12,6 +12,7 @@ var lobby_player_label: Label
 var lobby_name_input: LineEdit
 var discord_button: Button
 var discord_status_label: Label
+var account_button: Button # (owners: make / switch to the alt account, Savia.gd check_accounts)
 var xp_total_label: Label
 var sp_total_label: Label
 var rp_total_label: Label
@@ -494,6 +495,9 @@ func _build_profile_ui():
 	discord_hbox.add_constant_override("separation", 12)
 	discord_button = S.make_button("Connect Discord", self, "_on_discord_button_pressed", [], true)
 	discord_hbox.add_child(discord_button)
+	account_button = S.make_button("Make alt account", self, "_on_account_button_pressed", [], false)
+	account_button.visible = false
+	discord_hbox.add_child(account_button)
 	discord_status_label = S.label("", S.f_regular, S.DIM, true)
 	discord_status_label.valign = Label.VALIGN_CENTER
 	discord_status_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -2829,8 +2833,10 @@ func _on_discord_login_changed():
 		discord_button.disabled = false
 		_online_style().button(discord_button, false)
 		discord_status_label.text = "✓ Discord: %s" % String(Rhythia.discord_user.username)
+		if Rhythia.on_alt_account():
+			discord_status_label.text += "  ·  on your alt"
 
-		if lobby_name_input != null and lobby_name_input.text != String(Rhythia.discord_user.username):
+		if not Rhythia.on_alt_account() and lobby_name_input != null and lobby_name_input.text != String(Rhythia.discord_user.username):
 			lobby_name_input.text = String(Rhythia.discord_user.username)
 			_on_lobby_name_changed(lobby_name_input.text)
 	else:
@@ -2839,6 +2845,39 @@ func _on_discord_login_changed():
 		discord_button.disabled = false
 		_online_style().button(discord_button, true)
 		discord_status_label.text = Rhythia.discord_login_error
+	_update_account_button()
+
+# Owners' alt account for testing (Savia.gd, server src/alts.js): one button
+# to make it, then to switch between it and the main account
+func _other_account() -> Dictionary:
+	for a in Rhythia.accounts:
+		if String(a.get("client_id", "")) != Rhythia.cid:
+			return a
+	return {}
+
+func _update_account_button():
+	if account_button == null:
+		return
+	account_button.disabled = false
+	var other := _other_account()
+	if not other.empty():
+		account_button.text = "Switch to main" if bool(other.get("main", false)) else "Switch to alt"
+		account_button.hint_tooltip = "%s (#%s)" % [String(other.get("name", "")), str(other.get("number", ""))]
+		account_button.visible = true
+	elif Rhythia.can_make_alt:
+		account_button.text = "Make alt account"
+		account_button.hint_tooltip = "A second account for testing: a separate player with no staff permissions, switched to and from here"
+		account_button.visible = true
+	else:
+		account_button.visible = false
+
+func _on_account_button_pressed():
+	account_button.disabled = true
+	var other := _other_account()
+	if not other.empty():
+		Rhythia.switch_to_account(String(other.get("client_id", "")))
+	else:
+		Rhythia.make_alt_account()
 
 func _on_jp_changed(awarded):
 	if xp_total_label != null:
@@ -3179,6 +3218,7 @@ func _ready():
 
 	Rhythia.connect("selected_song_changed", self, "_on_selected_song_changed")
 	Rhythia.connect("discord_login_changed", self, "_on_discord_login_changed")
+	Rhythia.connect("accounts_changed", self, "_on_discord_login_changed")
 	_on_discord_login_changed()
 	Rhythia.connect("jp_changed", self, "_on_jp_changed")
 	Rhythia.connect("sp_changed", self, "_on_sp_changed")
