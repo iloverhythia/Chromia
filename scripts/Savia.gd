@@ -523,7 +523,7 @@ func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, conten
 		return
 	var reasons := PoolStringArray()
 	if content_hash != "" and content_hash != selected_song.compute_chart_hash():
-		reasons.append("map doesn't match the ranked version")
+		reasons.append("map doesn't match the ranked version (the map's screen has a button to get it)")
 	if not (is_equal_approx(hitwindow_ms, 55.0) or is_equal_approx(hitwindow_ms, 58.0)):
 		reasons.append("hitwindow isn't a ranked value (55ms/58ms)")
 	if not is_equal_approx(note_hitbox_size, 1.14):
@@ -677,7 +677,7 @@ func _send_pass_env(for_cid: String):
 	req.queue_free()
 
 const XP_REJECT_REASONS := {
-	"hash_mismatch": "your copy of the map doesn't match the ranked version",
+	"hash_mismatch": "your copy of the map doesn't match the ranked version (the map's screen has a button to get it)",
 	"invalid_hitwindow": "hitwindow isn't a ranked value (55ms/58ms)",
 	"invalid_hitbox_size": "hitbox size isn't the default (1.14)",
 	"invalid_health_model": "health model isn't Default (Sound Space)",

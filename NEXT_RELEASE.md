@@ -6,3 +6,4 @@ in scripts/Savia.gd and empties this list.
 - Spectating: when the player you watch skips ahead, your view now jumps straight there and keeps up as usual (it fell up to 2 seconds behind and caught up slowly). In a lobby, the host's skip no longer hides the notes on a spectator's screen
 - Skipping ahead in solo play moves the music right away (it played on from before the skip for a moment, and for good with Disable Desync on)
 - Staff can now set your level and prestige; your game takes it the next time it is online and tells you ("set by staff")
+- Ranked maps: if your copy of a ranked map has different notes than the ranked version (so passes on it don't count), the map's screen now has a "Get the ranked version" button that downloads the right copy and swaps it in. Your old copy is kept in the map_backups folder
