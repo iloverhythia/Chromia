@@ -131,6 +131,13 @@ func apply_mobile_tuning():
 		# off afterwards stays off)
 		mobile_tuned_v2 = true
 		mobile_no_delay = true
+	if not mobile_tuned_v3:
+		# 120 Hz is on from the start on phones now (once: turning it off
+		# afterwards stays off). Not over a Max FPS you set below 120 yourself.
+		# A 60 Hz screen simply stays at 60.
+		mobile_tuned_v3 = true
+		if Engine.target_fps <= 0 or Engine.target_fps >= 120:
+			mobile_high_hz = true
 	Input.use_accumulated_input = not mobile_no_delay
 	if mobile_high_hz and Engine.target_fps > 0 and Engine.target_fps < 120:
 		Engine.target_fps = 0 # an FPS limit under 120 would hold it back
@@ -141,9 +148,10 @@ func apply_mobile_tuning():
 	if not mobile_no_delay and not mobile_high_hz and not _tuned_once:
 		return
 	_tuned_once = true
+	# (Frame Smoothing used to hold a phone at 60 after a song with late frames
+	# at 120. On a 120 Hz iPhone the screen itself moves between 80 and 120, so
+	# ordinary frames counted as late and phones ended up capped at 60: gone.)
 	var fps := 120 if mobile_high_hz else 60
-	if fps > 60 and frame_smoothing and fs_cap_hz > 0.0 and fs_cap_hz < 100.0:
-		fps = 60 # (Frame Smoothing: this phone kept dropping frames at 120 Hz)
 	var delay := 0.0 if mobile_no_delay else 0.15
 	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay)
 	print("[mobile tuning] ", mobile_tuning_status if mobile_tuning_status != "" else "native helper not in this app")
@@ -3695,6 +3703,7 @@ var ss_progress_w: float = 100.0 # Sound Space Mode: song progress bar width, %
 var mobile_no_delay: bool = false setget _set_mobile_no_delay
 var mobile_high_hz: bool = false setget _set_mobile_high_hz
 var mobile_tuned_v2: bool = false # (No Touch Delay was turned on once for this player)
+var mobile_tuned_v3: bool = false # (120 Hz was turned on once for this player)
 var mobile_old_cursor: bool = false # phones: the cursor's prediction as it was before TouchPredictor.gd
 # No Touch Delay: how far ahead of your finger the cursor is placed, in ms
 # (0 = off). Also fills the gaps between touch samples so motion stays smooth.
@@ -4762,6 +4771,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mobile_high_hz = bool(data.mobile_high_hz)
 		if data.has("mobile_tuned_v2"):
 			mobile_tuned_v2 = bool(data.mobile_tuned_v2)
+		if data.has("mobile_tuned_v3"):
+			mobile_tuned_v3 = bool(data.mobile_tuned_v3)
 		if data.has("mobile_old_cursor"):
 			mobile_old_cursor = bool(data.mobile_old_cursor)
 		if data.has("mobile_predict_ms"):
@@ -5465,6 +5476,7 @@ func _write_settings_file(saveFile: String):
 			mobile_no_delay = mobile_no_delay,
 			mobile_high_hz = mobile_high_hz,
 			mobile_tuned_v2 = mobile_tuned_v2,
+			mobile_tuned_v3 = mobile_tuned_v3,
 			mobile_old_cursor = mobile_old_cursor,
 			mobile_predict_ms = mobile_predict_ms,
 			touch_style = touch_style,

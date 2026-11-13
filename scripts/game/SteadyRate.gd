@@ -8,7 +8,9 @@ extends Reference
 # that is always met. So, with Frame Smoothing on, each song is checked when it
 # ends (HitchLog counts the frames that came late for the rate the device was
 # at). Too many late ones: the next songs run one rate lower (a headset's 120
-# -> 90 -> 80 -> 72 Hz, an iPhone's 120 -> 60 Hz), kept in fs_cap_hz. After a
+# -> 90 -> 80 -> 72 Hz), kept in fs_cap_hz. Headsets only: phones were in it
+# too (120 -> 60), but a 120 Hz iPhone's screen moves between 80 and 120 by
+# itself, so ordinary frames counted as late and phones got capped at 60. After a
 # few songs without late frames the next rate up is tried again; if that song
 # drops frames it goes back down and waits longer before the next try.
 #
@@ -26,7 +28,7 @@ static func on() -> bool:
 
 # the rate held to (0: none)
 static func cap() -> float:
-	return float(Rhythia.get("fs_cap_hz")) if on() else 0.0
+	return float(Rhythia.get("fs_cap_hz")) if on() and Rhythia.vr else 0.0
 
 # the most the screen does (0: it doesn't say)
 static func screen_top() -> float:
@@ -58,7 +60,7 @@ static func current_hz() -> float:
 	if OS.has_feature("iOS"):
 		# Godot draws at 60 there unless the native helper raised it (120 Hz)
 		var asked := 60.0
-		if Rhythia.mobile_high_hz and String(Rhythia.mobile_tuning_status) != "" and not (cap() > 0.0 and cap() < 100.0):
+		if Rhythia.mobile_high_hz and String(Rhythia.mobile_tuning_status) != "":
 			asked = 120.0
 		return min(asked, top) if top >= 20.0 else asked
 	if not OS.has_feature("Android") and not OS.vsync_enabled:
@@ -70,9 +72,6 @@ static func current_hz() -> float:
 static func rates() -> Array:
 	if Rhythia.vr:
 		return load("res://vr/VRPlayer.gd").refresh_rates()
-	if OS.has_feature("iOS") and Rhythia.mobile_high_hz and String(Rhythia.mobile_tuning_status) != "":
-		if screen_top() > 100.0:
-			return [60.0, 120.0]
 	return []
 
 # The most the settings ask for (0: the device's own rate).
