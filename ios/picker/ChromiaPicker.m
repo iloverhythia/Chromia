@@ -205,6 +205,21 @@ static void handle_tune(void) {
 			}
 		}
 	}
+	// What decides the refresh rate besides the game (for its 120 Hz check,
+	// scripts/HighHzCheck.gd): Low Power Mode holds an iPhone at 60 Hz, the app
+	// needs CADisableMinimumFrameDurationOnPhone in its Info.plist, and the
+	// rate iOS is really giving the display link right now.
+	[report appendFormat:@"lowpower %d\n", (int)NSProcessInfo.processInfo.lowPowerModeEnabled];
+	id plist_key = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CADisableMinimumFrameDurationOnPhone"];
+	[report appendFormat:@"plist120 %d\n", (int)[plist_key boolValue]];
+	if (view != nil) {
+		CADisplayLink *now_link = nil;
+		@try { now_link = [view valueForKey:@"displayLink"]; } @catch (NSException *e) { now_link = nil; }
+		if (now_link != nil) {
+			double step = now_link.targetTimestamp - now_link.timestamp;
+			[report appendFormat:@"link %.1f asked %ld\n", step > 0.0001 ? 1.0 / step : 0.0, (long)now_link.preferredFramesPerSecond];
+		}
+	}
 	[fm createDirectoryAtPath:picker_dir() withIntermediateDirectories:YES attributes:nil error:nil];
 	[report writeToFile:[picker_dir() stringByAppendingPathComponent:@"tune_ok.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
 }

@@ -117,10 +117,25 @@ func _set_mobile_no_delay(v: bool):
 	if is_inside_tree():
 		call_deferred("apply_mobile_tuning")
 
+var _high_hz_check: Node = null
 func _set_mobile_high_hz(v: bool):
 	mobile_high_hz = v
+	if has_meta("high_hz_held"):
+		remove_meta("high_hz_held") # (switched by hand: 120 is tried again)
 	if is_inside_tree():
 		call_deferred("apply_mobile_tuning")
+
+# 120 Hz asked for: is it getting through? (scripts/HighHzCheck.gd)
+func _start_high_hz_check():
+	var HC = load("res://scripts/HighHzCheck.gd")
+	if not HC.wanted():
+		return
+	if _high_hz_check == null or not is_instance_valid(_high_hz_check):
+		_high_hz_check = HC.new()
+		_high_hz_check.name = "HighHzCheck"
+		add_child(_high_hz_check)
+	else:
+		_high_hz_check.restart()
 
 var _tuned_once := false
 func apply_mobile_tuning():
@@ -151,9 +166,12 @@ func apply_mobile_tuning():
 	# (Frame Smoothing used to hold a phone at 60 after a song with late frames
 	# at 120. On a 120 Hz iPhone the screen itself moves between 80 and 120, so
 	# ordinary frames counted as late and phones ended up capped at 60: gone.)
-	var fps := 120 if mobile_high_hz else 60
+	# (and held at 60 for this run when 120 was asked for but only 60 frames a
+	# second got through: scripts/HighHzCheck.gd)
+	var fps := 120 if mobile_high_hz and not has_meta("high_hz_held") else 60
 	var delay := 0.0 if mobile_no_delay else 0.15
 	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay)
+	_start_high_hz_check()
 	print("[mobile tuning] ", mobile_tuning_status if mobile_tuning_status != "" else "native helper not in this app")
 
 # Browser on a phone or tablet (touch is the main input).
