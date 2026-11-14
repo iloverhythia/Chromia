@@ -18,3 +18,4 @@ in scripts/Savia.gd and empties this list.
 - The Cards and Frames menus only show the ones you have unlocked (admins see all of them)
 - Notes are drawn the way they were before the stacked / dense notes change: every note of a stack is drawn again (see-through notes on one square build up as they used to), and far notes of long stacks are no longer thinned out
 - The Spectate window is much lighter, most of all in VR: players' picture frames are drawn once for everyone showing the same frame instead of once per player 30 times a second (with 30 framed players the window took 3 times as long to draw; now it is close to having no frames at all). The Online list and the Frames menu gain the same
+- Map list > Filters > Show: new "unranked" box shows only the maps that aren't ranked (ticking it unticks "ranked", and the other way round)

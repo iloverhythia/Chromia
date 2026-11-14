@@ -2443,6 +2443,7 @@ var last_author_search_str: String = ""
 var last_search_incl_broken: bool = false
 var last_search_incl_online: bool = true
 var last_search_xp_only: bool = false
+var last_search_unranked_only: bool = false # Filters > Show > unranked
 var last_search_flip_sort: bool = false
 var last_search_flip_name_sort: bool = false
 var last_page_num: int = 0
@@ -4913,6 +4914,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			last_search_incl_broken = data.last_search_incl_broken
 		if data.has("last_search_xp_only"):
 			last_search_xp_only = data.last_search_xp_only
+		if data.has("last_search_unranked_only"):
+			last_search_unranked_only = bool(data.last_search_unranked_only)
 
 		lcol(data, "grade_s_color")
 		lcol(data, "panel_bg")
@@ -5645,6 +5648,7 @@ func _write_settings_file(saveFile: String):
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
+			last_search_unranked_only = last_search_unranked_only,
 
 			master_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Master")), -80, 1000000)),
 			music_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), -80, 1000000)),
