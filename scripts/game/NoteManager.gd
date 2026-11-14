@@ -1262,6 +1262,8 @@ func _set_rec_interval(delta: float):
 	last_cursor_position = newpos
 
 func _process(delta: float):
+	if not notes_loaded: return
+
 	# Experimental No Delay: mouse movement that came in while this frame was
 	# being started is taken in now, before the camera and hits use the cursor
 	if _no_delay:
@@ -1304,7 +1306,6 @@ func _process(delta: float):
 			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0, drift)
 
 	if active and notes_loaded:
-		if not notes_loaded: return
 		can_skip = ((next_ms - prev_ms) > 5000) and (next_ms >= max(ms + (3000 * speed_multi), 1100 * speed_multi)) and (_mm_visible <= 1)
 
 		_n_cursor.can_switch_move_modes = (ms < Rhythia.music_offset)
