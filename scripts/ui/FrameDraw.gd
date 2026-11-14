@@ -8,6 +8,11 @@ extends Reference
 #              turning round, circuit traces with data running out, a </> chip
 #   DJ         club: a ring of spectrum bars moving to a beat in pink, red and
 #              orange, headphones with glowing cups, notes floating up
+#   Ranker, Contributor, Tester, Moderator   a ring in the role's colour with
+#              its emblem seated at the bottom (trophy, heart, flask, shield)
+#              and its own trim (stars, plus signs, a dashed ring, brackets)
+#   Prestige 1 / 10 / 100 / 1,000 / 10,000   bronze, silver, gold, diamond and
+#              the rainbow, with one to five gems, points from gold on
 # and the looks an admin can give a card they make, in the card's colours:
 # ring (polished metal), glow (neon tube), sparkle (twinkling stars), flame.
 # Default is no frame. FrameView.gd draws one over a picture; the Spectate
@@ -65,6 +70,15 @@ static func draw(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float 
 		"sparkle": _sparkle(ci, c, r, fr, t)
 		"flame": _flame(ci, c, r, fr, t)
 		"image": _image(ci, c, r, fr)
+		"ranker": _ranker(ci, c, r, fr, t)
+		"contributor": _contributor(ci, c, r, fr, t)
+		"tester": _tester(ci, c, r, fr, t)
+		"mod": _mod(ci, c, r, fr, t)
+		"prestige1": _prestige(ci, c, r, t, 0)
+		"prestige10": _prestige(ci, c, r, t, 1)
+		"prestige100": _prestige(ci, c, r, t, 2)
+		"prestige1000": _prestige(ci, c, r, t, 3)
+		"prestige10000": _prestige(ci, c, r, t, 4)
 		_: _ring_style(ci, c, r, fr, t)
 
 # ------------------------------------------------------------------ helpers
@@ -494,3 +508,166 @@ static func _flame(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: floa
 		var x: float = sin(k * 2.3) * r * 1.1 + sin(t * 2.0 + k) * r * 0.05
 		var y: float = -r * 0.6 - ph * r * 0.9
 		ci.draw_circle(c + Vector2(x, y), r * 0.022 * (1.0 - ph), _with_a(hot.lightened(0.3), (1.0 - ph) * 0.9))
+
+# ------------------------------------------------------------------ the team
+# (ranker, contributor, tester, moderator: the website draws the same,
+# website/assets/frames.js)
+
+static func _star5(p: Vector2, s: float, rot0: float = -PI / 2.0) -> PoolVector2Array:
+	var pts := PoolVector2Array()
+	for i in 10:
+		pts.append(_pt(p, s * 0.42 if i % 2 == 1 else s, rot0 + i * TAU / 10.0))
+	return pts
+
+static func _line(ci: CanvasItem, pts: Array, col: Color, w: float):
+	ci.draw_polyline(PoolVector2Array(pts), col, max(1.0, w), true)
+
+# the seat an emblem sits in, at the bottom of the ring
+static func _seat(ci: CanvasItem, c: Vector2, r: float, col: Color, dark: Color) -> Vector2:
+	var p := Vector2(c.x, c.y + r * 1.1)
+	ci.draw_circle(p, r * 0.3, _with_a(dark.darkened(0.2), 0.96))
+	_band(ci, p, r * 0.27, r * 0.31, [col.lightened(0.35), col, col.darkened(0.3), col], 0.0, [0.2, 0.4, -0.2])
+	return p
+
+static func _role_base(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float):
+	var col: Color = fr.color
+	var metal := [col, col.lightened(0.45), col, col.darkened(0.35), col.lightened(0.2), col.darkened(0.2)]
+	_glow(ci, c, r * 1.08, r * 0.2, [col], 0.3)
+	_band(ci, c, r * 0.99, r * 1.12, metal, t * 0.04, [-0.3, 0.15, 0.3])
+	_band(ci, c, r * 1.14, r * 1.165, [col.lightened(0.4)], 0.0, [0.0, 0.3, 0.0], 0.85)
+
+static func _ranker(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float):
+	var col: Color = fr.color
+	_role_base(ci, c, r, fr, t)
+	# a wreath of stars over the top
+	for i in 7:
+		var a: float = deg2rad(-150.0 + i * 20.0)
+		var k: float = 0.75 + 0.25 * sin(t * 1.6 + i * 0.9)
+		var s: float = r * (0.085 + 0.045 * (1.0 - abs(i - 3) / 3.0)) * k
+		var sp := _pt(c, r * 1.3, a)
+		ci.draw_circle(sp, s * 1.5, _with_a(GOLD_MID, 0.18 * k))
+		_gpoly(ci, _star5(sp, s), GOLD_TOP, GOLD_MID, GOLD_EDGE, 1.0)
+	# the trophy
+	var p := _seat(ci, c, r, col, fr.color2)
+	var u := r * 0.2
+	ci.draw_arc(p + Vector2(0, -u * 0.25), u * 0.72, -0.5, 0.5, 8, GOLD_MID, max(1.0, u * 0.16), true)
+	ci.draw_arc(p + Vector2(0, -u * 0.25), u * 0.72, PI - 0.5, PI + 0.5, 8, GOLD_MID, max(1.0, u * 0.16), true)
+	_gpoly(ci, PoolVector2Array([p + Vector2(-u * 0.6, -u * 0.75), p + Vector2(u * 0.6, -u * 0.75), p + Vector2(u * 0.45, -u * 0.05), p + Vector2(u * 0.14, u * 0.2),
+		p + Vector2(u * 0.14, u * 0.48), p + Vector2(u * 0.46, u * 0.6), p + Vector2(u * 0.46, u * 0.8), p + Vector2(-u * 0.46, u * 0.8),
+		p + Vector2(-u * 0.46, u * 0.6), p + Vector2(-u * 0.14, u * 0.48), p + Vector2(-u * 0.14, u * 0.2), p + Vector2(-u * 0.45, -u * 0.05)]), GOLD_TOP, GOLD_LOW, GOLD_EDGE, 1.0)
+	ci.draw_circle(p + Vector2(-u * 0.22, -u * 0.45), u * 0.1, Color(1, 1, 1, 0.8))
+
+static func _contributor(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float):
+	var col: Color = fr.color
+	_role_base(ci, c, r, fr, t)
+	# plus signs going round
+	for i in 8:
+		var a: float = i * TAU / 8.0 + t * 0.25
+		if sin(a) > 0.82:
+			continue # (not over the emblem)
+		var pp := _pt(c, r * 1.27, a)
+		var s: float = r * 0.06 * (0.8 + 0.2 * sin(t * 2.0 + i))
+		var w: float = max(1.0, r * 0.03)
+		ci.draw_line(pp - Vector2(s, 0), pp + Vector2(s, 0), col.lightened(0.35), w, true)
+		ci.draw_line(pp - Vector2(0, s), pp + Vector2(0, s), col.lightened(0.35), w, true)
+	# the heart
+	var p := _seat(ci, c, r, col, fr.color2)
+	var u: float = r * 0.2 * (1.0 + 0.06 * sin(t * 3.0))
+	var pts := PoolVector2Array()
+	for i in 24:
+		var a: float = i * TAU / 24.0
+		pts.append(Vector2(p.x + u * 0.05 * 16.0 * pow(sin(a), 3.0), p.y - u * 0.05 * (13.0 * cos(a) - 5.0 * cos(2.0 * a) - 2.0 * cos(3.0 * a) - cos(4.0 * a)) + u * 0.08))
+	_gpoly(ci, pts, col.lightened(0.45), col.darkened(0.15), col.darkened(0.6), 1.0)
+	ci.draw_circle(p + Vector2(-u * 0.32, -u * 0.32), u * 0.12, Color(1, 1, 1, 0.75))
+
+static func _tester(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float):
+	var col: Color = fr.color
+	_role_base(ci, c, r, fr, t)
+	# a dashed ring turning
+	for i in 16:
+		var a: float = i * TAU / 16.0 + t * 0.15
+		if sin(a + TAU / 64.0) > 0.84:
+			continue
+		_band(ci, c, r * 1.21, r * 1.25, [col.lightened(0.2)], 0.0, [0.0, 0.3, 0.0], 0.9, a, a + TAU / 32.0)
+	# the flask, with its bubbles
+	var p := _seat(ci, c, r, col, fr.color2)
+	var u := r * 0.2
+	var glass := col.lightened(0.75)
+	ci.draw_colored_polygon(PoolVector2Array([p + Vector2(-u * 0.56, u * 0.68), p + Vector2(u * 0.56, u * 0.68), p + Vector2(u * 0.3, u * 0.12), p + Vector2(-u * 0.3, u * 0.12)]), _with_a(col, 0.95))
+	_line(ci, [p + Vector2(-u * 0.2, -u * 0.75), p + Vector2(-u * 0.2, -u * 0.15), p + Vector2(-u * 0.66, u * 0.78), p + Vector2(u * 0.66, u * 0.78),
+		p + Vector2(u * 0.2, -u * 0.15), p + Vector2(u * 0.2, -u * 0.75)], glass, u * 0.13)
+	_line(ci, [p + Vector2(-u * 0.32, -u * 0.78), p + Vector2(u * 0.32, -u * 0.78)], glass, u * 0.13)
+	for k in 3:
+		var ph := fposmod(t * 0.55 + k * 0.33, 1.0)
+		ci.draw_circle(Vector2(p.x + sin(k * 2.1 + t) * u * 0.14, p.y + u * 0.4 - ph * u * 1.7), u * (0.1 - 0.05 * ph), _with_a(col.lightened(0.5), 0.9 * (1.0 - ph)))
+
+static func _mod(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float):
+	var col: Color = fr.color
+	_role_base(ci, c, r, fr, t)
+	# guard brackets at the four corners
+	var p0: float = 0.75 + 0.25 * sin(t * 2.0)
+	for i in 4:
+		var a: float = PI / 4.0 + i * PI / 2.0
+		if i == 0 or i == 1: # (the lower two are shorter: the emblem is between them)
+			var off: float = -0.12 if i == 0 else 0.12
+			_band(ci, c, r * 1.21, r * 1.26, [col.lightened(0.3)], 0.0, [0.1, 0.4, 0.0], 0.9 * p0, a - 0.2 + off, a + 0.2 + off)
+		else:
+			_band(ci, c, r * 1.21, r * 1.26, [col.lightened(0.3)], 0.0, [0.1, 0.4, 0.0], 0.9 * p0, a - 0.35, a + 0.35)
+	# the shield with its tick
+	var p := _seat(ci, c, r, col, fr.color2)
+	var u := r * 0.2
+	_gpoly(ci, PoolVector2Array([p + Vector2(0, -u * 0.82), p + Vector2(u * 0.66, -u * 0.55), p + Vector2(u * 0.62, u * 0.15), p + Vector2(u * 0.36, u * 0.58), p + Vector2(0, u * 0.85),
+		p + Vector2(-u * 0.36, u * 0.58), p + Vector2(-u * 0.62, u * 0.15), p + Vector2(-u * 0.66, -u * 0.55)]), col.lightened(0.35), col.darkened(0.35), col.darkened(0.65), 1.0)
+	_line(ci, [p + Vector2(-u * 0.3, u * 0.02), p + Vector2(-u * 0.06, u * 0.3), p + Vector2(u * 0.34, -u * 0.26)], Color(1, 1, 1, 0.95), max(1.2, u * 0.16))
+
+# ------------------------------------------------------------------ prestige
+# 1, 10, 100, 1,000 and 10,000: bronze, silver, gold, diamond, the rainbow
+const PRESTIGE_METAL := [
+	[Color("#f0b27a"), Color("#cd7f32"), Color("#8a4f1d"), Color("#e39a56"), Color("#a8641f"), Color("#f6c394")],
+	[Color("#ffffff"), Color("#c8d2e0"), Color("#7d8896"), Color("#e9eef5"), Color("#9aa6b5"), Color("#f4f7fb")],
+	[Color("#fff4c2"), Color("#f5c84c"), Color("#b8801e"), Color("#ffe08a"), Color("#d79b2b"), Color("#f9dc7a")],
+	[Color("#e9fbff"), Color("#6fe3ff"), Color("#2a9fd0"), Color("#b8f3ff"), Color("#49c2ee"), Color("#ffffff")],
+	[Color("#ff5e7a"), Color("#ffb347"), Color("#fff275"), Color("#6ef3a5"), Color("#5cc8ff"), Color("#b28dff"), Color("#ff7ad9")],
+]
+const PRESTIGE_GEM := [Color("#ffb347"), Color("#9ad0ff"), Color("#ff4d6a"), Color("#6fe3ff")]
+const PRESTIGE_POINTS := [0, 0, 12, 16, 24]
+const PRESTIGE_LEN := [0.0, 0.0, 0.08, 0.11, 0.14]
+
+static func _prestige(ci: CanvasItem, c: Vector2, r: float, t: float, tier: int):
+	var m: Array = PRESTIGE_METAL[tier]
+	var spin: float = t * 0.12 if tier == 4 else t * 0.04
+	_glow(ci, c, r * 1.08, r * (0.18 + tier * 0.06), m, 0.25 + tier * 0.08, spin)
+	if tier == 4:
+		_glow(ci, c, r * 1.1, r * 0.5, m, 0.3 + 0.1 * sin(t * 2.0), -spin)
+	# points round the outside (from gold on)
+	var np: int = PRESTIGE_POINTS[tier]
+	for i in np:
+		var a: float = i * TAU / np + (t * 0.1 if tier == 4 else 0.0)
+		var lng: float = 1.0 if i % 2 == 0 else 0.6
+		var col := _conic(m, a / TAU + spin)
+		ci.draw_polygon(PoolVector2Array([_pt(c, r * 1.15, a - 0.07), _pt(c, r * (1.17 + float(PRESTIGE_LEN[tier]) * lng), a), _pt(c, r * 1.15, a + 0.07)]),
+			PoolColorArray([col.darkened(0.15), col.lightened(0.5), col.darkened(0.15)]))
+	_band(ci, c, r * 0.99, r * 1.12, m, spin, [-0.3, 0.2, 0.3])
+	_band(ci, c, r * 1.135, r * 1.165, [m[1].lightened(0.35), m[1], m[1].lightened(0.55)], -spin, [0.2, 0.4, -0.1])
+	_band(ci, c, r * 0.975, r * 1.0, [m[2].darkened(0.3)], 0.0, [0.0, 0.2, 0.0], 0.85)
+	# twinkles (diamond and the rainbow)
+	if tier >= 3:
+		for s in SPARKS:
+			var k: float = max(0.0, sin(t * 2.2 + float(s[1])))
+			_twinkle(ci, _pt(c, r * (1.3 + 0.05 * sin(float(s[1]) * 3.0)), deg2rad(float(s[0]))), r * 0.15 * float(s[2]), _conic(m, float(s[0]) / 360.0 + spin), k)
+	# one gem for each step: 1, 2, 3, 4, 5, along the bottom
+	var n := tier + 1
+	for i in n:
+		var a: float = PI / 2.0 + (i - (n - 1) / 2.0) * 0.3
+		var mid: bool = abs(i - (n - 1) / 2.0) < 0.6
+		var gp := _pt(c, r * 1.065, a)
+		var gs: float = r * (0.115 if mid else 0.085)
+		ci.draw_circle(gp, gs * 1.25, _with_a(m[2].darkened(0.5), 0.95))
+		_gem(ci, gp, gs, PRESTIGE_GEM[tier] if tier < 4 else m[i % m.size()])
+	# the last one: a star on top
+	if tier == 4:
+		var sp := _pt(c, r * 1.3, -PI / 2.0)
+		var k2: float = 0.85 + 0.15 * sin(t * 3.0)
+		var sc := _conic(m, spin * 3.0)
+		ci.draw_circle(sp, r * 0.2 * k2, _with_a(sc, 0.3))
+		_gpoly(ci, _star5(sp, r * 0.17 * k2), Color(1, 1, 1, 1), sc, sc.darkened(0.5), 1.0)

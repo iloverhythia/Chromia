@@ -110,13 +110,25 @@ func _on_cards(cards: Array, chosen: String):
 	_chosen = chosen
 	for c in _grid.get_children():
 		c.queue_free()
+	# Only the cards you have are shown (the others stay a secret until you get
+	# them); admins see every card, the locked ones too. The server sends the
+	# list that way; an older server's locked cards are left out here.
+	var see_all: bool = bool(Rhythia.get("is_staff"))
 	var locked := 0
+	var shown := 0
 	for c in cards:
 		if c is Dictionary:
+			var have := bool(c.get("unlocked", false))
+			if not have and not see_all:
+				continue
 			_grid.add_child(_card(c))
-			if not bool(c.get("unlocked", false)):
+			shown += 1
+			if not have:
 				locked += 1
-	_msg.text = ("%d locked: keep playing (and looking) to find them." % locked) if locked > 0 else "You have every card!"
+	if locked > 0:
+		_msg.text = "%d locked (only admins see these)." % locked
+	else:
+		_msg.text = "These are the cards you have. There are more to find: keep playing (and looking)."
 	call_deferred("_place")
 
 func _card(c: Dictionary) -> Control:

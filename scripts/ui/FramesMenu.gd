@@ -103,13 +103,21 @@ func _on_frames(frames: Array, chosen: String):
 	for c in _grid.get_children():
 		_grid.remove_child(c)
 		c.queue_free()
+	# (as the Cards menu: only the ones you have; admins see them all)
+	var see_all: bool = bool(Rhythia.get("is_staff"))
 	var locked := 0
 	for f in frames:
 		if f is Dictionary:
+			var have := bool(f.get("unlocked", false))
+			if not have and not see_all:
+				continue
 			_grid.add_child(_tile(f))
-			if not bool(f.get("unlocked", false)):
+			if not have:
 				locked += 1
-	_msg.text = ("%d locked: unlock their cards to get them." % locked) if locked > 0 else "You have every frame!"
+	if locked > 0:
+		_msg.text = "%d locked (only admins see these)." % locked
+	else:
+		_msg.text = "These are the frames you have. Each card you unlock brings its frame."
 	call_deferred("_place")
 
 func _tile(f: Dictionary) -> Control:

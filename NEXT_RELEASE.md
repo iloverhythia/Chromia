@@ -15,3 +15,5 @@ in scripts/Savia.gd and empties this list.
 - Your own profile picture shows again in a map's History list and the Sound Space menu when it is kept on the Chromia server (its address was incomplete)
 - Windows: starting a second copy of the game (e.g. the test build next to the stable one) no longer shows a crash report for the copy that is still running
 - Settings > Transfer > Settings backups: copies of your settings are kept in a settings_backups folder so they can't be lost. Back Up Settings (on) makes the copies; Only When Saving a New Profile (on) makes one each time you create a profile, and with it off a copy is made every time your settings change. Back up now, Restore a backup (adds it as a profile) and Open backups folder are there too
+- New cards and frames: Ranker, Contributor, Tester and Moderator each get their own card and frame (trophy, heart, flask and shield), and Prestige 1, 10, 100, 1,000 and 10,000 each unlock a card and a frame (bronze, silver, gold, diamond and the rainbow)
+- The Cards and Frames menus only show the ones you have unlocked (admins see all of them)
