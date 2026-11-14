@@ -308,7 +308,7 @@ func load_profile():
 			"id": discord_id,
 			"username": String(config.get_value("profile", "discord_username", "")),
 			"display_name": String(config.get_value("profile", "discord_display_name", "")),
-			"avatar_url": String(config.get_value("profile", "discord_avatar_url", "")),
+			"avatar_url": site_url(String(config.get_value("profile", "discord_avatar_url", ""))),
 		}
 
 func save_jp():
@@ -753,6 +753,13 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 		if show_xp_notifications:
 			Globals.notify(Globals.NOTIFY_WARN, "No XP awarded — %s" % reason_text, "Score Not Submitted")
 
+# The server gives your picture as "/savia-avatar/<id>.png", without its own
+# address. Kept like that, every place that showed your picture asked for an
+# address that isn't one ("Error parsing URL" in the log) and showed nothing.
+const SITE_ADDRESS = "https://savia.nysr.host"
+static func site_url(u: String) -> String:
+	return SITE_ADDRESS + u if u.begins_with("/") else u
+
 func _save_discord_profile():
 	var config = ConfigFile.new()
 	config.load("user://settings.cfg")
@@ -889,7 +896,7 @@ func _apply_discord_user(du: Dictionary):
 		"id": Globals.s(du.get("id", "")),
 		"username": Globals.s(du.get("username", "")),
 		"display_name": Globals.s(du.get("global_name", du.get("display_name", ""))),
-		"avatar_url": Globals.s(du.get("avatar_url", "")),
+		"avatar_url": site_url(Globals.s(du.get("avatar_url", ""))),
 	}
 	_save_discord_profile()
 	emit_signal("discord_login_changed")
@@ -1855,6 +1862,7 @@ const TRAIL_FILE := "user://logs/trail.txt"
 const TRAIL_PREV_FILE := "user://logs/trail_prev.txt"
 const SESSION_FILE := "user://logs/session_state.txt"
 var last_session_crashed: bool = false
+var other_copy_running: bool = false # another copy of the game was running when this one started
 var last_session_trail: String = ""
 var crash_report_shown: bool = false
 var _pending_update_notice: String = "" # iOS: an update was downloaded at startup
@@ -1890,9 +1898,14 @@ func _trail_start():
 			last_session_trail = f.get_as_text()
 			f.close()
 		d.remove(Globals.p(TRAIL_PREV_FILE))
-		d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE))
+		# (Windows won't move a file another program has open: the trail of a
+		# copy of the game that is still running. Starting a second copy, e.g.
+		# the test build next to the stable one, showed the first one's trail
+		# as a crash report although it never crashed.)
+		if d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE)) != OK and f.file_exists(Globals.p(TRAIL_FILE)) and OS.get_name() == "Windows":
+			other_copy_running = true
 	# (the replay game view never counts as crashed, see _set_session_state)
-	last_session_crashed = state == "running" and last_session_trail.strip_edges() != "" and not load("res://scripts/WebReplay.gd").wanted()
+	last_session_crashed = state == "running" and last_session_trail.strip_edges() != "" and not other_copy_running and not load("res://scripts/WebReplay.gd").wanted()
 	last_session_engine_log = _previous_engine_log(40)
 	if last_session_crashed:
 		_save_crash_report()

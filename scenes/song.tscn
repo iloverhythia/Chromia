@@ -1,4 +1,4 @@
-[gd_scene load_steps=48 format=2]
+[gd_scene load_steps=49 format=2]
 
 [ext_resource path="res://scripts/game/Camera.gd" type="Script" id=1]
 [ext_resource path="res://scripts/game/NoteManager.gd" type="Script" id=2]
@@ -95,8 +95,63 @@ void fragment() {
 }
 "
 
+[sub_resource type="Shader" id=87]
+code = "shader_type spatial;
+// The notes' own parts (the see-through inside of some meshes keeps the shader
+// above). They take their place in the depth of the picture even when they
+// are see-through (depth_draw_always), nearest note first: where notes lie
+// over each other only the nearest one is drawn. Before, every see-through
+// note behind it was drawn there too, so a pile of notes on one square grew
+// more and more solid the more notes were in it.
+render_mode blend_mix,cull_back,depth_draw_always,diffuse_burley,specular_disabled,unshaded;
+uniform vec4 notecolor : hint_color = vec4(1,1,1,1);
+
+uniform float alpha_multi = 1;
+uniform float fade = 1;
+
+uniform bool use_image = false;
+uniform sampler2D image;
+
+float cc(float x) {
+	return pow(x, 2.2);
+}
+
+vec4 colconv(vec4 a) {
+	return vec4(
+		cc(a.r),
+		cc(a.g),
+		cc(a.b),
+		a.a
+	);
+}
+
+void fragment() {
+	vec2 base_uv = UV;
+	vec4 img = vec4(1.0);
+	if (use_image) {
+		img = texture(image,UV);
+	}
+	
+	vec4 col = colconv(COLOR);
+//	if (col.a >= 0.5) {
+//		ALBEDO = vec3(0.0, 1.0 - (2.0 * (col.a - 0.5)), (2.0 * (col.a - 0.5)))
+//	} else {
+//		ALBEDO = vec3(1.0 - (2.0 * col.a), (2.0 * col.a), 0.0)
+//	}
+	ALBEDO = col.rgb * img.rgb;
+//	ALBEDO = vec3(col.r, col.a, float(col.a >= 1.0 || col.a == 0.0));
+	//ALBEDO = vec3(1.0 - col.a, col.a, 0.0);
+	float a = col.a*img.a*alpha_multi;
+	// (nothing to see: nothing behind it is hidden either)
+	if (a < 0.004) {
+		discard;
+	}
+	ALPHA = a;
+}
+"
+
 [sub_resource type="ShaderMaterial" id=79]
-shader = SubResource( 78 )
+shader = SubResource( 87 )
 shader_param/notecolor = Color( 1, 1, 1, 1 )
 shader_param/alpha_multi = 1.0
 shader_param/fade = 1.0
