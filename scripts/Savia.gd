@@ -654,7 +654,7 @@ func report_map_completion(song_id: String):
 		http_request.queue_free()
 
 # Before a ranked pass: a fresh scan (ProcessScan.gd, up to 4 s) combined
-# with the one from the song's start goes to the server, which keeps it for
+# with the one from the menu before the song goes to the server, which keeps it for
 # the pass that follows (Cheat Engine: the pass is refused). An older server
 # without /savia-pass-env just answers 404 and the pass goes as before.
 func _send_pass_env(for_cid: String):

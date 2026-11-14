@@ -6,8 +6,13 @@ extends Reference
 #  - cheat_tools: Cheat Engine, if it is running (only the matching process
 #    names are sent, never your other programs) or its DLLs are in Chromia
 # The server refuses ranked passes while Cheat Engine is found and logs it
-# for admins. Scans run on a thread (tasklist takes a moment), when a song
-# starts (Game.gd) and when its score is sent, and the two are combined.
+# for admins. Scans run on a thread (tasklist takes a moment), each time the
+# menu opens (menu2.gd) and when a score is sent, and the two are combined.
+#
+# Never while a song plays. It used to run at every song's start: about two
+# seconds in, when tasklist goes through Chromia's own DLLs, the whole game
+# stood still for 0.2 to 0.6 s on some PCs. A map whose first note comes
+# early had that note pop in late, right in front of you, or not show at all.
 
 signal done
 
@@ -29,11 +34,18 @@ static func instance() -> Reference:
 static func supported() -> bool:
 	return OS.get_name() == "Windows" and not OS.has_feature("JavaScript")
 
-# a new song: forget the last one's finds and scan
+# a new song: its finds start from what the scan before it saw (the menu's).
+# No scan now: see above.
 static func song_started():
 	var s = instance()
 	s.song_tools = []
-	s.start()
+	for t in s.result.get("cheat_tools", []):
+		s.song_tools.append(t)
+
+# the menu is open: the scan for the songs that follow (a stall here isn't seen)
+static func menu_opened():
+	if supported():
+		instance().start()
 
 func start():
 	if busy or not supported():

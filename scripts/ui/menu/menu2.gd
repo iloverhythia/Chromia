@@ -3138,6 +3138,9 @@ func idle_status():
 func _ready():
 	# the browser version opened as the website's game view of a replay
 	load("res://scripts/WebReplay.gd").menu_opened(get_tree())
+	# DLLs / Cheat Engine, for the scores of the songs that follow (on a thread;
+	# here and not at a song's start, where it made the game stand still)
+	load("res://scripts/ProcessScan.gd").menu_opened()
 	# a lobby invite that came during the song: asked about now
 	var _lmi = get_node_or_null("/root/LobbyManager")
 	if _lmi != null and _lmi.has_method("ask_pending_invite"):
