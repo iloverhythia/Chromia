@@ -155,7 +155,87 @@ func _ready():
 	_button(h3, "Save to file", "_save_file")
 	_button(h3, "Load from file", "_load_file")
 	_file_status = _label("", f_body, TEXT, true)
+	_build_backups()
 	set_process(false)
+
+# --- Settings backups (scripts/SettingsBackup.gd) ------------------------------
+const SB = preload("res://scripts/SettingsBackup.gd")
+var _backup_on: CheckBox
+var _backup_only: CheckBox
+var _backup_status: Label
+
+func _check(text: String, on: bool, method: String, tip: String) -> CheckBox:
+	var c = CheckBox.new()
+	c.text = text
+	c.theme = load("res://uitheme.tres")
+	c.add_font_override("font", f_bold)
+	c.pressed = on
+	c.hint_tooltip = tip
+	c.connect("toggled", self, method)
+	box.add_child(c)
+	return c
+
+func _build_backups():
+	box.add_child(HSeparator.new())
+	_label("Settings backups", f_title, ACCENT)
+	_label("Copies of your settings are kept in a backups folder (the newest %d), so you can get them back if they are ever lost or reset. Restore a backup adds the one you pick as a profile." % SB.KEEP, f_body, DIM, true)
+	_backup_on = _check("Back Up Settings", bool(Rhythia.settings_backup), "_on_backup_on", "keeps copies of your settings in the settings_backups folder")
+	_backup_only = _check("Only When Saving a New Profile", bool(Rhythia.settings_backup_profile_only), "_on_backup_only", "on: a copy is made when you make a new profile (Select Profile > Create New From Current). Off: a copy every time your settings change")
+	_backup_only.disabled = not _backup_on.pressed
+	var h = HBoxContainer.new()
+	h.add_constant_override("separation", 10)
+	box.add_child(h)
+	_button(h, "Back up now", "_backup_now")
+	_button(h, "Restore a backup", "_restore_backup")
+	if not web() and not OS.has_feature("mobile") and not OS.has_feature("quest"):
+		_button(h, "Open backups folder", "_open_backups")
+	_backup_status = _label("", f_body, TEXT, true)
+	_backup_count()
+
+func _backup_count(extra: String = "", col: Color = TEXT):
+	var all: Array = SB.list()
+	var t := "No backups yet." if all.empty() else "%d backup%s. Newest: %s" % [all.size(), "" if all.size() == 1 else "s", String(all[0].name).trim_suffix(".json")]
+	_say(_backup_status, (extra + "\n" if extra != "" else "") + t, col)
+
+func _on_backup_on(on: bool):
+	Rhythia.settings_backup = on
+	_backup_only.disabled = not on
+	Rhythia.save_settings()
+
+func _on_backup_only(on: bool):
+	Rhythia.settings_backup_profile_only = on
+	Rhythia.save_settings()
+	_backup_count("A copy is made when you make a new profile." if on else "A copy is made every time your settings change.")
+
+func _backup_now():
+	Rhythia.save_settings()
+	var path: String = Rhythia.settings_backup_now("settings")
+	if path == "":
+		_backup_count("Your settings are the same as the newest backup: no new copy needed.")
+	else:
+		_backup_count("Backed up.", GOOD)
+
+func _open_backups():
+	var d := Directory.new()
+	if not d.dir_exists(SB.folder()):
+		d.make_dir_recursive(SB.folder())
+	OS.shell_open(ProjectSettings.globalize_path(SB.folder()))
+
+func _restore_backup():
+	if SB.list().empty():
+		_backup_count("There are no backups to restore yet.", BAD)
+		return
+	Globals.file_sel.raise()
+	Globals.file_sel.open_file(self, "_on_backup_picked", PoolStringArray(["*.json ; Settings backup"]), false, SB.DIR)
+
+func _on_backup_picked(files):
+	if not (files is PoolStringArray) or files.empty() or String(files[0]) == "":
+		return
+	# (added as a profile next to yours: Select Profile switches to it)
+	if not load("res://scripts/ui/settings/Profiles.gd").import_dropped(get_tree(), PoolStringArray([files[0]])):
+		_backup_count("Couldn't add it: open Settings once and try again.", BAD)
+		return
+	_backup_count("Added as a profile. Pick it under Select Profile to use it.", GOOD)
 
 func _label(text: String, f: Font, col: Color, wrap: bool = false, parent: Node = null) -> Label:
 	var l = Label.new()

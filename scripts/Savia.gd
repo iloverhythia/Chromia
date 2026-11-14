@@ -2077,6 +2077,9 @@ func quit_game():
 		load("res://scripts/SpectateSettings.gd").restore() # nor the ones of someone you were watching
 		end_forced_replay()
 		save_settings()
+		# (a copy that was still waiting for its moment: made now)
+		if settings_backup and not settings_backup_profile_only:
+			load("res://scripts/SettingsBackup.gd").make(Globals.p("user://settings.json"), "settings")
 	_star_quit = true
 	_thumb_quit = true
 	var deadline := OS.get_ticks_msec() + 1500
@@ -3506,6 +3509,9 @@ var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android")
 # what the computer manages, so Discord / OBS have room. stream_user_fps is
 # your own Max FPS while it holds the frame limit (-1: it doesn't).
 var stream_mode: bool = false
+# Settings > Transfer > Settings backups (scripts/SettingsBackup.gd)
+var settings_backup: bool = true
+var settings_backup_profile_only: bool = true
 var stream_user_fps: int = -1
 # Frame Smoothing: the rate the device is held at because it kept dropping
 # frames at a higher one (0: none; scripts/game/SteadyRate.gd)
@@ -4570,6 +4576,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			frame_smoothing = bool(data.frame_smoothing)
 		if data.has("stream_mode"):
 			stream_mode = bool(data.stream_mode)
+		if data.has("settings_backup"):
+			settings_backup = bool(data.settings_backup)
+		if data.has("settings_backup_profile_only"):
+			settings_backup_profile_only = bool(data.settings_backup_profile_only)
 		if data.has("fs_cap_hz"):
 			fs_cap_hz = clamp(float(data.fs_cap_hz), 0.0, 240.0)
 		if data.has("new_settings_ui"):
@@ -5317,8 +5327,35 @@ func save_settings(saveFile: String = Globals.p("user://settings.json"), even_ea
 		var active := get_active_profile_path()
 		if active != "" and active != saveFile:
 			_write_settings_file(active)
+		if settings_backup and not settings_backup_profile_only:
+			_settings_backup_soon()
 	spec.swap_in(theirs)
 	return result
+
+# A copy of the settings for the backups folder (SettingsBackup.gd), a moment
+# after they were saved: dragging a slider saves many times in a row, and one
+# copy of where it ended is what's wanted. Nothing is copied when the file is
+# the same as the newest copy.
+var _backup_timer: Timer = null
+func _settings_backup_soon():
+	if _quitting:
+		return
+	if _backup_timer == null:
+		_backup_timer = Timer.new()
+		_backup_timer.one_shot = true
+		_backup_timer.wait_time = 6.0
+		_backup_timer.pause_mode = PAUSE_MODE_PROCESS
+		_backup_timer.connect("timeout", self, "settings_backup_now")
+		add_child(_backup_timer)
+	_backup_timer.start()
+
+func settings_backup_now(label: String = "settings", source: String = "") -> String:
+	if _backup_timer != null:
+		_backup_timer.stop()
+	# (never while playing with someone else's settings or Sound Space Mode's)
+	if has_meta("spec_backup") or (in_map and bool(get("sound_space_mode"))):
+		return ""
+	return load("res://scripts/SettingsBackup.gd").make(source if source != "" else Globals.p("user://settings.json"), label)
 
 # A copy of every setting this version saved, next to the settings file.
 # An older version (a phone going back to its installed app, a switch to the
@@ -5482,6 +5519,8 @@ func _write_settings_file(saveFile: String):
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
 			stream_mode = stream_mode,
+			settings_backup = settings_backup,
+			settings_backup_profile_only = settings_backup_profile_only,
 			modern_ui = modern_ui,
 			map_grid = map_grid,
 			is_staff = is_staff,

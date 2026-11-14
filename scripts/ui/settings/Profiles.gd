@@ -236,6 +236,9 @@ func on_pressed(i):
 			var new_path = Globals.p(PROFILES_DIR.plus_file(Globals.string_prompt.input.get_text() + ".settings.json"))
 			Rhythia.save_settings(new_path)
 			_set_active_profile_path(new_path)
+			# (Settings > Transfer > Settings backups: a new profile is always copied there)
+			if Rhythia.settings_backup:
+				Rhythia.settings_backup_now("profile " + new_path.get_file().trim_suffix(".settings.json"), new_path)
 		_ready()
 		return
 	if i == profiles.size() + 2:

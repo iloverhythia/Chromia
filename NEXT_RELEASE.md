@@ -14,3 +14,4 @@ in scripts/Savia.gd and empties this list.
 - See-through notes keep their opacity when they lie over each other: a pile of notes on one square no longer turns more and more solid the more notes are in it (where notes overlap, only the nearest one is drawn)
 - Your own profile picture shows again in a map's History list and the Sound Space menu when it is kept on the Chromia server (its address was incomplete)
 - Windows: starting a second copy of the game (e.g. the test build next to the stable one) no longer shows a crash report for the copy that is still running
+- Settings > Transfer > Settings backups: copies of your settings are kept in a settings_backups folder so they can't be lost. Back Up Settings (on) makes the copies; Only When Saving a New Profile (on) makes one each time you create a profile, and with it off a copy is made every time your settings change. Back up now, Restore a backup (adds it as a profile) and Open backups folder are there too
