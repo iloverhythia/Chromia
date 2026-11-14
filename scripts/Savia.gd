@@ -4355,11 +4355,14 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			play_miss_snd = data.play_miss_snd
 		if data.has("auto_preview_song"):
 			auto_preview_song = data.auto_preview_song
-		if data.has("update_channel") and (data.update_channel == "stable" or data.update_channel == "test"):
+		# (only as texts: a number or anything else there, compared with a text,
+		# stopped the loading right here, near the top, and every setting below
+		# was back to default at that start, then saved that way)
+		if data.get("update_channel") is String and (data.update_channel == "stable" or data.update_channel == "test"):
 			update_channel = data.update_channel
 		if data.has("tried_test_builds") and bool(data.tried_test_builds):
 			tried_test_builds = true
-		if data.has("tester_channel") and (data.tester_channel == "stable" or data.tester_channel == "test"):
+		if data.get("tester_channel") is String and (data.tester_channel == "stable" or data.tester_channel == "test"):
 			tester_channel = data.tester_channel
 		_load_update_channel() # (this device's choice wins over a profile's copy)
 		if data.has("disable_bg_effects"):
@@ -4457,7 +4460,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("spectate_favorites") and data.spectate_favorites is Array:
 			spectate_favorites = []
 			for n in data.spectate_favorites:
-				spectate_favorites.append(int(n))
+				if typeof(n) in [TYPE_INT, TYPE_REAL, TYPE_STRING]: # (anything else stopped the loading)
+					spectate_favorites.append(int(n))
 		if data.has("mute_lobby_chat"):
 			mute_lobby_chat = data.mute_lobby_chat
 		if data.has("spawn_distance"):
@@ -5229,6 +5233,53 @@ func _load_update_channel():
 		tester_channel = d.tester_channel
 	if bool(d.get("tried_test_builds", false)):
 		tried_test_builds = true
+
+# When load_saved_settings stops part-way (an error on one setting), every
+# setting after that one is still at its default, and the next save wrote
+# those defaults into your file: most settings reset at that start. The plain
+# ones (on/off, numbers, texts) the loader never got to are taken from the
+# file as they are.
+# _settings_snapshot: the file's plain settings with the game's value for each
+# before loading. _settings_rescue: the ones still at that value afterwards
+# although the file says otherwise.
+const _RESCUE_SKIP := ["update_channel", "tester_channel", "tried_test_builds"] # (this device's own choice)
+func _settings_snapshot(saveFile: String) -> Dictionary:
+	var out := {}
+	var f := File.new()
+	if not f.file_exists(saveFile) or f.open(saveFile, File.READ) != OK:
+		return out
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return out
+	for k in parsed.result.keys():
+		if k in _RESCUE_SKIP:
+			continue
+		var v = parsed.result[k]
+		var cur = get(k)
+		var ct := typeof(cur)
+		var vt := typeof(v)
+		var num := vt == TYPE_BOOL or vt == TYPE_INT or vt == TYPE_REAL
+		if ct == TYPE_BOOL and num:
+			out[k] = [cur, bool(v)]
+		elif ct == TYPE_INT and num:
+			out[k] = [cur, int(v)]
+		elif ct == TYPE_REAL and num:
+			out[k] = [cur, float(v)]
+		elif ct == TYPE_STRING and vt == TYPE_STRING:
+			out[k] = [cur, v]
+	return out
+
+func _settings_rescue(before: Dictionary):
+	var taken := []
+	for k in before.keys():
+		var was = before[k][0]
+		var wanted = before[k][1]
+		var cur = get(k)
+		if typeof(cur) == typeof(was) and cur == was and cur != wanted:
+			set(k, wanted)
+			taken.append(k)
+	trail("settings: the loading stopped part-way; %d settings taken straight from the file%s" % [taken.size(), (" (" + PoolStringArray(taken.slice(0, 5)).join(", ") + ")") if not taken.empty() else ""])
 
 # Until the settings have been read at the start, the game holds only its
 # defaults: a save then would write those over your file (and over the active
@@ -7113,10 +7164,13 @@ func do_init(_ud = null):
 
 	emit_signal("init_stage_reached", "Read user settings")
 	yield(get_tree(), "idle_frame")
+	var settings_before: Dictionary = _settings_snapshot(get_startup_settings_path())
 	var result = load_saved_settings(get_startup_settings_path())
 	if typeof(result) != TYPE_INT:
 		# load_saved_settings stopped on an error part-way (null): keep the
-		# settings read so far instead of getting stuck on this screen
+		# settings read so far instead of getting stuck on this screen, and
+		# take the ones it didn't get to straight from the file
+		_settings_rescue(settings_before)
 		result = 0
 	if result != 0:
 		errornum = result
