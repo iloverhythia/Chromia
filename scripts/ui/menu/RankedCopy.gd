@@ -22,8 +22,17 @@ static func attach(screen: Node) -> Node:
 	b.name = "RankedCopy"
 	b.theme = run.theme
 	var info = run.get_parent()
+	# (a little room between it and Start: right under it, Start's rounded
+	# edge and glow ran into the button)
+	var gap := Control.new()
+	gap.name = "RankedCopyGap"
+	gap.rect_min_size = Vector2(0, 10)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gap.visible = false
+	info.add_child(gap)
+	info.move_child(gap, run.get_index() + 1)
 	info.add_child(b)
-	info.move_child(b, run.get_index() + 1)
+	info.move_child(b, gap.get_index() + 1)
 	return b
 
 func _ready():
@@ -34,11 +43,18 @@ func _ready():
 	add_color_override("font_color_hover", Color("#ffd28a"))
 	visible = false
 	connect("pressed", self, "_on_pressed")
+	connect("visibility_changed", self, "_sync_gap")
 	Rhythia.connect("selected_song_changed", self, "_on_song_changed")
 	var lm = get_node_or_null("/root/LobbyManager")
 	if lm != null:
 		lm.connect("map_rank_info_received", self, "_on_rank_info")
 	set_process(false)
+
+# (the room above the button shows and hides with it)
+func _sync_gap():
+	var gap = get_parent().get_node_or_null("RankedCopyGap") if get_parent() != null else null
+	if gap != null:
+		gap.visible = visible
 
 func _exit_tree():
 	if _thread != null:

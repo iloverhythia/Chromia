@@ -20,3 +20,4 @@ in scripts/Savia.gd and empties this list.
 - The Spectate window is much lighter, most of all in VR: players' picture frames are drawn once for everyone showing the same frame instead of once per player 30 times a second (with 30 framed players the window took 3 times as long to draw; now it is close to having no frames at all). The Online list and the Frames menu gain the same
 - Map list > Filters > Show: new "unranked" box shows only the maps that aren't ranked (ticking it unticks "ranked", and the other way round)
 - Settings: a number box no longer stretches right across the page after its hint has shown (it happened when the mouse rested on a setting with a long hint, like Approach Rate, and stayed until the menu was reloaded)
+- Map screen: the "Get the ranked version" button no longer runs into the Start button (there is room between them now)
