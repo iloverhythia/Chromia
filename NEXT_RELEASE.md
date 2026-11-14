@@ -8,3 +8,4 @@ in scripts/Savia.gd and empties this list.
 - Staff can now set your level and prestige; your game takes it the next time it is online and tells you ("set by staff")
 - Ranked maps: if your copy of a ranked map has different notes than the ranked version (so passes on it don't count), the map's screen now has a "Get the ranked version" button that downloads the right copy and swaps it in. Your old copy is kept in the map_backups folder
 - Maps no longer lose part of their notes after you restart the game (maps with a tempo marker, like Camellia - Flamewall, started minutes in with "SP Not Valid"). Nothing to re-download: your map files were never changed
+- Map Editor: Load map works again when it asks for the song after the map file (picking the song did nothing and it kept saying "Now pick the song"). The same goes for Paste map and every other place that asks for two files in a row
