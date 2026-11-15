@@ -296,6 +296,8 @@ static func apply_theme():
 		var what: String = parts[1]
 		var n: String = parts[2]
 		var button: bool = BUTTON_TYPES.has(type)
+		if type == "PopupMenu" and _popup_look(theme, o[key], what, n, s):
+			continue
 		if what == "sb":
 			var sb := styled(o[key], button, n)
 			if type == "LineEdit" or type == "TextEdit" or type == "SpinBox":
@@ -318,6 +320,38 @@ static func apply_theme():
 			theme.set_color(n, type, c)
 	theme.set_block_signals(false)
 	theme.emit_changed()
+
+# The lists that dropdowns open (PopupMenu), on the pages in the old look:
+# with button colours of your own they follow them. The list is a dark shade
+# of your button colour, the item under the pointer is your button (its
+# colour and its text colour), the other items in your text colour.
+# -> true when it set this part of the theme
+static func _popup_look(theme: Theme, orig, what: String, n: String, s: Dictionary) -> bool:
+	var has_btn: bool = s.has("btn_bg") or s.has("btn_hover")
+	var hover_bg: Color = get_value("btn_hover") if s.has("btn_hover") else get_value("btn_bg")
+	if what == "sb":
+		if not has_btn or not (orig is StyleBoxFlat) or not (n == "panel" or n == "hover"):
+			return false
+		var sb: StyleBoxFlat = orig.duplicate()
+		sb.bg_color = Color(get_value("btn_bg")).darkened(0.62) if n == "panel" else hover_bg
+		sb.bg_color.a = 1.0
+		if s.has("btn_radius"):
+			_radius(sb, int(min(int(get_value("btn_radius")), 8 if n == "hover" else 12)))
+		theme.set_stylebox(n, "PopupMenu", sb)
+		return true
+	if n == "font_color" and s.has("text"):
+		theme.set_color(n, "PopupMenu", get_value("text"))
+		return true
+	if n == "font_color_hover" and (has_btn or s.has("btn_text")):
+		var c: Color = get_value("btn_text")
+		if not s.has("btn_text") and has_btn:
+			# (your button colour with the game's own text: whichever of black and white reads on it)
+			c = Color(0, 0, 0) if (0.299 * hover_bg.r + 0.587 * hover_bg.g + 0.114 * hover_bg.b) > 0.5 else Color(1, 1, 1)
+		elif not has_btn:
+			return false # (the game's dark list: its own white stays)
+		theme.set_color(n, "PopupMenu", c)
+		return true
+	return false
 
 # --- controls with their own colours (set in a scene or by code) -----------------
 

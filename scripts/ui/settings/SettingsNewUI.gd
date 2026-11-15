@@ -444,6 +444,7 @@ func _style_node(n: Node):
 		c.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	elif n is OptionButton or n is MenuButton:
 		var d: Button = n
+		S.popup(d.get_popup()) # (the list it opens, in the same look)
 		d.focus_mode = FOCUS_NONE
 		d.flat = false
 		d.add_font_override("font", S.f_bold)

@@ -263,8 +263,38 @@ func row2(parent: Control, rank: String, name: String, detail: String, value: St
 	h.add_child(val)
 	return h
 
-# a dropdown as a small dark button (its list keeps the theme's look)
+# The list a dropdown opens (and any other pop-up menu, with its side
+# menus): a dark panel like the page's cards, the item under the pointer
+# filled lilac with dark text like the page's main buttons. It used to keep
+# the old theme's grey list, whatever the page or your menu colours were.
+func popup(pm: PopupMenu) -> PopupMenu:
+	if pm == null:
+		return pm
+	var sig := "%s|%s|%s|%s" % [CARD_BG.to_html(), LILAC.to_html(), TEXT.to_html(), DIM.to_html()]
+	if pm.has_meta("ost_popup") and str(pm.get_meta("ost_popup")) == sig:
+		return pm
+	pm.set_meta("ost_popup", sig)
+	var panel := flat(Color(CARD_BG.r, CARD_BG.g, CARD_BG.b, 1.0), 6, Color(1, 1, 1, 0.14), 1, 6, 6)
+	panel.shadow_color = Color(0, 0, 0, 0.4)
+	panel.shadow_size = 8
+	pm.add_stylebox_override("panel", panel)
+	pm.add_stylebox_override("hover", flat(LILAC, 4, Color(0, 0, 0, 0), 0, 6, 3))
+	pm.add_font_override("font", f_bold)
+	pm.add_color_override("font_color", TEXT)
+	pm.add_color_override("font_color_hover", ON_ACCENT)
+	pm.add_color_override("font_color_accel", DIM)
+	pm.add_color_override("font_color_disabled", Color(DIM.r, DIM.g, DIM.b, 0.6))
+	pm.add_color_override("font_color_separator", DIM)
+	pm.add_constant_override("vseparation", 9)
+	pm.add_constant_override("hseparation", 8)
+	for c in pm.get_children():
+		if c is PopupMenu:
+			popup(c)
+	return pm
+
+# a dropdown as a small dark button, its list in the same look (popup)
 func dropdown(ob: OptionButton) -> OptionButton:
+	popup(ob.get_popup())
 	ob.focus_mode = Control.FOCUS_NONE
 	ob.add_font_override("font", f_bold)
 	for k in ["font_color", "font_color_hover", "font_color_pressed"]:
@@ -329,6 +359,10 @@ func restyle_tree(n: Node, top := true):
 	if n.has_meta("ost_done"):
 		return
 	n.set_meta("ost_done", true)
+	if n is OptionButton or n is MenuButton:
+		popup(n.get_popup())
+	elif n is PopupMenu:
+		popup(n)
 	if n is Button and not (n is CheckBox) and not (n is OptionButton):
 		button(n, false, n.rect_min_size.y > 0 and n.rect_min_size.y <= 30)
 	elif n is CheckBox:
