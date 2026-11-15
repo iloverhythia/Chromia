@@ -156,7 +156,7 @@ func _input(event: InputEvent):
 				move_mode = C_JOYSTICK
 			elif event is InputEventMouseMotion:
 				move_mode = C_MOUSE
-		elif move_mode == C_JOYSTICK and event is InputEventMouseMotion and event.relative.length() > 2.0:
+		elif move_mode == C_JOYSTICK and event is InputEventMouseMotion and Rhythia.mouse_rel(event).length() > 2.0:
 			move_mode = C_MOUSE # (the mouse moved: it's the mouse after all)
 
 		if move_mode == C_JOYSTICK:
@@ -173,35 +173,35 @@ func _input(event: InputEvent):
 			# line for line (its render scale was always 1)
 			visible = true
 			if (event is InputEventMouseMotion):
-				face = event.relative
+				face = Rhythia.mouse_rel(event)
 				if Rhythia.invert_mouse:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position() * -1)
 					else:
-						move_cursor((event.relative * 0.018 * Rhythia.sensitivity) * -1)
+						move_cursor((Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity) * -1)
 				else:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position())
 					else:
-						move_cursor(event.relative * 0.018 * Rhythia.sensitivity)
+						move_cursor(Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity)
 		elif not Rhythia.spin_now() and move_mode == C_MOUSE:
 			visible = true
 			if (event is InputEventMouseMotion):
-				_face_accum += event.relative
+				_face_accum += Rhythia.mouse_rel(event)
 				if _pred and Rhythia.absolute_mode:
 					_predict_input(event.position)
 				if _pred and not Rhythia.absolute_mode:
-					_move_rel_predicted(event.relative * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1), event.relative)
+					_move_rel_predicted(Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1), Rhythia.mouse_rel(event))
 				elif Rhythia.invert_mouse:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position() * -1)
 					else:
-						move_cursor((event.relative * 0.018 * Rhythia.sensitivity) * -1)
+						move_cursor((Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity) * -1)
 				else:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position())
 					else:
-						move_cursor(event.relative * 0.018 * Rhythia.sensitivity)
+						move_cursor(Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity)
 
 		# (touches are shown by scripts/ui/TouchIndicator.gd now)
 

@@ -2784,6 +2784,7 @@ func start_vr(at_boot: bool = false):
 		setup_controller_bindings()
 	vr = true
 	_vr_started_ms = OS.get_ticks_msec()
+	apply_render_res() # (VR has its own picture: the window is drawn as it is)
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
 	_desk_vsync = OS.vsync_enabled
 	_desk_fps = Engine.target_fps
@@ -2922,6 +2923,7 @@ func _ready():
 		load("res://scripts/PackGuard.gd").started(PackUpdate.loaded_version)
 	# Closing the window goes through quit_game() too (see there).
 	get_tree().set_auto_accept_quit(false)
+	get_tree().connect("screen_resized", self, "apply_render_res") # (the size drawn at follows the window's)
 	connect("init_stage_reached", self, "_log_stage")
 	fail_asp.bus = "OtherSound"
 	call_deferred("add_child", fail_asp)
@@ -3646,6 +3648,78 @@ func no_delay_end():
 	Engine.target_fps = int(s[1])
 	OS.vsync_via_compositor = bool(s[2])
 	Input.use_accumulated_input = bool(s[3])
+
+# --- Render resolution (computers) -----------------------------------------------
+# The game normally draws one pixel for every pixel of the window. On a Mac's
+# Retina screen that is four times the pixels of a normal screen the same
+# size (a 5K iMac: 14.7 million a frame, with glow and anti-aliasing on top),
+# which many Macs' graphics chips can't do at speed: the game ran at 10 to 20
+# frames a second there. Drawn smaller and stretched over the window instead.
+#
+# render_res: 0 = Auto (a Mac's Retina screen: the pixels of a normal screen,
+# as most Mac apps and games do; everything else: every pixel), else percent
+# of the window's size (100, 75, 50).
+# render_shrink: what is applied (window pixels per drawn pixel).
+# Mouse movement comes in drawn pixels, so relative mouse movement in a map
+# is multiplied by it (mouse_rel): the same hand movement moves the cursor as
+# far as before, whatever the resolution.
+var render_res: int = 0
+var render_shrink: float = 1.0
+const RENDER_RES_CHOICES := [0, 100, 75, 50]
+const RENDER_MIN_HEIGHT := 720.0
+
+func wanted_render_shrink() -> float:
+	if device("mobile") or vr or OS.has_feature("JavaScript") or OS.has_feature("quest"):
+		return 1.0 # (phones have their own layout: apply_mobile_layout; a headset its own picture)
+	if render_res > 0:
+		return 100.0 / clamp(float(render_res), 25.0, 100.0)
+	if OS.has_feature("OSX"):
+		return clamp(OS.get_screen_scale(), 1.0, 3.0)
+	return 1.0
+
+var _render_size := Vector2.ZERO # the size drawn at, while it isn't the window's
+
+func apply_render_res():
+	if device("mobile"):
+		return
+	var win: Vector2 = OS.get_window_size()
+	if win.x < 16 or win.y < 16:
+		return # (minimised)
+	# never fewer lines than the menus are laid out for
+	var s: float = clamp(wanted_render_shrink(), 1.0, max(1.0, win.y / RENDER_MIN_HEIGHT))
+	if s <= 1.001:
+		if _render_size != Vector2.ZERO:
+			_render_size = Vector2.ZERO
+			render_shrink = 1.0
+			get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_DISABLED, SceneTree.STRETCH_ASPECT_IGNORE, Vector2(), 1)
+			trail("render resolution: every pixel of the %d x %d window" % [int(win.x), int(win.y)])
+		return
+	var size: Vector2 = (win / s).floor()
+	if size == _render_size:
+		return
+	var first: bool = not is_equal_approx(s, render_shrink)
+	_render_size = size
+	render_shrink = s
+	# (the whole picture, menus and game, is drawn at `size` and stretched over the window)
+	get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_VIEWPORT, SceneTree.STRETCH_ASPECT_IGNORE, size, 1)
+	call_deferred("_render_smooth")
+	if first:
+		trail("render resolution: %s, drawing %d x %d in a %d x %d window" % ["auto" if render_res <= 0 else "%d%%" % render_res, int(size.x), int(size.y), int(win.x), int(win.y)])
+
+# The smaller picture is stretched smoothly, not as blocks (the engine's own
+# way for this: jagged text and lines at anything but exactly half size).
+# Set again after every change of size: the picture's buffer is made anew then.
+func _render_smooth():
+	if _render_size == Vector2.ZERO:
+		return
+	var tex: ViewportTexture = get_tree().root.get_texture()
+	if tex != null:
+		tex.flags = 0
+		tex.flags = Texture.FLAG_FILTER
+
+# relative mouse movement of an event, in window pixels (see render_shrink)
+func mouse_rel(event) -> Vector2:
+	return event.relative * render_shrink
 
 func apply_max_fps_mode():
 	if vr:
@@ -4628,6 +4702,9 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			if max_fps_mode and not vr: call_deferred("apply_max_fps_mode")
 		if data.has("pc_no_delay"):
 			pc_no_delay = bool(data.pc_no_delay)
+		if data.has("render_res") and RENDER_RES_CHOICES.has(int(data.render_res)):
+			render_res = int(data.render_res)
+		call_deferred("apply_render_res")
 		if data.has("legacy_mouse"):
 			legacy_mouse = bool(data.legacy_mouse)
 		if data.has("show_map_rp"):
@@ -5573,6 +5650,7 @@ func _write_settings_file(saveFile: String):
 			custombg_color = custombg_color.to_html(false),
 			max_fps_mode = max_fps_mode,
 			pc_no_delay = pc_no_delay,
+			render_res = render_res,
 			legacy_mouse = legacy_mouse,
 			show_map_rp = show_map_rp,
 			new_settings_ui = new_settings_ui,
@@ -7317,6 +7395,13 @@ func do_init(_ud = null):
 		_set_is_staff(st)
 	call_deferred("apply_mobile_tuning")
 	call_deferred("_vr_settings_ready") # (VR running since the start, Meta Quest: its settings go on now)
+	call_deferred("apply_render_res") # (also with no settings file yet: a Mac's Retina screen starts on Auto)
+	if not has_meta("display_trailed"):
+		# (for reports of a slow game: what it is drawn on)
+		set_meta("display_trailed", true)
+		var win0: Vector2 = OS.get_window_size()
+		var scr0: Vector2 = OS.get_screen_size()
+		trail("display: window %d x %d on a %d x %d screen (scale %s), graphics: %s" % [int(win0.x), int(win0.y), int(scr0.x), int(scr0.y), str(OS.get_screen_scale()), VisualServer.get_video_adapter_name()])
 	load("res://scripts/game/SoundSpaceMode.gd").recover()
 	load("res://scripts/SpectateSettings.gd").recover() # closed while watching with someone's settings
 
