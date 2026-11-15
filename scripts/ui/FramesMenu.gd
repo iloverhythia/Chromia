@@ -19,13 +19,17 @@ var _me_name := ""
 var _me_pic := ""
 
 static func open_on(parent: Node):
-	var old = parent.get_tree().root.find_node("FramesMenu", true, false)
-	if old != null:
-		old.queue_free()
+	# (every one that is open, each with its layer and the dimmed screen behind it)
+	for old in parent.get_tree().get_nodes_in_group("frames_menu"):
+		if not old.is_queued_for_deletion():
+			old.close()
 	var layer := CanvasLayer.new()
 	layer.layer = 110
 	layer.name = "FramesMenuLayer"
-	parent.get_tree().root.add_child(layer)
+	# On the screen the button is on: the window, or in VR the menu screen in
+	# front of you. (On the window's own layer it opened where nobody in a
+	# headset could see or close it, and every press stacked another one.)
+	parent.get_viewport().add_child(layer)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.anchor_right = 1
@@ -33,6 +37,7 @@ static func open_on(parent: Node):
 	layer.add_child(dim)
 	var m = load("res://scripts/ui/FramesMenu.gd").new()
 	m.name = "FramesMenu"
+	m.add_to_group("frames_menu")
 	layer.add_child(m)
 	dim.connect("gui_input", m, "_on_dim")
 	return m
@@ -92,6 +97,7 @@ func _input(ev):
 		get_tree().set_input_as_handled()
 
 func close():
+	remove_from_group("frames_menu")
 	var layer = get_parent()
 	if layer is CanvasLayer:
 		layer.queue_free()

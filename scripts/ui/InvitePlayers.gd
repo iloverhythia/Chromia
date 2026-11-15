@@ -19,13 +19,14 @@ var _sent := {} # number -> true (invited from this window)
 
 static func open_on(parent: Node):
 	var tree = parent.get_tree()
-	var old = tree.root.get_node_or_null("InvitePlayersLayer")
+	var old = tree.root.find_node("InvitePlayersLayer", true, false)
 	if old != null:
 		old.queue_free()
 	var layer := CanvasLayer.new()
 	layer.layer = 110
 	layer.name = "InvitePlayersLayer"
-	tree.root.add_child(layer)
+	# (on the screen the button is on: in VR the menu screen, not the window nobody in a headset sees)
+	parent.get_viewport().add_child(layer)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.anchor_right = 1
