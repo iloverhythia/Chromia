@@ -1,7 +1,7 @@
 extends Reference
 
-# Square map covers: the grid map list (MapGrid.gd), the lobby map picker
-# (LobbyMapPicker.gd) and the Modern UI (ModernUI.gd). Each cover is cropped
+# Square map covers: the grid map list (MapGrid.gd) and the lobby map picker
+# (LobbyMapPicker.gd). Each cover is cropped
 # to a square and shrunk to SIZE once, kept in user://caches/covers_sq160 and
 # loaded from there after that. tex_for() never touches the disk: it returns
 # a cover already in memory, or null and asks for it; "ready(song)" is sent
@@ -37,7 +37,7 @@ var _running := 0
 static func get_cache():
 	var root = Engine.get_main_loop().root
 	if not root.has_meta("cover_sq"):
-		root.set_meta("cover_sq", load("res://scripts/ui/modern/CoverSq.gd").new())
+		root.set_meta("cover_sq", load("res://scripts/ui/menu/CoverSq.gd").new())
 	return root.get_meta("cover_sq")
 
 static func key_of(song) -> String:

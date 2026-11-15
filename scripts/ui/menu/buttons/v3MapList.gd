@@ -74,7 +74,7 @@ func is_fav(s: Song): return _fav_set.has(s)
 var _st: String = ""
 var _at: String = ""
 
-# Modern UI > Sort & Filter: ranges and show / hide (ModernPanels.gd); all off by default
+# Sort & Filter: ranges and show / hide; all off by default
 var mf := {"min_stars": 0.0, "max_stars": 0.0, "min_len": 0, "max_len": 0, "hide_ranked": false, "hide_unranked": false, "played": 0}
 func _mf_ok(s: Song) -> bool:
 	if mf.min_stars > 0 or mf.max_stars > 0:

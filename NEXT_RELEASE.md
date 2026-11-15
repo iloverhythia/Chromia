@@ -21,3 +21,4 @@ in scripts/Savia.gd and empties this list.
 - Map list > Filters > Show: new "unranked" box shows only the maps that aren't ranked (ticking it unticks "ranked", and the other way round)
 - Settings: a number box no longer stretches right across the page after its hint has shown (it happened when the mouse rested on a setting with a long hint, like Approach Rate, and stayed until the menu was reloaded)
 - Map screen: the "Get the ranked version" button no longer runs into the Start button (there is room between them now)
+- Removed the experimental Modern UI (it was only shown to staff)

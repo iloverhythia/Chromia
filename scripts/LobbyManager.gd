@@ -1731,7 +1731,7 @@ func _handle_message(msg: Dictionary):
 		"auth_ok", "display_name_changed":
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
-				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
+				Rhythia.is_staff = i_am_staff
 			if msg.has("tester"):
 				Rhythia.set_site_tester(bool(msg.get("tester"))) # (a tester on the website: test builds)
 			if msg.has("perms"):

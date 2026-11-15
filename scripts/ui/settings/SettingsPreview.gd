@@ -35,11 +35,6 @@ var _drag := 0 # 0 none, 1 move, 2 resize
 var _drag_from := Vector2()
 var _drag_rect := Rect2()
 var _placed := false
-# the Modern UI's (ModernPanels.gd) copy: a big box beside the settings panel,
-# placed by it, with the title, time and progress line on top (like the video)
-var modern := false
-var modern_on := false
-var k := 1.0
 
 func _init():
 	name = "SettingsPreview"
@@ -87,13 +82,9 @@ func _make_map():
 			t += 0.8 # (a short break)
 
 func _ready():
-	if modern:
-		mouse_filter = MOUSE_FILTER_STOP # (a click on it doesn't close the settings)
 	var img = Globals.imageLoader.load_if_exists("user://cursor")
 	_cursor_tex = img if img else load("res://assets/images/cursors/circle.png")
 	var p = get_parent()
-	if modern:
-		return
 	if p is Control:
 		p.connect("resized", self, "_fit")
 	call_deferred("_place")
@@ -128,10 +119,6 @@ func _save_rect():
 
 func _process(delta):
 	var on: bool = bool(Rhythia.get("settings_preview"))
-	if modern:
-		on = on and modern_on
-	elif Rhythia.modern_ui_on():
-		on = false # (the Modern UI shows its own)
 	if visible != on:
 		visible = on
 	if not on or not is_visible_in_tree():
@@ -224,10 +211,6 @@ func _close_rect() -> Rect2:
 	return Rect2(rect_size.x - TITLE_H, 0, TITLE_H, TITLE_H)
 
 func _gui_input(event):
-	if modern:
-		if event is InputEventMouseButton:
-			accept_event()
-		return
 	if event is InputEventMouseButton and event.button_index == BUTTON_LEFT:
 		if event.pressed:
 			if _close_rect().has_point(event.position):
@@ -318,9 +301,6 @@ func _cursor_pos(t: float) -> Vector2:
 	return prev.linear_interpolate(n[1], k)
 
 func _draw():
-	if modern:
-		draw_style_box(_box(), Rect2(Vector2(), rect_size))
-		return
 	var w := rect_size.x
 	draw_rect(Rect2(Vector2(), rect_size), BG_COL)
 	draw_rect(Rect2(0, 0, w, TITLE_H), TITLE_COL)
@@ -369,17 +349,8 @@ func _make_view():
 	add_child(_ov)
 	_ov.connect("draw", self, "_draw_overlay")
 
-func _box() -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.012, 0.012, 0.014, 0.97)
-	sb.border_color = Color(1, 1, 1, 0.2)
-	sb.set_border_width_all(1)
-	return sb
-
 func _layout_view():
 	var r := Rect2(1, TITLE_H, rect_size.x - 2, rect_size.y - TITLE_H - 1)
-	if modern:
-		r = Rect2(1, 1, rect_size.x - 2, rect_size.y - 2)
 	if _vc.rect_position != r.position or _vc.rect_size != r.size:
 		_vc.rect_position = r.position
 		_vc.rect_size = r.size
@@ -419,8 +390,6 @@ func _step_view(delta: float):
 func _draw_overlay():
 	var w := _ov.rect_size.x
 	var h := _ov.rect_size.y
-	if modern:
-		return # (the song's own HUD says "Watching Auto play Settings Preview" and the time: SettingsPreviewHud.gd)
 	# (the HUD itself is the song's, in the 3D view: SettingsPreviewHud.gd)
 	# resize grip
 	var g := Vector2(w - 4, h - 4)

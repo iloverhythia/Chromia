@@ -16,7 +16,7 @@ extends Control
 # this only shows its `disp` list. It is made and removed while the game runs
 # (Rhythia.map_grid), no restart needed.
 
-const CoverSq = preload("res://scripts/ui/modern/CoverSq.gd")
+const CoverSq = preload("res://scripts/ui/menu/CoverSq.gd")
 
 const CELL := 128.0
 const GAP := 4.0

@@ -3475,10 +3475,8 @@ func _set_map_grid(v: bool):
 		return
 	map_grid = v
 	emit_signal("map_grid_changed")
-var modern_ui: bool = false setget _set_modern_ui # Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
-signal modern_ui_changed
-# the Modern UI is for staff (an Owner / Administrator tag): the server says
-# so at sign-in (LobbyManager); remembered for a start before it answers
+# staff (an Owner / Administrator tag): the server says so at sign-in
+# (LobbyManager); remembered for a start before it answers
 var is_staff: bool = false setget _set_is_staff
 func _set_is_staff(v: bool):
 	if not _settings_read:
@@ -3487,12 +3485,6 @@ func _set_is_staff(v: bool):
 		return
 	is_staff = v
 	save_settings()
-	emit_signal("modern_ui_changed")
-func modern_ui_on() -> bool:
-	return modern_ui and is_staff and not vr
-func _set_modern_ui(v: bool):
-	modern_ui = v
-	emit_signal("modern_ui_changed")
 var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd: the first version's mouse code)
 # Experimental: "Show RP on Maps". Offline RP (RhythiaPoints.gd) is always
 # earned and kept (the Profile tab has the total and the top plays); this only
@@ -4585,8 +4577,6 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			fs_cap_hz = clamp(float(data.fs_cap_hz), 0.0, 240.0)
 		if data.has("new_settings_ui"):
 			new_settings_ui = bool(data.new_settings_ui)
-		if data.has("modern_ui"):
-			modern_ui = bool(data.modern_ui)
 		if data.has("map_grid"):
 			map_grid = bool(data.map_grid)
 		if data.has("is_staff"):
@@ -5524,7 +5514,6 @@ func _write_settings_file(saveFile: String):
 			stream_mode = stream_mode,
 			settings_backup = settings_backup,
 			settings_backup_profile_only = settings_backup_profile_only,
-			modern_ui = modern_ui,
 			map_grid = map_grid,
 			is_staff = is_staff,
 			lb_device = lb_device,
