@@ -1220,7 +1220,9 @@ func _process(delta: float):
 		delta = 1.0 / float(Rhythia.render_fps) if Rhythia.render_step_ok else 0.0
 	_frame_delta = delta
 
-	if Rhythia.vr: do_vr_cursor()
+	if Rhythia.vr:
+		do_vr_cursor()
+		_n_cursor.trail_after_move() # (the trail from where the cursor is now, not from last frame's place)
 	elif Grid != null and ((Grid.spectating and Grid.vr_view_on()) or Grid.replay_vr_on()):
 		# watching someone in VR with their settings: their head is the camera,
 		# and the grid stays still as it does in VR
