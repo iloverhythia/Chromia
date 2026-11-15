@@ -551,6 +551,8 @@ func _build_index():
 	_index = []
 	for i in range(tc.get_tab_count()):
 		var seen := {}
+		if tc.get_tab_control(i).name == "Pinned":
+			continue # (copies of settings that are found on their own pages: PinnedTab.gd)
 		_index_node(tc.get_tab_control(i), i, seen, true)
 	_index_sig = _sig
 

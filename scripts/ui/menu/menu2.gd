@@ -3176,6 +3176,7 @@ func _ready():
 		lang_tab.name = "Language"
 		lang_tabs.add_child(lang_tab)
 	load("res://scripts/ui/settings/CustomBgColor.gd").attach(get_node_or_null("Main/Settings/S/F/TabContainer")) # custom bg color picker
+	load("res://scripts/ui/settings/PinnedTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Pinned: the settings you pinned, first in the list (after every other tab is in)
 	load("res://scripts/ui/settings/TrailGradientSettings.gd").attach(self) # cursor trail gradient editor
 	_setup_furry_secret()
 	_setup_folder_filters()
