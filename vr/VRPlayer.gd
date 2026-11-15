@@ -198,7 +198,10 @@ func _watch_for_reset(delta: float):
 	_last_head = t
 	if _recenter_in > 0 and Rhythia.vr_play_lock and Rhythia.vr_play_lock_frame.size() == 12:
 		_recenter_in = 0 # locked: nothing moves
-	if _recenter_in > 0:
+	# (VR started with the game, Meta Quest: not before the settings are read.
+	# A locked play area's placement is in them, and a recenter first would
+	# move what it is measured from.)
+	if _recenter_in > 0 and not Rhythia.vr_boot_hold:
 		_recenter_in -= 1
 		if _recenter_in == 0:
 			recenter_to_head()
@@ -436,6 +439,8 @@ func apply_xr_settings():
 	var cfg = Rhythia.vr_xr_config
 	if cfg == null:
 		return
+	if Rhythia.vr_boot_hold:
+		return # (VR started with the game: once the settings are read, Rhythia._vr_settings_ready)
 	# the plugin's set_foveation_level(level, dynamic) takes both: called
 	# with one, native code reads a missing argument and the app crashed
 	if cfg.has_method("set_foveation_level"):

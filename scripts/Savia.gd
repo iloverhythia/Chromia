@@ -2675,7 +2675,68 @@ func apply_vr_pacing():
 	OS.vsync_enabled = false
 	Engine.target_fps = 0 if OS.has_feature("quest") else 720
 
-func start_vr():
+# Meta Quest: VR starts with the game (init.gd), before anything is loaded, so
+# the headset shows a Loading panel at once. It used to show nothing until
+# the whole game had loaded, a flat menu had been built and thrown away, and
+# the VR menu had loaded after it: a long wait that looks like a frozen app.
+# (A debug run with CHROMIA_BOOT_VR=1 does the same in pretend VR, to test.)
+#
+# vr_boot_hold: VR is up but the settings aren't read yet. VRPlayer waits with
+# its first recenter until they are (a locked play area keeps its placement).
+var vr_boot_hold: bool = false
+var _vr_started_ms: int = 0
+
+func boot_vr_wanted() -> bool:
+	if vr:
+		return false
+	if OS.has_feature("quest"):
+		return true
+	return OS.is_debug_build() and OS.get_environment("CHROMIA_BOOT_VR") == "1"
+
+func start_vr_at_boot() -> bool:
+	if vr:
+		return true
+	if not _settings_read:
+		# the one setting the headset needs before VR starts (the rest are
+		# applied when the settings are read: _vr_settings_ready)
+		var f := File.new()
+		var path: String = get_startup_settings_path()
+		if f.file_exists(path) and f.open(path, File.READ) == OK:
+			var parsed = JSON.parse(f.get_as_text())
+			f.close()
+			if parsed.error == OK and parsed.result is Dictionary:
+				var rs = parsed.result.get("vr_render_scale")
+				if rs is float or rs is int:
+					vr_render_scale = clamp(float(rs), 0.5, 1.5)
+		vr_boot_hold = true
+	start_vr(true)
+	if not vr:
+		vr_boot_hold = false
+	return vr
+
+# The settings are read (do_init), with VR already running since the start:
+# what start_vr and VRPlayer took from them goes on now.
+func _vr_settings_ready():
+	if not vr_boot_hold:
+		return
+	vr_boot_hold = false
+	if not vr:
+		return
+	apply_vr_binds()
+	apply_vr_pacing()
+	if is_instance_valid(vr_player):
+		vr_player.update_primary_ray()
+		vr_player.apply_hand()
+		vr_player._restore_play_lock()
+		# (the headset's graphics settings work on the eye images, which exist
+		# only once VR has been drawing for a moment)
+		var wait: float = 1.6 - (OS.get_ticks_msec() - _vr_started_ms) / 1000.0
+		if wait > 0.0:
+			get_tree().create_timer(wait).connect("timeout", vr_player, "apply_xr_settings")
+		else:
+			vr_player.apply_xr_settings()
+
+func start_vr(at_boot: bool = false):
 
 	if vr:
 		print("VR already active")
@@ -2685,7 +2746,7 @@ func start_vr():
 	var viewport = get_viewport()
 	if OS.has_feature("quest"):
 		vr_interface = ARVRServer.find_interface("OpenXR")
-	if Input.is_key_pressed(KEY_SHIFT) and not OS.has_feature("quest"):
+	if (Input.is_key_pressed(KEY_SHIFT) or at_boot) and not OS.has_feature("quest"):
 		print("Enabling fake VR")
 		OS.window_maximized = true
 		fake_vr = true
@@ -2722,6 +2783,7 @@ func start_vr():
 
 		setup_controller_bindings()
 	vr = true
+	_vr_started_ms = OS.get_ticks_msec()
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
 	_desk_vsync = OS.vsync_enabled
 	_desk_fps = Engine.target_fps
@@ -2732,6 +2794,8 @@ func start_vr():
 	vr_player = vr_av
 
 	menu_target = "res://vr/vrmenu.tscn"
+	if at_boot:
+		return # (the loading screen is up already and goes on to the VR menu: init.gd)
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
 # VR: an error screen (flat window only) goes back to the menu (vr/VRNotice.gd)
@@ -6686,6 +6750,20 @@ func populate_map_registry_deferred(args: Array):
 	call_deferred("emit_signal", "local_maps_loaded")
 
 
+func _alert_on_vr_menu(text: String):
+	var waited := 0.0
+	while not is_instance_valid(vr_menu) and waited < 300.0:
+		yield(get_tree().create_timer(0.5), "timeout")
+		waited += 0.5
+	if not is_instance_valid(vr_menu):
+		return
+	yield(get_tree().create_timer(1.5), "timeout")
+	Globals.confirm_prompt.s_alert.play()
+	Globals.confirm_prompt.open(text, "Alert", [{text = "OK", wait = 2}])
+	yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.s_next.play()
+	Globals.confirm_prompt.close()
+
 func do_init(_ud = null):
 	# Started on a thread (Globals, and init.gd for Reload Content), but it adds
 	# nodes, timers and keybinds to the running game, which is only safe on the
@@ -6822,7 +6900,11 @@ func do_init(_ud = null):
 	if OS.has_feature("Android") and not Engine.has_meta("permissions_asked_init"):
 		# (once a run: not again on Reload Content, see init.gd)
 		Engine.set_meta("permissions_asked_init", true)
-		OS.request_permissions()
+		# (not with VR running since the start, Meta Quest: init.gd asked just
+		# before, and asking again opens and closes Android's permission screen
+		# over the headset, which takes the game out of focus)
+		if not (vr and Engine.has_meta("permissions_asked")):
+			OS.request_permissions()
 	var user_dir = Globals.p("user://")
 	if user_dir == "RETRY":
 		yield(get_tree().create_timer(7), "timeout")
@@ -7230,6 +7312,7 @@ func do_init(_ud = null):
 		_staff_early = null
 		_set_is_staff(st)
 	call_deferred("apply_mobile_tuning")
+	call_deferred("_vr_settings_ready") # (VR running since the start, Meta Quest: its settings go on now)
 	load("res://scripts/game/SoundSpaceMode.gd").recover()
 	load("res://scripts/SpectateSettings.gd").recover() # closed while watching with someone's settings
 
@@ -7300,6 +7383,11 @@ func do_init(_ud = null):
 		OS.vsync_enabled = true
 		Engine.target_fps = 0 # (the browser paces the frames to the screen)
 		call_deferred("_web_replay_light") # (after a saved setting's own deferred apply)
+	if alert != "" and vr and not is_instance_valid(vr_menu):
+		# (VR without its menu yet: a box on the flat window that nobody could
+		# see or press, and loading waited for it for ever. On the VR menu.)
+		_alert_on_vr_menu(alert)
+		alert = ""
 	if alert != "":
 		emit_signal("init_stage_reached", "Alert prompt")
 		if not alert_snd_played: Globals.confirm_prompt.s_alert.play()

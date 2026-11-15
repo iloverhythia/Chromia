@@ -701,7 +701,7 @@ func _ready():
 			disable_intro = disable_intro or (decode.result.has("disable_intro") and decode.result.disable_intro)
 	# (VR: never; a cutscene in a headset is just a long dark wait. The Quest
 	# starts in VR, PC VR starts from the menu, after this.)
-	if OS.has_feature("quest") or Rhythia.vr:
+	if OS.has_feature("quest") or Rhythia.vr or Rhythia.boot_vr_wanted():
 		disable_intro = true
 	# (the website's game view of a replay: no intro, WebReplay.gd)
 	if not disable_intro and not load("res://scripts/WebReplay.gd").wanted():
