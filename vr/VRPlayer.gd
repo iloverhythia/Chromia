@@ -345,14 +345,19 @@ func apply_hand():
 		meshes = _custom_hand_meshes()
 		if meshes == null:
 			want = "default"
+	elif want == "built":
+		# (made in the Hand Creator: vr/HandCreator.gd)
+		meshes = load("res://vr/HandCreator.gd").pair(Rhythia.vr_hand_design)
+		if meshes == null:
+			want = "default"
 	_hand_shown = want
 	# the beam starts at the paw's toes (the ray itself is unchanged)
 	for ray in [left_ray, right_ray]:
 		if "start_gap" in ray:
 			ray.start_gap = 0.0
 			var XH = load("res://vr/ExtraHands.gd")
-			if want == "paw" or want == "ball" or XH.has(want):
-				var tip: float = load("res://vr/PawHand.gd").TIP if want == "paw" else (load("res://vr/BallHand.gd").TIP if want == "ball" else XH.tip(want))
+			if want == "paw" or want == "ball" or want == "built" or XH.has(want):
+				var tip: float = load("res://vr/PawHand.gd").TIP if want == "paw" else (load("res://vr/BallHand.gd").TIP if want == "ball" else (load("res://vr/HandCreator.gd").tip(Rhythia.vr_hand_design) if want == "built" else XH.tip(want)))
 				ray.start_gap = max(0.0, ray.transform.origin.z + tip * UNITS_PER_M)
 	for i in range(_hand_default.size()):
 		var d: Array = _hand_default[i]
@@ -382,6 +387,12 @@ func apply_hand():
 			trail.transform = Transform(Basis().scaled(Vector3(0.02, 0.02, 0.06)), Vector3.ZERO)
 	Rhythia.trail("VR hands: " + want)
 	_hand_rot_applied = null # (the model changed: turned again)
+
+# The Hand Creator changed the hand being worn: built again
+func refresh_built_hand():
+	if Rhythia.vr_hand == "built":
+		_hand_shown = ""
+		apply_hand()
 
 # A hand only one player has (SnowLeopardPaw.gd): put on once the game knows
 # it's them (checked every 2 s while it isn't on).

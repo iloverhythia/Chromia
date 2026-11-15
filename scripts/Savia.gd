@@ -2503,6 +2503,8 @@ var vr_haptic_miss: bool = true
 # the hands: "default" (box), "paw" (built-in furry paw), "ball" (a white sphere),
 # "glove" / "robot" / "skeleton" / "crystal" (vr/ExtraHands.gd), "custom" (vr_hand.obj)
 var vr_hand: String = "default"
+# the hand made in the Hand Creator (vr/HandCreator.gd): its lines; worn when vr_hand is "built"
+var vr_hand_design: Array = []
 # the VR menu's surroundings: "classic", a built-in one (vr/MenuEnvs.gd) or
 # "bg:<background id>" for a background from the background list
 var vr_menu_env: String = "classic"
@@ -4995,8 +4997,11 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_haptics = clamp(float(data.vr_haptics), 0.0, 1.0)
 		if data.has("vr_haptic_miss"):
 			vr_haptic_miss = bool(data.vr_haptic_miss)
-		if data.has("vr_hand") and ["default", "paw", "ball", "glove", "robot", "skeleton", "crystal", "snowleopard", "custom"].has(str(data.vr_hand)):
+		if data.has("vr_hand") and ["default", "paw", "ball", "glove", "robot", "skeleton", "crystal", "snowleopard", "custom", "built"].has(str(data.vr_hand)):
 			vr_hand = str(data.vr_hand)
+		if data.has("vr_hand_design") and data.vr_hand_design is Array:
+			# (checked line by line: only what the Hand Creator itself writes)
+			vr_hand_design = load("res://vr/HandCreator.gd").encode(load("res://vr/HandCreator.gd").parse(data.vr_hand_design))
 		if data.has("vr_menu_env") and load("res://vr/MenuEnvs.gd").is_valid(str(data.vr_menu_env)):
 			vr_menu_env = str(data.vr_menu_env)
 		if data.has("vr_play_lock"):
@@ -5762,6 +5767,7 @@ func _write_settings_file(saveFile: String):
 			vr_haptics = vr_haptics,
 			vr_haptic_miss = vr_haptic_miss,
 			vr_hand = vr_hand,
+			vr_hand_design = vr_hand_design,
 			vr_menu_env = vr_menu_env,
 			vr_play_lock = vr_play_lock,
 			vr_play_lock_frame = vr_play_lock_frame,

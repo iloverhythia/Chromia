@@ -1258,11 +1258,17 @@ func _hand_source() -> Array:
 		s = {"vr_hand": rh.vr_hand, "vr_hand_file": rh.vr_hand_files[0], "vr_hand_left_file": rh.vr_hand_files[1]}
 	if s is Dictionary:
 		var k: String = String(s.get("vr_hand", "default"))
+		if k == "built":
+			# (made in their Hand Creator: its lines come with their settings)
+			var lines = s.get("vr_hand_design")
+			return [k, "", "", lines if lines is Array else []]
 		if k != "custom":
 			return [k, "", ""]
 		return [k, spec.cached_asset(String(s.get("vr_hand_file", "")).to_lower(), "obj"), spec.cached_asset(String(s.get("vr_hand_left_file", "")).to_lower(), "obj")]
 	# your own replay: your own hands
 	var mine: String = String(Rhythia.get("vr_hand")) if Rhythia.get("vr_hand") != null else "default"
+	if mine == "built":
+		return [mine, "", "", Rhythia.vr_hand_design]
 	if mine != "custom":
 		return [mine, "", ""]
 	var r := ""
@@ -1283,7 +1289,8 @@ func _spec_hand_look():
 	var kind: String = src[0]
 	var rpath: String = src[1]
 	var lpath: String = src[2]
-	var sig := "%s|%s|%s" % [kind, rpath, lpath]
+	var built: Array = src[3] if src.size() > 3 else []
+	var sig := "%s|%s|%s|%s" % [kind, rpath, lpath, str(built.hash()) if kind == "built" else ""]
 	if sig == _spec_hand_sig:
 		return
 	_spec_hand_sig = sig
@@ -1297,6 +1304,8 @@ func _spec_hand_look():
 		meshes = [b, b]
 	elif load("res://vr/ExtraHands.gd").has(kind):
 		meshes = load("res://vr/ExtraHands.gd").pair(kind)
+	elif kind == "built":
+		meshes = load("res://vr/HandCreator.gd").pair(built)
 	elif kind == "custom" and rpath != "":
 		var ObjParse = load("res://scripts/content/resources/ObjParse.gd")
 		var r = ObjParse.load_obj(rpath)
@@ -1319,8 +1328,8 @@ func _spec_hand_look():
 		if ray != null and "start_gap" in ray:
 			ray.start_gap = 0.0
 			var XH = load("res://vr/ExtraHands.gd")
-			if (kind == "paw" or kind == "ball" or XH.has(kind)) and meshes != null:
-				var tip: float = load("res://vr/PawHand.gd").TIP if kind == "paw" else (load("res://vr/BallHand.gd").TIP if kind == "ball" else XH.tip(kind))
+			if (kind == "paw" or kind == "ball" or kind == "built" or XH.has(kind)) and meshes != null:
+				var tip: float = load("res://vr/PawHand.gd").TIP if kind == "paw" else (load("res://vr/BallHand.gd").TIP if kind == "ball" else (load("res://vr/HandCreator.gd").tip(built) if kind == "built" else XH.tip(kind)))
 				ray.start_gap = max(0.0, ray.transform.origin.z + tip * VRP.UNITS_PER_M)
 		if meshes == null:
 			mi.mesh = d[0]
