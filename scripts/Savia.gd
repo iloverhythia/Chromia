@@ -6938,6 +6938,7 @@ func do_init(_ud = null):
 			file.close()
 		if not dir.dir_exists(Globals.p("user://replays")): dir.make_dir(Globals.p("user://replays"))
 		_move_to_chromia_folder(dir)
+		load("res://scripts/OldFolderBests.gd").start(self) # (bests in the old shared folder, readable by older clients again)
 		if not dir.dir_exists(user_best_dir):
 			convert_pb_format = true
 			dir.make_dir_recursive(user_best_dir)

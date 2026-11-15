@@ -24,3 +24,4 @@ in scripts/Savia.gd and empties this list.
 - Removed the experimental Modern UI (it was only shown to staff)
 - Meta Quest: opening the game no longer leaves you looking at nothing for a long time. VR now starts first, and a panel in front of you says "Loading" (with what is being loaded) or "Updating" (with how far the download is) until the menu opens. The game also no longer builds a flat menu it then threw away before the VR one, so it opens sooner
 - VR: the loading panel of Reload Content, a profile switch and a skin change is the same new one (bigger, with moving dots, and it stays in front of you)
+- Rhythia Nightly (and other older clients) can read your bests again: the bests Chromia saved in the shared SoundSpacePlus folder before it had its own were in a newer format they saw as broken, so the first start of this version rewrites them in the older format (the originals are kept in Chromia's folder)
