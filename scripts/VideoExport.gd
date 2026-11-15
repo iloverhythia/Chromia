@@ -76,6 +76,7 @@ func _go():
 		"song_name": String(_song.name) if _song != null else "",
 		"map_sha": File.new().get_sha256(map_file) if map_file != "" else "",
 		"title": _title,
+		"mod_360_speed": Rhythia.mod_360_speed, # (the replay file doesn't have it)
 	}
 	Globals.notify(Globals.NOTIFY_INFO, "Getting your video ready...", "Save video")
 	var r = yield(_request("%s?%s" % [RENDER_URL, _auth()], HTTPClient.METHOD_POST, ["Content-Type: application/json"], JSON.print(body).to_utf8()), "completed")

@@ -221,6 +221,8 @@ func _run_render(t: String):
 	if not (info is Dictionary) or not bool(info.get("ok", false)):
 		return _fail("This video link has expired.")
 	_title.text = String(info.get("song_name", "")) if String(info.get("song_name", "")) != "" else "Your play"
+	if info.get("mod_360_speed") != null:
+		_spin360 = float(info.get("mod_360_speed"))
 	var who = info.get("player")
 	var name := String(who.get("name", "")) if who is Dictionary else ""
 	_sub.text = ("played by %s" % name) if name != "" else ""
@@ -281,6 +283,9 @@ func _apply_settings(s: Dictionary):
 # "someone else's" (SpectateSettings' backup), the song's load would put
 # "yours" back, so the backup is dropped
 var _render_settings := {}
+# the 360 mod's speed for this replay (the file doesn't have it: the link's
+# r360, or the video link's info), null when not known
+var _spin360 = null
 func _put_render_settings():
 	if _render_settings.empty():
 		return
@@ -349,6 +354,9 @@ func _play():
 	_put_render_settings() # (a private video: the player's settings)
 	Rhythia.replay = Replay.new()
 	Rhythia.replaying = true
+	var r360 = _spin360 if _spin360 != null else (float(params().get("r360")) if params().has("r360") else null)
+	if r360 != null:
+		Rhythia.mod_360_speed = clamp(float(r360), -5.0, 5.0)
 	Rhythia.replay_path = Globals.p(replay_path)
 	get_tree().change_scene("res://scenes/loaders/songload.tscn")
 

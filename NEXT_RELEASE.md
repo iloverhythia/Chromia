@@ -26,3 +26,4 @@ in scripts/Savia.gd and empties this list.
 - VR: the loading panel of Reload Content, a profile switch and a skin change is the same new one (bigger, with moving dots, and it stays in front of you)
 - Rhythia Nightly (and other older clients) get your bests and attempts back: the ones Chromia saved in the shared SoundSpacePlus folder were in a newer format they saw as broken. The first start of this version writes every map's bests there again in the older format, with the ones you made in Chromia since added (the better of the two for each speed and mods). The old files are kept in Chromia's folder
 - Settings > Notes: Half Ghost strength goes in 1% steps instead of 5%
+- Replays: the 360 mod shows when you watch one (the notes stayed still), and on the website's Game view at the speed it was played with; video links you make send the 360 speed too

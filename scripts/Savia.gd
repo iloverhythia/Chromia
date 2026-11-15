@@ -4204,6 +4204,8 @@ func parse_pb_str(txt: String):
 	data.mod_flashlight = false
 	data.mod_reverse = false
 	data.mod_nofail = false
+	data.mod_strobe = false
+	data.mod_360 = false
 
 	for s in pts:
 		if s.begins_with("s:c"):
@@ -4238,6 +4240,7 @@ func parse_pb_str(txt: String):
 				"m_im": data.invert_mouse = true
 				"m_earthquake": data.mod_earthquake = true
 				"m_strobe": data.mod_strobe = true
+				"m_360": data.mod_360 = true
 				"m_hardrock": data.mod_hardrock = true
 				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true
