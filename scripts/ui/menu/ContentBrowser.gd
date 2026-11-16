@@ -9,7 +9,7 @@ extends ReferenceRect
 # settings you use now. The server checks each file and its size
 # (savia_web server/src/content.js).
 
-const SITE := "https://savia.nysr.host"
+const SITE := "https://chromia.lol"
 const API := SITE + "/savia-content"
 const TABS := [["map", "Maps"], ["colorset", "Colorsets"], ["mesh", "Note Meshes"], ["profile", "Settings Profiles"], ["cursor", "Cursors"], ["hitsound", "Hit Sounds"], ["skin", "Skins"]]
 const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json", "cursor": "png", "hitsound": "ogg", "skin": "cskin"}

@@ -9,7 +9,7 @@ extends Node
 # coins ever, features found], compared in that order
 # (ChromiaUpgradeTree.progress_score).
 
-const URL := "https://savia.nysr.host/savia-tree"
+const URL := "https://chromia.lol/savia-tree"
 const BACKUP := "user://upgrade_tree.before_sync.json"
 
 var server_score = null # the kept tree's, once asked (null: not known)

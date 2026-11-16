@@ -2,7 +2,7 @@ extends Node
 
 onready var rootg = get_tree().root
 
-# (analytics go through the server, savia.nysr.host/ga-collect: no keys in the game)
+# (analytics go through the server, chromia.lol/ga-collect: no keys in the game)
 
 const BANNED_LIST_URL = "https://raw.githubusercontent.com/SavvyScripter-GH/SavvyAssets/main/banned_players.json"
 var banned_clients: Array = []
@@ -318,15 +318,15 @@ func save_jp():
 	config.set_value("profile", "sp", sp)
 	config.save("user://settings.cfg")
 
-const REPORT_COMPLETION_URL = "https://savia.nysr.host/savia-report-completion"
+const REPORT_COMPLETION_URL = "https://chromia.lol/savia-report-completion"
 # a ranked pass sent with its replay (the server only gives XP with one)
-const SUBMIT_PASS_URL = "https://savia.nysr.host/savia-submit-pass"
-const PASS_ENV_URL = "https://savia.nysr.host/savia-pass-env" # (ProcessScan.gd: DLLs, Cheat Engine)
-const PLAYER_XP_URL = "https://savia.nysr.host/savia-player-xp"
-const LEADERBOARD_URL = "https://savia.nysr.host/savia-leaderboard"
-const LEADERBOARD_SP_URL = "https://savia.nysr.host/savia-leaderboard-sp"
-const PUBLIC_LB_URL = "https://savia.nysr.host/savia-public/api/leaderboard/"
-const UPLOAD_REPLAY_URL = "https://savia.nysr.host/savia-upload-replay"
+const SUBMIT_PASS_URL = "https://chromia.lol/savia-submit-pass"
+const PASS_ENV_URL = "https://chromia.lol/savia-pass-env" # (ProcessScan.gd: DLLs, Cheat Engine)
+const PLAYER_XP_URL = "https://chromia.lol/savia-player-xp"
+const LEADERBOARD_URL = "https://chromia.lol/savia-leaderboard"
+const LEADERBOARD_SP_URL = "https://chromia.lol/savia-leaderboard-sp"
+const PUBLIC_LB_URL = "https://chromia.lol/savia-public/api/leaderboard/"
+const UPLOAD_REPLAY_URL = "https://chromia.lol/savia-upload-replay"
 
 func upload_replay_for_pass(song_id: String, replay_id: String):
 	if cid == "" or song_id == "" or replay_id == "":
@@ -620,7 +620,7 @@ func pass_url(url: String) -> String:
 	if not passes_to_main or Online.build_channel() != "test":
 		return url
 	var path_at := url.find("/", 8)
-	return "https://" + "savia" + "." + "nysr.host" + (url.substr(path_at) if path_at > 0 else "")
+	return "https://" + "chromia" + "." + "lol" + (url.substr(path_at) if path_at > 0 else "")
 
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
@@ -688,7 +688,7 @@ const XP_REJECT_REASONS := {
 	"debounced": "you already scored this map recently",
 }
 
-const UNRANKED_MAP_URL = "https://savia.nysr.host/savia-unranked-map"
+const UNRANKED_MAP_URL = "https://chromia.lol/savia-unranked-map"
 func _send_unranked_map(song_id: String):
 	var song = registry_song.get_item(song_id) if registry_song != null else null
 	if song == null or String(song.get("filePath")) == "":
@@ -756,7 +756,7 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 # The server gives your picture as "/savia-avatar/<id>.png", without its own
 # address. Kept like that, every place that showed your picture asked for an
 # address that isn't one ("Error parsing URL" in the log) and showed nothing.
-const SITE_ADDRESS = "https://savia.nysr.host"
+const SITE_ADDRESS = "https://chromia.lol"
 static func site_url(u: String) -> String:
 	return SITE_ADDRESS + u if u.begins_with("/") else u
 
@@ -769,11 +769,11 @@ func _save_discord_profile():
 	config.set_value("profile", "discord_avatar_url", discord_user.get("avatar_url", ""))
 	config.save("user://settings.cfg")
 
-const DISCORD_LOGIN_START_URL = "https://savia.nysr.host/savia-discord-login-start"
-const DISCORD_LOGIN_POLL_URL = "https://savia.nysr.host/savia-discord-login-poll"
-const DISCORD_LINK_URL = "https://savia.nysr.host/savia-discord-link"
-const DISCORD_UNLINK_URL = "https://savia.nysr.host/savia-discord-unlink"
-const ACCOUNTS_URL = "https://savia.nysr.host/savia-accounts"
+const DISCORD_LOGIN_START_URL = "https://chromia.lol/savia-discord-login-start"
+const DISCORD_LOGIN_POLL_URL = "https://chromia.lol/savia-discord-login-poll"
+const DISCORD_LINK_URL = "https://chromia.lol/savia-discord-link"
+const DISCORD_UNLINK_URL = "https://chromia.lol/savia-discord-unlink"
+const ACCOUNTS_URL = "https://chromia.lol/savia-accounts"
 
 # Owners' alt account for testing (server src/alts.js): their main account and
 # one alt, switched between in Settings (DiscordAccount.gd). The alt is a
@@ -1054,7 +1054,7 @@ func is_client_banned(client_id: String) -> bool:
 	# list on GitHub has an empty entry)
 	return client_id != "" and banned_clients.has(client_id)
 
-const LIVE_BAN_STATUS_URL = "https://savia.nysr.host/savia-live-ban-status"
+const LIVE_BAN_STATUS_URL = "https://chromia.lol/savia-live-ban-status"
 const LIVE_BAN_POLL_INTERVAL_SEC = 30.0
 var live_ban_reason := "" # (what the admin wrote when banning: shown on the ban screen, scenes/errors/banned.gd)
 var _live_ban_timer: Timer
@@ -1135,7 +1135,7 @@ func _is_testing_version(v: String) -> bool:
 	return v.findn("-testin") != -1
 
 func send_analytics_event(event_name: String, other_payload: Dictionary, cid: String):
-	var url = "https://savia.nysr.host/ga-collect"
+	var url = "https://chromia.lol/ga-collect"
 
 	var payload = {
 		"client_id": cid,
@@ -1264,7 +1264,7 @@ const VERSION_NOTES = {
 	"oct18-2026-c": "- New experimental setting: Wave Menu (Settings > Replays & Misc > Experimental) replaces the dark menu background with animated topographic waves",
 	"oct18-2026-d": "- Wave Menu: slower waves, and light text gets black outlines so it stays readable\n- Much faster map list with big libraries (sorting, searching and filtering)\n- Search waits until you stop typing for a moment instead of rebuilding the list on every key\n- The map list no longer stalls on covers that haven't been cached yet; they appear a moment later\n- Fixed re-imported or deleted maps sometimes leaving a duplicate in the list",
 	"oct18-2026-e": "- Discord status in the menu now says \"Idle while listening to furry ASMR\"\n- Updates now come from the renamed iloverhythia/Furria repository",
-	"oct18-2026-f": "- Profile and Online are now full pages in the left sidebar\n- Profile page shows your Savia profile picture, rank, stats, top play and top 10 plays from savia.nysr.host (connect Discord to link it)",
+	"oct18-2026-f": "- Profile and Online are now full pages in the left sidebar\n- Profile page shows your Savia profile picture, rank, stats, top play and top 10 plays from chromia.lol (connect Discord to link it)",
 	"oct18-2026-g": "- New menu music: Change It Up (a bit quieter than the old song)\n- Wave Menu option: use your colorset's colors (Settings > Replays & Misc > Experimental)",
 	"oct18-2026-h": "- Online page: three columns (lobby controls | players | chats) that fill the window\n- Admin tools are now an Admin tab on the Online page\n- Rank button moved next to Favorite / Add to folder on the selected map\n- Wave Menu colorset mode now fades through every color in your colorset\n- Much faster startup with big map libraries (finding map files was ~40x slower than needed)",
 	"oct18-2026-i": "- Rank Map button is now in the top-right corner, and only shows while a map is open",
@@ -4012,7 +4012,7 @@ func record_play_stats():
 # from any device (prestige first, then level, then progress) and answers
 # with it; when that's above this device's, this device takes it. So the
 # device with the higher level / prestige sets the others to the same.
-const LEVEL_URL = "https://savia.nysr.host/savia-level"
+const LEVEL_URL = "https://chromia.lol/savia-level"
 var _level_hooked := false
 var _level_sent := ""
 func _hook_level_reports():

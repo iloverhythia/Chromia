@@ -8,7 +8,7 @@ extends HFlowContainer
 # colour, its name, description and note when you hover it.
 # An older server (no badge_list): the old chips.
 
-const SITE := "https://savia.nysr.host"
+const SITE := "https://chromia.lol"
 const ICON_DIR := "user://badge_icons"
 const MOTD_TIERS = [[100, "Prismatic"], [60, "Supernova"], [30, "Eclipse"], [15, "Golden Sun"], [5, "Sunshine"], [1, "Sunrise"]]
 const TILE_BG := Color("#121316")

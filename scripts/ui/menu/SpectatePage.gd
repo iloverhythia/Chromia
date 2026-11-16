@@ -1476,7 +1476,7 @@ func _send_chat():
 
 func _load_avatar(url: String, pic: TextureRect):
 	if url.begins_with("/"): # (a picture on the server, given without its address)
-		url = "https://savia.nysr.host" + url
+		url = "https://chromia.lol" + url
 	if not url.begins_with("http"):
 		return
 	if _img_cache.has(url):
@@ -1556,7 +1556,7 @@ func _on_gif_avatar(tex, url: String, waiting: Array):
 # --- right-click a card: View stats -------------------------------------------------
 # Their profile (the same as the website's: level, XP and SP with their places,
 # passes, bio, last online) and their best plays, in a box over the window.
-const STATS_SITE := "https://savia.nysr.host"
+const STATS_SITE := "https://chromia.lol"
 var _ctx: PopupMenu = null
 var _ctx_card = null
 var _stats: Control = null

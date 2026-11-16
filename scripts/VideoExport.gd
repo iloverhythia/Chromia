@@ -11,7 +11,7 @@ extends Node
 # plays it with those settings and records it as an MP4. Works for a part
 # of a map too (a fail or a give-up: the replay stops there).
 
-const RENDER_URL := "https://savia.nysr.host/savia-render"
+const RENDER_URL := "https://chromia.lol/savia-render"
 const MAX_MAP_BYTES := 150 * 1024 * 1024
 
 var _replay_file := ""

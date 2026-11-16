@@ -705,7 +705,7 @@ static func _lb_level_text(v) -> String:
 	return ("P%d Lv %d" % [prestige, lvl]) if prestige > 0 else ("Lv %d" % lvl)
 
 const LB_MEDALS = [Color(1, 0.84, 0.3), Color(0.8, 0.84, 0.9), Color(0.87, 0.6, 0.38)]
-const LB_SITE := "https://savia.nysr.host"
+const LB_SITE := "https://chromia.lol"
 const LB_RANKED_TEAM := Color(1, 0.431, 0.29) # (the website's "Ranked Team" orange)
 
 # a country's flag from its two letters ("US"), from the emoji pack; null when unknown

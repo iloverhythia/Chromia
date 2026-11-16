@@ -14,7 +14,7 @@ extends Node
 signal progress(text)
 signal finished(ogv_path, error)
 
-const URL := "https://savia.nysr.host/savia-convert-video"
+const URL := "https://chromia.lol/savia-convert-video"
 const EXTS := ["mp4", "mov", "m4v", "mkv", "avi", "wmv", "flv", "3gp"]
 const MAX_BYTES := 95 * 1024 * 1024
 const POLL_S := 2.0

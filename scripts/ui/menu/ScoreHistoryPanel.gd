@@ -524,7 +524,7 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 # --- avatars ----------------------------------------------------------------------
 const AVATAR = 42
 const AVATAR_CACHE_META = "score_history_avatars" # url -> texture (for the whole session)
-const SITE = "https://savia.nysr.host"
+const SITE = "https://chromia.lol"
 var _avatar_waiting := {} # url -> [TextureRect]
 # your own picture on the Chromia website (asked for once a session, for
 # players without Discord: their attempts only had their first letter)

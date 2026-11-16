@@ -6,7 +6,7 @@ extends Button
 # user://map_backups.
 
 const BACKUP_DIR := "user://map_backups"
-const RANKED_MAP_URL := "https://savia.nysr.host/ranked-maps/%s.sspm"
+const RANKED_MAP_URL := "https://chromia.lol/ranked-maps/%s.sspm"
 
 var _hashes := {} # "path|mtime" -> that file's chart hash ("" = couldn't read it)
 var _want := {} # song id -> the ranked version's chart hash

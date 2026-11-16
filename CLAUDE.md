@@ -39,7 +39,7 @@ is behind `main`, merge `main` into `test` (not the other way round).
   production version.
 - Add a line for players to `NEXT_RELEASE.md` ("- what changed, in plain
   words"). Those lines become the release notes.
-- Keep `savia.nysr.host` as the server address in scripts: the workflow swaps
+- Keep `chromia.lol` as the server address in scripts: the workflow swaps
   in the test server for test builds. `scripts/BuildChannel.gd` says which kind
   of build is running.
 - Never commit the editor's local changes to `project.godot` or

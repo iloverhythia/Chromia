@@ -152,7 +152,7 @@ static func _open_stats(host: Node, number: int, nm: String):
 	if page != null and page.has_method("_show_stats"):
 		page._show_stats(number, nm)
 	else:
-		OS.shell_open("https://savia.nysr.host/profile?id=%d" % number)
+		OS.shell_open("https://chromia.lol/profile?id=%d" % number)
 
 # ------------------------------------------------------------------ sharing
 
