@@ -3,4 +3,3 @@
 Add one line per change, starting with "- " (players read these in the
 update log). Publishing to production turns them into the new version's notes
 in scripts/Savia.gd and empties this list.
-- The game now connects to chromia.lol, the server's new address
