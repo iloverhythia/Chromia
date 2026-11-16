@@ -1562,6 +1562,7 @@ func _create_spectate_banner():
 	var spectate_font = DynamicFont.new()
 	spectate_font.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	spectate_font.size = 20
+	spectate_font.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf")) # (names: Lato has no Cyrillic, Japanese, symbols...)
 	_spectate_banner.add_font_override("font", spectate_font)
 	_spectate_banner.add_color_override("font_color", Color(1, 0.85, 0.2))
 	_spectate_banner.add_color_override("font_color_shadow", Color(0, 0, 0, 0.6))
@@ -1700,6 +1701,7 @@ func _update_spectate_vr_panel(name_text: String):
 		var f := DynamicFont.new()
 		f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 		f.size = 24
+		f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf")) # (names: Lato has no Cyrillic, Japanese, symbols...)
 		_spec_vr_label.add_font_override("font", f)
 		_spec_vr_label.add_color_override("font_color", Color(1, 0.85, 0.2))
 		_spec_vr_label.anchor_right = 1.0
@@ -2029,6 +2031,9 @@ func _create_spectators_banner():
 	var f = DynamicFont.new()
 	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
 	f.size = 18
+	# Names in other alphabets: Lato alone has only Latin letters, so a watcher
+	# with a Cyrillic or Japanese name was a blank line under "Spectators (1)".
+	f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf"))
 	# (the letters drawn now, at the start: the first time someone watched,
 	# making them mid-song cost a frame)
 	f.get_string_size("Spectators (0123456789) + more ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz_-.")
@@ -2102,11 +2107,13 @@ func _on_lobby_state_changed_for_spectators_list():
 		return
 	var lines := ["👁 Spectators (%d)" % names.size()]
 	var unnamed := 0
+	var font: Font = _spectators_banner.get_font("font")
 	for n in names:
 		if n == "":
 			unnamed += 1
 		elif lines.size() <= SPECTATORS_SHOWN:
-			lines.append("   " + n)
+			# (a name none of the fonts can draw, e.g. Korean or Arabic: still a line)
+			lines.append("   " + (n if font == null or font.get_string_size(n).x >= 4.0 else "(a name this font can't show)"))
 		else:
 			unnamed += 1
 	if unnamed > 0:

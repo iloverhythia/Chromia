@@ -17,3 +17,4 @@ in scripts/Savia.gd and empties this list.
 - Phones: ticking 120 Hz with a Max FPS under 120 set now really takes the limit off (the Max FPS box used to put it straight back, which left 120 Hz at 60 with extra delay). Setting a Max FPS under 120 turns 120 Hz off
 - iPhone: a Max FPS at or above the screen's rate is taken off, because there it only showed every frame late
 - When the game crashes, its crash report is sent to the developers by itself at the next start, so bugs can be found without you copying anything (what the game was doing, your version and device; never your account id). Settings > Crash Reports turns it off. Not in the browser version
+- The Spectators list (and "Spectating ...") shows names written in Cyrillic, Japanese and other non-Latin letters. They used to be a blank line, so it only said "Spectators (1)"
