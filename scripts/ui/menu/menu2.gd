@@ -3087,6 +3087,7 @@ func _ready():
 		lang_tabs.add_child(lang_tab)
 	load("res://scripts/ui/settings/CustomBgColor.gd").attach(get_node_or_null("Main/Settings/S/F/TabContainer")) # custom bg color picker
 	load("res://scripts/ui/settings/PinnedTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Pinned: the settings you pinned, first in the list (after every other tab is in)
+	call_deferred("_store_transfer_hooks") # (Meta Quest store version: the transfer from the sideloaded one)
 	load("res://scripts/ui/settings/TrailGradientSettings.gd").attach(self) # cursor trail gradient editor
 	_setup_furry_secret()
 	_setup_folder_filters()
@@ -3218,6 +3219,35 @@ func _on_mods_changed_for_lobby():
 
 # back in Settings on a category after the menu was loaded again (a setting
 # that changes the menu itself, like New Settings UI)
+# Meta Quest, the store version (scripts/StoreTransfer.gd): after a transfer
+# from the sideloaded version moved in, it says so once; and the first time
+# the store version is opened it offers the transfer.
+func _store_transfer_hooks():
+	var MOVE = load("res://scripts/StoreTransfer.gd")
+	var n: int = MOVE.take_notice()
+	if n > 0:
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Everything from the sideloaded version is here (%d files): your account, settings, scores, maps and the rest." % n, "Transfer", 12)
+		return
+	if not MOVE.is_store():
+		return
+	var f := File.new()
+	if f.file_exists(MOVE.ASKED):
+		return
+	if f.open(MOVE.ASKED, File.WRITE) == OK:
+		f.store_string("1")
+		f.close()
+	yield(get_tree().create_timer(2.5), "timeout")
+	if not is_inside_tree():
+		return
+	Globals.confirm_prompt.s_alert.play()
+	Globals.confirm_prompt.open("Did you play the sideloaded Chromia VR before?\n\nEverything can come over to this store version: your account, settings, scores, level, maps, replays and the rest. It takes a code from the sideloaded version (its Settings > Transfer shows how).\n\nYou can also do it later, in Settings > Transfer.", "Welcome to Chromia", [{text = "Not now"}, {text = "Show me"}])
+	var picked: int = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.s_next.play()
+	Globals.confirm_prompt.close()
+	yield(Globals.confirm_prompt, "done_closing")
+	if picked == 1 and is_inside_tree():
+		_reopen_settings("Transfer")
+
 func _reopen_page(page_name: String):
 	var page = get_node_or_null("Main/" + page_name)
 	var sidebar = get_node_or_null("Sidebar")

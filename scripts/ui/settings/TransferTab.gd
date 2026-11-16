@@ -100,6 +100,7 @@ func _ready():
 	box.add_constant_override("separation", 8)
 	m.add_child(box)
 
+	_build_store_move()
 	_label("Transfer settings", f_title, ACCENT)
 	_label("Copy your settings and custom content (colorsets, meshes, sounds, backgrounds, profiles, keybinds) to another device. Scores aren't included; maps are if you tick Include maps.", f_body, DIM, true)
 	_include_maps = CheckBox.new()
@@ -159,6 +160,147 @@ func _ready():
 	set_process(false)
 
 # --- Settings backups (scripts/SettingsBackup.gd) ------------------------------
+# --- Meta Quest: the sideloaded app to the store app (StoreTransfer.gd) --------------
+# The sideloaded game: "Send everything", then the code it got. The store
+# game: a box for that code. Other builds: nothing.
+const MOVE = preload("res://scripts/StoreTransfer.gd")
+var _mv = null
+var _mv_status: Label
+var _mv_code: Label
+var _mv_btn: Button
+var _mv_stop: Button
+var _mv_quit: Button
+var _mv_maps: CheckBox
+var _mv_replays: CheckBox
+var _mv_in: LineEdit
+var _mv_bar: ProgressBar
+var _mv_thread: Thread = null
+var _mv_surveyed := false
+
+func _build_store_move():
+	var store: bool = MOVE.is_store()
+	if not store and not MOVE.can_send():
+		return
+	_mv = MOVE.new()
+	add_child(_mv)
+	_mv.connect("progress", self, "_mv_progress")
+	_mv.connect("finished", self, "_mv_finished")
+	if store:
+		_label("Bring everything over from the sideloaded version", f_title, ACCENT)
+		_label("Played the sideloaded Chromia VR before? Everything can come over: your account, settings, profiles, scores, level, colorsets, meshes, skins, hands, maps and replays. In the sideloaded version, open Settings > Transfer and press \"Send everything\": it shows a code. Come back here (the store version) and type that code below. What this version has under the same names is replaced.", f_body, DIM, true)
+		var h := HBoxContainer.new()
+		h.add_constant_override("separation", 10)
+		box.add_child(h)
+		_mv_in = LineEdit.new()
+		_mv_in.theme = load("res://uitheme.tres")
+		_mv_in.add_font_override("font", f_bold)
+		_mv_in.placeholder_text = "The code: XXXX XXXX"
+		_mv_in.rect_min_size = Vector2(260, 40)
+		_mv_in.max_length = 12
+		_mv_in.connect("text_entered", self, "_mv_receive")
+		h.add_child(_mv_in)
+		_mv_btn = _button(h, "Bring it over", "_mv_receive")
+		_mv_stop = _button(h, "Stop", "_mv_stop_now")
+	else:
+		_label("Move to the store version", f_title, ACCENT)
+		_label("Chromia is on the Meta Horizon Store now. The store version is a different app to the headset and can't see this one's files, so everything goes over through the game's server: your account, settings, profiles, scores, level, colorsets, meshes, skins, hands, and the maps and replays ticked below. Press \"Send everything\", wait for the code, then open the store version, go to Settings > Transfer and type the code there. Nothing is removed here. The code works once, for a day.", f_body, DIM, true)
+		_mv_maps = _check("Include my maps", true, "_mv_noop", "Your downloaded and imported maps. Without them the store version starts with the built-in maps, and you download the others again.")
+		_mv_replays = _check("Include my replays", true, "_mv_noop", "Your saved replays")
+		var h := HBoxContainer.new()
+		h.add_constant_override("separation", 10)
+		box.add_child(h)
+		_mv_btn = _button(h, "Send everything", "_mv_send")
+		_mv_stop = _button(h, "Stop", "_mv_stop_now")
+		_mv_code = _label("", f_code, TEXT)
+		_mv_code.visible = false
+		connect("visibility_changed", self, "_mv_survey")
+	_mv_stop.visible = false
+	_mv_bar = ProgressBar.new()
+	_mv_bar.theme = load("res://uitheme.tres")
+	_mv_bar.min_value = 0.0
+	_mv_bar.max_value = 1.0
+	_mv_bar.step = 0.001
+	_mv_bar.percent_visible = false
+	_mv_bar.rect_min_size = Vector2(0, 14)
+	_mv_bar.visible = false
+	box.add_child(_mv_bar)
+	_mv_status = _label("", f_body, TEXT, true)
+	if store:
+		_mv_quit = _button(box, "Close Chromia now", "_mv_quit_now")
+		_mv_quit.visible = false
+	box.add_child(HSeparator.new())
+
+func _mv_noop(_on = false):
+	pass
+
+# how much there is, counted off the main thread the first time the page shows
+func _mv_survey():
+	if _mv_surveyed or not is_visible_in_tree() or _mv_maps == null:
+		return
+	_mv_surveyed = true
+	if OS.can_use_threads():
+		_mv_thread = Thread.new()
+		if _mv_thread.start(self, "_mv_survey_job", null) == OK:
+			return
+		_mv_thread = null
+	_mv_surveyed_now(MOVE.survey())
+
+func _mv_survey_job(_u):
+	call_deferred("_mv_surveyed_now", MOVE.survey())
+
+func _mv_surveyed_now(sv: Dictionary):
+	if _mv_thread != null:
+		_mv_thread.wait_to_finish()
+		_mv_thread = null
+	if _mv_maps == null or not is_instance_valid(_mv_maps):
+		return
+	_mv_maps.text = "Include my maps (%d files, %s)" % [sv.maps[0], MOVE.mb(sv.maps[1])]
+	_mv_replays.text = "Include my replays (%d files, %s)" % [sv.replays[0], MOVE.mb(sv.replays[1])]
+	if _mv_status.text == "":
+		_say(_mv_status, "Without maps and replays: %d files, %s." % [sv.rest[0], MOVE.mb(sv.rest[1])], DIM)
+
+func _mv_busy(on: bool):
+	_mv_btn.disabled = on
+	_mv_stop.visible = on
+	_mv_bar.visible = on
+	if _mv_in != null:
+		_mv_in.editable = not on
+
+func _mv_send():
+	if _mv.busy:
+		return
+	_mv_code.visible = false
+	_mv_busy(true)
+	_mv.send(_mv_maps.pressed, _mv_replays.pressed)
+
+func _mv_receive(_t = ""):
+	if _mv.busy:
+		return
+	_mv_busy(true)
+	_mv.receive(_mv_in.text)
+
+func _mv_stop_now():
+	_mv.stop()
+
+func _mv_progress(text: String, part: float):
+	_say(_mv_status, text)
+	_mv_bar.value = clamp(part, 0.0, 1.0)
+
+func _mv_finished(ok: bool, text: String, code: String):
+	_mv_busy(false)
+	if code != "":
+		_mv_code.text = code.substr(0, 4) + " " + code.substr(4)
+		_mv_code.visible = true
+		text += " Now open the store version of Chromia, go to Settings > Transfer and type this code."
+	_say(_mv_status, text, GOOD if ok else BAD)
+	if ok and _mv_quit != null:
+		_mv_quit.visible = true
+		_mv_btn.disabled = true
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Everything from the sideloaded version is here. Close Chromia and open it again to use it.", "Transfer", 12)
+
+func _mv_quit_now():
+	Rhythia.quit_game()
+
 const SB = preload("res://scripts/SettingsBackup.gd")
 var _backup_on: CheckBox
 var _backup_only: CheckBox
@@ -681,6 +823,9 @@ func _process(_d):
 		set_process(false)
 
 func _exit_tree():
+	if _mv_thread != null:
+		_mv_thread.wait_to_finish()
+		_mv_thread = null
 	_stop_send()
 	_stop_receive()
 	if _file_out != null:

@@ -39,6 +39,9 @@ func _init():
 	# (computers: Chromia's own data folder, filled from the old shared one the
 	# first time, before anything else reads it)
 	load("res://scripts/DataFolder.gd").migrate()
+	# (a game moved over from the sideloaded Meta Quest app, downloaded last
+	# time: its files go into place before anything reads one. StoreTransfer.gd)
+	load("res://scripts/StoreTransfer.gd").apply_staged()
 	if not supported():
 		return
 	app_version = String(ProjectSettings.get_setting("application/config/version"))
