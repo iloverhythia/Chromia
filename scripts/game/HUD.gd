@@ -1894,6 +1894,7 @@ var _board_vr_vp: Viewport = null
 var _board_vr_sprite: Sprite3D = null
 var _board_vr = null
 const BOARD_VR_SIZE := Vector2(700, 1100)
+const BOARD_VR_TURN := 36.0 # degrees towards the player, from the left panel's own facing
 
 func update_leaderboard_vr(rows: Array, title: String, footer: String, show: bool):
 	if not Rhythia.vr:
@@ -1951,9 +1952,13 @@ func _place_board_vr():
 	t.basis = t.basis.orthonormalized()
 	var out: Vector3 = t.basis.x
 	var up: Vector3 = t.basis.z
-	var origin: Vector3 = t.origin + out * (lw / 2.0 + 0.12 + nw / 2.0) + up * (lh / 2.0 - nh / 2.0)
-	# turned towards the middle, so it faces you
-	var basis := Basis(Vector3.UP, deg2rad(-14)) * t.basis
+	# Turned towards you, like a door hinged on the left panel's outer edge: its
+	# far edge swings forward. (It used to be turned 14 degrees the other way,
+	# outward, so from where you stand it was seen at about 50 degrees and its
+	# far columns were hard to read.)
+	var basis := Basis(Vector3.UP, deg2rad(BOARD_VR_TURN)) * t.basis
+	var hinge: Vector3 = t.origin + out * (lw / 2.0 + 0.12)
+	var origin: Vector3 = hinge + basis.x.normalized() * (nw / 2.0) + up * (lh / 2.0 - nh / 2.0)
 	s.transform = Transform(basis, origin)
 
 func _redraw_board_vr():
