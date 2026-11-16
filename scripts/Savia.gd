@@ -1804,6 +1804,12 @@ func _trail_start():
 	last_session_engine_log = _previous_engine_log(40)
 	if last_session_crashed:
 		_save_crash_report()
+		# (and sent to the developers once the settings and the account are read: scripts/CrashSend.gd)
+		var CS = load("res://scripts/CrashSend.gd")
+		if CS.wanted():
+			var sender: Node = CS.new()
+			sender.name = "CrashSend"
+			call_deferred("add_child", sender)
 	_set_session_state("running")
 	_trail_file = File.new()
 	if _trail_file.open(Globals.p(TRAIL_FILE), File.WRITE) != OK:
@@ -3761,6 +3767,8 @@ var sound_space_mode: bool = false # Experimental: songs look like the original 
 var track_plays: bool = true # PlayTracker: how you play, for the Settings Generator (stays on this device)
 var ss_gameplay_only: bool = false # Sound Space Mode only for songs: the menus stay Chromia's
 var always_show_crash_log: bool = false # Experimental: show the last session's log at every start, not only after a crash
+var send_crash_logs: bool = true # Settings > Crash Reports: a crash's report goes to the developers by itself (scripts/CrashSend.gd)
+var crash_log_state: int = 0 # this start's: 0 not yet, 1 sent, 2 not sent on purpose, 3 couldn't be sent
 # the Sound Space Mode menus (main menu, map grid, page look, modifier tiles)
 func ss_menus_on() -> bool:
 	return sound_space_mode and not ss_gameplay_only
@@ -4843,6 +4851,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			ss_gameplay_only = bool(data.ss_gameplay_only)
 		if data.has("always_show_crash_log"):
 			always_show_crash_log = bool(data.always_show_crash_log)
+		if data.has("send_crash_logs"):
+			send_crash_logs = bool(data.send_crash_logs)
 		if data.has("ss_score_popups"):
 			ss_score_popups = bool(data.ss_score_popups)
 		if data.has("ss_hud"):
@@ -5640,6 +5650,7 @@ func _write_settings_file(saveFile: String):
 			sound_space_mode = sound_space_mode,
 			ss_gameplay_only = ss_gameplay_only,
 			always_show_crash_log = always_show_crash_log,
+			send_crash_logs = send_crash_logs,
 			track_plays = track_plays,
 			ss_score_popups = ss_score_popups,
 			ss_hud = ss_hud,
