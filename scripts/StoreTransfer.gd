@@ -67,7 +67,7 @@ static func base_url() -> String:
 	var dbg := OS.get_environment("CHROMIA_TRANSFER_URL") if OS.is_debug_build() else ""
 	if dbg != "":
 		return dbg
-	return "https://" + "savia" + ".nysr" + ".host"
+	return "https://" + "chromia" + "." + "lol"
 
 # the folders the game keeps files in: {"u": user://, "p": the Android files folder}
 static func roots() -> Dictionary:
