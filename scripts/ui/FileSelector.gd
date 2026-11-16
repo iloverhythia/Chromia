@@ -63,33 +63,39 @@ var target_object: Object
 var target_method: String
 var cancel_method: String
 
-func save_sel(file: String):
-	_restore_fullscreen()
+# The answer goes to whoever asked, once the picker is closed and free again.
+# (It used to be handed over first and the picker closed after: when the one
+# who asked opened the picker again right away, for a second file, that second
+# request was wiped and the dialog hidden. The editor's Load map asks for the
+# map and then for its song: picking the song did nothing.)
+func _answer(value):
 	if target_object and target_object != self:
-		target_object.call(target_method, file)
+		var obj = target_object
+		var method := target_method
 		target_object = self
 		visible = false
+		call_deferred("_deliver", obj, method, value)
+	else:
+		_restore_fullscreen()
+
+func _deliver(obj, method: String, value):
+	if is_instance_valid(obj) and obj.has_method(method):
+		obj.call(method, value)
+	# (back to fullscreen unless a next dialog was asked for meanwhile)
+	if target_object == null or target_object == self:
+		_restore_fullscreen()
+
+func save_sel(file: String):
+	_answer(file)
 
 func files_single(file: String):
-	_restore_fullscreen()
-	if target_object and target_object != self:
-		target_object.call(target_method, PoolStringArray([file]))
-		target_object = self
-		visible = false
+	_answer(PoolStringArray([file]))
 
 func files_sel(files: PoolStringArray):
-	_restore_fullscreen()
-	if target_object and target_object != self:
-		target_object.call(target_method, files)
-		target_object = self
-		visible = false
+	_answer(files)
 
 func folder_sel(folder: String):
-	_restore_fullscreen()
-	if target_object and target_object != self:
-		target_object.call(target_method, folder)
-		target_object = self
-		visible = false
+	_answer(folder)
 
 
 func _ready():

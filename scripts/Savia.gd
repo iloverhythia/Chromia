@@ -308,7 +308,7 @@ func load_profile():
 			"id": discord_id,
 			"username": String(config.get_value("profile", "discord_username", "")),
 			"display_name": String(config.get_value("profile", "discord_display_name", "")),
-			"avatar_url": String(config.get_value("profile", "discord_avatar_url", "")),
+			"avatar_url": site_url(String(config.get_value("profile", "discord_avatar_url", ""))),
 		}
 
 func save_jp():
@@ -523,7 +523,7 @@ func _on_xp_eligibility_rank_info(song_id: String, ranked: bool, xp: int, conten
 		return
 	var reasons := PoolStringArray()
 	if content_hash != "" and content_hash != selected_song.compute_chart_hash():
-		reasons.append("map doesn't match the ranked version")
+		reasons.append("map doesn't match the ranked version (the map's screen has a button to get it)")
 	if not (is_equal_approx(hitwindow_ms, 55.0) or is_equal_approx(hitwindow_ms, 58.0)):
 		reasons.append("hitwindow isn't a ranked value (55ms/58ms)")
 	if not is_equal_approx(note_hitbox_size, 1.14):
@@ -654,7 +654,7 @@ func report_map_completion(song_id: String):
 		http_request.queue_free()
 
 # Before a ranked pass: a fresh scan (ProcessScan.gd, up to 4 s) combined
-# with the one from the song's start goes to the server, which keeps it for
+# with the one from the menu before the song goes to the server, which keeps it for
 # the pass that follows (Cheat Engine: the pass is refused). An older server
 # without /savia-pass-env just answers 404 and the pass goes as before.
 func _send_pass_env(for_cid: String):
@@ -677,7 +677,7 @@ func _send_pass_env(for_cid: String):
 	req.queue_free()
 
 const XP_REJECT_REASONS := {
-	"hash_mismatch": "your copy of the map doesn't match the ranked version",
+	"hash_mismatch": "your copy of the map doesn't match the ranked version (the map's screen has a button to get it)",
 	"invalid_hitwindow": "hitwindow isn't a ranked value (55ms/58ms)",
 	"invalid_hitbox_size": "hitbox size isn't the default (1.14)",
 	"invalid_health_model": "health model isn't Default (Sound Space)",
@@ -752,6 +752,13 @@ func _on_report_completion_received(result, response_code, headers, body, http_r
 		var reason_text = XP_REJECT_REASONS.get(Globals.s(data.reason), Globals.s(data.reason))
 		if show_xp_notifications:
 			Globals.notify(Globals.NOTIFY_WARN, "No XP awarded — %s" % reason_text, "Score Not Submitted")
+
+# The server gives your picture as "/savia-avatar/<id>.png", without its own
+# address. Kept like that, every place that showed your picture asked for an
+# address that isn't one ("Error parsing URL" in the log) and showed nothing.
+const SITE_ADDRESS = "https://savia.nysr.host"
+static func site_url(u: String) -> String:
+	return SITE_ADDRESS + u if u.begins_with("/") else u
 
 func _save_discord_profile():
 	var config = ConfigFile.new()
@@ -889,7 +896,7 @@ func _apply_discord_user(du: Dictionary):
 		"id": Globals.s(du.get("id", "")),
 		"username": Globals.s(du.get("username", "")),
 		"display_name": Globals.s(du.get("global_name", du.get("display_name", ""))),
-		"avatar_url": Globals.s(du.get("avatar_url", "")),
+		"avatar_url": site_url(Globals.s(du.get("avatar_url", ""))),
 	}
 	_save_discord_profile()
 	emit_signal("discord_login_changed")
@@ -1183,11 +1190,13 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a", "nov13-2026-b", "nov15-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov15-2026-a": "- Spectating: when the player you watch skips ahead, your view now jumps straight there and keeps up as usual (it fell up to 2 seconds behind and caught up slowly). In a lobby, the host's skip no longer hides the notes on a spectator's screen\n- Skipping ahead in solo play moves the music right away (it played on from before the skip for a moment, and for good with Disable Desync on)\n- Staff can now set your level and prestige; your game takes it the next time it is online and tells you (\"set by staff\")\n- Ranked maps: if your copy of a ranked map has different notes than the ranked version (so passes on it don't count), the map's screen now has a \"Get the ranked version\" button that downloads the right copy and swaps it in. Your old copy is kept in the map_backups folder\n- Maps no longer lose part of their notes after you restart the game (maps with a tempo marker, like Camellia - Flamewall, started minutes in with \"SP Not Valid\"). Nothing to re-download: your map files were never changed\n- Map Editor: Load map works again when it asks for the song after the map file (picking the song did nothing and it kept saying \"Now pick the song\"). The same goes for Paste map and every other place that asks for two files in a row\n- Settings no longer reset at a restart when one setting in your file has an unexpected value: the game used to stop reading the file at that setting, leave everything after it at default and then save it that way. (The reset that came from signing in during startup was fixed in nov13-2026-a.)\n- PC: the game no longer freezes for a moment about two seconds into a song (the anti-cheat scan ran right then). On maps that start early the first note popped in late and close, or didn't show at all. The scan now runs while you're in the menu\n- Your own profile picture shows again in a map's History list and the Sound Space menu when it is kept on the Chromia server (its address was incomplete)\n- Windows: starting a second copy of the game (e.g. the test build next to the stable one) no longer shows a crash report for the copy that is still running\n- Settings > Transfer > Settings backups: copies of your settings are kept in a settings_backups folder so they can't be lost. Back Up Settings (on) makes the copies; Only When Saving a New Profile (on) makes one each time you create a profile, and with it off a copy is made every time your settings change. Back up now, Restore a backup (adds it as a profile) and Open backups folder are there too\n- New cards and frames: Ranker, Contributor, Tester and Moderator each get their own card and frame (trophy, heart, flask and shield), and Prestige 1, 10, 100, 1,000 and 10,000 each unlock a card and a frame (bronze, silver, gold, diamond and the rainbow)\n- The Cards and Frames menus only show the ones you have unlocked (admins see all of them)\n- Notes are drawn the way they were before the stacked / dense notes change: every note of a stack is drawn again (see-through notes on one square build up as they used to), and far notes of long stacks are no longer thinned out\n- The Spectate window is much lighter, most of all in VR: players' picture frames are drawn once for everyone showing the same frame instead of once per player 30 times a second (with 30 framed players the window took 3 times as long to draw; now it is close to having no frames at all). The Online list and the Frames menu gain the same\n- Map list > Filters > Show: new \"unranked\" box shows only the maps that aren't ranked (ticking it unticks \"ranked\", and the other way round)\n- Settings: a number box no longer stretches right across the page after its hint has shown (it happened when the mouse rested on a setting with a long hint, like Approach Rate, and stayed until the menu was reloaded)\n- Map screen: the \"Get the ranked version\" button no longer runs into the Start button (there is room between them now)\n- Removed the experimental Modern UI (it was only shown to staff)\n- Meta Quest: opening the game no longer leaves you looking at nothing for a long time. VR now starts first, and a panel in front of you says \"Loading\" (with what is being loaded) or \"Updating\" (with how far the download is) until the menu opens. The game also no longer builds a flat menu it then threw away before the VR one, so it opens sooner\n- VR: the loading panel of Reload Content, a profile switch and a skin change is the same new one (bigger, with moving dots, and it stays in front of you)\n- Rhythia Nightly (and other older clients) get your bests and attempts back: the ones Chromia saved in the shared SoundSpacePlus folder were in a newer format they saw as broken. The first start of this version writes every map's bests there again in the older format, with the ones you made in Chromia since added (the better of the two for each speed and mods). The old files are kept in Chromia's folder\n- Settings > Notes: Half Ghost strength goes in 1% steps instead of 5%\n- Replays: the 360 mod shows when you watch one (the notes stayed still), and on the website's Game view at the speed it was played with; video links you make send the 360 speed too\n- Mac: the game ran at 10 to 20 frames a second on Retina screens (iMacs most of all), because it drew every one of the screen's pixels: four times as many as a normal screen the same size. It now draws a Retina screen at a normal screen's resolution by default, a quarter of the work\n- Settings > Video & Audio > Graphics: new \"Render Resolution\" (Auto, 100%, 75%, 50%) on computers. Fewer pixels drawn is faster and a little softer; useful on 4K screens with a slow graphics chip too. Your mouse feels the same at every choice. Never under 720 lines\n- VR: new Hand Creator (Settings > VR > Hands > \"Open the Hand Creator\"). Build your own hands out of parts: balls, boxes, capsules, cylinders, cones, rings and crystals, each with its own place, turn, size, colour and look (cartoon, shiny, glowing or flat), up to 48 parts. The whole hand can have an outline in any colour, be made bigger or smaller, and have a mirrored or same-shaped left hand. A turning 3D preview shows it with the part you are editing marked, and your real hands in the headset change as you edit. Seven hands to start from (rounded hand, blocky hand, mitten, robot claw, orb, crystals, one ball), Undo for big changes, and \"Copy its code\" / \"Paste a code\" to share a hand with someone. Pick \"My own (Hand Creator)\" in the Hands list to wear it\n- VR: people who spectate you see the hand you made in the Hand Creator\n- Settings > Select Profile opens a panel beside the button instead of a small menu that ran off the screen: every profile in a list that scrolls, \"Save over\" and \"Delete\" right next to each one (both ask first now), New / Import / Export under the list, and an X in the corner to close it (Esc and the button close it too)\n- The lists that dropdowns open match the menu now: a dark panel with the item under the pointer filled in the accent colour (Settings, Online, Profile and the other pages in the new look), instead of the old grey list. With button colours of your own (Settings > Menu Customizer) the lists on the other pages follow them too\n- Settings: new \"Pinned\" page, first in the list. Rest the pointer on any setting on any page and press the \"Pin\" button that shows next to it; it then also shows on the Pinned page as a working copy (checkboxes, number boxes, sliders, dropdowns, text boxes, colours and buttons), so the settings you change most are in one place. \"Go to\" opens a pinned setting on its own page, \"Unpin\" takes it off. Your pins stay when you switch profiles, and with something pinned Settings opens on the Pinned page\n- Translate Chat: a chat line now waits up to 3 seconds for its translation instead of 1.5 (a translation that took a little longer came too late and the line showed untranslated), and the server has two more translation services to fall back on when the first doesn't answer. If the server doesn't answer twice in a row, chat stops waiting for a minute instead of holding every line up\n- VR: the Cards and Frames buttons on your profile (and Invite players in a lobby) open on the menu screen in front of you. They used to open on the computer's flat window, where nobody in a headset could see or close them, one more with every press, which is what made the game lag\n- VR: the cursor trail starts on the cursor again. It was made from where the cursor was one frame earlier, so it trailed behind with a gap that grew the faster your hand moved and looked torn off the cursor\n- VR menu: the pointer's trail works with every Trail Time. With most values (0.15, 0.2, 0.4 and so on; only a few like 0.25 and 0.5 were spared) the trail was started over every single frame, so it showed nothing or flickered",
+	"nov13-2026-b": "- load lag",
 	"nov13-2026-a": "- VR replays watched from the player's eyes use the VR view settings (no camera unlock or parallax, as when spectating someone in VR) and show the player's own hands: yours in your own replays, theirs on Save video links\n- VR: breck's snow leopard paw now shows up in Settings > VR > Hands. The game only found out which player you are after you had opened Spectate or Online, so the hand was missing (and, if already picked, shown as the Furry paws). It now asks once right after connecting.\n- Save video's Game view can make 120 fps videos (owners only for now)\n- Map list: Filters > Show > embossed shows only maps by Embossed (sorted as usual)\n- VR and phones: the cursor trail is lighter. Its shader is no longer rebuilt at the start of every song (a stall when the first piece appeared), it is drawn in one pass instead of two, a very high Trail Detail no longer makes more pieces than you can tell apart, and less data goes to the graphics card each frame. It looks the same at normal settings.\n- Each song now leaves a \"song perf\" line in the game's log (frame rate, slow frames, the worst frame, VR refresh rate, trail settings). With Settings > Replays & Misc > Experimental > Always show crash logs on, the next start shows the log with a Copy report button, so a lag report comes with numbers.\n- Replays: Cursor Face Velocity works (the cursor turns the way it moves, as when you played)\n- Spectating and Save video links play the player's own hit and miss sounds (the song loading put yours back)\n- Replays (and Save video): at the very end the cursor stays where it was, instead of gliding in a straight line back to the middle\n- Visual maps: notes no longer pop in partway down the lane. The game drew at most 512 upcoming notes at once, so on dense maps the rest appeared closer than the others; it now draws as many as your computer keeps up with (all of them in Save video renders)\n- No \"What's New\" popup after an update (the notes are still in the Update Log)\n- Spectating remade: smooth playback that holds more in hand when the connection is uneven (it eases the speed a few percent instead of freezing and jumping), the music follows without stutters, and every frame's cursor position is sent, so the cursor moves exactly as theirs did\n- Update channel: test builds are for testers set on the website (a Tester role badge). Only they see the Update channel switch; everyone else gets the stable build, even after downloading a test build\n- Spectating: Cursor Face Velocity and Cursor Spin work on the cursor you watch\n- Upgrade tree: saved as upgrade_tree.json (was furry_tree.json, renamed by itself), laid out to be read: totals first, one line per upgrade\n- Maps with huge stacks of notes (a thousand on one square, or far too many at once) look right: the stack reaches all the way back instead of being cut short with the cut moving back and forth. When there are more notes on their way than a frame can place, the nearest are all drawn and the far ones are thinned evenly rather than dropped; notes on the very same spot and moment are drawn once. Hits, misses and score are untouched.\n- Big maps are lighter to draw: the list of notes sent to the graphics card each frame is as long as what is on screen, not as long as the whole map.\n- Multiplayer: the Spectators list sits under the lobby leaderboard instead of on top of it\n- Spectating: the music keeps its normal pitch (it sounded sharp while playback evened out)\n- The speed modifier icons while playing are round again (they were stretched into ovals)\n- VR: the Save video button shows on the results after a play (the link opens in the computer's browser)\n- VR: replays remember which hands you had (furry paws, custom vr_hand.obj, ...), so watching them shows your hands instead of the default ones (needs the updated server)\n- Seasonal themes: Christmas! From 1 to 26 December the menu waves turn red, green and gold, snow falls over the menu and a string of lights twinkles along the top (Settings > Replays & Misc > Seasonal Themes turns it off)\n- Phones (iPhone, Quest): switching between the test and stable builds no longer loops (the app threw the test build away at the next start and downloaded it again)\n- Settings no longer reset when you switch between test and stable builds (an older version only saved the settings it knew; the others now come back)\n- Frame Smoothing now also keeps the game at a frame rate your device holds. In VR, when a song keeps dropping frames at a high refresh rate (120 or 90 Hz), the next songs run one rate lower (120 > 90 > 80 > 72 Hz): a steady lower rate looks far smoother than a higher one that stutters. After a few songs without late frames the higher rate is tried again. It never goes above what you picked in the settings; changing the refresh rate setting by hand, or turning Frame Smoothing off, puts your rate b\n- Frame Smoothing: the even note steps now go by the real refresh rate of the headset or screen, so they hold while frame times are a little uneven (before, the game worked the rate out from the frame times and gave up when they weren't steady, which is when it was needed).\n- Settings > Replays & Misc > Experimental: under Frame Smoothing, a line says how the last song went on this device (frames a second, how many frames came late, and the rate it is held at, if any).\n- Your FOV setting works again for everyone: with Hit FOV decay at 0 the game always played at 70\n- VR: switching settings profiles (also skins and Reload Content) no longer leaves the headset black at times. The loading screen behind those asked Android for the storage permission again every time, which takes the game out of focus for a moment on a Quest; it now asks once when the game starts. That screen also always brings back the menu in the headset, never the flat one on the window.\n- VR: if the menu or a song fails to load, the message shows in the headset and the game goes back to the menu by itself (it was only on the flat window: black in the headset until a restart)\n- If the menu fades to black to go somewhere and nothing follows, it comes back after a few seconds instead of staying black\n- Faster on every device: the HUD panels (score, timer, combo, energy...) are each a separate picture the game used to draw again on every frame, changed or not. They are now drawn again only when something on them changes (in time for the same frame), so most frames skip most of them. It looks the same; the saving is biggest at high frame rates and on phones and headsets, where each extra picture costs the most.\n- The combo ring, the \"true combo\" number and the rainbow SS grade no longer force their panel to be redrawn on every frame for changes too small to see\n- Streaming Mode (Settings > Replays & Misc > Experimental, computers): for sharing your screen on Discord or recording with OBS. The game draws at three quarters of the frame rate your computer manages and leaves the rest of the graphics card free, so the stream and the game stop stuttering each other. It works the limit out by itself, never goes above your own Max FPS, and your Max FPS comes back when you turn it off. Only a frame limit: nothing about the game changes. (Does nothing with VSync o\n- VR: a refresh rate above 144 Hz can be picked if a headset offers one (the list is the headset's own; Quest headsets go up to 120 Hz)\n- Settings no longer reset to default at a restart. When the server's answer at sign-in (staff or not) came in before the game had read your settings, the game saved its defaults over your settings file; a start after switching between stable and test builds takes longer, so it happened there most. Nothing is saved any more until your settings have been read.\n- The settings file can no longer be left empty when the game is closed or restarted in the middle of saving (it is written beside the old one and swapped in when complete), and a copy of your settings from the last run is kept next to it (settings.json.bak, and one per profile): if the file is ever empty or damaged, that copy is used instead of starting over.\n- Levels: 10,000 prestiges instead of 10. If you were sitting at prestige 10, level 100, you can prestige again.\n- Every prestige has its own badge next to your level in the Profile tab. The last digit of your prestige sets its colour, the tens add dots inside, the hundreds change its shape (hexagon, diamond, pentagon, stars, shield, circle...) and the thousands add spikes round it. Prestige 10,000 is the Chromia note in all its colours.\n- At prestige 10,000, the last one, your level no longer stops at 100: it keeps going for good.\n- Levels cost more with each of the first ten prestiges, as before (20% each); from the tenth on the cost stays the same, so the later prestiges are never out of reach.\n- Passes with No Fail or Visual Map Mode on are no longer sent to the server (they showed up on your website profile as unranked passes). Turning on No Regen, Extra Energy or Sudden Death now turns Visual Map Mode off along with No Fail\n- Owners: the Profile page has a Make alt account button: a second account for testing (a separate player with no staff permissions, tied to your Discord). The same button then switches between it and your main account\n- Chromia Upgrade Tree: ten new kinds of rare upgrade after Golden, each in its own colour and far stronger than the one before: Titanium (25x), Diamond (100x), Ruby (500x), Emerald (2,500x), Amethyst (10,000x), Obsidian (100,000x), Rainbow (a million times), Galactic (a hundred million), Mythic (ten billion) and Chromia (a million billion). Like Golden upgrades, none of them shows up until you find a feature for it; the more of its features you find, the more often it appears.\n- Chromia Upgrade Tree: 55,000 new features to find (165,000 in all), for the ten new \"... upgrade chance\" effects. Everything you had found is kept.\n- Browser version: the game keeps running while its tab is in the background (about ten frames a second), so the upgrade tree keeps earning and nothing freezes until you come back. Browsers stop a hidden tab's drawing; the game now keeps its own clock for that time.\n- Phones: no more being held at 60 on a 120 Hz screen. 120 Hz is now on from the start (Settings, with the other phone options; it stays off if you turn it off, and a Max FPS you set below 120 is left alone), and Frame Smoothing no longer drops a phone to 60 after a song (it mistook an iPhone's normal 80 to 120 Hz frames for late ones). That part of Frame Smoothing is for headsets only now.\n- iPhone: when 120 Hz is on but only 60 frames a second get through, the game now notices a few seconds after the menu is up, tells you why as far as it can (Low Power Mode, the Limit Frame Rate setting, an app installed before 120 Hz was supported, or the phone not keeping up) and goes back to plain 60 Hz for that run, so it no longer feels delayed. Switching 120 Hz off and on, or starting the game again, tries once more. (The exact reason needs the latest chromia-ios.ipa installed once.)\n- iPhone / Quest, Update channel: switching to the stable build when the app you installed is a newer test build did nothing (the stable build was downloaded, thrown away at the next start because it's older than the app, and downloaded again). The game now tells you so when you switch, and how to get there (install the stable chromia-ios.ipa, or wait for the next release); it no longer downloads a build it can't use. When the build you switch to is the one your installed app already is, nothing i\n- iPhone / Quest: apps installed from this version on can switch to an older build on purpose (stable over a newer test app) and keep it.",
 	"nov11-2026-a": "- VR replays watched from the player's eyes use the VR view settings (no camera unlock or parallax, as when spectating someone in VR) and show the player's own hands: yours in your own replays, theirs on Save video links\n- VR: breck's snow leopard paw now shows up in Settings > VR > Hands. The game only found out which player you are after you had opened Spectate or Online, so the hand was missing (and, if already picked, shown as the Furry paws). It now asks once right after connecting.\n- Save video's Game view can make 120 fps videos (owners only for now)\n- Map list: Filters > Show > embossed shows only maps by Embossed (sorted as usual)\n- VR and phones: the cursor trail is lighter. Its shader is no longer rebuilt at the start of every song (a stall when the first piece appeared), it is drawn in one pass instead of two, a very high Trail Detail no longer makes more pieces than you can tell apart, and less data goes to the graphics card each frame. It looks the same at normal settings.\n- Each song now leaves a \"song perf\" line in the game's log (frame rate, slow frames, the worst frame, VR refresh rate, trail settings). With Settings > Replays & Misc > Experimental > Always show crash logs on, the next start shows the log with a Copy report button, so a lag report comes with numbers.\n- Replays: Cursor Face Velocity works (the cursor turns the way it moves, as when you played)\n- Spectating and Save video links play the player's own hit and miss sounds (the song loading put yours back)\n- Replays (and Save video): at the very end the cursor stays where it was, instead of gliding in a straight line back to the middle\n- Visual maps: notes no longer pop in partway down the lane. The game drew at most 512 upcoming notes at once, so on dense maps the rest appeared closer than the others; it now draws as many as your computer keeps up with (all of them in Save video renders)\n- No \"What's New\" popup after an update (the notes are still in the Update Log)\n- Spectating remade: smooth playback that holds more in hand when the connection is uneven (it eases the speed a few percent instead of freezing and jumping), the music follows without stutters, and every frame's cursor position is sent, so the cursor moves exactly as theirs did\n- Update channel: test builds are for testers set on the website (a Tester role badge). Only they see the Update channel switch; everyone else gets the stable build, even after downloading a test build\n- Spectating: Cursor Face Velocity and Cursor Spin work on the cursor you watch\n- Upgrade tree: saved as upgrade_tree.json (was furry_tree.json, renamed by itself), laid out to be read: totals first, one line per upgrade\n- Maps with huge stacks of notes (a thousand on one square, or far too many at once) look right: the stack reaches all the way back instead of being cut short with the cut moving back and forth. When there are more notes on their way than a frame can place, the nearest are all drawn and the far ones are thinned evenly rather than dropped; notes on the very same spot and moment are drawn once. Hits, misses and score are untouched.\n- Big maps are lighter to draw: the list of notes sent to the graphics card each frame is as long as what is on screen, not as long as the whole map.\n- Multiplayer: the Spectators list sits under the lobby leaderboard instead of on top of it\n- Spectating: the music keeps its normal pitch (it sounded sharp while playback evened out)\n- The speed modifier icons while playing are round again (they were stretched into ovals)\n- Phones: the cursor is smoother and no longer snappy. It was being pushed further ahead of your finger than the Prediction setting asked for, and the whole push appeared the moment you moved and vanished the moment you slowed. Now the lead grows in gently and shrinks quickly as you slow down, and the cursor follows your finger at evenly spaced moments. If you still want it calmer, lower Prediction (Settings, under No Touch Delay); 0 turns the lead off.\n- Frame Smoothing (Settings > Replays & Misc > Experimental; on from the start on iPhone, iPad, Android and standalone VR headsets): notes move in even steps matched to your screen's refresh rate instead of following the small differences in when each frame is worked out, which showed as a fine judder on fast notes. Visual only: hits, misses, the cursor and the music are exactly as before. It turns itself off whenever the frame rate is not steady.\n- Phones and VR: the cursor trail is always the smooth continuous one, thickest at the cursor and thinning out behind it. With Smart Trail off it used to be a handful of separate blobs that started invisible at the cursor, grew as they fell behind and then popped, which looked like the trail breaking and made the cursor seem to lag.\n- Smart Trail: the trail is the cursor's own color. It came out paler than the cursor (a pink cursor had a whitish trail).",
 	"nov10-2026-a": "- Quick restart: the map comes back in right away instead of fading in from black (the wait before the first note is Settings > Gameplay > Lead-In Time)\n- Speed keys in the map list: press Ctrl+S, then A / D (or the arrow keys) to go through the speeds, Esc when done\n- Your bests and score history are now kept in Chromia's own folder, so opening Rhythia Nightly no longer deletes them (they're copied over the first time you start this version)\n- Spectating maps with lots of notes no longer drops frames when you start watching or their game catches up\n- Staff can right-click a name in chat to delete that message for everyone or ban the player from chat\n- Menus open faster on every device: the menu opens about twice as fast after a song, the Map Editor and Update Log open almost instantly, and the Settings page no longer waits for its preview window\n- VR: Settings > VR > Hands > Hand direction: tilt, turn or roll your hand model so it lines up with your beam (the left hand is mirrored)\n- Settings > Transfer: Include maps sends all your maps too (with the code over Wi-Fi or in the file); maps the other device already has are skipped\n- VR: putting on a skin no longer leaves a black screen until you restart the game\n- Map browser (Content Browser > Maps) is much smoother, especially in VR: covers are loaded in the background at card size and the cards appear a few at a time\n- Replays (in the game and the website's Game view) now play with the lead-in the player used, so the cursor no longer drifts off the notes when your Lead-In Time is different\n- VR (Quest): Settings > VR > Graphics > Unlock refresh rate: always runs at the highest refresh rate your headset offers (like 120 Hz) and keeps it after the headset sleeps\n- VR: menus stay smooth: the animated menu background is drawn at lower cost in the headset, and two things that made the menu stutter every few seconds are gone (also on PC and phones)\n- The popup when you start a ranked map now shows the SP a full pass gives instead of XP\n- VR: switching settings profiles (or putting on a skin) no longer leaves the headset black until you restart: a profile's window settings (fullscreen, maximise, max FPS mode) aren't applied while VR runs\n- Website: passes on unranked maps now show in your profile's Recent list with their replay, marked Unranked (no SP or XP)\n- Map list: a BOTTOM button under DOWN jumps to the last map, like TOP does for the first\n- VR: a snow leopard paw hand, only for breck (player #3)\n- Settings > Fonts: 40 more fonts for the song HUD, grouped by look (clean, tall and narrow, sci-fi, pixel and monospace, fun), e.g. Poppins, Montserrat, Bebas Neue, Orbitron, Silkscreen, VT323, Bungee and Comic Neue\n- Background Editor > HUD panels: 21 more panel styles, e.g. Neon glow, Pill, Double border, Gradient, Sunset, Ocean, Aurora, Rainbow border, Hologram, Corner brackets, Stripes, Dots, CRT scanlines and Carbon fibre (some of them move)\n- Content Browser: maps from Chromia players show their cover picture.\n- Content Browser: new \"GitHub\" choice next to rhythia.com and Chromia players. Paste a link to any GitHub repository (or a folder, release or map file in one) and every .sspm and .rhm map there is listed to download, one by one or all at once.\n- The Profile, Leaderboard and Stats tabs on the Profile page have a new look that matches the Online page: bigger tabs, stat cards, tidy numbered rows, and your own row lit up on the leaderboard.\n- Spectate: each player's card shows their speed, how far into the map they are and the time they have left, with a progress bar\n- Profile page: both panels (Your Profile, and Profile / Leaderboard / Stats) are much less see-through, as solid as the Online page, so they're easy to read over any background.\n- Staff: the in-game admin tools now come from the permissions the owner gave your linked Discord account (no admin key any more)\n- Maps no longer show RP unless you turn it on: Settings > Replays & Misc > Experimental > Show RP on Maps (off by default). You still earn RP from passes, and your RP total and top 10 RP plays are still in the Profile tab.\n- Profile > Leaderboard shows what the website's leaderboard does: each player's country flag, profile picture, tag (Developer, Owner...) and Ranked Team, their level and ranked plays, and how far ahead they are of the next player. Rows are roomier, and clicking one opens that player's profile on the website.\n- Maps show their RP by themselves while the Chromia servers can't be reached (after about 12 seconds without a connection), even with Show RP on Maps off, and hide it again once the servers are back.\n- Profile, Leaderboard, Stats and Online pages polished: nothing is cut off in the middle of a letter any more (long names end in \"…\", and leaderboard rows move \"Ranked Team\" down a line when there's no room), panel corners are smooth, lists don't run under their scrollbar, and the leaderboard, top RP plays and stats tiles have more room.\n- Online: hosting a lobby at the default window size no longer squeezes the map's name into one letter per line (the Pick map / Use selected buttons sit under the name now), and the lobby chat's emoji button is small so its hint text fits.\n- Switching to another window during a map now gives the mouse back to Windows, and coming back takes it again: fixes the cursor going missing with remote desktop or other games in the background\n- Results: the camera button next to the gear (Save video) makes a video of your play (a whole map or the part you played) with your settings: notes, cursor, camera, HUD and background. Its page on the website lets you pick the website's viewer or the game itself (the Game view) to make it, and both make it one frame at a time, so it's a smooth 60 fps however busy the computer is\n- Spectating with their settings now shows their own HUD panel picture too\n- VR (Quest): a fix for the game closing right after you die with restart on death turned on. The song is now stopped for a moment before it reloads (about a fifth of a second), instead of being swapped out in the same instant.\n- The ban screen is no longer a flat picture: it's drawn live in the same look (a slow red glow behind the card, a pulsing warning sign), shows the reason the admin wrote (and its change, within seconds), and plays a clip on a loop under the message (click the clip to mute it).\n- Maps with huge numbers of notes (tens of thousands up to a million) load much faster (a 1,000,000-note map: about 7 seconds instead of 36) and no longer freeze or crash the game while they play. The cursor and how notes are judged are untouched: the same hits, misses and score as before.\n- Maps whose song is an .m4a (also FLAC, AAC and Opus) play their music: they said the audio was broken. The first time, the song is converted by the Chromia server on the loading screen (a few seconds, needs a connection once); after that it plays from your game's cache, offline too. Add Song takes these files as well.\n- Settings has a new look (on by default): the same dark style as the Online and Profile pages on the whole screen, the categories in a list on the left, each group of settings in its own card, and a search box at the top right (or Ctrl+F) that finds a setting in any category: click a result to jump to it. Turn it off in Settings > Replays & Misc > Experimental > New Settings UI for the old settings page.\n- Phones (iPhone, iPad, Android): the cursor follows your finger more smoothly and with less delay. No Touch Delay is now on from the start (turn it off in Settings if you prefer), and its prediction was rebuilt: the cursor no longer hops back for a frame in the middle of a swipe (worst at 120 Hz), keeps gliding at high speed instead of moving in steps, works when two touches arrive in one frame (it switched itself off on many Android phones), eases onto your finger when you stop instead of jumpin\n- Cursor trail (the normal one, Smart Trail off): its pieces are spread evenly along the path at any frame rate. At 60 FPS (phones) they bunched up in clumps with gaps between.\n- Phones: the file browser has a Sort button (top right): Name, Largest first, Smallest first, Newest first or Oldest first. Folders stay on top, the date shows next to the size when sorting by date, and your choice is kept for next time.\n- Settings > Colorsets: the colorset you have selected is marked with an outline and a tick, in your menu's accent color.\n- The new Settings, the Online page, the Profile page with its Profile / Leaderboard / Stats panel, and their windows (Cards, Frames, invites, the lobby map picker) take the colors of your Menu Customizer look: your button color for filled buttons, tabs and outlines, your accent for headings and values, your text color, and the dark panels in your button color's hue. Settings changes as you pick colors; Online and Profile load the menu again once when you next open them. Nothing changes if you hav\n- New Settings: it no longer shows the old look for a moment when you open it or switch category.\n- New Settings > Fonts: every font is shown in its own typeface again (they all looked the same).\n- Spectating with someone's settings (and their Save video links) now shows their own custom colorset (it fell back to the default) and plays their own hit and miss sounds\n- Replays of VR plays are watched from the player's eyes: their head is the camera and their hands and beam show (in the game, and in Save video's Game view)\n- Drag a replay (.sspre) into the game, watch it, then press the camera button on the results to make it into a video on the website\n- Settings > Colorsets: the tiles no longer have a shiny chrome frame (the new Settings look was adding it by mistake), and the shine on the selected one is calmer.\n- The new Settings, Profile, Leaderboard, Stats and Online panels are slightly see-through again, so a little of the menu background shows.\n- Spectating: switching to watch someone else while you're already watching a song no longer plays them at your own speed (e.g. their 1.45x shown at 1x, the cursor off the notes), most often seen in VR\n- Replays line the cursor up with the notes more reliably: the lead-in is worked out from the hits themselves (exact, not to the nearest 100 ms), and used over the saved one when that is clearly off\n- Cursor trail: much lighter, mostly for phones. The trail's pieces now fade, shrink and take their gradient color on the graphics card instead of being updated one by one every frame, for both the normal trail and Smart Trail. Having the trail on no longer drags the frame rate down or makes the cursor feel off (long or detailed trails gain the most). It looks the same.\n- Phones: Settings has an Old Cursor Movement option (under No Touch Delay and 120 Hz). Turn it on if you preferred how the cursor moved before the smoother prediction; it takes effect in the next song.\n- Save video's Game view (and the website's Game view) now loads the player's own note mesh, hit sounds and HUD panel picture: their downloads never finished in the browser version, so it fell back to the default rounded notes\n- Spectating someone and their Save video links show their touch indicator style (the rings under their fingers in replays)\n- Save video: no more stuttering sound at the very end of videos of a fail or give-up, and hit sounds are no longer doubled (they were louder than in the game)\n- Test builds: Settings > Online > Send Passes to the Main Server makes your passes count on the real leaderboards (off by default: they go to the test server)\n- Your bests on each map (including the maps you've only failed) can no longer be wiped: they're saved safely (a crash while saving used to leave the file empty, and the next attempt was saved over everything), the previous save is kept as a backup, and a file that can't be read is put aside instead of written over\n- Computers: Chromia has its own data folder now (%APPDATA%\\Chromia on Windows) instead of sharing Rhythia Nightly's \"SoundSpacePlus\" folder, where the two games overwrote each other's settings and bests. The first start copies your settings, bests, attempt history, skins, colorsets and the rest across (the old folder stays as it was), and your maps, packs and replays stay where they are, linked in, so nothing is downloaded or moved\n- Fixed maps not starting (since test 528): a settings script failed to load\n- The first start with the new data folder shows what it's doing (\"Copying your settings, bests and history...\" with a file count) instead of a blank wait, is quicker (the helper is linked, not copied, and old duplicate copies are skipped), and the menu says afterwards what moved\n- Fixed a crash when going back to the menu after a song (after failing, giving up or finishing) with hit or miss effects on. Finished effects that were kept for reuse were freed while the song was still being taken apart.\n- Settings: Move maps & replays (next to Open user folder, on Windows) moves your maps, packs and replays to another folder or drive, for when the drive Chromia is on is running out of room. They are copied and checked first (with progress and a Cancel button), then the old copies are deleted to free the space; the game keeps finding them where it always did\n- Maps with hundreds of thousands of notes open faster. Adding one (converting it to the game's format) is several times quicker, and a map added from now on is stored with its notes in order, so it also loads quicker every time after: a 700,000-note map reached play in about 3.7 seconds here instead of 6.5 (about 6 instead of 11 when its notes sit at decimal positions). Maps you already have load a little faster too. Same notes, same order, same scores.\n- Fixed updates bouncing between the stable and test builds: the update channel, the update snooze and the \"just updated from\" note are now shared by the old and new data folders (the stable build still uses the old one), so one build no longer updates to the other and straight back\n- Spectating and Save video show long custom colorsets too (more than 64 colors, like big gradients): they were left out, so the default colors showed\n- Settings > Update channel asks before switching for tester accounts too (one click switched builds and downloaded the other one at once)\n- The crash report (and other question boxes) always show on top in the menu: on some screens they opened hidden behind the menu and then popped up in the middle of the next map\n- Map list: the BOTTOM button is no longer cut off at the bottom of the screen\n- The purple \"Controller checking disabled\" bar is gone (it stayed at the bottom of every menu while Disable Controller Detection was on)",
@@ -1854,6 +1863,7 @@ const TRAIL_FILE := "user://logs/trail.txt"
 const TRAIL_PREV_FILE := "user://logs/trail_prev.txt"
 const SESSION_FILE := "user://logs/session_state.txt"
 var last_session_crashed: bool = false
+var other_copy_running: bool = false # another copy of the game was running when this one started
 var last_session_trail: String = ""
 var crash_report_shown: bool = false
 var _pending_update_notice: String = "" # iOS: an update was downloaded at startup
@@ -1889,9 +1899,14 @@ func _trail_start():
 			last_session_trail = f.get_as_text()
 			f.close()
 		d.remove(Globals.p(TRAIL_PREV_FILE))
-		d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE))
+		# (Windows won't move a file another program has open: the trail of a
+		# copy of the game that is still running. Starting a second copy, e.g.
+		# the test build next to the stable one, showed the first one's trail
+		# as a crash report although it never crashed.)
+		if d.rename(Globals.p(TRAIL_FILE), Globals.p(TRAIL_PREV_FILE)) != OK and f.file_exists(Globals.p(TRAIL_FILE)) and OS.get_name() == "Windows":
+			other_copy_running = true
 	# (the replay game view never counts as crashed, see _set_session_state)
-	last_session_crashed = state == "running" and last_session_trail.strip_edges() != "" and not load("res://scripts/WebReplay.gd").wanted()
+	last_session_crashed = state == "running" and last_session_trail.strip_edges() != "" and not other_copy_running and not load("res://scripts/WebReplay.gd").wanted()
 	last_session_engine_log = _previous_engine_log(40)
 	if last_session_crashed:
 		_save_crash_report()
@@ -2063,6 +2078,9 @@ func quit_game():
 		load("res://scripts/SpectateSettings.gd").restore() # nor the ones of someone you were watching
 		end_forced_replay()
 		save_settings()
+		# (a copy that was still waiting for its moment: made now)
+		if settings_backup and not settings_backup_profile_only:
+			load("res://scripts/SettingsBackup.gd").make(Globals.p("user://settings.json"), "settings")
 	_star_quit = true
 	_thumb_quit = true
 	var deadline := OS.get_ticks_msec() + 1500
@@ -2426,6 +2444,7 @@ var last_author_search_str: String = ""
 var last_search_incl_broken: bool = false
 var last_search_incl_online: bool = true
 var last_search_xp_only: bool = false
+var last_search_unranked_only: bool = false # Filters > Show > unranked
 var last_search_flip_sort: bool = false
 var last_search_flip_name_sort: bool = false
 var last_page_num: int = 0
@@ -2485,6 +2504,8 @@ var vr_haptic_miss: bool = true
 # the hands: "default" (box), "paw" (built-in furry paw), "ball" (a white sphere),
 # "glove" / "robot" / "skeleton" / "crystal" (vr/ExtraHands.gd), "custom" (vr_hand.obj)
 var vr_hand: String = "default"
+# the hand made in the Hand Creator (vr/HandCreator.gd): its lines; worn when vr_hand is "built"
+var vr_hand_design: Array = []
 # the VR menu's surroundings: "classic", a built-in one (vr/MenuEnvs.gd) or
 # "bg:<background id>" for a background from the background list
 var vr_menu_env: String = "classic"
@@ -2657,7 +2678,68 @@ func apply_vr_pacing():
 	OS.vsync_enabled = false
 	Engine.target_fps = 0 if OS.has_feature("quest") else 720
 
-func start_vr():
+# Meta Quest: VR starts with the game (init.gd), before anything is loaded, so
+# the headset shows a Loading panel at once. It used to show nothing until
+# the whole game had loaded, a flat menu had been built and thrown away, and
+# the VR menu had loaded after it: a long wait that looks like a frozen app.
+# (A debug run with CHROMIA_BOOT_VR=1 does the same in pretend VR, to test.)
+#
+# vr_boot_hold: VR is up but the settings aren't read yet. VRPlayer waits with
+# its first recenter until they are (a locked play area keeps its placement).
+var vr_boot_hold: bool = false
+var _vr_started_ms: int = 0
+
+func boot_vr_wanted() -> bool:
+	if vr:
+		return false
+	if OS.has_feature("quest"):
+		return true
+	return OS.is_debug_build() and OS.get_environment("CHROMIA_BOOT_VR") == "1"
+
+func start_vr_at_boot() -> bool:
+	if vr:
+		return true
+	if not _settings_read:
+		# the one setting the headset needs before VR starts (the rest are
+		# applied when the settings are read: _vr_settings_ready)
+		var f := File.new()
+		var path: String = get_startup_settings_path()
+		if f.file_exists(path) and f.open(path, File.READ) == OK:
+			var parsed = JSON.parse(f.get_as_text())
+			f.close()
+			if parsed.error == OK and parsed.result is Dictionary:
+				var rs = parsed.result.get("vr_render_scale")
+				if rs is float or rs is int:
+					vr_render_scale = clamp(float(rs), 0.5, 1.5)
+		vr_boot_hold = true
+	start_vr(true)
+	if not vr:
+		vr_boot_hold = false
+	return vr
+
+# The settings are read (do_init), with VR already running since the start:
+# what start_vr and VRPlayer took from them goes on now.
+func _vr_settings_ready():
+	if not vr_boot_hold:
+		return
+	vr_boot_hold = false
+	if not vr:
+		return
+	apply_vr_binds()
+	apply_vr_pacing()
+	if is_instance_valid(vr_player):
+		vr_player.update_primary_ray()
+		vr_player.apply_hand()
+		vr_player._restore_play_lock()
+		# (the headset's graphics settings work on the eye images, which exist
+		# only once VR has been drawing for a moment)
+		var wait: float = 1.6 - (OS.get_ticks_msec() - _vr_started_ms) / 1000.0
+		if wait > 0.0:
+			get_tree().create_timer(wait).connect("timeout", vr_player, "apply_xr_settings")
+		else:
+			vr_player.apply_xr_settings()
+
+func start_vr(at_boot: bool = false):
 
 	if vr:
 		print("VR already active")
@@ -2667,7 +2749,7 @@ func start_vr():
 	var viewport = get_viewport()
 	if OS.has_feature("quest"):
 		vr_interface = ARVRServer.find_interface("OpenXR")
-	if Input.is_key_pressed(KEY_SHIFT) and not OS.has_feature("quest"):
+	if (Input.is_key_pressed(KEY_SHIFT) or at_boot) and not OS.has_feature("quest"):
 		print("Enabling fake VR")
 		OS.window_maximized = true
 		fake_vr = true
@@ -2704,6 +2786,8 @@ func start_vr():
 
 		setup_controller_bindings()
 	vr = true
+	_vr_started_ms = OS.get_ticks_msec()
+	apply_render_res() # (VR has its own picture: the window is drawn as it is)
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
 	_desk_vsync = OS.vsync_enabled
 	_desk_fps = Engine.target_fps
@@ -2714,6 +2798,8 @@ func start_vr():
 	vr_player = vr_av
 
 	menu_target = "res://vr/vrmenu.tscn"
+	if at_boot:
+		return # (the loading screen is up already and goes on to the VR menu: init.gd)
 	get_tree().change_scene("res://scenes/loaders/menuload.tscn")
 
 # VR: an error screen (flat window only) goes back to the menu (vr/VRNotice.gd)
@@ -2840,6 +2926,7 @@ func _ready():
 		load("res://scripts/PackGuard.gd").started(PackUpdate.loaded_version)
 	# Closing the window goes through quit_game() too (see there).
 	get_tree().set_auto_accept_quit(false)
+	get_tree().connect("screen_resized", self, "apply_render_res") # (the size drawn at follows the window's)
 	connect("init_stage_reached", self, "_log_stage")
 	fail_asp.bus = "OtherSound"
 	call_deferred("add_child", fail_asp)
@@ -3457,10 +3544,8 @@ func _set_map_grid(v: bool):
 		return
 	map_grid = v
 	emit_signal("map_grid_changed")
-var modern_ui: bool = false setget _set_modern_ui # Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
-signal modern_ui_changed
-# the Modern UI is for staff (an Owner / Administrator tag): the server says
-# so at sign-in (LobbyManager); remembered for a start before it answers
+# staff (an Owner / Administrator tag): the server says so at sign-in
+# (LobbyManager); remembered for a start before it answers
 var is_staff: bool = false setget _set_is_staff
 func _set_is_staff(v: bool):
 	if not _settings_read:
@@ -3469,12 +3554,6 @@ func _set_is_staff(v: bool):
 		return
 	is_staff = v
 	save_settings()
-	emit_signal("modern_ui_changed")
-func modern_ui_on() -> bool:
-	return modern_ui and is_staff and not vr
-func _set_modern_ui(v: bool):
-	modern_ui = v
-	emit_signal("modern_ui_changed")
 var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd: the first version's mouse code)
 # Experimental: "Show RP on Maps". Offline RP (RhythiaPoints.gd) is always
 # earned and kept (the Profile tab has the total and the top plays); this only
@@ -3492,6 +3571,9 @@ var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android")
 # what the computer manages, so Discord / OBS have room. stream_user_fps is
 # your own Max FPS while it holds the frame limit (-1: it doesn't).
 var stream_mode: bool = false
+# Settings > Transfer > Settings backups (scripts/SettingsBackup.gd)
+var settings_backup: bool = true
+var settings_backup_profile_only: bool = true
 var stream_user_fps: int = -1
 # Frame Smoothing: the rate the device is held at because it kept dropping
 # frames at a higher one (0: none; scripts/game/SteadyRate.gd)
@@ -3569,6 +3651,78 @@ func no_delay_end():
 	Engine.target_fps = int(s[1])
 	OS.vsync_via_compositor = bool(s[2])
 	Input.use_accumulated_input = bool(s[3])
+
+# --- Render resolution (computers) -----------------------------------------------
+# The game normally draws one pixel for every pixel of the window. On a Mac's
+# Retina screen that is four times the pixels of a normal screen the same
+# size (a 5K iMac: 14.7 million a frame, with glow and anti-aliasing on top),
+# which many Macs' graphics chips can't do at speed: the game ran at 10 to 20
+# frames a second there. Drawn smaller and stretched over the window instead.
+#
+# render_res: 0 = Auto (a Mac's Retina screen: the pixels of a normal screen,
+# as most Mac apps and games do; everything else: every pixel), else percent
+# of the window's size (100, 75, 50).
+# render_shrink: what is applied (window pixels per drawn pixel).
+# Mouse movement comes in drawn pixels, so relative mouse movement in a map
+# is multiplied by it (mouse_rel): the same hand movement moves the cursor as
+# far as before, whatever the resolution.
+var render_res: int = 0
+var render_shrink: float = 1.0
+const RENDER_RES_CHOICES := [0, 100, 75, 50]
+const RENDER_MIN_HEIGHT := 720.0
+
+func wanted_render_shrink() -> float:
+	if device("mobile") or vr or OS.has_feature("JavaScript") or OS.has_feature("quest"):
+		return 1.0 # (phones have their own layout: apply_mobile_layout; a headset its own picture)
+	if render_res > 0:
+		return 100.0 / clamp(float(render_res), 25.0, 100.0)
+	if OS.has_feature("OSX"):
+		return clamp(OS.get_screen_scale(), 1.0, 3.0)
+	return 1.0
+
+var _render_size := Vector2.ZERO # the size drawn at, while it isn't the window's
+
+func apply_render_res():
+	if device("mobile"):
+		return
+	var win: Vector2 = OS.get_window_size()
+	if win.x < 16 or win.y < 16:
+		return # (minimised)
+	# never fewer lines than the menus are laid out for
+	var s: float = clamp(wanted_render_shrink(), 1.0, max(1.0, win.y / RENDER_MIN_HEIGHT))
+	if s <= 1.001:
+		if _render_size != Vector2.ZERO:
+			_render_size = Vector2.ZERO
+			render_shrink = 1.0
+			get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_DISABLED, SceneTree.STRETCH_ASPECT_IGNORE, Vector2(), 1)
+			trail("render resolution: every pixel of the %d x %d window" % [int(win.x), int(win.y)])
+		return
+	var size: Vector2 = (win / s).floor()
+	if size == _render_size:
+		return
+	var first: bool = not is_equal_approx(s, render_shrink)
+	_render_size = size
+	render_shrink = s
+	# (the whole picture, menus and game, is drawn at `size` and stretched over the window)
+	get_tree().set_screen_stretch(SceneTree.STRETCH_MODE_VIEWPORT, SceneTree.STRETCH_ASPECT_IGNORE, size, 1)
+	call_deferred("_render_smooth")
+	if first:
+		trail("render resolution: %s, drawing %d x %d in a %d x %d window" % ["auto" if render_res <= 0 else "%d%%" % render_res, int(size.x), int(size.y), int(win.x), int(win.y)])
+
+# The smaller picture is stretched smoothly, not as blocks (the engine's own
+# way for this: jagged text and lines at anything but exactly half size).
+# Set again after every change of size: the picture's buffer is made anew then.
+func _render_smooth():
+	if _render_size == Vector2.ZERO:
+		return
+	var tex: ViewportTexture = get_tree().root.get_texture()
+	if tex != null:
+		tex.flags = 0
+		tex.flags = Texture.FLAG_FILTER
+
+# relative mouse movement of an event, in window pixels (see render_shrink)
+func mouse_rel(event) -> Vector2:
+	return event.relative * render_shrink
 
 func apply_max_fps_mode():
 	if vr:
@@ -3873,7 +4027,7 @@ func report_level(force: bool = false):
 	if cid == "" or not ProjectSettings.get_setting("application/networking/enabled"):
 		return
 	var store = preload("res://scripts/PlayerLevel.gd").get_store()
-	var key := "%s/%d/%d/%d/%d" % [cid, store.level, store.prestige, store.total_exp, store.cur_exp]
+	var key := "%s/%d/%d/%d/%d/%s" % [cid, store.level, store.prestige, store.total_exp, store.cur_exp, store.staff_set]
 	if key == _level_sent and not force:
 		return
 	_level_sent = key
@@ -3882,7 +4036,8 @@ func report_level(force: bool = false):
 	add_child(r)
 	r.connect("request_completed", self, "_on_level_sent", [r, cid])
 	# (exp: how far into this level, for the website's ring around the picture)
-	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d&exp=%d" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp, store.cur_exp], [], true, HTTPClient.METHOD_POST, "") != OK:
+	# (staff_set: the last level set by staff that this device took, PlayerLevel.take_staff_set)
+	if r.request("%s?client_id=%s&level=%d&prestige=%d&total_exp=%d&exp=%d&staff_set=%s" % [LEVEL_URL, cid.http_escape(), store.level, store.prestige, store.total_exp, store.cur_exp, store.staff_set.http_escape()], [], true, HTTPClient.METHOD_POST, "") != OK:
 		r.queue_free()
 		_level_sent = ""
 
@@ -3898,6 +4053,13 @@ func _on_level_sent(_result, code, _headers, body, r: HTTPRequest, for_cid: Stri
 		return
 	var L: Dictionary = res.result.level
 	var store = preload("res://scripts/PlayerLevel.gd").get_store()
+	# set by staff on the admin panel: taken as it is (also lower)
+	if store.take_staff_set(int(L.get("level", 0)), int(L.get("prestige", 0)), str(L.get("staff_set", ""))):
+		var st: String = "Level %d" % store.level
+		if store.prestige > 0:
+			st += ", prestige %d" % store.prestige
+		Globals.notify(Globals.NOTIFY_INFO, st + " (set by staff)", "Level changed")
+		return
 	if store.take_if_higher(int(L.get("level", 0)), int(L.get("prestige", 0)), int(L.get("exp", 0)), int(L.get("total_exp", 0))):
 		var txt: String = "Level %d" % store.level
 		if store.prestige > 0:
@@ -4119,6 +4281,8 @@ func parse_pb_str(txt: String):
 	data.mod_flashlight = false
 	data.mod_reverse = false
 	data.mod_nofail = false
+	data.mod_strobe = false
+	data.mod_360 = false
 
 	for s in pts:
 		if s.begins_with("s:c"):
@@ -4153,6 +4317,7 @@ func parse_pb_str(txt: String):
 				"m_im": data.invert_mouse = true
 				"m_earthquake": data.mod_earthquake = true
 				"m_strobe": data.mod_strobe = true
+				"m_360": data.mod_360 = true
 				"m_hardrock": data.mod_hardrock = true
 				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true
@@ -4347,11 +4512,14 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			play_miss_snd = data.play_miss_snd
 		if data.has("auto_preview_song"):
 			auto_preview_song = data.auto_preview_song
-		if data.has("update_channel") and (data.update_channel == "stable" or data.update_channel == "test"):
+		# (only as texts: a number or anything else there, compared with a text,
+		# stopped the loading right here, near the top, and every setting below
+		# was back to default at that start, then saved that way)
+		if data.get("update_channel") is String and (data.update_channel == "stable" or data.update_channel == "test"):
 			update_channel = data.update_channel
 		if data.has("tried_test_builds") and bool(data.tried_test_builds):
 			tried_test_builds = true
-		if data.has("tester_channel") and (data.tester_channel == "stable" or data.tester_channel == "test"):
+		if data.get("tester_channel") is String and (data.tester_channel == "stable" or data.tester_channel == "test"):
 			tester_channel = data.tester_channel
 		_load_update_channel() # (this device's choice wins over a profile's copy)
 		if data.has("disable_bg_effects"):
@@ -4449,7 +4617,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("spectate_favorites") and data.spectate_favorites is Array:
 			spectate_favorites = []
 			for n in data.spectate_favorites:
-				spectate_favorites.append(int(n))
+				if typeof(n) in [TYPE_INT, TYPE_REAL, TYPE_STRING]: # (anything else stopped the loading)
+					spectate_favorites.append(int(n))
 		if data.has("mute_lobby_chat"):
 			mute_lobby_chat = data.mute_lobby_chat
 		if data.has("spawn_distance"):
@@ -4536,6 +4705,9 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			if max_fps_mode and not vr: call_deferred("apply_max_fps_mode")
 		if data.has("pc_no_delay"):
 			pc_no_delay = bool(data.pc_no_delay)
+		if data.has("render_res") and RENDER_RES_CHOICES.has(int(data.render_res)):
+			render_res = int(data.render_res)
+		call_deferred("apply_render_res")
 		if data.has("legacy_mouse"):
 			legacy_mouse = bool(data.legacy_mouse)
 		if data.has("show_map_rp"):
@@ -4544,12 +4716,14 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			frame_smoothing = bool(data.frame_smoothing)
 		if data.has("stream_mode"):
 			stream_mode = bool(data.stream_mode)
+		if data.has("settings_backup"):
+			settings_backup = bool(data.settings_backup)
+		if data.has("settings_backup_profile_only"):
+			settings_backup_profile_only = bool(data.settings_backup_profile_only)
 		if data.has("fs_cap_hz"):
 			fs_cap_hz = clamp(float(data.fs_cap_hz), 0.0, 240.0)
 		if data.has("new_settings_ui"):
 			new_settings_ui = bool(data.new_settings_ui)
-		if data.has("modern_ui"):
-			modern_ui = bool(data.modern_ui)
 		if data.has("map_grid"):
 			map_grid = bool(data.map_grid)
 		if data.has("is_staff"):
@@ -4824,8 +4998,11 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_haptics = clamp(float(data.vr_haptics), 0.0, 1.0)
 		if data.has("vr_haptic_miss"):
 			vr_haptic_miss = bool(data.vr_haptic_miss)
-		if data.has("vr_hand") and ["default", "paw", "ball", "glove", "robot", "skeleton", "crystal", "snowleopard", "custom"].has(str(data.vr_hand)):
+		if data.has("vr_hand") and ["default", "paw", "ball", "glove", "robot", "skeleton", "crystal", "snowleopard", "custom", "built"].has(str(data.vr_hand)):
 			vr_hand = str(data.vr_hand)
+		if data.has("vr_hand_design") and data.vr_hand_design is Array:
+			# (checked line by line: only what the Hand Creator itself writes)
+			vr_hand_design = load("res://vr/HandCreator.gd").encode(load("res://vr/HandCreator.gd").parse(data.vr_hand_design))
 		if data.has("vr_menu_env") and load("res://vr/MenuEnvs.gd").is_valid(str(data.vr_menu_env)):
 			vr_menu_env = str(data.vr_menu_env)
 		if data.has("vr_play_lock"):
@@ -4877,6 +5054,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			last_search_incl_broken = data.last_search_incl_broken
 		if data.has("last_search_xp_only"):
 			last_search_xp_only = data.last_search_xp_only
+		if data.has("last_search_unranked_only"):
+			last_search_unranked_only = bool(data.last_search_unranked_only)
 
 		lcol(data, "grade_s_color")
 		lcol(data, "panel_bg")
@@ -5222,6 +5401,53 @@ func _load_update_channel():
 	if bool(d.get("tried_test_builds", false)):
 		tried_test_builds = true
 
+# When load_saved_settings stops part-way (an error on one setting), every
+# setting after that one is still at its default, and the next save wrote
+# those defaults into your file: most settings reset at that start. The plain
+# ones (on/off, numbers, texts) the loader never got to are taken from the
+# file as they are.
+# _settings_snapshot: the file's plain settings with the game's value for each
+# before loading. _settings_rescue: the ones still at that value afterwards
+# although the file says otherwise.
+const _RESCUE_SKIP := ["update_channel", "tester_channel", "tried_test_builds"] # (this device's own choice)
+func _settings_snapshot(saveFile: String) -> Dictionary:
+	var out := {}
+	var f := File.new()
+	if not f.file_exists(saveFile) or f.open(saveFile, File.READ) != OK:
+		return out
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or typeof(parsed.result) != TYPE_DICTIONARY:
+		return out
+	for k in parsed.result.keys():
+		if k in _RESCUE_SKIP:
+			continue
+		var v = parsed.result[k]
+		var cur = get(k)
+		var ct := typeof(cur)
+		var vt := typeof(v)
+		var num := vt == TYPE_BOOL or vt == TYPE_INT or vt == TYPE_REAL
+		if ct == TYPE_BOOL and num:
+			out[k] = [cur, bool(v)]
+		elif ct == TYPE_INT and num:
+			out[k] = [cur, int(v)]
+		elif ct == TYPE_REAL and num:
+			out[k] = [cur, float(v)]
+		elif ct == TYPE_STRING and vt == TYPE_STRING:
+			out[k] = [cur, v]
+	return out
+
+func _settings_rescue(before: Dictionary):
+	var taken := []
+	for k in before.keys():
+		var was = before[k][0]
+		var wanted = before[k][1]
+		var cur = get(k)
+		if typeof(cur) == typeof(was) and cur == was and cur != wanted:
+			set(k, wanted)
+			taken.append(k)
+	trail("settings: the loading stopped part-way; %d settings taken straight from the file%s" % [taken.size(), (" (" + PoolStringArray(taken.slice(0, 5)).join(", ") + ")") if not taken.empty() else ""])
+
 # Until the settings have been read at the start, the game holds only its
 # defaults: a save then would write those over your file (and over the active
 # profile). It happened when something saved early, e.g. the server's answer
@@ -5244,8 +5470,35 @@ func save_settings(saveFile: String = Globals.p("user://settings.json"), even_ea
 		var active := get_active_profile_path()
 		if active != "" and active != saveFile:
 			_write_settings_file(active)
+		if settings_backup and not settings_backup_profile_only:
+			_settings_backup_soon()
 	spec.swap_in(theirs)
 	return result
+
+# A copy of the settings for the backups folder (SettingsBackup.gd), a moment
+# after they were saved: dragging a slider saves many times in a row, and one
+# copy of where it ended is what's wanted. Nothing is copied when the file is
+# the same as the newest copy.
+var _backup_timer: Timer = null
+func _settings_backup_soon():
+	if _quitting:
+		return
+	if _backup_timer == null:
+		_backup_timer = Timer.new()
+		_backup_timer.one_shot = true
+		_backup_timer.wait_time = 6.0
+		_backup_timer.pause_mode = PAUSE_MODE_PROCESS
+		_backup_timer.connect("timeout", self, "settings_backup_now")
+		add_child(_backup_timer)
+	_backup_timer.start()
+
+func settings_backup_now(label: String = "settings", source: String = "") -> String:
+	if _backup_timer != null:
+		_backup_timer.stop()
+	# (never while playing with someone else's settings or Sound Space Mode's)
+	if has_meta("spec_backup") or (in_map and bool(get("sound_space_mode"))):
+		return ""
+	return load("res://scripts/SettingsBackup.gd").make(source if source != "" else Globals.p("user://settings.json"), label)
 
 # A copy of every setting this version saved, next to the settings file.
 # An older version (a phone going back to its installed app, a switch to the
@@ -5403,13 +5656,15 @@ func _write_settings_file(saveFile: String):
 			custombg_color = custombg_color.to_html(false),
 			max_fps_mode = max_fps_mode,
 			pc_no_delay = pc_no_delay,
+			render_res = render_res,
 			legacy_mouse = legacy_mouse,
 			show_map_rp = show_map_rp,
 			new_settings_ui = new_settings_ui,
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
 			stream_mode = stream_mode,
-			modern_ui = modern_ui,
+			settings_backup = settings_backup,
+			settings_backup_profile_only = settings_backup_profile_only,
 			map_grid = map_grid,
 			is_staff = is_staff,
 			lb_device = lb_device,
@@ -5513,6 +5768,7 @@ func _write_settings_file(saveFile: String):
 			vr_haptics = vr_haptics,
 			vr_haptic_miss = vr_haptic_miss,
 			vr_hand = vr_hand,
+			vr_hand_design = vr_hand_design,
 			vr_menu_env = vr_menu_env,
 			vr_play_lock = vr_play_lock,
 			vr_play_lock_frame = vr_play_lock_frame,
@@ -5533,6 +5789,7 @@ func _write_settings_file(saveFile: String):
 			vr_binds = vr_binds,
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
+			last_search_unranked_only = last_search_unranked_only,
 
 			master_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Master")), -80, 1000000)),
 			music_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), -80, 1000000)),
@@ -6581,6 +6838,20 @@ func populate_map_registry_deferred(args: Array):
 	call_deferred("emit_signal", "local_maps_loaded")
 
 
+func _alert_on_vr_menu(text: String):
+	var waited := 0.0
+	while not is_instance_valid(vr_menu) and waited < 300.0:
+		yield(get_tree().create_timer(0.5), "timeout")
+		waited += 0.5
+	if not is_instance_valid(vr_menu):
+		return
+	yield(get_tree().create_timer(1.5), "timeout")
+	Globals.confirm_prompt.s_alert.play()
+	Globals.confirm_prompt.open(text, "Alert", [{text = "OK", wait = 2}])
+	yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.s_next.play()
+	Globals.confirm_prompt.close()
+
 func do_init(_ud = null):
 	# Started on a thread (Globals, and init.gd for Reload Content), but it adds
 	# nodes, timers and keybinds to the running game, which is only safe on the
@@ -6717,7 +6988,11 @@ func do_init(_ud = null):
 	if OS.has_feature("Android") and not Engine.has_meta("permissions_asked_init"):
 		# (once a run: not again on Reload Content, see init.gd)
 		Engine.set_meta("permissions_asked_init", true)
-		OS.request_permissions()
+		# (not with VR running since the start, Meta Quest: init.gd asked just
+		# before, and asking again opens and closes Android's permission screen
+		# over the headset, which takes the game out of focus)
+		if not (vr and Engine.has_meta("permissions_asked")):
+			OS.request_permissions()
 	var user_dir = Globals.p("user://")
 	if user_dir == "RETRY":
 		yield(get_tree().create_timer(7), "timeout")
@@ -6751,6 +7026,7 @@ func do_init(_ud = null):
 			file.close()
 		if not dir.dir_exists(Globals.p("user://replays")): dir.make_dir(Globals.p("user://replays"))
 		_move_to_chromia_folder(dir)
+		load("res://scripts/OldFolderBests.gd").start(self) # (bests in the old shared folder, readable by older clients again)
 		if not dir.dir_exists(user_best_dir):
 			convert_pb_format = true
 			dir.make_dir_recursive(user_best_dir)
@@ -7105,10 +7381,13 @@ func do_init(_ud = null):
 
 	emit_signal("init_stage_reached", "Read user settings")
 	yield(get_tree(), "idle_frame")
+	var settings_before: Dictionary = _settings_snapshot(get_startup_settings_path())
 	var result = load_saved_settings(get_startup_settings_path())
 	if typeof(result) != TYPE_INT:
 		# load_saved_settings stopped on an error part-way (null): keep the
-		# settings read so far instead of getting stuck on this screen
+		# settings read so far instead of getting stuck on this screen, and
+		# take the ones it didn't get to straight from the file
+		_settings_rescue(settings_before)
 		result = 0
 	if result != 0:
 		errornum = result
@@ -7122,6 +7401,14 @@ func do_init(_ud = null):
 		_staff_early = null
 		_set_is_staff(st)
 	call_deferred("apply_mobile_tuning")
+	call_deferred("_vr_settings_ready") # (VR running since the start, Meta Quest: its settings go on now)
+	call_deferred("apply_render_res") # (also with no settings file yet: a Mac's Retina screen starts on Auto)
+	if not has_meta("display_trailed"):
+		# (for reports of a slow game: what it is drawn on)
+		set_meta("display_trailed", true)
+		var win0: Vector2 = OS.get_window_size()
+		var scr0: Vector2 = OS.get_screen_size()
+		trail("display: window %d x %d on a %d x %d screen (scale %s), graphics: %s" % [int(win0.x), int(win0.y), int(scr0.x), int(scr0.y), str(OS.get_screen_scale()), VisualServer.get_video_adapter_name()])
 	load("res://scripts/game/SoundSpaceMode.gd").recover()
 	load("res://scripts/SpectateSettings.gd").recover() # closed while watching with someone's settings
 
@@ -7192,6 +7479,11 @@ func do_init(_ud = null):
 		OS.vsync_enabled = true
 		Engine.target_fps = 0 # (the browser paces the frames to the screen)
 		call_deferred("_web_replay_light") # (after a saved setting's own deferred apply)
+	if alert != "" and vr and not is_instance_valid(vr_menu):
+		# (VR without its menu yet: a box on the flat window that nobody could
+		# see or press, and loading waited for it for ever. On the VR menu.)
+		_alert_on_vr_menu(alert)
+		alert = ""
 	if alert != "":
 		emit_signal("init_stage_reached", "Alert prompt")
 		if not alert_snd_played: Globals.confirm_prompt.s_alert.play()

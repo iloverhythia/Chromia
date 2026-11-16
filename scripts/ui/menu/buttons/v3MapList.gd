@@ -22,6 +22,7 @@ var show_broken_maps: bool = false
 var show_online_maps: bool = true
 var xp_only_maps: bool = false
 var embossed_only: bool = false # Filters > Show > embossed: only Embossed's maps (same sort)
+var unranked_only: bool = false # Filters > Show > unranked: only maps that aren't ranked
 var ranked_song_ids: Dictionary = {}
 var flip_display: bool = false
 var flip_name: bool = false
@@ -73,7 +74,7 @@ func is_fav(s: Song): return _fav_set.has(s)
 var _st: String = ""
 var _at: String = ""
 
-# Modern UI > Sort & Filter: ranges and show / hide (ModernPanels.gd); all off by default
+# Sort & Filter: ranges and show / hide; all off by default
 var mf := {"min_stars": 0.0, "max_stars": 0.0, "min_len": 0, "max_len": 0, "hide_ranked": false, "hide_unranked": false, "played": 0}
 func _mf_ok(s: Song) -> bool:
 	if mf.min_stars > 0 or mf.max_stars > 0:
@@ -101,6 +102,7 @@ func search_matches(s: Song):
 		(_st == "" or s.lname().find(_st) != -1) and
 		(_at == "" or s.creator.to_lower().find(_at) != -1) and
 		(not xp_only_maps or ranked_song_ids.has(_canon(s.id))) and
+		(not unranked_only or not ranked_song_ids.has(_canon(s.id))) and
 		(not embossed_only or String(s.creator).to_lower().find("embossed") != -1) and
 		(folder_filter == null or folder_filter.has(s.id))
 	)
@@ -142,7 +144,7 @@ func on_pressed(i, s: Song):
 func switch_to_play_screen():
 	size_list()
 	if Rhythia.menu_target == "res://scenes/menu/menu.tscn": return
-	if xp_only_maps and ranked_song_ids.empty():
+	if (xp_only_maps or unranked_only) and ranked_song_ids.empty():
 		var lobby_manager = get_node_or_null("/root/LobbyManager")
 		if lobby_manager != null:
 			lobby_manager.list_ranked_maps()
@@ -482,6 +484,16 @@ func update_search_embossed(show: bool):
 	embossed_only = show
 	if ready: reload_to_current_page()
 
+# (the ranked list comes from the server: until it's here every map counts as
+# unranked, and the list is made again when it arrives)
+func update_search_unranked(show: bool):
+	unranked_only = show
+	if show and ranked_song_ids.empty():
+		var lm = get_node_or_null("/root/LobbyManager")
+		if lm != null and lm.has_method("list_ranked_maps"):
+			lm.list_ranked_maps()
+	if ready: reload_to_current_page()
+
 # The server keeps ranked maps by a cleaned-up key (savia_web src/util.js
 # canonSongKey): lowercase, anything but a-z 0-9 _ - made "_", "m" in front
 # of an empty key or one starting with "_". A map's own id can have capitals,
@@ -512,7 +524,7 @@ static func canon_key(id: String) -> String:
 func _on_ranked_maps_received(song_ids: Array):
 	ranked_song_ids = {}
 	for id in song_ids: ranked_song_ids[canon_key(String(id))] = true
-	if (xp_only_maps or String(Rhythia.map_sort) in ["sp_high", "sp_low", "recent_ranked"]) and ready: reload_to_current_page()
+	if (xp_only_maps or unranked_only or String(Rhythia.map_sort) in ["sp_high", "sp_low", "recent_ranked"]) and ready: reload_to_current_page()
 
 # the Filters page picked a sort
 func update_search_sort_mode():
@@ -570,6 +582,7 @@ func reset_filters():
 	update_search_flip_name(false)
 	update_search_xponly(false)
 	update_search_embossed(false)
+	update_search_unranked(false)
 	folders.set_active(-1)
 
 # Groups maps by difficulty. The groups are rebuilt from scratch so maps that

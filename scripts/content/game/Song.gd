@@ -1246,9 +1246,14 @@ func read_markers() -> Dictionary:
 			mtt.resize(mt.size() - 1)
 			mt_type[i] = mtt
 			for j in range(1, mt.size()):
-				mtt[j - 1] = mt[j]
+				# (as a whole number: the saved map list gives these back as
+				# 7.0 and 1.0, which the reader below didn't take for 7 and 1.
+				# It then skipped a marker's value, and every note stored after
+				# that marker in the file was lost: a map with a tempo marker
+				# played with a part missing from the game's second start on)
+				mtt[j - 1] = int(mt[j])
 
-				if mt[j] == DT_POSITION:
+				if int(mt[j]) == DT_POSITION:
 					mt_size[i] += 2
 				else:
 					mt_size[i] += 1
@@ -2491,7 +2496,7 @@ func _cache_restore_value(value):
 		return value
 
 func load_from_cache(cache: Dictionary):
-	songType = cache.get("version")
+	songType = int(cache.get("version", 0))
 	var path = cache.get("path")
 	filePath = path
 	musicFile = path
@@ -2512,8 +2517,25 @@ func load_from_cache(cache: Dictionary):
 		cover_offset = cache.get("cover_offset")
 		cover_length = cache.get("cover_length")
 	if songType == Globals.MAP_SSPM2:
-		marker_types = cache.get("marker_types")
-		marker_count = cache.get("marker_count")
+		marker_types = _whole_marker_types(cache.get("marker_types"))
+		marker_count = int(cache.get("marker_count", 0))
+
+# The marker types as they are in the map file: a name, then whole numbers.
+# (The saved map list is JSON, which hands every number back with a decimal
+# point.)
+static func _whole_marker_types(types) -> Array:
+	var out := []
+	if not (types is Array):
+		return out
+	for t in types:
+		if not (t is Array) or t.size() < 1:
+			continue
+		var one := [String(t[0])]
+		for j in range(1, t.size()):
+			one.append(int(t[j]))
+		out.append(one)
+	return out
+
 func make_cache():
 	var cache = {
 		version = songType,

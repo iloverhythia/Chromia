@@ -408,6 +408,13 @@ func _draw_card(g: Control, title: String):
 	g.draw_string(S.f_head, Vector2(20, 12 + S.f_head.get_ascent()), tr(title), S.PINK)
 
 func _style_node(n: Node):
+	# A control's hint (the box that shows when the mouse rests on it) is a
+	# child of that control while it shows. Styled like the rest of the page,
+	# its long text was set to wrap and everything above it to stretch: the
+	# number box under the mouse (and its row) then spread right across the
+	# page, and stayed that way.
+	if n.get_class() == "TooltipPanel" or n.get_class() == "TooltipLabel":
+		return
 	if n.has_meta("nsu"):
 		for c in n.get_children():
 			_style_node(c)
@@ -437,6 +444,7 @@ func _style_node(n: Node):
 		c.mouse_default_cursor_shape = CURSOR_POINTING_HAND
 	elif n is OptionButton or n is MenuButton:
 		var d: Button = n
+		S.popup(d.get_popup()) # (the list it opens, in the same look)
 		d.focus_mode = FOCUS_NONE
 		d.flat = false
 		d.add_font_override("font", S.f_bold)
@@ -493,7 +501,8 @@ func _style_node(n: Node):
 			l.size_flags_horizontal |= SIZE_EXPAND_FILL
 			var up = l.get_parent()
 			for _i in range(6):
-				if not (up is Control) or up is GridContainer or up.name == "Group":
+				# (only what lays things out: never a number box, a button or a field)
+				if not (up is Container) or up is GridContainer or up.name == "Group":
 					break
 				up.size_flags_horizontal |= SIZE_EXPAND_FILL
 				up = up.get_parent()
@@ -542,6 +551,8 @@ func _build_index():
 	_index = []
 	for i in range(tc.get_tab_count()):
 		var seen := {}
+		if tc.get_tab_control(i).name == "Pinned":
+			continue # (copies of settings that are found on their own pages: PinnedTab.gd)
 		_index_node(tc.get_tab_control(i), i, seen, true)
 	_index_sig = _sig
 

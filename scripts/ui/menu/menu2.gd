@@ -3138,6 +3138,9 @@ func idle_status():
 func _ready():
 	# the browser version opened as the website's game view of a replay
 	load("res://scripts/WebReplay.gd").menu_opened(get_tree())
+	# DLLs / Cheat Engine, for the scores of the songs that follow (on a thread;
+	# here and not at a song's start, where it made the game stand still)
+	load("res://scripts/ProcessScan.gd").menu_opened()
 	# a lobby invite that came during the song: asked about now
 	var _lmi = get_node_or_null("/root/LobbyManager")
 	if _lmi != null and _lmi.has_method("ask_pending_invite"):
@@ -3173,16 +3176,12 @@ func _ready():
 		lang_tab.name = "Language"
 		lang_tabs.add_child(lang_tab)
 	load("res://scripts/ui/settings/CustomBgColor.gd").attach(get_node_or_null("Main/Settings/S/F/TabContainer")) # custom bg color picker
+	load("res://scripts/ui/settings/PinnedTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Pinned: the settings you pinned, first in the list (after every other tab is in)
 	load("res://scripts/ui/settings/TrailGradientSettings.gd").attach(self) # cursor trail gradient editor
 	_setup_furry_secret()
 	_setup_folder_filters()
 	load("res://scripts/ui/menu/FiltersCollapse.gd").attach(self) # click "Filters" to collapse
 	load("res://scripts/ui/menu/MapFiltersPage.gd").attach(self) # the Filters button and its side page
-	# Experimental: the Modern UI over this menu (scripts/ui/modern/ModernUI.gd)
-	if not Rhythia.is_connected("modern_ui_changed", self, "_on_modern_ui"):
-		Rhythia.connect("modern_ui_changed", self, "_on_modern_ui")
-	if Rhythia.modern_ui_on():
-		call_deferred("_on_modern_ui")
 	_add_new_mod_checkboxes()
 	load("res://scripts/ui/menu/SSModPanel.gd").install(get_node_or_null("Main/Maps/Results/Results/RS/H2/Mods")) # Sound Space style modifier tiles
 	_center_mods()
@@ -3197,7 +3196,7 @@ func _ready():
 	# Settings' header: the new look with its search (Experimental > New
 	# Settings UI, on by default; not over Sound Space Mode's own skin), or the
 	# old one: buttons and tabs stay put, only the page scrolls
-	if Rhythia.new_settings_ui and not Rhythia.sound_space_mode and not Rhythia.modern_ui_on(): # (the Modern UI has its own Settings panel)
+	if Rhythia.new_settings_ui and not Rhythia.sound_space_mode:
 		load("res://scripts/ui/settings/SettingsNewUI.gd").install(get_node_or_null("Main/Settings"))
 	else:
 		load("res://scripts/ui/settings/SettingsHeader.gd").install(get_node_or_null("Main/Settings"))
@@ -3588,13 +3587,6 @@ func _union_visible(n, box):
 
 
 # Map folders also show up as filters under "stars" in the Filters column.
-func _on_modern_ui():
-	var M = load("res://scripts/ui/modern/ModernUI.gd")
-	if Rhythia.modern_ui_on(): # (staff only)
-		M.attach(self)
-	else:
-		M.detach(self)
-
 func _setup_folder_filters():
 	var stars = get_node_or_null("Main/Maps/Filters/StarSort")
 	if stars == null:

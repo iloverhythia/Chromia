@@ -69,22 +69,6 @@ func _add_legacy_mouse():
 	cb.hint_tooltip = "The cursor moves with the mouse exactly the way it did in Chromia's very first update (its original mouse code, with your sensitivity). Turns No Delay off while it's on."
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
-	# Experimental: the Modern UI (scripts/ui/modern/ModernUI.gd)
-	if not parent.has_node("ModernUI"):
-		var mu = duplicate()
-		mu.name = "ModernUI"
-		mu.target = "modern_ui"
-		mu.text = "Modern UI"
-		mu.hint_tooltip = "A new look for the main screen: your maps as a grid of covers, the picked map with its leaderboard on the left, and a top bar with the pages. Turn it off to go back to the classic menu."
-		parent.add_child(mu)
-		parent.move_child(mu, cb.get_index() + 1)
-		# (only staff, an Owner / Administrator tag, see it)
-		mu.visible = Rhythia.is_staff
-		Rhythia.connect("modern_ui_changed", self, "_staff_shown", [mu])
-
-func _staff_shown(mu):
-	if is_instance_valid(mu):
-		mu.visible = Rhythia.is_staff
 
 # "Grid Map List" under Wave Menu: the maps as a grid of tiles (MapGrid.gd),
 # switched right away

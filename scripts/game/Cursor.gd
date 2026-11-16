@@ -156,7 +156,7 @@ func _input(event: InputEvent):
 				move_mode = C_JOYSTICK
 			elif event is InputEventMouseMotion:
 				move_mode = C_MOUSE
-		elif move_mode == C_JOYSTICK and event is InputEventMouseMotion and event.relative.length() > 2.0:
+		elif move_mode == C_JOYSTICK and event is InputEventMouseMotion and Rhythia.mouse_rel(event).length() > 2.0:
 			move_mode = C_MOUSE # (the mouse moved: it's the mouse after all)
 
 		if move_mode == C_JOYSTICK:
@@ -173,35 +173,35 @@ func _input(event: InputEvent):
 			# line for line (its render scale was always 1)
 			visible = true
 			if (event is InputEventMouseMotion):
-				face = event.relative
+				face = Rhythia.mouse_rel(event)
 				if Rhythia.invert_mouse:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position() * -1)
 					else:
-						move_cursor((event.relative * 0.018 * Rhythia.sensitivity) * -1)
+						move_cursor((Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity) * -1)
 				else:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position())
 					else:
-						move_cursor(event.relative * 0.018 * Rhythia.sensitivity)
+						move_cursor(Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity)
 		elif not Rhythia.spin_now() and move_mode == C_MOUSE:
 			visible = true
 			if (event is InputEventMouseMotion):
-				_face_accum += event.relative
+				_face_accum += Rhythia.mouse_rel(event)
 				if _pred and Rhythia.absolute_mode:
 					_predict_input(event.position)
 				if _pred and not Rhythia.absolute_mode:
-					_move_rel_predicted(event.relative * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1), event.relative)
+					_move_rel_predicted(Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity * (-1 if Rhythia.invert_mouse else 1), Rhythia.mouse_rel(event))
 				elif Rhythia.invert_mouse:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position() * -1)
 					else:
-						move_cursor((event.relative * 0.018 * Rhythia.sensitivity) * -1)
+						move_cursor((Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity) * -1)
 				else:
 					if Rhythia.absolute_mode:
 						move_cursor_abs(get_absolute_position())
 					else:
-						move_cursor(event.relative * 0.018 * Rhythia.sensitivity)
+						move_cursor(Rhythia.mouse_rel(event) * 0.018 * Rhythia.sensitivity)
 
 		# (touches are shown by scripts/ui/TouchIndicator.gd now)
 
@@ -307,6 +307,27 @@ func _process(delta):
 				if moved.length() < 1.0: # (not a jump: a skip or a seek)
 					_face_accum += moved / 0.018
 
+	if _trail_late():
+		_late_delta = delta # (VR: after the cursor is put where you point, see trail_after_move)
+	else:
+		_trail_step(delta)
+
+# VR: the cursor is put where the beam meets the grid by NoteManager
+# (do_vr_cursor), which runs after this node each frame. The trail made here
+# in _process was therefore made from where the cursor was a frame ago: it
+# started behind the cursor, further behind the faster your hand moved, and
+# looked torn off it. NoteManager calls trail_after_move once the cursor is
+# placed, and the trail is made then. (A mouse moves the cursor before any
+# _process, and a replay moves it in this one: those were always right.)
+var _late_delta := 0.0
+func _trail_late() -> bool:
+	return bool(Rhythia.vr) and not Rhythia.replaying
+
+func trail_after_move():
+	if _trail_late():
+		_trail_step(_late_delta)
+
+func _trail_step(delta: float):
 	if Rhythia.show_cursor and Rhythia.cursor_trail and _smart_trail and trail_started:
 		var start_p = global_transform.origin
 		var end_p = prev_pos

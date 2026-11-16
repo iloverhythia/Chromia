@@ -16,13 +16,17 @@ var _code: LineEdit
 var _chosen := "default"
 
 static func open_on(parent: Node):
-	var old = parent.get_tree().root.find_node("CardsMenu", true, false)
-	if old != null:
-		old.queue_free()
+	# (every one that is open, each with its layer and the dimmed screen behind it)
+	for old in parent.get_tree().get_nodes_in_group("cards_menu"):
+		if not old.is_queued_for_deletion():
+			old.close()
 	var layer := CanvasLayer.new()
 	layer.layer = 110
 	layer.name = "CardsMenuLayer"
-	parent.get_tree().root.add_child(layer)
+	# On the screen the button is on: the window, or in VR the menu screen in
+	# front of you. (On the window's own layer it opened where nobody in a
+	# headset could see or close it, and every press stacked another one.)
+	parent.get_viewport().add_child(layer)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.anchor_right = 1
@@ -30,6 +34,7 @@ static func open_on(parent: Node):
 	layer.add_child(dim)
 	var m = load("res://scripts/ui/CardsMenu.gd").new()
 	m.name = "CardsMenu"
+	m.add_to_group("cards_menu")
 	layer.add_child(m)
 	dim.connect("gui_input", m, "_on_dim")
 	return m
@@ -100,6 +105,7 @@ func _input(ev):
 		get_tree().set_input_as_handled()
 
 func close():
+	remove_from_group("cards_menu")
 	var layer = get_parent()
 	if layer is CanvasLayer:
 		layer.queue_free()
@@ -110,13 +116,25 @@ func _on_cards(cards: Array, chosen: String):
 	_chosen = chosen
 	for c in _grid.get_children():
 		c.queue_free()
+	# Only the cards you have are shown (the others stay a secret until you get
+	# them); admins see every card, the locked ones too. The server sends the
+	# list that way; an older server's locked cards are left out here.
+	var see_all: bool = bool(Rhythia.get("is_staff"))
 	var locked := 0
+	var shown := 0
 	for c in cards:
 		if c is Dictionary:
+			var have := bool(c.get("unlocked", false))
+			if not have and not see_all:
+				continue
 			_grid.add_child(_card(c))
-			if not bool(c.get("unlocked", false)):
+			shown += 1
+			if not have:
 				locked += 1
-	_msg.text = ("%d locked: keep playing (and looking) to find them." % locked) if locked > 0 else "You have every card!"
+	if locked > 0:
+		_msg.text = "%d locked (only admins see these)." % locked
+	else:
+		_msg.text = "These are the cards you have. There are more to find: keep playing (and looking)."
 	call_deferred("_place")
 
 func _card(c: Dictionary) -> Control:

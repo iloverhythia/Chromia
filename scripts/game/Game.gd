@@ -442,15 +442,12 @@ func _on_lobby_score_row_input(event: InputEvent, row: Control):
 		return
 	hud.spectate_specific_player(peer_id)
 
-# (in VR it waits until the song has settled: the scan's work at the very start
-# made the first seconds stutter on PC VR; it only matters for the score)
+# (no scan while the song plays: it made the game stand still for a moment a
+# couple of seconds in, on PC and PC VR. The menu's scan and the one made when
+# the score is sent are what counts: ProcessScan.gd)
 func _scan_processes():
 	if not load("res://scripts/ProcessScan.gd").supported():
-		return # (nothing to scan here, e.g. the Quest: no timer left waiting on a song that may be gone)
-	if Rhythia.vr:
-		yield(get_tree().create_timer(6.0, false), "timeout")
-		if not is_inside_tree():
-			return
+		return
 	load("res://scripts/ProcessScan.gd").song_started()
 
 func _get_lobby_manager():
@@ -900,7 +897,7 @@ func _ready():
 	Rhythia.start_log("playing")
 	add_child(load("res://scripts/game/HitchLog.gd").new()) # (slow frames go to the trail)
 	if not Rhythia.replaying:
-		_scan_processes() # DLLs / Cheat Engine, for the score (on a thread)
+		_scan_processes() # (Cheat Engine finds for this song start over; nothing is scanned now)
 
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	var is_late_join = lobby_manager != null and lobby_manager.consume_late_join_pending()

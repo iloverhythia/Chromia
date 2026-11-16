@@ -236,6 +236,9 @@ func on_pressed(i):
 			var new_path = Globals.p(PROFILES_DIR.plus_file(Globals.string_prompt.input.get_text() + ".settings.json"))
 			Rhythia.save_settings(new_path)
 			_set_active_profile_path(new_path)
+			# (Settings > Transfer > Settings backups: a new profile is always copied there)
+			if Rhythia.settings_backup:
+				Rhythia.settings_backup_now("profile " + new_path.get_file().trim_suffix(".settings.json"), new_path)
 		_ready()
 		return
 	if i == profiles.size() + 2:
@@ -324,6 +327,10 @@ func _ready():
 		overwrite_submenu.connect("id_pressed", self, "overwrite_profile")
 		delete_submenu.connect("id_pressed", self, "delete_profile")
 		get_popup().connect("id_pressed", self, "on_pressed")
+		# (the button opens the panel below instead of this little menu)
+		get_popup().connect("about_to_show", self, "_menu_to_panel")
+	if _panel != null and is_instance_valid(_panel) and _panel.visible:
+		_fill_panel()
 
 	get_popup().add_submenu_item("Overwrite Profile", "Overwrite", -1)
 	get_popup().add_submenu_item("Delete Profile", "Delete", -1)
@@ -353,3 +360,195 @@ func delete_profile(i):
 		)
 
 	_ready()
+
+# --- the profiles panel ---------------------------------------------------------
+# "Select Profile" used to open a small menu that ran off the screen with many
+# profiles (no way to scroll it) and hid Overwrite and Delete in side menus.
+# It opens a panel beside the button instead: every profile in a list that
+# scrolls, each with Save over and Delete next to it, New / Import / Export
+# under the list, and an X in its corner. It stays open until you close it
+# (the X, Esc, or the button again).
+
+const PANEL_W := 440.0
+const PANEL_H := 560.0
+var _panel: PanelContainer = null
+var _rows: VBoxContainer = null
+
+func _menu_to_panel():
+	get_popup().call_deferred("hide")
+	call_deferred("_toggle_panel")
+
+func _toggle_panel():
+	if _panel != null and is_instance_valid(_panel) and _panel.visible:
+		_close_panel()
+	else:
+		_open_panel()
+
+func _close_panel():
+	if _panel != null and is_instance_valid(_panel):
+		_panel.visible = false
+
+# the page the panel sits on (so it goes with it), else the menu
+func _panel_host() -> Control:
+	var n: Node = self
+	while n != null:
+		if n is Control and n.name == "Settings":
+			return n as Control
+		n = n.get_parent()
+	var vp := get_viewport()
+	var m = vp.get_node_or_null("Menu") if vp != null else null
+	return m if m is Control else (get_parent() as Control)
+
+func _pbtn(text: String, parent: Node, method: String, binds: Array = [], width: float = 0.0) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.theme = theme if theme != null else load("res://uitheme.tres")
+	b.rect_min_size = Vector2(width, 34)
+	b.focus_mode = FOCUS_NONE
+	b.clip_text = width > 0.0
+	b.connect("pressed", self, method, binds)
+	parent.add_child(b)
+	return b
+
+func _open_panel():
+	var MS = load("res://scripts/ui/menu/MenuStyle.gd")
+	if _panel == null or not is_instance_valid(_panel):
+		_panel = PanelContainer.new()
+		_panel.name = "ProfilesPanel"
+		_panel.theme = load("res://uitheme.tres")
+		var host := _panel_host()
+		host.add_child(_panel)
+		host.connect("visibility_changed", self, "_close_panel")
+		var v := VBoxContainer.new()
+		v.add_constant_override("separation", 8)
+		_panel.add_child(v)
+		var head := HBoxContainer.new()
+		v.add_child(head)
+		var title := Label.new()
+		title.text = "Profiles"
+		title.size_flags_horizontal = SIZE_EXPAND_FILL
+		title.add_font_override("font", get_font("font"))
+		head.add_child(title)
+		var x := _pbtn("X", head, "_close_panel", [], 38.0)
+		x.hint_tooltip = "Close"
+		var hint := Label.new()
+		hint.text = "Click a profile to switch to it."
+		hint.modulate = Color(1, 1, 1, 0.65)
+		v.add_child(hint)
+		var sc := ScrollContainer.new()
+		sc.size_flags_vertical = SIZE_EXPAND_FILL
+		sc.scroll_horizontal_enabled = false
+		v.add_child(sc)
+		_rows = VBoxContainer.new()
+		_rows.size_flags_horizontal = SIZE_EXPAND_FILL
+		_rows.add_constant_override("separation", 6)
+		sc.add_child(_rows)
+		v.add_child(HSeparator.new())
+		_pbtn("Create New From Current", v, "_panel_action", [1])
+		var foot := HBoxContainer.new()
+		foot.add_constant_override("separation", 8)
+		v.add_child(foot)
+		var imp := _pbtn("Import Content...", foot, "_panel_action", [2])
+		imp.size_flags_horizontal = SIZE_EXPAND_FILL
+		var ex := _pbtn("Export Active Profile...", foot, "_panel_action", [3])
+		ex.size_flags_horizontal = SIZE_EXPAND_FILL
+	# (in your menu look: Settings > Menu Customizer)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = MS.bg_color(Color(0.317647, 0.227451, 0.345098))
+	sb.bg_color.a = 1.0
+	sb.border_color = MS.bg_color(Color(0.764706, 0.65098, 0.8))
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(10)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 14
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 10
+	_panel.add_stylebox_override("panel", sb)
+	_fill_panel()
+	_panel.visible = true
+	_panel.raise()
+	_place_panel()
+
+# beside the button: above it when there is room there, else below, inside the page
+func _place_panel():
+	var host := _panel.get_parent() as Control
+	if host == null:
+		return
+	var area := Rect2(host.rect_global_position, host.rect_size)
+	var mine := get_global_rect()
+	var h: float = min(PANEL_H, max(260.0, area.size.y - 32.0))
+	var w: float = min(PANEL_W, area.size.x - 32.0)
+	var above: float = mine.position.y - area.position.y
+	var below: float = area.end.y - mine.end.y
+	var y: float = mine.position.y - 8.0 - h if above >= below else mine.end.y + 8.0
+	y = clamp(y, area.position.y + 16.0, max(area.position.y + 16.0, area.end.y - 16.0 - h))
+	var x: float = clamp(mine.position.x, area.position.x + 16.0, max(area.position.x + 16.0, area.end.x - 16.0 - w))
+	_panel.rect_min_size = Vector2(w, h)
+	_panel.rect_size = Vector2(w, h)
+	_panel.rect_global_position = Vector2(x, y)
+
+func _fill_panel():
+	if _rows == null or not is_instance_valid(_rows):
+		return
+	for c in _rows.get_children():
+		_rows.remove_child(c)
+		c.queue_free()
+	var active := _get_active_profile_path().get_file()
+	if profiles.empty():
+		var none := Label.new()
+		none.text = "No profiles yet. \"Create New From Current\" saves your settings as one."
+		none.autowrap = true
+		_rows.add_child(none)
+	for i in range(profiles.size()):
+		var path: String = String(profiles[i]).replace("\\", "/")
+		var pname: String = path.get_file().trim_suffix(".settings.json")
+		var row := HBoxContainer.new()
+		row.add_constant_override("separation", 6)
+		_rows.add_child(row)
+		var is_active: bool = active != "" and path.get_file() == active
+		var b := _pbtn(("> " if is_active else "") + pname, row, "_panel_load", [i])
+		b.size_flags_horizontal = SIZE_EXPAND_FILL
+		b.align = Button.ALIGN_LEFT
+		b.clip_text = true
+		b.hint_tooltip = ("The profile you are on: " if is_active else "Switch to ") + pname
+		var o := _pbtn("Save over", row, "_panel_overwrite", [i], 96.0)
+		o.hint_tooltip = "Save your current settings over \"%s\"" % pname
+		var del := _pbtn("Delete", row, "_panel_delete", [i], 76.0)
+		del.hint_tooltip = "Delete \"%s\"" % pname
+
+func _panel_action(which: int):
+	on_pressed(profiles.size() + which)
+
+func _panel_load(i: int):
+	_close_panel()
+	on_pressed(i)
+
+func _ask(body: String, title: String, yes: String) -> bool:
+	Globals.confirm_prompt.s_alert.play()
+	Globals.confirm_prompt.open(body, title, [{text = "Cancel"}, {text = yes}])
+	var picked: int = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.s_back.play()
+	Globals.confirm_prompt.close()
+	yield(Globals.confirm_prompt, "done_closing")
+	return picked == 1
+
+func _panel_overwrite(i: int):
+	if i < 0 or i >= profiles.size():
+		return
+	var pname: String = String(profiles[i]).get_file().trim_suffix(".settings.json")
+	if yield(_ask("Save your current settings over the profile \"%s\"? What it holds now is replaced." % pname, "Save over profile", "Save over it"), "completed"):
+		overwrite_profile(i)
+
+func _panel_delete(i: int):
+	if i < 0 or i >= profiles.size():
+		return
+	var pname: String = String(profiles[i]).get_file().trim_suffix(".settings.json")
+	if yield(_ask("Delete the profile \"%s\"? This can't be undone." % pname, "Delete profile", "Delete"), "completed"):
+		delete_profile(i)
+
+func _unhandled_input(event):
+	if _panel != null and is_instance_valid(_panel) and _panel.visible and event.is_action_pressed("ui_cancel"):
+		_close_panel()
+		get_tree().set_input_as_handled()

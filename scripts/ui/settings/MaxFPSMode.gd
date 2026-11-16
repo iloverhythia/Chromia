@@ -14,6 +14,8 @@ func _pressed():
 func _ready():
 	pressed = Rhythia.max_fps_mode
 	call_deferred("_add_no_delay")
+	# Render Resolution, under these (scripts/ui/settings/RenderRes.gd)
+	call_deferred("_add_render_res")
 
 # Experimental: No Delay (PC mouse, Savia.no_delay_begin), right under this one
 func _add_no_delay():
@@ -29,3 +31,6 @@ func _add_no_delay():
 	p.add_child(cb)
 	p.move_child(cb, get_index() + 1)
 	cb.pressed = Rhythia.pc_no_delay
+
+func _add_render_res():
+	load("res://scripts/ui/settings/RenderRes.gd").attach(self)

@@ -183,6 +183,9 @@ static func collect() -> Dictionary:
 	# your VR hands (shown to spectators: HUD.gd): the furry paws are in every
 	# game; custom models are uploaded (LobbyManager.upload_spectate_assets)
 	out["vr_hand"] = String(backup.get("vr_hand", Rhythia.vr_hand))
+	if out["vr_hand"] == "built":
+		# (a hand made in the Hand Creator: its lines, short enough to send as they are)
+		out["vr_hand_design"] = backup.get("vr_hand_design", Rhythia.vr_hand_design)
 	if out["vr_hand"] == "custom":
 		for hf in own_hand_files():
 			out[hf[0]] = sha_of(hf[1])

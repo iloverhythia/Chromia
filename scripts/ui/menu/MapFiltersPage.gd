@@ -149,6 +149,25 @@ func _build():
 	var ml = load("res://scripts/ui/menu/MapListOf.gd").find(filters)
 	if ml != null and ml.has_signal("reset_filters"):
 		ml.connect("reset_filters", self, "_embossed_reset", [emb])
+	# only the maps that aren't ranked, right under "ranked" (one or the other)
+	var unr: CheckBox = tmpl.duplicate(0)
+	unr.name = "UnrankedOnly"
+	unr.text = "unranked"
+	unr.group = null
+	unr.pressed = bool(Rhythia.get("last_search_unranked_only"))
+	unr.hint_tooltip = "only show maps that aren't ranked"
+	unr.connect("toggled", self, "_on_unranked", [unr])
+	box.add_child(unr)
+	var rk = box.get_node_or_null("XPOnly")
+	if rk != null:
+		box.move_child(unr, rk.get_index() + 1)
+		rk.connect("toggled", self, "_on_ranked_toggled", [unr])
+		if unr.pressed and rk.pressed:
+			unr.pressed = false
+	if unr.pressed:
+		call_deferred("_on_unranked", true, unr)
+	if ml != null and ml.has_signal("reset_filters"):
+		ml.connect("reset_filters", self, "_embossed_reset", [unr])
 	box.add_child(_heading("Sort by", title, true))
 	var cur := _current_key()
 	for s in SORTS:
@@ -212,6 +231,24 @@ func _move(n: String, to: Control) -> Control:
 func _embossed_reset(emb: CheckBox):
 	if is_instance_valid(emb):
 		emb.set_pressed_no_signal(false)
+
+func _on_unranked(on: bool, unr: CheckBox):
+	Rhythia.last_search_unranked_only = on
+	var list = load("res://scripts/ui/menu/MapListOf.gd").find(filters)
+	if on:
+		# (ranked and unranked together would show nothing)
+		var rk = unr.get_parent().get_node_or_null("XPOnly")
+		if rk != null and rk.pressed:
+			rk.pressed = false
+			Rhythia.last_search_xp_only = false
+			if list != null and list.has_method("update_search_xponly"):
+				list.update_search_xponly(false)
+	if list != null and list.has_method("update_search_unranked"):
+		list.update_search_unranked(on)
+
+func _on_ranked_toggled(on: bool, unr: CheckBox):
+	if on and is_instance_valid(unr) and unr.pressed:
+		unr.pressed = false
 
 func _on_embossed(on: bool):
 	var list = load("res://scripts/ui/menu/MapListOf.gd").find(filters)

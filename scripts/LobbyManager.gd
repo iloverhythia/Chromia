@@ -867,8 +867,16 @@ func _apply_mods_locally(mods: Dictionary, force: bool = false):
 # already in your language shows as it is. Lines keep their order: each waits
 # for its translation, at most TRANSLATE_WAIT_S, then shows as it was written.
 
-const TRANSLATE_WAIT_S := 1.5
+# (3 s: at 1.5 a translation that took a little longer, the first one after a
+# while most of all, came too late and the line was shown as written, which
+# looked like the translation not working. When the server doesn't answer
+# twice in a row nothing is asked for a minute, so chat isn't held up.)
+const TRANSLATE_WAIT_S := 3.0
+const TRANSLATE_PAUSE_MS := 60000
 var translate_supported := false
+var _tr_timeouts := 0
+var _tr_pause_until := 0
+var _tr_said_at := 0
 var _tr_queue := [] # [{kind, who, name, text, ts, id, ready, waited}]
 var _tr_next_id := 1
 
@@ -880,7 +888,7 @@ func _chat_in(m: Dictionary, others: bool):
 	m["orig"] = m.text
 	m["ready"] = true
 	m["waited"] = 0.0
-	if others and Rhythia.translate_chat and translate_supported and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1 and not m.get("rngdle", false):
+	if others and Rhythia.translate_chat and translate_supported and OS.get_ticks_msec() >= _tr_pause_until and _connected() and m.text.strip_edges() != "" and m.text.find("[[share:") == -1 and not m.get("rngdle", false):
 		m.id = _tr_next_id
 		_tr_next_id += 1
 		m.ready = false
@@ -890,6 +898,12 @@ func _chat_in(m: Dictionary, others: bool):
 
 func _chat_translated(msg: Dictionary):
 	var id := int(msg.get("id", -1))
+	_tr_timeouts = 0
+	var why := Globals.s(msg.get("error", ""))
+	if why != "" and OS.get_ticks_msec() - _tr_said_at > 60000:
+		# (in the log, for "the translation doesn't work")
+		_tr_said_at = OS.get_ticks_msec()
+		Rhythia.trail("chat translation: the server couldn't translate a line (%s)" % ("too many at once" if why == "busy" else "its translation services didn't answer"))
 	for m in _tr_queue:
 		if not m.ready and int(m.get("id", -2)) == id:
 			var out := Globals.s(msg.get("text", ""))
@@ -911,6 +925,14 @@ func _chat_wait(delta: float):
 	var head: Dictionary = _tr_queue[0]
 	head.waited = float(head.waited) + delta
 	if head.waited >= TRANSLATE_WAIT_S:
+		if not head.ready:
+			_tr_timeouts += 1
+			if _tr_timeouts >= 2:
+				_tr_timeouts = 0
+				_tr_pause_until = OS.get_ticks_msec() + TRANSLATE_PAUSE_MS
+				Rhythia.trail("chat translation: no answer from the server twice in a row, not asking for a minute")
+				for m in _tr_queue:
+					m.ready = true # (the ones waiting behind it too: as they were written)
 		head.ready = true # (no answer in time: as it was written)
 		_chat_flush()
 
@@ -1731,7 +1753,7 @@ func _handle_message(msg: Dictionary):
 		"auth_ok", "display_name_changed":
 			if msg.has("staff"):
 				i_am_staff = bool(msg.get("staff"))
-				Rhythia.is_staff = i_am_staff # (the Modern UI is for staff)
+				Rhythia.is_staff = i_am_staff
 			if msg.has("tester"):
 				Rhythia.set_site_tester(bool(msg.get("tester"))) # (a tester on the website: test builds)
 			if msg.has("perms"):

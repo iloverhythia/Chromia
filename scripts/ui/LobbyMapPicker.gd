@@ -9,7 +9,7 @@ extends PanelContainer
 # reused while scrolling), and the search runs on names made lower case once.
 
 const OnlineStyle = preload("res://scripts/ui/menu/OnlineStyle.gd")
-const CoverSq = preload("res://scripts/ui/modern/CoverSq.gd")
+const CoverSq = preload("res://scripts/ui/menu/CoverSq.gd")
 
 const ROW := 58.0
 const GAP := 4.0

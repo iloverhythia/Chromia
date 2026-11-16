@@ -556,7 +556,7 @@ func _avatar_url_for(e: Dictionary, nm: String) -> String:
 	var me := _is_me(nm)
 	var du = Rhythia.discord_user
 	if me and typeof(du) == TYPE_DICTIONARY and String(du.get("avatar_url", "")) != "":
-		return String(du.get("avatar_url", ""))
+		return _abs_url(String(du.get("avatar_url", "")))
 	if me and Engine.has_meta("ss_my_site_avatar"):
 		return String(Engine.get_meta("ss_my_site_avatar"))
 	# someone online right now with that name (the server sends their picture)

@@ -157,7 +157,13 @@ func _ready():
 	box.add_child(HSeparator.new())
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
-	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Cartoon glove", "glove"], ["Robot", "robot"], ["Skeleton", "skeleton"], ["Crystal", "crystal"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
+	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Cartoon glove", "glove"], ["Robot", "robot"], ["Skeleton", "skeleton"], ["Crystal", "crystal"], ["My own (Hand Creator)", "built"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
+	# The Hand Creator: build your own hand out of parts (HandCreatorPanel.gd, vr/HandCreator.gd)
+	_creator_btn = _button(box, "Open the Hand Creator", "_toggle_creator")
+	_creator_btn.rect_min_size = Vector2(260, 36)
+	_creator = load("res://scripts/ui/settings/HandCreatorPanel.gd").new()
+	_creator.visible = false
+	box.add_child(_creator)
 	_label("Hand direction: turn the hand itself on the controller (nose up or down, left or right, or roll it) so it lines up with your beam. The beam stays where it is (that's Controller grip, below). For the right hand; the left hand gets the mirror image.", f_body, DIM, true)
 	for row in HAND_ROWS:
 		_grip_row(row)
@@ -302,6 +308,16 @@ func _on_curve(on: bool):
 var _values := [] # [slider, value label, row [label, setting, min, max, step, unit, shown scale]]
 var _miss_box: CheckBox
 var _hand_pick: OptionButton
+var _creator = null # the Hand Creator's editor, under the Hands list (built when first opened)
+var _creator_btn: Button = null
+var _creator_made := false
+
+func _toggle_creator():
+	if not _creator_made:
+		_creator_made = true
+		_creator.setup(self)
+	_creator.visible = not _creator.visible
+	_creator_btn.text = "Close the Hand Creator" if _creator.visible else "Open the Hand Creator"
 var _fov_pick: OptionButton
 var _rate_pick: OptionButton
 var _unlock_box: CheckBox = null
@@ -533,6 +549,12 @@ func _on_hand(i: int):
 	if _loading:
 		return
 	Rhythia.vr_hand = str(_hand_pick.get_item_metadata(i))
+	if Rhythia.vr_hand == "built" and Rhythia.vr_hand_design.empty():
+		# (nothing made yet: the first hand to start from, and the creator opened)
+		var HC = load("res://vr/HandCreator.gd")
+		Rhythia.vr_hand_design = HC.encode(HC.parse(HC.PRESETS[0][1]))
+		if _creator != null and not _creator.visible:
+			_toggle_creator()
 	if Rhythia.vr_player != null and Rhythia.vr_player.has_method("apply_hand"):
 		Rhythia.vr_player.apply_hand()
 		if Rhythia.vr_hand == "custom" and Rhythia.vr_player._hand_shown != "custom":

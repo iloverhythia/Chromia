@@ -415,10 +415,16 @@ func _process(delta):
 		var sc: CurveTexture = $PointerTrail.process_material.scale_curve
 		sc.curve.set_point_value(0, Rhythia.cursor_scale * 0.5)
 
-		var target_detail = Rhythia.trail_detail * (1 + float(Rhythia.smart_trail))
-		if $PointerTrail.amount != target_detail or $PointerTrail.lifetime != Rhythia.trail_time:
+		# (about equal: the trail keeps its time less exactly than the setting
+		# does, so 0.15 read back as 0.150000006 and never equalled 0.15. With
+		# most Trail Times the amount and time were therefore set again every
+		# frame, and setting the amount starts the trail over: it showed nothing
+		# or flickered.)
+		var target_detail: int = int(max(1.0, round(float(Rhythia.trail_detail) * (1 + float(Rhythia.smart_trail)))))
+		var target_life: float = max(0.01, float(Rhythia.trail_time))
+		if $PointerTrail.amount != target_detail or not is_equal_approx($PointerTrail.lifetime, target_life):
 			$PointerTrail.amount = target_detail
-			$PointerTrail.lifetime = Rhythia.trail_time
+			$PointerTrail.lifetime = target_life
 
 		if Rhythia.cursor_color_type == Globals.CURSOR_RAINBOW:
 			$Pointer.mesh.material.albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.65, 1)
