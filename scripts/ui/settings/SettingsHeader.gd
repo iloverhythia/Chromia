@@ -20,6 +20,7 @@ var _sig := ""
 var _syncing := false
 const SIDE_W := 190.0
 var _side_on := false
+var _left0 := 0.0 # (the page's left edge before the side list moved it over)
 var _side_scroll: ScrollContainer = null
 var _side: VBoxContainer = null
 var _side_group := ButtonGroup.new()
@@ -38,15 +39,18 @@ static func install(settings: Control):
 	h._tc = tc
 	h.theme = f.theme
 	h._side_on = bool(Rhythia.settings_side_tabs)
+	# (the side list is made before the header joins the page: its _ready
+	# fills the list right away, and filling a list that wasn't there yet
+	# crashed the game, in exported builds a null call isn't just an error)
+	if h._side_on:
+		h._build_side(settings, f.theme)
 	settings.add_child(h)
 	var top = f.get_node_or_null("TopButtons")
 	if top != null:
 		f.remove_child(top)
 		h.add_child(top)
 		top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if h._side_on:
-		h._build_side(settings, f.theme)
-	else:
+	if not h._side_on:
 		h.add_child(h._tabs)
 
 func _ready():
@@ -54,7 +58,7 @@ func _ready():
 	anchor_right = 1
 	anchor_top = 0
 	anchor_bottom = 0
-	margin_left = _scroll.margin_left
+	margin_left = _left0 if _side_on else _scroll.margin_left
 	margin_right = 0
 	margin_top = 0
 	add_constant_override("separation", 0)
@@ -75,6 +79,7 @@ func _ready():
 
 # the list of tabs: left of the page, under the header
 func _build_side(settings: Control, th):
+	_left0 = _scroll.margin_left
 	_side_scroll = ScrollContainer.new()
 	_side_scroll.name = "SideTabs"
 	_side_scroll.theme = th
@@ -94,6 +99,8 @@ func _build_side(settings: Control, th):
 	_scroll.margin_left += SIDE_W + 12 # (the page moves over)
 
 func _fill_side(titles: Array):
+	if _side == null:
+		return
 	for c in _side.get_children():
 		_side.remove_child(c)
 		c.queue_free()
