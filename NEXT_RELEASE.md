@@ -8,3 +8,4 @@ in scripts/Savia.gd and empties this list.
 - VR multiplayer: the scoreboard beside the left panel is turned towards you. It was angled away, so you saw it nearly edge-on and the scores were hard to read
 - PC: fixed a small stutter once a second during maps. Every second the game checked which HUD panels have a moving background by asking the graphics thread for a shader's code, and the whole game waited for the answer. It is asked once now
 - A slow frame during a map no longer makes the next frame slow too (the note about it for the log waited for the graphics thread and the disk)
+- VR and phones: the cursor trail no longer gives up when the frame rate drops. Each frame's new trail was only drawn a frame later; at a low frame rate with a short Trail Time it had already faded by then, so the trail came apart from the cursor or vanished
