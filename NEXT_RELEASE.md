@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - VR: the Content Browser builds its map cards two a frame and loads two covers at a time, so opening a page of maps doesn't hitch
 - Note meshes can be .glb files too (Settings > Meshes > Import, Import Content, or drop the file on the game)
 - Videos: the Chromia mark is at the middle of the left edge instead of the bottom right corner
+- Staff: the in-game admin panel is gone (everything is in the website's admin panel)

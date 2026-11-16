@@ -22,11 +22,6 @@ signal chat_message_received(peer_id, name, text, ts)
 signal global_chat_message_received(client_id, name, text, ts)
 signal announcement_received(text, from_name, ts)
 signal public_lobbies_received(lobbies)
-signal admin_all_lobbies_received(lobbies)
-signal admin_bans_received(bans)
-signal admin_player_tags_received(tags)
-signal admin_rankers_received(rankers)
-signal admin_map_ranks_received(ranks)
 signal ranker_status_received(is_ranker)
 signal map_rank_info_received(song_id, ranked, xp, content_hash)
 signal my_map_stats_received(song_id, has_passed, best_xp, best_sp)
@@ -342,73 +337,6 @@ func send_global_chat_message(text: String):
 	if text == "":
 		return
 	_ensure_connected_then_send({"type": "global_chat_message", "text": text.substr(0, 300), "client_id": Rhythia.cid, "name": player_name})
-
-func admin_send_announcement(text: String):
-	text = text.strip_edges()
-	if not has_admin_key() or text == "":
-		return
-	_ensure_connected_then_send({"type": "admin_send_announcement", "admin_key": _admin_key, "text": text.substr(0, 300), "name": player_name})
-
-func admin_list_all_lobbies():
-	if not has_admin_key():
-		return
-	_ensure_connected_then_send({"type": "admin_list_all_lobbies", "admin_key": _admin_key})
-
-func admin_ban_user(client_id: String, scopes: Array = ["multiplayer"], reason: String = ""):
-	if not has_admin_key() or client_id == "" or scopes.size() == 0:
-		return
-	_ensure_connected_then_send({"type": "admin_ban_user", "admin_key": _admin_key, "client_id": client_id, "scopes": scopes, "reason": reason})
-
-
-func admin_unban_user(client_id: String, scopes: Array = []):
-	if not has_admin_key() or client_id == "":
-		return
-	_ensure_connected_then_send({"type": "admin_unban_user", "admin_key": _admin_key, "client_id": client_id, "scopes": scopes})
-
-func admin_list_bans():
-	if not has_admin_key():
-		return
-	_ensure_connected_then_send({"type": "admin_list_bans", "admin_key": _admin_key})
-
-func admin_set_player_tag(client_id: String, text: String, color: String):
-	if not has_admin_key() or client_id == "" or text == "" or color == "":
-		return
-	_ensure_connected_then_send({"type": "admin_set_player_tag", "admin_key": _admin_key, "client_id": client_id, "text": text, "color": color})
-
-func admin_remove_player_tag(client_id: String):
-	if not has_admin_key() or client_id == "":
-		return
-	_ensure_connected_then_send({"type": "admin_remove_player_tag", "admin_key": _admin_key, "client_id": client_id})
-
-func admin_list_player_tags():
-	if not has_admin_key():
-		return
-	_ensure_connected_then_send({"type": "admin_list_player_tags", "admin_key": _admin_key})
-
-func admin_add_ranker(client_id: String):
-	if not has_admin_key() or client_id == "":
-		return
-	_ensure_connected_then_send({"type": "admin_add_ranker", "admin_key": _admin_key, "client_id": client_id})
-
-func admin_remove_ranker(client_id: String):
-	if not has_admin_key() or client_id == "":
-		return
-	_ensure_connected_then_send({"type": "admin_remove_ranker", "admin_key": _admin_key, "client_id": client_id})
-
-func admin_list_rankers():
-	if not has_admin_key():
-		return
-	_ensure_connected_then_send({"type": "admin_list_rankers", "admin_key": _admin_key})
-
-func admin_list_map_ranks():
-	if not has_admin_key():
-		return
-	_ensure_connected_then_send({"type": "admin_list_map_ranks", "admin_key": _admin_key})
-
-func admin_remove_map_rank(song_id: String):
-	if not has_admin_key() or song_id == "":
-		return
-	_ensure_connected_then_send({"type": "admin_remove_map_rank", "admin_key": _admin_key, "song_id": song_id})
 
 # --- cards (your profile > Cards, scripts/ui/CardsMenu.gd) --------------------------
 func get_cards():
@@ -2018,16 +1946,6 @@ func _handle_message(msg: Dictionary):
 				_show_announcement_banner(announce_text, announce_from)
 		"public_lobbies":
 			emit_signal("public_lobbies_received", msg.get("lobbies", []))
-		"admin_all_lobbies":
-			emit_signal("admin_all_lobbies_received", msg.get("lobbies", []))
-		"admin_bans":
-			emit_signal("admin_bans_received", msg.get("bans", []))
-		"admin_player_tags":
-			emit_signal("admin_player_tags_received", msg.get("tags", []))
-		"admin_rankers":
-			emit_signal("admin_rankers_received", msg.get("rankers", []))
-		"admin_map_ranks":
-			emit_signal("admin_map_ranks_received", msg.get("ranks", []))
 		"cards":
 			var cl = msg.get("cards", [])
 			emit_signal("cards_received", cl if cl is Array else [], Globals.s(msg.get("chosen", "default")))
@@ -2102,8 +2020,6 @@ func _handle_message(msg: Dictionary):
 			emit_signal("set_map_rank_result", false, "", 0)
 		"map_publish_status":
 			emit_signal("map_publish_status_received", Globals.s(msg.get("song_id", "")), bool(msg.get("published", false)))
-		"admin_ban_ok", "admin_unban_ok":
-			admin_list_bans()
 		"admin_denied":
 			emit_signal("lobby_error", "Admin action denied — check your admin key.")
 
