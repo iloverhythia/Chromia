@@ -46,12 +46,16 @@ static func send(file: String, text: String) -> bool:
 		d.remove(dir().plus_file(file))
 	return ok
 
-# Refresh rate (0 = leave) and touch delay in seconds (-1 = leave).
+# Refresh rate (0 = leave), touch delay in seconds (-1 = leave) and the way
+# frames are handed to the screen (-1 = leave, 0 = the engine's, 1 / 2: helper
+# 3 and newer, see ChromiaPicker.m; older helpers ignore the line).
 # Returns what the app reported, or "" when this app can't do it yet.
-static func tune(fps: int, touch_delay: float) -> String:
+static func tune(fps: int, touch_delay: float, present: int = -1) -> String:
+	if Engine.has_meta("ios_native_fake"):
+		return String(Engine.get_meta("ios_native_fake").tune(fps, touch_delay, present)) # (tests, on a computer)
 	var ok_path := dir().plus_file("tune_ok.txt")
 	Directory.new().remove(ok_path)
-	if not send("tune.txt", "%d\n%s\n" % [fps, str(touch_delay)]):
+	if not send("tune.txt", "%d\n%s\n%d\n" % [fps, str(touch_delay), present]):
 		return ""
 	var f := File.new()
 	if f.file_exists(ok_path) and f.open(ok_path, File.READ) == OK:

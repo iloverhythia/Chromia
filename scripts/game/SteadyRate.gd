@@ -60,8 +60,8 @@ static func current_hz() -> float:
 	if OS.has_feature("iOS"):
 		# Godot draws at 60 there unless the native helper raised it (120 Hz)
 		var asked := 60.0
-		if Rhythia.mobile_high_hz and String(Rhythia.mobile_tuning_status) != "" and not Rhythia.has_meta("high_hz_held"):
-			asked = 120.0
+		if Rhythia.mobile_high_hz and String(Rhythia.mobile_tuning_status) != "":
+			asked = float(load("res://scripts/HighHzCheck.gd").ask()[0]) # (120, or the 80 / 60 it was seen to hold)
 		return min(asked, top) if top >= 20.0 else asked
 	if not OS.has_feature("Android") and not OS.vsync_enabled:
 		return 0.0 # (a computer without vsync: frames aren't paced by the screen)

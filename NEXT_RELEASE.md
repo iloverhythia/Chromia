@@ -12,3 +12,7 @@ in scripts/Savia.gd and empties this list.
 - Note meshes can be .glb files too (Settings > Meshes > Import, Import Content, or drop the file on the game)
 - Videos: the Chromia mark is at the middle of the left edge instead of the bottom right corner
 - Staff: the in-game admin panel is gone (everything is in the website's admin panel)
+- iPhone: 120 Hz no longer leaves you at a delayed 60. With the game's engine an iPhone asked for 120 frames a second drops to 60 and feels late, so the game now tries 120, then 80, for a few seconds in the menu and keeps the highest one the phone really holds. What it's running at is shown next to the 120 Hz setting, and it's remembered
+- iPhone: installing the latest chromia-ios.ipa once lets the game also try two other ways of showing frames that may reach a real 120 (in-app updates can't add that part)
+- Phones: ticking 120 Hz with a Max FPS under 120 set now really takes the limit off (the Max FPS box used to put it straight back, which left 120 Hz at 60 with extra delay). Setting a Max FPS under 120 turns 120 Hz off
+- iPhone: a Max FPS at or above the screen's rate is taken off, because there it only showed every frame late

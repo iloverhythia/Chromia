@@ -12,10 +12,14 @@
 // result.txt lines:   ok|cancel     then one path per picked / saved file
 //
 // tune.txt (Settings > No Touch Delay / 120 Hz):  frames per second (0 = leave),
-// touch delay in seconds (-1 = leave). Answered with tune_ok.txt.
+// touch delay in seconds (-1 = leave), how frames are handed to the screen
+// (-1 or missing = leave, 0 = the engine's way, 1 / 2 = see chromia_present).
+// Answered with tune_ok.txt.
 
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <OpenGLES/EAGL.h>
+#import <objc/runtime.h>
 
 static NSString *picker_dir(void) {
 	NSString *docs = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -157,6 +161,64 @@ static UIView *godot_view(void) {
 	return nil;
 }
 
+// --- how a finished frame is handed to the screen --------------------------------
+// The engine draws with OpenGL ES and shows each frame with
+// -[EAGLContext presentRenderbuffer:]. Asked for 120 frames a second that way,
+// an iPhone settles at 60: the screen timer keeps firing at 120, but the first
+// drawing after each present waits for the layer's picture to come back, long
+// enough to miss every other refresh (80 holds). EAGL has two other presents,
+// both made for 120 Hz screens, that say when the frame is meant to show:
+//   1: presentRenderbuffer:afterMinimumDuration:  (one refresh of the asked rate)
+//   2: presentRenderbuffer:atTime:                (the screen timer's next refresh)
+// The game tries them and measures what it gets (scripts/HighHzCheck.gd);
+// mode 0 is the engine's own call, untouched.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+static int present_mode = 0;
+static double present_step = 1.0 / 120.0;
+static BOOL present_hooked = NO;
+static BOOL in_present = NO;
+static BOOL (*orig_present)(id, SEL, NSUInteger) = NULL;
+static __weak UIView *tuned_view = nil;
+
+static BOOL chromia_present(id self, SEL _cmd, NSUInteger target) {
+	// (as it was: mode 0, another thread, or one of the presents below calling this one)
+	if (present_mode == 0 || in_present || !NSThread.isMainThread) return orig_present(self, _cmd, target);
+	in_present = YES;
+	BOOL ok = NO;
+	@try {
+		EAGLContext *ctx = (EAGLContext *)self;
+		if (present_mode == 2) {
+			CADisplayLink *link = nil;
+			UIView *v = tuned_view;
+			if (v != nil) link = [v valueForKey:@"displayLink"];
+			ok = [ctx presentRenderbuffer:target atTime:(link != nil ? link.targetTimestamp : CACurrentMediaTime())];
+		} else {
+			ok = [ctx presentRenderbuffer:target afterMinimumDuration:present_step];
+		}
+	} @catch (NSException *e) {
+		present_mode = 0;
+		ok = orig_present(self, _cmd, target);
+	}
+	in_present = NO;
+	return ok;
+}
+
+static BOOL hook_present(void) {
+	if (present_hooked) return YES;
+	Class c = [EAGLContext class];
+	if (c == Nil || ![c instancesRespondToSelector:@selector(presentRenderbuffer:afterMinimumDuration:)]
+			|| ![c instancesRespondToSelector:@selector(presentRenderbuffer:atTime:)]) return NO;
+	Method m = class_getInstanceMethod(c, @selector(presentRenderbuffer:));
+	if (m == NULL) return NO;
+	orig_present = (BOOL (*)(id, SEL, NSUInteger))method_getImplementation(m);
+	if (orig_present == NULL) return NO;
+	method_setImplementation(m, (IMP)chromia_present);
+	present_hooked = YES;
+	return YES;
+}
+#pragma clang diagnostic pop
+
 static void handle_tune(void) {
 	NSFileManager *fm = NSFileManager.defaultManager;
 	NSString *path = [picker_dir() stringByAppendingPathComponent:@"tune.txt"];
@@ -166,14 +228,27 @@ static void handle_tune(void) {
 	NSArray<NSString *> *lines = [text componentsSeparatedByString:@"\n"];
 	NSInteger fps = lines.count > 0 ? lines[0].integerValue : 0;
 	double delay = lines.count > 1 ? lines[1].doubleValue : -1;
+	NSInteger present = (lines.count > 2 && lines[2].length > 0) ? lines[2].integerValue : -1;
 	NSMutableString *report = [NSMutableString string];
 	UIView *view = godot_view();
+	if (view != nil) tuned_view = view;
+	if (present >= 0) {
+		// (the engine's own call stays as it is until another way is asked for)
+		if (present == 0) {
+			present_mode = 0;
+		} else if (present <= 2 && hook_present()) {
+			present_mode = (int)present;
+		} else {
+			present_mode = 0;
+		}
+	}
 	if (view == nil) {
 		[report appendString:@"no view\n"];
 	} else {
 		if (fps > 0) {
 			NSInteger maxfps = UIScreen.mainScreen.maximumFramesPerSecond;
 			if (fps > maxfps) fps = maxfps;
+			present_step = 1.0 / (double)fps;
 			// Godot restarts its display link with this rate (also after the app comes back)
 			[view setValue:@(1.0 / (double)fps) forKey:@"renderingInterval"];
 			CADisplayLink *link = nil;
@@ -209,6 +284,8 @@ static void handle_tune(void) {
 	// scripts/HighHzCheck.gd): Low Power Mode holds an iPhone at 60 Hz, the app
 	// needs CADisableMinimumFrameDurationOnPhone in its Info.plist, and the
 	// rate iOS is really giving the display link right now.
+	// (helper 3: can change how frames are presented, and says the screen's top rate here too)
+	[report appendFormat:@"helper 3\npresent %d\nscreen %ld\n", present_mode, (long)UIScreen.mainScreen.maximumFramesPerSecond];
 	[report appendFormat:@"lowpower %d\n", (int)NSProcessInfo.processInfo.lowPowerModeEnabled];
 	id plist_key = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CADisableMinimumFrameDurationOnPhone"];
 	[report appendFormat:@"plist120 %d\n", (int)[plist_key boolValue]];

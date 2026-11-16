@@ -104,7 +104,8 @@ func apply_mobile_layout():
 # --- Phones: touch delay and refresh rate ------------------------------------
 # No Touch Delay: every finger movement is handled as it comes (not merged per
 # frame) and, on iPhone, Godot's 0.15 s hold on each new touch is removed.
-# 120 Hz: the game draws at the screen's highest refresh rate (ProMotion).
+# 120 Hz: the game draws above 60 on a 120 Hz screen: on an iPhone, at the
+# highest rate it was seen to hold there (scripts/HighHzCheck.gd).
 # The iPhone parts need the native helper (scripts/IosNative.gd) from an
 # installed .ipa; mobile_tuning_status says what applied.
 var mobile_tuning_status: String = ""
@@ -114,25 +115,28 @@ func _set_mobile_no_delay(v: bool):
 	if is_inside_tree():
 		call_deferred("apply_mobile_tuning")
 
-var _high_hz_check: Node = null
 func _set_mobile_high_hz(v: bool):
 	mobile_high_hz = v
-	if has_meta("high_hz_held"):
-		remove_meta("high_hz_held") # (switched by hand: 120 is tried again)
 	if is_inside_tree():
+		# (switched by hand: every rate is tried again)
+		load("res://scripts/HighHzCheck.gd").forget()
 		call_deferred("apply_mobile_tuning")
 
-# 120 Hz asked for: is it getting through? (scripts/HighHzCheck.gd)
+# 120 Hz on: which rate does this phone really give? (scripts/HighHzCheck.gd)
 func _start_high_hz_check():
 	var HC = load("res://scripts/HighHzCheck.gd")
-	if not HC.wanted():
+	if not HC.wanted() or has_node("HighHzCheck"):
 		return
-	if _high_hz_check == null or not is_instance_valid(_high_hz_check):
-		_high_hz_check = HC.new()
-		_high_hz_check.name = "HighHzCheck"
-		add_child(_high_hz_check)
-	else:
-		_high_hz_check.restart()
+	var n: Node = HC.new()
+	n.name = "HighHzCheck"
+	add_child(n)
+
+# The frame limit (Max FPS) was changed by the game, not in its box: the box
+# takes the new value instead of putting its own back (ui/settings/TargetFPS.gd).
+var fps_cap_rev := 0
+func _clear_fps_cap():
+	Engine.target_fps = 0
+	fps_cap_rev += 1
 
 var _tuned_once := false
 func apply_mobile_tuning():
@@ -152,10 +156,20 @@ func apply_mobile_tuning():
 			mobile_high_hz = true
 	Input.use_accumulated_input = not mobile_no_delay
 	if mobile_high_hz and Engine.target_fps > 0 and Engine.target_fps < 120:
-		Engine.target_fps = 0 # an FPS limit under 120 would hold it back
-	if not OS.has_feature("iOS"):
+		_clear_fps_cap() # an FPS limit under 120 would hold it back
+	if not (OS.has_feature("iOS") or Engine.has_meta("ios_native_fake")):
 		mobile_tuning_status = ""
 		return
+	# The rate and the way of showing frames that this phone was seen to hold
+	# (scripts/HighHzCheck.gd: an iPhone asked for 120 can end up at a delayed
+	# 60, so each is tried and measured; 80 until one has passed).
+	var ask: Array = load("res://scripts/HighHzCheck.gd").ask() if mobile_high_hz else [60, 0]
+	var fps := int(ask[0])
+	# On an iPhone the screen's timer paces the frames, and the engine's frame
+	# limit waits inside each frame before it's shown. A limit at or above the
+	# timer's rate can't lower anything: it only shows every frame late.
+	if Engine.target_fps >= fps:
+		_clear_fps_cap()
 	# only touch what's on, or what was turned off after being on
 	if not mobile_no_delay and not mobile_high_hz and not _tuned_once:
 		return
@@ -163,11 +177,8 @@ func apply_mobile_tuning():
 	# (Frame Smoothing used to hold a phone at 60 after a song with late frames
 	# at 120. On a 120 Hz iPhone the screen itself moves between 80 and 120, so
 	# ordinary frames counted as late and phones ended up capped at 60: gone.)
-	# (and held at 60 for this run when 120 was asked for but only 60 frames a
-	# second got through: scripts/HighHzCheck.gd)
-	var fps := 120 if mobile_high_hz and not has_meta("high_hz_held") else 60
 	var delay := 0.0 if mobile_no_delay else 0.15
-	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay)
+	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay, int(ask[1]))
 	_start_high_hz_check()
 	print("[mobile tuning] ", mobile_tuning_status if mobile_tuning_status != "" else "native helper not in this app")
 
@@ -1708,6 +1719,9 @@ func _notification(what):
 			if in_map and (mm == Input.MOUSE_MODE_CAPTURED or mm == Input.MOUSE_MODE_CONFINED):
 				_focus_mouse_mode = mm
 				Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	if what == MainLoop.NOTIFICATION_WM_FOCUS_IN and _tuned_once and dev == "mobile":
+		# (iPhone: the engine starts its screen timer afresh when the app comes back)
+		call_deferred("apply_mobile_tuning")
 	if what == MainLoop.NOTIFICATION_WM_FOCUS_IN and _desktop_mouse():
 		trail("window focused")
 		if _focus_mouse_mode != -1:
