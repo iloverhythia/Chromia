@@ -523,9 +523,11 @@ func _show_maps(maps: Array):
 
 var _card_queue := []
 const CARDS_PER_FRAME := 6
+const CARDS_PER_FRAME_VR := 2 # (a card is about 27 controls: six in one frame was a frame too long for a headset)
 func _cards_step():
 	var n := 0
-	while not _card_queue.empty() and n < CARDS_PER_FRAME:
+	var most: int = CARDS_PER_FRAME_VR if Rhythia.vr else CARDS_PER_FRAME
+	while not _card_queue.empty() and n < most:
 		grid.add_child(_make_card(_card_queue.pop_front()))
 		n += 1
 	var tree = get_tree()
@@ -747,7 +749,10 @@ func _request_image(url: String, target: TextureRect):
 	_pump_images()
 
 func _pump_images():
-	while _img_active < MAX_IMG_REQUESTS and not _img_queue.empty():
+	# (a headset: two covers at a time. Each is fetched and decoded on threads of
+	# its own, and four at once took the processor from the frames being drawn)
+	var most: int = 2 if Rhythia.vr else MAX_IMG_REQUESTS
+	while _img_active < most and not _img_queue.empty():
 		var url: String = _img_queue.pop_front()
 		var r = HTTPRequest.new()
 		r.timeout = 20

@@ -52,14 +52,67 @@ func busy():
 # times a second while you use it and 40 otherwise: drawing the whole menu
 # at 120 Hz was what made it laggy at times. (The pointer, the dot and your
 # view are 3D and stay at the full rate.)
-func _pace_redraw():
+#
+# "High" is the headset's own rate, not the frame rate counted: a page heavy
+# enough to pull the count under 80 (the Content Browser's map cards are three
+# to four times the drawing of the map list) used to be redrawn EVERY frame
+# from then on, which is what kept it laggy. And when frames come late
+# anyway, the menu is redrawn one step less often (down to every fourth
+# frame), and a step more often again once frames have been on time for a
+# while: a slower menu instead of a stuttering headset.
+var _slow := 0 # redraws left out on top of the usual ones (0 to 2)
+var _win := 0
+var _late := 0
+var _good := 0
+var _need_good := 180
+var _eased_at := -100000
+var _dt_min := 1.0
+var _hz_seen := 0.0
+
+# the headset's refresh rate (0 when it doesn't say: then the shortest frame lately stands in)
+func _display_hz() -> float:
+	var cfg = Rhythia.vr_xr_config
+	if cfg != null and cfg.has_method("get_refresh_rate"):
+		var hz := float(cfg.get_refresh_rate())
+		if hz > 30.0:
+			return hz
+	return 0.0
+
+func _pace_redraw(delta: float = 0.0):
 	_frame += 1
-	var fast: bool = Engine.get_frames_per_second() > 80
+	if _frame % 120 == 1:
+		_hz_seen = _display_hz()
+	if delta > 0.0:
+		_dt_min = min(_dt_min * 1.003, delta) # (a little longer every frame, so an old best is forgotten)
+	var interval: float = (1.0 / _hz_seen) if _hz_seen > 30.0 else _dt_min
+	# late frames, 30 frames at a time
+	if delta > 0.0:
+		_win += 1
+		if delta > interval * 1.45:
+			_late += 1
+			_good = 0
+		else:
+			_good += 1
+		if _win >= 30:
+			if _late >= 8 and _slow < 2:
+				# (late again right after easing off: it is given longer before the next try)
+				if _frame - _eased_at < 240:
+					_need_good = int(min(_need_good * 3, 5400))
+				_slow += 1
+				Rhythia.trail("VR menu: frames are late, the menu is redrawn less often (step %d)" % _slow)
+			_win = 0
+			_late = 0
+		if _slow > 0 and _good >= _need_good:
+			_slow -= 1
+			_good = 0
+			_eased_at = _frame
+	var fast: bool = interval < 1.0 / 80.0
 	var every := 1
 	if OS.get_ticks_msec() < _busy_until or _resize != null:
 		every = 2 if fast else 1
 	else:
 		every = 3 if fast else 2
+	every = int(min(every + _slow, 4))
 	if every == 1:
 		if viewport.render_target_update_mode != Viewport.UPDATE_ALWAYS:
 			viewport.render_target_update_mode = Viewport.UPDATE_ALWAYS
@@ -381,7 +434,7 @@ func _on_focus_changed(c):
 		Rhythia.trail("VR menu focus: %s" % path.right(max(0, path.length() - 160)))
 
 func _process(delta):
-	_pace_redraw()
+	_pace_redraw(delta)
 	_drag_resize()
 	active = (Rhythia.vr_player.primary_ray.is_colliding() and (Rhythia.vr_player.primary_ray.get_collider() == self))
 	if active:
