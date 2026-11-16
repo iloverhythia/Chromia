@@ -10,3 +10,4 @@ in scripts/Savia.gd and empties this list.
 - VR: heavy menu pages (the Content Browser's map cards most of all) no longer drag the headset's frame rate down. The menu screen is redrawn less often when frames start coming late, and more often again once they are on time; before, a page heavy enough to pull the frame rate under 80 was redrawn every single frame, which kept it laggy. Your view, hands and pointer stay at the headset's full rate
 - VR: the Content Browser builds its map cards two a frame and loads two covers at a time, so opening a page of maps doesn't hitch
 - Note meshes can be .glb files too (Settings > Meshes > Import, Import Content, or drop the file on the game)
+- Videos: the Chromia mark is at the middle of the left edge instead of the bottom right corner
