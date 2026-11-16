@@ -18,3 +18,4 @@ in scripts/Savia.gd and empties this list.
 - iPhone: a Max FPS at or above the screen's rate is taken off, because there it only showed every frame late
 - When the game crashes, its crash report is sent to the developers by itself at the next start, so bugs can be found without you copying anything (what the game was doing, your version and device; never your account id). Settings > Crash Reports turns it off. Not in the browser version
 - The Spectators list (and "Spectating ...") shows names written in Cyrillic, Japanese and other non-Latin letters. They used to be a blank line, so it only said "Spectators (1)"
+- "Get the ranked version" on a map whose ranked version the server doesn't have (it kept an older file after the map was ranked again with changed notes) now says so and tells the rankers, instead of "doesn't match". A ranker's game then publishes the ranked version by itself, and the button works for everyone

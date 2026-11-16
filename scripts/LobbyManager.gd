@@ -1442,6 +1442,54 @@ func publish_map_to_server(song_id: String):
 		return
 	_start_map_publish(song_id)
 
+# --- ranked maps whose file on the server isn't the ranked version ------------------
+# A ranked map's file on the server can be an older version than the one that
+# was ranked (ranked again after its notes changed, or the server already had
+# another copy). Everyone then gets that file, passes on it don't count, and
+# "Get the ranked version" downloads the same wrong file. The server keeps a
+# list of those (a game that finds one tells it: report_ranked_file_mismatch);
+# a ranker's game asks for the list when it starts and after ranking, and
+# publishes its own copy of each one whose notes are the ranked ones.
+var _stale_only_asked := false
+var _stale_asked_once := false
+
+# the notes' fingerprint of a map file, read afresh ("" when it can't be)
+static func fresh_chart_hash(path: String) -> String:
+	if path.get_extension().to_lower() != "sspm" or not File.new().file_exists(path):
+		return ""
+	var s = Song.new()
+	if s.load_from_sspm(path) is String:
+		return ""
+	return s.compute_chart_hash()
+
+func ask_stale_ranked():
+	_stale_only_asked = true
+	list_unpublished_ranked_maps()
+
+func report_ranked_file_mismatch(song_id: String, found_chart_hash: String):
+	if song_id == "" or found_chart_hash == "":
+		return
+	_ensure_connected_then_send({"type": "ranked_file_mismatch", "client_id": Rhythia.cid, "song_id": song_id, "chart_hash": found_chart_hash})
+
+func _on_stale_ranked(stale):
+	if not (stale is Array) or stale.empty() or Rhythia.registry_song == null:
+		return
+	var sent := 0
+	for e in stale:
+		if not (e is Dictionary):
+			continue
+		var want := Globals.s(e.get("content_hash", ""))
+		var song = Rhythia.registry_song.get_song_loose(Globals.s(e.get("song_id", "")))
+		if want == "" or not song or not ("filePath" in song) or song.is_online:
+			continue
+		if fresh_chart_hash(String(song.filePath)) != want:
+			continue # (not the ranked version either)
+		publish_map_to_server(String(song.id))
+		sent += 1
+	Rhythia.trail("ranked maps waiting for their ranked version: %d, published from here: %d" % [stale.size(), sent])
+	if sent > 0:
+		Globals.notify(Globals.NOTIFY_INFO, "The server had an older version of %d ranked map%s. Your copy is the ranked one, so it's being published in its place." % [sent, "" if sent == 1 else "s"], "Ranked maps")
+
 func _advance_publish_queue():
 	if _publish_queue.size() == 0:
 		return
@@ -1465,7 +1513,9 @@ func _start_map_publish(song_id: String):
 	_map_publish_pos = 0
 	_map_publish_active = true
 	_map_publish_start_sent = false
-	_map_publish_meta = {"total_bytes": bytes.size(), "name": song.name, "creator": song.creator, "difficulty": song.difficulty}
+	_map_publish_meta = {"total_bytes": bytes.size(), "name": song.name, "creator": song.creator, "difficulty": song.difficulty,
+		# (the notes' fingerprint: a ranked map's file is only replaced by the ranked version, see _on_stale_ranked)
+		"chart_hash": fresh_chart_hash(String(song.filePath))}
 	_map_publish_last_progress_msec = OS.get_ticks_msec()
 	if _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_DISCONNECTED:
 		_connecting_intent = "generic"
@@ -1492,6 +1542,7 @@ func _process_map_publish_step():
 			"type": "publish_map_start", "song_id": _map_publish_song_id,
 			"total_bytes": _map_publish_meta.total_bytes, "client_id": Rhythia.cid,
 			"name": _map_publish_meta.name, "creator": _map_publish_meta.creator, "difficulty": _map_publish_meta.difficulty,
+			"chart_hash": String(_map_publish_meta.get("chart_hash", "")),
 		})
 		if start_err != OK:
 			_map_publish_next_attempt_msec = OS.get_ticks_msec() + _MAP_CHUNK_RETRY_COOLDOWN_MSEC
@@ -1987,6 +2038,9 @@ func _handle_message(msg: Dictionary):
 			if msg.has("perms"):
 				_set_perms(msg.get("perms"))
 			emit_signal("ranker_status_received", bool(msg.get("is_ranker", false)))
+			if bool(msg.get("is_ranker", false)) and not _stale_asked_once:
+				_stale_asked_once = true
+				ask_stale_ranked()
 		"map_rank_info":
 			emit_signal("map_rank_info_received", Globals.s(msg.get("song_id", "")), bool(msg.get("ranked", false)), int(msg.get("xp", 0)), Globals.s(msg.get("content_hash", "")))
 		"my_map_stats":
@@ -2013,9 +2067,17 @@ func _handle_message(msg: Dictionary):
 		"admin_motd_denied":
 			emit_signal("admin_motd_result", false, Globals.s(msg.get("reason", "")))
 		"unpublished_ranked_maps":
-			emit_signal("unpublished_ranked_maps_received", msg.get("song_ids", []))
+			# (asked for by the game itself, for the stale ones only: the ranker's
+			# "missing maps" button isn't answered then)
+			if _stale_only_asked:
+				_stale_only_asked = false
+			else:
+				emit_signal("unpublished_ranked_maps_received", msg.get("song_ids", []))
+			_on_stale_ranked(msg.get("stale", []))
 		"set_map_rank_ok":
 			emit_signal("set_map_rank_result", true, Globals.s(msg.get("song_id", "")), int(msg.get("xp", 0)))
+			# (ranked with other notes than the server's file has: publish this copy)
+			ask_stale_ranked()
 		"rank_denied":
 			emit_signal("set_map_rank_result", false, "", 0)
 		"map_publish_status":
