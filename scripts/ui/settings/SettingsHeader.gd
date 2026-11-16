@@ -112,11 +112,46 @@ func _fill_side(titles: Array):
 		b.align = Button.ALIGN_LEFT
 		b.clip_text = true
 		b.focus_mode = FOCUS_NONE
-		b.rect_min_size = Vector2(0, 38)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
+		_style_side_button(b)
 		b.pressed = i == _tc.current_tab
 		b.connect("pressed", self, "_on_header_tab", [i])
 		_side.add_child(b)
+
+# A side tab in the top tabs' own look (the settings page's theme, or Sound
+# Space Mode's skin): the chosen one like the open tab, the others like the
+# rest, same font and colors. The top tabs are rounded on top only: here all
+# four corners are.
+var _side_look := []
+func _side_box(name: String) -> StyleBox:
+	var sb: StyleBox = _tc.get_stylebox(name)
+	if sb is StyleBoxFlat:
+		var d: StyleBoxFlat = sb.duplicate()
+		var r: int = int(max(d.corner_radius_top_left, d.corner_radius_top_right))
+		d.corner_radius_top_left = r
+		d.corner_radius_top_right = r
+		d.corner_radius_bottom_left = r
+		d.corner_radius_bottom_right = r
+		return d
+	return sb
+
+func _style_side_button(b: Button):
+	var fg := _side_box("tab_fg")
+	var bg := _side_box("tab_bg")
+	b.add_stylebox_override("normal", bg)
+	b.add_stylebox_override("hover", bg)
+	b.add_stylebox_override("pressed", fg)
+	b.add_stylebox_override("hover_pressed", fg)
+	b.add_stylebox_override("disabled", _side_box("tab_disabled"))
+	b.add_stylebox_override("focus", StyleBoxEmpty.new())
+	b.add_font_override("font", _tc.get_font("font"))
+	var cfg: Color = _tc.get_color("font_color_fg")
+	var cbg: Color = _tc.get_color("font_color_bg")
+	b.add_color_override("font_color", cbg)
+	b.add_color_override("font_color_hover", cfg)
+	b.add_color_override("font_color_pressed", cfg)
+	b.add_color_override("font_color_hover_pressed", cfg)
+	b.add_color_override("font_color_disabled", _tc.get_color("font_color_disabled"))
 
 func _show_side_tab(i: int):
 	if _side != null and i >= 0 and i < _side.get_child_count():
@@ -143,6 +178,15 @@ func _copy_look():
 	for k in ["increment", "increment_highlight", "decrement", "decrement_highlight"]:
 		_tabs.add_icon_override(k, _tc.get_icon(k))
 	_tabs.add_constant_override("hseparation", _tc.get_constant("hseparation"))
+	# the side tabs follow the look too (when it changed)
+	if _side != null:
+		var look := [_tc.get_stylebox("tab_fg"), _tc.get_stylebox("tab_bg"), _tc.get_font("font"), _tc.get_color("font_color_fg"), _tc.get_color("font_color_bg")]
+		if look != _side_look:
+			_side_look = look
+			_side.add_constant_override("separation", int(max(2, _tc.get_constant("hseparation"))))
+			for b in _side.get_children():
+				if b is Button:
+					_style_side_button(b)
 
 # tabs added, moved or renamed later: the header copies them again
 func _check():
