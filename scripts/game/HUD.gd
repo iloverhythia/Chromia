@@ -1734,7 +1734,7 @@ var _real_cursor: Spatial = null
 
 # Watching with their settings: the cursor shows their cursor picture (from
 # the server, kept in user://spectate_cursors/). With yours: your own.
-const CURSOR_PIC_URL := "https://savia.nysr.host/savia-cursor/%s.png"
+const CURSOR_PIC_URL := "https://chromia.lol/savia-cursor/%s.png"
 const CURSOR_PIC_DIR := "user://spectate_cursors"
 var _own_cursor_mat = null
 var _cursor_pic_shown: String = ""

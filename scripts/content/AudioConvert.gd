@@ -18,7 +18,7 @@ extends Node
 
 signal finished(ok, text)
 
-const URL := "https://savia.nysr.host/savia-convert-audio?to=ogg"
+const URL := "https://chromia.lol/savia-convert-audio?to=ogg"
 const DIR := "user://caches/audio_convert"
 const MAX_BYTES := 40 * 1024 * 1024
 const FORMATS := ["m4a", "flac", "aac", "opus"]

@@ -89,7 +89,7 @@ jobs:
           sed -i 's/^config\/custom_user_dir_name="SoundSpacePlus"/config\/custom_user_dir_name="Chromia"/' project.godot
           grep -q '^config/custom_user_dir_name="Chromia"' project.godot
 
-      # Test builds: the test server instead of savia.nysr.host, the test
+      # Test builds: the test server instead of chromia.lol, the test
       # channel, and the test tag as the version. Committed (locally) so the
       # steps that read project.godot from git (iOS, Quest) get it too.
       - name: Make it a test build
@@ -97,12 +97,12 @@ jobs:
         env:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          grep -rl --include='*.gd' "savia.nysr.host" . | xargs -r sed -i "s#savia\.nysr\.host#${TEST_SERVER_HOST}#g"
+          grep -rl --include='*.gd' "chromia.lol" . | xargs -r sed -i "s#chromia\.lol#${TEST_SERVER_HOST}#g"
           sed -i 's/^const CHANNEL := "stable"/const CHANNEL := "test"/' scripts/BuildChannel.gd
           grep -q '^const CHANNEL := "test"' scripts/BuildChannel.gd
           sed -i "s/^config\/version=\".*\"/config\/version=\"$TAG\"/" project.godot
           grep -q "^config/version=\"$TAG\"" project.godot
-          ! grep -rn --include='*.gd' "savia.nysr.host" .
+          ! grep -rn --include='*.gd' "chromia.lol" .
           git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -am "test build $TAG"
           echo "Test build $TAG: server $TEST_SERVER_HOST"
 
@@ -155,9 +155,9 @@ jobs:
           # Offline: with an empty user folder, reaching the servers made a new
           # player account every build (hundreds of them). The game also skips
           # connecting when CHROMIA_BOOT_CHECK is set; this makes sure.
-          echo "127.0.0.1 savia.nysr.host $TEST_SERVER_HOST" | sudo tee -a /etc/hosts > /dev/null || true
+          echo "127.0.0.1 chromia.lol $TEST_SERVER_HOST" | sudo tee -a /etc/hosts > /dev/null || true
           HOME="$RUNNER_TEMP/boot-home" CHROMIA_BOOT_CHECK=1 timeout 240 "$GODOT" --path . > boot.log 2>&1 || true
-          sudo sed -i '/savia\.nysr\.host/d' /etc/hosts || true
+          sudo sed -i '/chromia\.lol/d' /etc/hosts || true
           grep "SCRIPT ERROR" -A1 boot.log | head -40 || true
           if ! grep -q CHROMIA_BOOT_OK boot.log; then
             echo "::error::The game did not reach the menu; not releasing."

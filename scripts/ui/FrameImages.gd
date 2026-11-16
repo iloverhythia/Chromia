@@ -7,7 +7,7 @@ extends Node
 
 signal loaded(url)
 
-const SITE := "https://savia.nysr.host"
+const SITE := "https://chromia.lol"
 var _tex := {} # url -> Texture
 var _pending := {} # url -> true
 var _queue := [] # asked for before this was in the tree

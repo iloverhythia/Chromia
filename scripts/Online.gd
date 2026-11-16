@@ -5,7 +5,7 @@ const CACHE_DIR := "user://caches"
 var mapdb_apis: Array = [
 	"https://cdn.rhythia.net/index.json",
 	"https://savvyscripter-gh.github.io/savia_db/index.json",
-	"https://savia.nysr.host/ranked-maps/index.json"
+	"https://chromia.lol/ranked-maps/index.json"
 ]
 
 # The browser version can't read the databases above directly (their hosts

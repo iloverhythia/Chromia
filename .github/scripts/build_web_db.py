@@ -1,7 +1,7 @@
 """Builds the map database mirror the web version of Chromia reads.
 
 Browsers only let the game fetch files from hosts that allow it (CORS), and
-two of the map databases (cdn.rhythia.net, savia.nysr.host) don't. This copies
+two of the map databases (cdn.rhythia.net, chromia.lol) don't. This copies
 their index.json files into the web-db branch (served by raw.githubusercontent.com,
 which allows it) and points each map's download at rhythia.com's archive copy
 (static.rhythia.com/rhythia-legacy-<sha256>.sspm, same bytes, allows CORS)
@@ -22,7 +22,7 @@ import urllib.request
 DBS = [
     "https://cdn.rhythia.net/index.json",
     "https://savvyscripter-gh.github.io/savia_db/index.json",
-    "https://savia.nysr.host/ranked-maps/index.json",
+    "https://chromia.lol/ranked-maps/index.json",
 ]
 # Hosts browsers can already download from; their links are left as they are.
 CORS_OK = ("https://raw.githubusercontent.com/", "https://static.rhythia.com/",

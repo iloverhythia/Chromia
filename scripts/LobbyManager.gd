@@ -62,7 +62,7 @@ const CHAT_HISTORY_MAX: int = 200
 var lobby_chat_history: Array = []
 var global_chat_history: Array = []
 
-const SERVER_URL: String = "wss://savia.nysr.host/savia-ws"
+const SERVER_URL: String = "wss://chromia.lol/savia-ws"
 const LIVE_STATE_SEND_INTERVAL: float = 0.033 # (about 30 updates a second, each with every frame's position since the last)
 const SPECTATE_DELAY_SEC: float = 3.0
 
@@ -1098,11 +1098,11 @@ func send_view_settings():
 
 # Your cursor picture to the server once (it keeps it by the file's hash), so
 # spectators watching with your settings see your cursor.
-const CURSOR_URL := "https://savia.nysr.host/savia-cursor"
+const CURSOR_URL := "https://chromia.lol/savia-cursor"
 var _cursor_sent: String = ""
 # your own border picture and note mesh, for spectators (sent once each; the
 # server keeps them by hash: savia_web src/spectateassets.js)
-const SPECTATE_ASSET_URL := "https://savia.nysr.host/savia-spectate-asset"
+const SPECTATE_ASSET_URL := "https://chromia.lol/savia-spectate-asset"
 var _assets_sent := {} # kind -> sha256 sent
 
 func upload_spectate_assets():

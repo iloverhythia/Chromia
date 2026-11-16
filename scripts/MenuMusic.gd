@@ -13,7 +13,7 @@ extends Node
 
 signal track_ready(path)
 
-const BASE := "https://savia.nysr.host/menu-music/"
+const BASE := "https://chromia.lol/menu-music/"
 const CACHE := "user://caches/menu_music"
 const MAX_BYTES := 16 * 1024 * 1024
 

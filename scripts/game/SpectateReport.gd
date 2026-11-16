@@ -6,7 +6,7 @@ extends CanvasLayer
 # settings their game sent for spectators, and the chat you can see. Staff
 # see it in the admin panel's Reports page (savia_web src/reports.js).
 
-const REPORT_URL := "https://savia.nysr.host/savia-report"
+const REPORT_URL := "https://chromia.lol/savia-report"
 const CATEGORIES := [["skin", "Skin"], ["chat", "Chat"], ["other", "Other"]]
 
 var target_number: int = 0

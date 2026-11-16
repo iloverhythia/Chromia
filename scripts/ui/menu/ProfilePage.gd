@@ -4,7 +4,7 @@ extends ReferenceRect
 # (avatar, rank, stats, top play and top 10 plays). Right: the existing
 # profile/leaderboard panel, moved here by menu2.gd (see get_slot()).
 
-const SITE = "https://savia.nysr.host"
+const SITE = "https://chromia.lol"
 const API = SITE + "/savia-public/api"
 
 var _theme: Theme = preload("res://uitheme.tres")

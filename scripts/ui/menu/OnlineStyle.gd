@@ -490,7 +490,7 @@ var _waiting := {} # url -> [TextureRect]
 func avatar(name: String, url: String, owner: Node) -> Control:
 	var c = initial(name)
 	if url.begins_with("/"):
-		url = "https://savia.nysr.host" + url
+		url = "https://chromia.lol" + url
 	if not url.begins_with("http"):
 		return c
 	var pic := TextureRect.new()
