@@ -407,6 +407,14 @@ func _exit_tree():
 		_crash_prompt_open = false
 		Globals.confirm_prompt.close()
 
+# (the report goes to the developers by itself: scripts/CrashSend.gd)
+func _crash_sent_line() -> String:
+	if Rhythia.crash_log_state == 1:
+		return "The report was sent to the developers. Copy report if you want to add what you were doing."
+	if not Rhythia.send_crash_logs:
+		return "Tap Copy report and send it to the developer (sending it by itself is off: Settings > Crash Reports)."
+	return "Tap Copy report and send it to the developer."
+
 func _show_crash_report():
 	yield(get_tree().create_timer(1.5), "timeout")
 	if not is_inside_tree() or Globals.confirm_prompt == null:
@@ -423,7 +431,7 @@ func _show_crash_report():
 	var crashed: bool = Rhythia.last_session_crashed
 	_crash_prompt_open = true
 	Globals.confirm_prompt.open(
-		("Chromia closed unexpectedly last time. The last things it did:\n\n%s\n\nTap Copy report and send it to the developer." if crashed else
+		("Chromia closed unexpectedly last time. The last things it did:\n\n%s\n\n" + _crash_sent_line() if crashed else
 		"Last session's log (Settings > Replays & Misc > Experimental shows this every start). The last things it did:\n\n%s") % PoolStringArray(shown).join("\n"),
 		"Chromia crashed" if crashed else "Last session",
 		[{text = "OK"}, {text = "Copy report"}]

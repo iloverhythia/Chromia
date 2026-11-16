@@ -63,28 +63,6 @@ var global_chat_scroll: ScrollContainer
 var global_chat_input: LineEdit
 const GLOBAL_CHAT_MAX_LINES: int = 200
 
-var admin_canvas: CanvasLayer
-var admin_toggle_button: Button
-var admin_panel: PanelContainer
-var admin_ban_input: LineEdit
-var admin_ban_reason_input: LineEdit
-var admin_scope_multiplayer_check: CheckBox
-var admin_scope_chat_check: CheckBox
-var admin_scope_leaderboard_check: CheckBox
-var admin_bans_list_box: VBoxContainer
-var admin_lobbies_list_box: VBoxContainer
-var admin_live_bans_list_box: VBoxContainer
-var admin_tag_id_input: LineEdit
-var admin_tag_text_input: LineEdit
-var admin_tag_color_input: LineEdit
-var admin_tags_list_box: VBoxContainer
-var admin_ranker_id_input: LineEdit
-var admin_announcement_input: LineEdit
-var admin_rankers_list_box: VBoxContainer
-
-var admin_key_canvas: CanvasLayer
-var admin_key_input: LineEdit
-
 var _rebinding_action: String = ""
 var _rebinding_button: Button = null
 
@@ -394,25 +372,6 @@ func _make_button(text: String, ui_theme: Theme) -> Button:
 
 func _get_lobby_manager():
 	return get_node_or_null("/root/LobbyManager")
-
-func _add_admin_slider(parent: Control, ui_theme: Theme, label_text: String, min_v: float, max_v: float, step_v: float, initial: float, callback: String) -> HSlider:
-	var row = HBoxContainer.new()
-	row.add_constant_override("separation", 8)
-	var label = Label.new()
-	label.text = label_text
-	label.theme = ui_theme
-	label.rect_min_size = Vector2(140, 0)
-	row.add_child(label)
-	var slider = HSlider.new()
-	slider.min_value = min_v
-	slider.max_value = max_v
-	slider.step = step_v
-	slider.value = initial
-	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.connect("value_changed", self, callback)
-	row.add_child(slider)
-	parent.add_child(row)
-	return slider
 
 func _load_admin_ui_hidden() -> bool:
 	var config = ConfigFile.new()
@@ -906,266 +865,6 @@ func _save_profile_ui_hidden(hidden: bool):
 	config.set_value("profile", "ui_hidden", hidden)
 	config.save("user://settings.cfg")
 
-func _build_admin_ui():
-	var ui_theme = load("res://uitheme.tres")
-	admin_canvas = CanvasLayer.new()
-	admin_canvas.layer = 11
-	add_child(admin_canvas)
-
-	admin_toggle_button = Button.new()
-	admin_toggle_button.text = "Admin"
-	admin_toggle_button.rect_min_size = Vector2(90, 32)
-	admin_toggle_button.rect_position = Vector2(16, 16)
-	admin_toggle_button.theme = ui_theme
-	admin_toggle_button.connect("pressed", self, "_toggle_admin_panel")
-	admin_canvas.add_child(admin_toggle_button)
-
-	admin_panel = PanelContainer.new()
-	admin_panel.rect_size = Vector2(360, 520)
-	admin_panel.rect_min_size = Vector2(360, 520)
-	admin_panel.rect_position = Vector2(16, 56)
-	admin_panel.theme = ui_theme
-	admin_panel.visible = false
-	admin_canvas.add_child(admin_panel)
-	admin_canvas.visible = not _load_admin_ui_hidden()
-	call_deferred("_embed_admin_in_online")
-
-	var margin = MarginContainer.new()
-	margin.add_constant_override("margin_left", 20)
-	margin.add_constant_override("margin_right", 16)
-	margin.add_constant_override("margin_top", 14)
-	margin.add_constant_override("margin_bottom", 20)
-	margin.rect_min_size = admin_panel.rect_min_size
-	admin_panel.add_child(margin)
-
-	var body_scroll = ScrollContainer.new()
-	body_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	margin.add_child(body_scroll)
-
-	var vbox = VBoxContainer.new()
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_constant_override("separation", 8)
-	vbox.theme = ui_theme
-	body_scroll.add_child(vbox)
-
-	var title = Label.new()
-	title.text = "Admin"
-	title.add_font_override("font", load("res://assets/font/Lato/Lato-Bold.ttf"))
-	vbox.add_child(title)
-	vbox.add_child(HSeparator.new())
-
-	var ban_caption = Label.new()
-	ban_caption.text = "Ban / unban by client id"
-	ban_caption.theme = ui_theme
-	vbox.add_child(ban_caption)
-
-	admin_ban_input = LineEdit.new()
-	admin_ban_input.placeholder_text = "client id"
-	admin_ban_input.rect_min_size = Vector2(0, 32)
-	admin_ban_input.theme = ui_theme
-	vbox.add_child(admin_ban_input)
-
-	admin_ban_reason_input = LineEdit.new()
-	admin_ban_reason_input.placeholder_text = "reason (optional)"
-	admin_ban_reason_input.rect_min_size = Vector2(0, 32)
-	admin_ban_reason_input.theme = ui_theme
-	vbox.add_child(admin_ban_reason_input)
-
-	var scopes_grid = GridContainer.new()
-	scopes_grid.columns = 2
-	scopes_grid.add_constant_override("hseparation", 12)
-	admin_scope_multiplayer_check = CheckBox.new()
-	admin_scope_multiplayer_check.text = "Multiplayer"
-	admin_scope_multiplayer_check.theme = ui_theme
-	admin_scope_multiplayer_check.pressed = true
-	scopes_grid.add_child(admin_scope_multiplayer_check)
-	admin_scope_chat_check = CheckBox.new()
-	admin_scope_chat_check.text = "Chat (future)"
-	admin_scope_chat_check.theme = ui_theme
-	scopes_grid.add_child(admin_scope_chat_check)
-	admin_scope_leaderboard_check = CheckBox.new()
-	admin_scope_leaderboard_check.text = "Leaderboard (future)"
-	admin_scope_leaderboard_check.theme = ui_theme
-	scopes_grid.add_child(admin_scope_leaderboard_check)
-	vbox.add_child(scopes_grid)
-
-	var ban_hbox = HBoxContainer.new()
-	ban_hbox.add_constant_override("separation", 8)
-	var ban_btn = _make_button("Ban", ui_theme)
-	ban_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ban_btn.connect("pressed", self, "_on_admin_ban_pressed")
-	ban_hbox.add_child(ban_btn)
-	var unban_btn = _make_button("Unban", ui_theme)
-	unban_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	unban_btn.connect("pressed", self, "_on_admin_unban_pressed")
-	ban_hbox.add_child(unban_btn)
-	vbox.add_child(ban_hbox)
-
-	vbox.add_child(HSeparator.new())
-
-	var live_ban_caption = Label.new()
-	live_ban_caption.text = "Live ban"
-	live_ban_caption.theme = ui_theme
-	vbox.add_child(live_ban_caption)
-
-	var live_ban_hbox = HBoxContainer.new()
-	live_ban_hbox.add_constant_override("separation", 8)
-	var live_ban_btn = _make_button("Live Ban", ui_theme)
-	live_ban_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	live_ban_btn.connect("pressed", self, "_on_admin_live_ban_pressed")
-	live_ban_hbox.add_child(live_ban_btn)
-	var live_unban_btn = _make_button("Live Unban", ui_theme)
-	live_unban_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	live_unban_btn.connect("pressed", self, "_on_admin_live_unban_pressed")
-	live_ban_hbox.add_child(live_unban_btn)
-	vbox.add_child(live_ban_hbox)
-
-	var live_bans_scroll = ScrollContainer.new()
-	live_bans_scroll.rect_min_size = Vector2(0, 80)
-	vbox.add_child(live_bans_scroll)
-	admin_live_bans_list_box = VBoxContainer.new()
-	admin_live_bans_list_box.add_constant_override("separation", 4)
-	admin_live_bans_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	live_bans_scroll.add_child(admin_live_bans_list_box)
-
-	vbox.add_child(HSeparator.new())
-
-	var tags_caption = Label.new()
-	tags_caption.text = "Player tags"
-	tags_caption.theme = ui_theme
-	vbox.add_child(tags_caption)
-
-	admin_tag_id_input = LineEdit.new()
-	admin_tag_id_input.placeholder_text = "client id"
-	admin_tag_id_input.rect_min_size = Vector2(0, 32)
-	admin_tag_id_input.theme = ui_theme
-	vbox.add_child(admin_tag_id_input)
-
-	var tag_fields_hbox = HBoxContainer.new()
-	tag_fields_hbox.add_constant_override("separation", 8)
-	admin_tag_text_input = LineEdit.new()
-	admin_tag_text_input.placeholder_text = "tag text, e.g. DJ"
-	admin_tag_text_input.rect_min_size = Vector2(0, 32)
-	admin_tag_text_input.theme = ui_theme
-	admin_tag_text_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tag_fields_hbox.add_child(admin_tag_text_input)
-	admin_tag_color_input = LineEdit.new()
-	admin_tag_color_input.placeholder_text = "#rrggbb"
-	admin_tag_color_input.rect_min_size = Vector2(100, 32)
-	admin_tag_color_input.theme = ui_theme
-	tag_fields_hbox.add_child(admin_tag_color_input)
-	vbox.add_child(tag_fields_hbox)
-
-	var tag_btns_hbox = HBoxContainer.new()
-	tag_btns_hbox.add_constant_override("separation", 8)
-	var set_tag_btn = _make_button("Set Tag", ui_theme)
-	set_tag_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	set_tag_btn.connect("pressed", self, "_on_admin_set_tag_pressed")
-	tag_btns_hbox.add_child(set_tag_btn)
-	var remove_tag_btn = _make_button("Remove Tag", ui_theme)
-	remove_tag_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	remove_tag_btn.connect("pressed", self, "_on_admin_remove_tag_pressed")
-	tag_btns_hbox.add_child(remove_tag_btn)
-	vbox.add_child(tag_btns_hbox)
-
-	var tags_scroll = ScrollContainer.new()
-	tags_scroll.rect_min_size = Vector2(0, 80)
-	vbox.add_child(tags_scroll)
-	admin_tags_list_box = VBoxContainer.new()
-	admin_tags_list_box.add_constant_override("separation", 4)
-	admin_tags_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tags_scroll.add_child(admin_tags_list_box)
-
-	vbox.add_child(HSeparator.new())
-
-	var rankers_caption = Label.new()
-	rankers_caption.text = "Rankers"
-	rankers_caption.theme = ui_theme
-	vbox.add_child(rankers_caption)
-
-	admin_ranker_id_input = LineEdit.new()
-	admin_ranker_id_input.placeholder_text = "client id"
-	admin_ranker_id_input.rect_min_size = Vector2(0, 32)
-	admin_ranker_id_input.theme = ui_theme
-	vbox.add_child(admin_ranker_id_input)
-
-	var ranker_btns_hbox = HBoxContainer.new()
-	ranker_btns_hbox.add_constant_override("separation", 8)
-	var add_ranker_btn = _make_button("Add Ranker", ui_theme)
-	add_ranker_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	add_ranker_btn.connect("pressed", self, "_on_admin_add_ranker_pressed")
-	ranker_btns_hbox.add_child(add_ranker_btn)
-	var remove_ranker_btn = _make_button("Remove Ranker", ui_theme)
-	remove_ranker_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	remove_ranker_btn.connect("pressed", self, "_on_admin_remove_ranker_pressed")
-	ranker_btns_hbox.add_child(remove_ranker_btn)
-	vbox.add_child(ranker_btns_hbox)
-
-	var rankers_scroll = ScrollContainer.new()
-	rankers_scroll.rect_min_size = Vector2(0, 60)
-	vbox.add_child(rankers_scroll)
-	admin_rankers_list_box = VBoxContainer.new()
-	admin_rankers_list_box.add_constant_override("separation", 4)
-	admin_rankers_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rankers_scroll.add_child(admin_rankers_list_box)
-
-	vbox.add_child(HSeparator.new())
-
-	var announce_caption = Label.new()
-	announce_caption.text = "Announcement"
-	announce_caption.theme = ui_theme
-	announce_caption.autowrap = true
-	vbox.add_child(announce_caption)
-
-	admin_announcement_input = LineEdit.new()
-	admin_announcement_input.placeholder_text = "Message..."
-	admin_announcement_input.rect_min_size = Vector2(0, 32)
-	admin_announcement_input.max_length = 300
-	admin_announcement_input.theme = ui_theme
-	admin_announcement_input.connect("text_entered", self, "_on_admin_send_announcement_pressed")
-	vbox.add_child(admin_announcement_input)
-
-	var send_announcement_btn = _make_button("Send Announcement", ui_theme)
-	send_announcement_btn.connect("pressed", self, "_on_admin_send_announcement_pressed")
-	vbox.add_child(send_announcement_btn)
-
-	vbox.add_child(HSeparator.new())
-
-	var bans_caption = Label.new()
-	bans_caption.text = "Currently banned"
-	bans_caption.theme = ui_theme
-	vbox.add_child(bans_caption)
-
-	var bans_scroll = ScrollContainer.new()
-	bans_scroll.rect_min_size = Vector2(0, 80)
-	vbox.add_child(bans_scroll)
-	admin_bans_list_box = VBoxContainer.new()
-	admin_bans_list_box.add_constant_override("separation", 4)
-	admin_bans_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bans_scroll.add_child(admin_bans_list_box)
-
-	vbox.add_child(HSeparator.new())
-
-	var lobbies_hbox = HBoxContainer.new()
-	var lobbies_caption = Label.new()
-	lobbies_caption.text = "All lobbies"
-	lobbies_caption.theme = ui_theme
-	lobbies_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lobbies_hbox.add_child(lobbies_caption)
-	var refresh_btn = _make_button("Refresh", ui_theme)
-	refresh_btn.connect("pressed", self, "_on_admin_refresh_pressed")
-	lobbies_hbox.add_child(refresh_btn)
-	vbox.add_child(lobbies_hbox)
-
-	var lobbies_scroll = ScrollContainer.new()
-	lobbies_scroll.rect_min_size = Vector2(0, 110)
-	vbox.add_child(lobbies_scroll)
-	admin_lobbies_list_box = VBoxContainer.new()
-	admin_lobbies_list_box.add_constant_override("separation", 4)
-	admin_lobbies_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lobbies_scroll.add_child(admin_lobbies_list_box)
-
 func _build_ranker_ui():
 	if ranker_canvas != null:
 		return
@@ -1248,7 +947,7 @@ func _build_ranker_ui():
 	ranker_republish_status_label.theme = ui_theme
 	vbox.add_child(ranker_republish_status_label)
 
-	ranker_canvas.visible = admin_canvas.visible if admin_canvas != null else not _load_admin_ui_hidden()
+	ranker_canvas.visible = not _load_admin_ui_hidden()
 	call_deferred("_place_rank_button")
 
 func _toggle_ranker_panel():
@@ -1379,13 +1078,9 @@ func _unhandled_input(event: InputEvent):
 			return
 
 	if event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_A and event.control and event.shift:
-		if admin_canvas != null:
-			admin_canvas.visible = not admin_canvas.visible
-			if ranker_canvas != null:
-				ranker_canvas.visible = admin_canvas.visible
-			_save_admin_ui_hidden(not admin_canvas.visible)
-		else:
-			Globals.notify(Globals.NOTIFY_INFO, "The admin tools are for staff: link the Discord account the owner gave permissions to (Settings > Online), then they show here.", "Admin")
+		if ranker_canvas != null:
+			ranker_canvas.visible = not ranker_canvas.visible
+			_save_admin_ui_hidden(not ranker_canvas.visible)
 
 	if event.is_action_pressed("toggle_profile") and not event.echo and profile_canvas != null:
 		profile_canvas.visible = not profile_canvas.visible
@@ -1516,379 +1211,9 @@ func _set_action_key(action: String, event: InputEventKey):
 	if _rebinding_button != null:
 		_rebinding_button.text = _get_action_key_text(action)
 
+# (staff tools in the game: the MOTD button; the admin panel is on the website)
 func _on_perms_changed():
-	var lm = _get_lobby_manager()
-	if lm == null:
-		return
-	if lm.has_admin_key() and admin_canvas == null:
-		_build_admin_ui()
-		for pair in [["admin_bans_received", "_on_admin_bans_received"], ["admin_all_lobbies_received", "_on_admin_lobbies_received"],
-				["admin_live_bans_received", "_on_admin_live_bans_received"], ["admin_rankers_received", "_on_admin_rankers_received"]]:
-			if not lm.is_connected(pair[0], self, pair[1]):
-				lm.connect(pair[0], self, pair[1])
-	elif not lm.has_admin_key() and admin_canvas != null:
-		admin_canvas.visible = false # (permissions taken away: hidden; the server refuses anything anyway)
 	_update_motd_button()
-
-func _toggle_admin_key_prompt():
-	if admin_key_canvas != null:
-		admin_key_canvas.queue_free()
-		admin_key_canvas = null
-		return
-	var ui_theme = load("res://uitheme.tres")
-	admin_key_canvas = CanvasLayer.new()
-	admin_key_canvas.layer = 12
-	add_child(admin_key_canvas)
-
-	var panel = PanelContainer.new()
-	panel.rect_size = Vector2(320, 110)
-	panel.rect_min_size = Vector2(320, 110)
-	panel.rect_position = Vector2(16, 16)
-	panel.theme = ui_theme
-	admin_key_canvas.add_child(panel)
-
-	var margin = MarginContainer.new()
-	margin.add_constant_override("margin_left", 16)
-	margin.add_constant_override("margin_right", 16)
-	margin.add_constant_override("margin_top", 12)
-	margin.add_constant_override("margin_bottom", 12)
-	panel.add_child(margin)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_constant_override("separation", 8)
-	margin.add_child(vbox)
-
-	var label = Label.new()
-	label.text = "Admin key"
-	label.theme = ui_theme
-	vbox.add_child(label)
-
-	admin_key_input = LineEdit.new()
-	admin_key_input.placeholder_text = "paste key, press Enter"
-	admin_key_input.secret = true
-	admin_key_input.rect_min_size = Vector2(0, 32)
-	admin_key_input.theme = ui_theme
-	admin_key_input.connect("text_entered", self, "_on_admin_key_submitted")
-	vbox.add_child(admin_key_input)
-	admin_key_input.grab_focus()
-
-	var save_btn = _make_button("Save", ui_theme)
-	save_btn.connect("pressed", self, "_on_admin_key_submitted", [""])
-	vbox.add_child(save_btn)
-
-func _on_admin_key_submitted(_text: String = ""):
-	var key = admin_key_input.text.strip_edges()
-	if admin_key_canvas != null:
-		admin_key_canvas.queue_free()
-		admin_key_canvas = null
-	if key == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager == null:
-		return
-	lobby_manager.set_admin_key(key)
-	if admin_canvas == null:
-		_build_admin_ui()
-		lobby_manager.connect("admin_bans_received", self, "_on_admin_bans_received")
-		lobby_manager.connect("admin_all_lobbies_received", self, "_on_admin_lobbies_received")
-		lobby_manager.connect("admin_live_bans_received", self, "_on_admin_live_bans_received")
-		lobby_manager.connect("admin_player_tags_received", self, "_on_admin_player_tags_received")
-		lobby_manager.connect("admin_rankers_received", self, "_on_admin_rankers_received")
-
-func _toggle_admin_panel():
-	admin_panel.visible = not admin_panel.visible
-	if admin_panel.visible:
-		var lobby_manager = _get_lobby_manager()
-		if lobby_manager != null:
-			lobby_manager.admin_list_bans()
-			lobby_manager.admin_list_all_lobbies()
-			lobby_manager.admin_list_live_bans()
-			lobby_manager.admin_list_player_tags()
-			lobby_manager.admin_list_rankers()
-
-func _get_checked_admin_scopes() -> Array:
-	var scopes = []
-	if admin_scope_multiplayer_check.pressed: scopes.append("multiplayer")
-	if admin_scope_chat_check.pressed: scopes.append("chat")
-	if admin_scope_leaderboard_check.pressed: scopes.append("leaderboard")
-	return scopes
-
-func _on_admin_ban_pressed():
-	var client_id = admin_ban_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		var scopes = _get_checked_admin_scopes()
-		if scopes.size() == 0:
-			scopes = ["multiplayer"]
-		lobby_manager.admin_ban_user(client_id, scopes, admin_ban_reason_input.text.strip_edges())
-	admin_ban_input.text = ""
-	admin_ban_reason_input.text = ""
-
-func _on_admin_unban_pressed():
-	var client_id = admin_ban_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_unban_user(client_id, _get_checked_admin_scopes())
-	admin_ban_input.text = ""
-
-func _on_admin_refresh_pressed():
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_list_bans()
-		lobby_manager.admin_list_all_lobbies()
-		lobby_manager.admin_list_live_bans()
-		lobby_manager.admin_list_player_tags()
-
-func _on_admin_live_ban_pressed():
-	var client_id = admin_ban_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_live_ban_user(client_id, admin_ban_reason_input.text.strip_edges())
-	admin_ban_input.text = ""
-	admin_ban_reason_input.text = ""
-
-func _on_admin_live_unban_pressed():
-	var client_id = admin_ban_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_live_unban_user(client_id)
-	admin_ban_input.text = ""
-
-func _on_admin_live_unban_row_pressed(client_id: String):
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_live_unban_user(client_id)
-
-func _on_admin_live_bans_received(bans: Array):
-	for child in admin_live_bans_list_box.get_children():
-		child.queue_free()
-	if bans.size() == 0:
-		var empty = Label.new()
-		empty.text = "No live bans."
-		admin_live_bans_list_box.add_child(empty)
-		return
-	var ui_theme = load("res://uitheme.tres")
-	for b in bans:
-		var client_id = String(b.get("client_id", ""))
-		var reason = String(b.get("reason", ""))
-
-		var row = VBoxContainer.new()
-		var top_row = HBoxContainer.new()
-		var label = Label.new()
-		label.text = client_id
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap = true
-		top_row.add_child(label)
-		var unban_btn = Button.new()
-		unban_btn.text = "Unban"
-		unban_btn.theme = ui_theme
-		unban_btn.rect_min_size = Vector2(0, 26)
-		unban_btn.connect("pressed", self, "_on_admin_live_unban_row_pressed", [client_id])
-		top_row.add_child(unban_btn)
-		row.add_child(top_row)
-		if reason != "":
-			var reason_label = Label.new()
-			reason_label.text = "reason: %s" % reason
-			reason_label.add_color_override("font_color", Color(0.7, 0.7, 0.7))
-			reason_label.autowrap = true
-			row.add_child(reason_label)
-		admin_live_bans_list_box.add_child(row)
-
-func _on_admin_set_tag_pressed():
-	var client_id = admin_tag_id_input.text.strip_edges()
-	var text = admin_tag_text_input.text.strip_edges()
-	var color = admin_tag_color_input.text.strip_edges()
-	if client_id == "" or text == "" or color == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_set_player_tag(client_id, text, color)
-	admin_tag_id_input.text = ""
-	admin_tag_text_input.text = ""
-	admin_tag_color_input.text = ""
-
-func _on_admin_remove_tag_pressed():
-	var client_id = admin_tag_id_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_remove_player_tag(client_id)
-	admin_tag_id_input.text = ""
-
-func _on_admin_remove_tag_row_pressed(client_id: String):
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_remove_player_tag(client_id)
-
-func _on_admin_player_tags_received(tags: Array):
-	for child in admin_tags_list_box.get_children():
-		child.queue_free()
-	if tags.size() == 0:
-		var empty = Label.new()
-		empty.text = "No player tags."
-		admin_tags_list_box.add_child(empty)
-		return
-	var ui_theme = load("res://uitheme.tres")
-	for t in tags:
-		var client_id = String(t.get("client_id", ""))
-		var text = String(t.get("text", ""))
-		var color = String(t.get("color", ""))
-
-		var row = HBoxContainer.new()
-		var label = Label.new()
-		label.text = "%s  ●[%s]" % [client_id, text]
-		label.add_color_override("font_color", Color(color) if color != "" else Color(1, 1, 1))
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap = true
-		row.add_child(label)
-		var remove_btn = Button.new()
-		remove_btn.text = "Remove"
-		remove_btn.theme = ui_theme
-		remove_btn.rect_min_size = Vector2(0, 26)
-		remove_btn.connect("pressed", self, "_on_admin_remove_tag_row_pressed", [client_id])
-		row.add_child(remove_btn)
-		admin_tags_list_box.add_child(row)
-
-func _on_admin_add_ranker_pressed():
-	var client_id = admin_ranker_id_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_add_ranker(client_id)
-	admin_ranker_id_input.text = ""
-
-func _on_admin_remove_ranker_pressed():
-	var client_id = admin_ranker_id_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_remove_ranker(client_id)
-	admin_ranker_id_input.text = ""
-
-func _on_admin_send_announcement_pressed(_text_arg = null):
-	var text = admin_announcement_input.text.strip_edges()
-	if text == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_send_announcement(text)
-	admin_announcement_input.text = ""
-
-func _on_admin_remove_ranker_row_pressed(client_id: String):
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_remove_ranker(client_id)
-
-func _on_admin_rankers_received(rankers: Array):
-	for child in admin_rankers_list_box.get_children():
-		child.queue_free()
-	if rankers.size() == 0:
-		var empty = Label.new()
-		empty.text = "No rankers."
-		admin_rankers_list_box.add_child(empty)
-		return
-	var ui_theme = load("res://uitheme.tres")
-	for client_id_raw in rankers:
-		var client_id = String(client_id_raw)
-		var row = HBoxContainer.new()
-		var label = Label.new()
-		label.text = client_id
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap = true
-		row.add_child(label)
-		var remove_btn = Button.new()
-		remove_btn.text = "Remove"
-		remove_btn.theme = ui_theme
-		remove_btn.rect_min_size = Vector2(0, 26)
-		remove_btn.connect("pressed", self, "_on_admin_remove_ranker_row_pressed", [client_id])
-		row.add_child(remove_btn)
-		admin_rankers_list_box.add_child(row)
-
-func _on_admin_bans_received(bans: Array):
-	for child in admin_bans_list_box.get_children():
-		child.queue_free()
-	if bans.size() == 0:
-		var empty = Label.new()
-		empty.text = "No bans."
-		admin_bans_list_box.add_child(empty)
-		return
-	var ui_theme = load("res://uitheme.tres")
-	for b in bans:
-		var client_id = String(b.get("client_id", ""))
-		var scopes = b.get("scopes", [])
-		var reason = String(b.get("reason", ""))
-
-		var row = VBoxContainer.new()
-		var top_row = HBoxContainer.new()
-		var label = Label.new()
-		var scopes_text = ", ".join(PoolStringArray(scopes))
-		label.text = "%s  [%s]" % [client_id, scopes_text]
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap = true
-		top_row.add_child(label)
-		var unban_btn = Button.new()
-		unban_btn.text = "Unban"
-		unban_btn.theme = ui_theme
-		unban_btn.rect_min_size = Vector2(0, 26)
-		unban_btn.connect("pressed", self, "_on_admin_unban_row_pressed", [client_id])
-		top_row.add_child(unban_btn)
-		row.add_child(top_row)
-		if reason != "":
-			var reason_label = Label.new()
-			reason_label.text = "reason: %s" % reason
-			reason_label.add_color_override("font_color", Color(0.7, 0.7, 0.7))
-			reason_label.autowrap = true
-			row.add_child(reason_label)
-		admin_bans_list_box.add_child(row)
-
-func _on_admin_unban_row_pressed(client_id: String):
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_unban_user(client_id)
-
-func _on_admin_lobbies_received(lobbies: Array):
-	for child in admin_lobbies_list_box.get_children():
-		child.queue_free()
-	if lobbies.size() == 0:
-		var empty = Label.new()
-		empty.text = "No active lobbies."
-		admin_lobbies_list_box.add_child(empty)
-		return
-	var ui_theme = load("res://uitheme.tres")
-	for l in lobbies:
-		var row = HBoxContainer.new()
-		var label = Label.new()
-		var visibility = "public" if l.get("is_public", true) else "private"
-		var status = "started" if l.get("started", false) else "waiting"
-		var code = String(l.get("code", ""))
-		label.text = "%s - %s (%s, %s, %s players)" % [
-			code, String(l.get("host_name", "Player")),
-			visibility, status, int(l.get("player_count", 0)),
-		]
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap = true
-		row.add_child(label)
-		var copy_btn = Button.new()
-		copy_btn.text = "Copy"
-		copy_btn.theme = ui_theme
-		copy_btn.rect_min_size = Vector2(0, 26)
-		copy_btn.connect("pressed", self, "_on_admin_copy_lobby_code_pressed", [code])
-		row.add_child(copy_btn)
-		admin_lobbies_list_box.add_child(row)
-
-func _on_admin_copy_lobby_code_pressed(code: String):
-	OS.clipboard = code
 
 func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	var lobby_manager = _get_lobby_manager()
@@ -2191,7 +1516,6 @@ func _embed_panels_in_pages():
 	if lobby_close_button != null:
 		lobby_close_button.text = "Back to Maps"
 	_layout_online_columns()
-	_embed_admin_in_online()
 	_place_rank_button()
 
 	var slot = profile_page.get_slot() if profile_page.has_method("get_slot") else profile_page
@@ -2204,68 +1528,6 @@ func _embed_panels_in_pages():
 var _online_root: VBoxContainer
 var _online_header: Control
 var _online_cols: Control
-var _online_lobby_tab: Button
-var _online_admin_tab: Button
-
-# Admin tools live in the Online page as a second tab (admins only).
-func _embed_admin_in_online():
-	if not _panels_embedded or admin_panel == null or _online_root == null:
-		return
-	if admin_panel.get_parent() == _online_root:
-		return
-	admin_panel.get_parent().remove_child(admin_panel)
-	_online_root.add_child(admin_panel)
-	admin_panel.rect_min_size = Vector2()
-	admin_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	admin_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if admin_panel.get_child_count() > 0:
-		admin_panel.get_child(0).rect_min_size = Vector2()
-	admin_panel.visible = false
-	if admin_toggle_button != null:
-		admin_toggle_button.visible = false
-	var ui_theme = load("res://uitheme.tres")
-	var S = _online_style()
-	_online_lobby_tab = _make_button("Lobby", ui_theme)
-	S.tab(_online_lobby_tab)
-	_online_lobby_tab.pressed = true
-	_online_lobby_tab.connect("pressed", self, "_show_online_tab", [false])
-	_online_admin_tab = _make_button("Admin", ui_theme)
-	S.tab(_online_admin_tab)
-	_online_admin_tab.connect("pressed", self, "_show_online_tab", [true])
-	# the admin tools in the page's look (the "Admin" title: the tab says it)
-	var body = _first_vbox(admin_panel)
-	if body is VBoxContainer:
-		body.set_meta("ost_section", true)
-		body.add_constant_override("separation", 10)
-		if body.get_child_count() > 0 and body.get_child(0) is Label and body.get_child(0).text == "Admin":
-			body.get_child(0).visible = false
-	S.restyle_tree(admin_panel)
-	var gap = Control.new()
-	gap.rect_min_size = Vector2(14, 0)
-	_online_header.add_child(gap)
-	_online_header.move_child(gap, 1)
-	_online_header.add_child(_online_lobby_tab)
-	_online_header.move_child(_online_lobby_tab, 2)
-	_online_header.add_child(_online_admin_tab)
-	_online_header.move_child(_online_admin_tab, 3)
-
-func _first_vbox(n: Node):
-	for c in n.get_children():
-		if c is VBoxContainer:
-			return c
-		var f = _first_vbox(c)
-		if f != null:
-			return f
-	return null
-
-func _show_online_tab(admin: bool):
-	_online_cols.visible = not admin
-	_online_lobby_tab.pressed = not admin
-	_online_admin_tab.pressed = admin
-	if admin and not admin_panel.visible:
-		_toggle_admin_panel() # shows it and refreshes the admin lists
-	elif not admin:
-		admin_panel.visible = false
 
 # The Rank Map button sits in the top bar, just left of the Search box, and
 # only shows while a map's screen is open. Its panel opens right under it.
@@ -3177,6 +2439,7 @@ func _ready():
 		lang_tabs.add_child(lang_tab)
 	load("res://scripts/ui/settings/CustomBgColor.gd").attach(get_node_or_null("Main/Settings/S/F/TabContainer")) # custom bg color picker
 	load("res://scripts/ui/settings/PinnedTab.gd").add_tab(get_node_or_null("Main/Settings/S/F/TabContainer")) # Pinned: the settings you pinned, first in the list (after every other tab is in)
+	call_deferred("_store_transfer_hooks") # (Meta Quest store version: the transfer from the sideloaded one)
 	load("res://scripts/ui/settings/TrailGradientSettings.gd").attach(self) # cursor trail gradient editor
 	_setup_furry_secret()
 	_setup_folder_filters()
@@ -3242,16 +2505,9 @@ func _ready():
 		if lobby_manager.has_signal("chat_message_deleted") and not lobby_manager.is_connected("chat_message_deleted", self, "_on_chat_deleted"):
 			lobby_manager.connect("chat_message_deleted", self, "_on_chat_deleted")
 		lobby_manager.connect("global_chat_message_received", self, "_on_global_chat_message_received")
-		if lobby_manager.has_admin_key():
-			_build_admin_ui()
-			lobby_manager.connect("admin_bans_received", self, "_on_admin_bans_received")
-			lobby_manager.connect("admin_all_lobbies_received", self, "_on_admin_lobbies_received")
-			lobby_manager.connect("admin_live_bans_received", self, "_on_admin_live_bans_received")
-			lobby_manager.connect("admin_rankers_received", self, "_on_admin_rankers_received")
-		# (staff permissions come after signing in: the admin tools then)
+		# (staff permissions come after signing in: the MOTD button then)
 		if lobby_manager.has_signal("perms_changed") and not lobby_manager.is_connected("perms_changed", self, "_on_perms_changed"):
 			lobby_manager.connect("perms_changed", self, "_on_perms_changed")
-		lobby_manager.connect("admin_player_tags_received", self, "_on_admin_player_tags_received")
 
 
 	if AudioServer.get_bus_effect_count(AudioServer.get_bus_index("Music")) > 0:
@@ -3309,6 +2565,35 @@ func _on_mods_changed_for_lobby():
 
 # back in Settings on a category after the menu was loaded again (a setting
 # that changes the menu itself, like New Settings UI)
+# Meta Quest, the store version (scripts/StoreTransfer.gd): after a transfer
+# from the sideloaded version moved in, it says so once; and the first time
+# the store version is opened it offers the transfer.
+func _store_transfer_hooks():
+	var MOVE = load("res://scripts/StoreTransfer.gd")
+	var n: int = MOVE.take_notice()
+	if n > 0:
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Everything from the sideloaded version is here (%d files): your account, settings, scores, maps and the rest." % n, "Transfer", 12)
+		return
+	if not MOVE.is_store():
+		return
+	var f := File.new()
+	if f.file_exists(MOVE.ASKED):
+		return
+	if f.open(MOVE.ASKED, File.WRITE) == OK:
+		f.store_string("1")
+		f.close()
+	yield(get_tree().create_timer(2.5), "timeout")
+	if not is_inside_tree():
+		return
+	Globals.confirm_prompt.s_alert.play()
+	Globals.confirm_prompt.open("Did you play the sideloaded Chromia VR before?\n\nEverything can come over to this store version: your account, settings, scores, level, maps, replays and the rest. It takes a code from the sideloaded version (its Settings > Transfer shows how).\n\nYou can also do it later, in Settings > Transfer.", "Welcome to Chromia", [{text = "Not now"}, {text = "Show me"}])
+	var picked: int = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.s_next.play()
+	Globals.confirm_prompt.close()
+	yield(Globals.confirm_prompt, "done_closing")
+	if picked == 1 and is_inside_tree():
+		_reopen_settings("Transfer")
+
 func _reopen_page(page_name: String):
 	var page = get_node_or_null("Main/" + page_name)
 	var sidebar = get_node_or_null("Sidebar")

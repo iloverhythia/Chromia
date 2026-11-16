@@ -87,7 +87,7 @@ func files_dropped(files: PoolStringArray, _screen: int):
 		var rest := PoolStringArray()
 		for f in files:
 			var e: String = f.get_extension().to_lower()
-			if e == "json" or e == "txt" or e == "obj" or e == "mtl":
+			if e == "json" or e == "txt" or e == "obj" or e == "mtl" or e == "glb":
 				content.append(f)
 			elif e == "cskin":
 				# a Chromia skin: shown in Settings > Skins to put on

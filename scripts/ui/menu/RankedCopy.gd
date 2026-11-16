@@ -191,9 +191,19 @@ func _install(song, path: String, want: String) -> String:
 	if not _write(tmp, data):
 		return "Couldn't save the download."
 	var check = Song.new()
-	if check.load_from_sspm(tmp) is String or check.compute_chart_hash() != want:
+	var found := "" if check.load_from_sspm(tmp) is String else String(check.compute_chart_hash())
+	if found != want:
 		dir.remove(tmp)
-		return "The server's copy doesn't match the ranked version either. Tell a ranker."
+		# The server has another version than the ranked one (ranked again after
+		# its notes changed). It's told, so a ranker's game publishes the ranked
+		# version in its place (LobbyManager._on_stale_ranked).
+		Rhythia.trail("ranked copy of %s: the server's file has other notes (%s, ranked %s)" % [String(song.id), found.left(10), want.left(10)])
+		var lm = get_node_or_null("/root/LobbyManager")
+		if lm != null and found != "" and lm.has_method("report_ranked_file_mismatch"):
+			lm.report_ranked_file_mismatch(String(song.id), found)
+		if found == String(_hashes.get(_key(path), "")):
+			return "You already have the server's copy: the server itself has an older version of this map than the one that was ranked. The rankers have been told. It works once one of them has published the ranked version."
+		return "The server has an older version of this map than the one that was ranked, so there's nothing to download yet. The rankers have been told. It works once one of them has published the ranked version."
 
 	# A new file name, not yours: the map list's cache remembers files by name.
 	var base := path.get_basename()

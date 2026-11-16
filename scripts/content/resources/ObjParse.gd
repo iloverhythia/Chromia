@@ -15,6 +15,10 @@ const debug:=false
 
 #Create mesh from obj and mtl paths
 static func load_obj(obj_path:String, mtl_path:String="")->Mesh:
+	# a .glb (binary glTF), whatever the file is called: GlbParse.gd
+	var Glb = load("res://scripts/content/resources/GlbParse.gd")
+	if Glb.is_glb(obj_path):
+		return Glb.load_glb(obj_path)
 	if mtl_path=="":
 		mtl_path=search_mtl_path(obj_path)
 	var obj := get_data(obj_path)

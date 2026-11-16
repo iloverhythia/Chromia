@@ -24,6 +24,7 @@ func _ready():
 		call_deferred("_add_map_grid")
 		call_deferred("_add_show_map_rp")
 		call_deferred("_add_new_settings_ui")
+		call_deferred("_add_settings_side_tabs")
 		call_deferred("_add_frame_smoothing")
 		call_deferred("_add_stream_mode")
 	if target == "map_grid":
@@ -155,6 +156,22 @@ func _add_new_settings_ui():
 		at = parent.get_node_or_null("MapGrid")
 	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
 
+# "Side Tabs" for the old Settings page (SettingsHeader.gd): only shown there
+func _add_settings_side_tabs():
+	var parent = get_parent()
+	if parent == null or parent.has_node("SettingsSideTabs"):
+		return
+	if Rhythia.new_settings_ui and not Rhythia.sound_space_mode:
+		return # (the new page has its own list down the side)
+	var cb = duplicate()
+	cb.name = "SettingsSideTabs"
+	cb.target = "settings_side_tabs"
+	cb.text = "Side Tabs"
+	cb.hint_tooltip = "The Settings tabs in a list down the left side instead of across the top. Changing it loads the menu again."
+	parent.add_child(cb)
+	var at: Node = parent.get_node_or_null("NewSettingsUI")
+	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
+
 # Experimental: "Show RP on Maps" (off by default). RP is earned either way
 func _add_show_map_rp():
 	var parent = get_parent()
@@ -206,7 +223,7 @@ func _add_touch_toggle():
 	var after: Node = b
 	for opt in [
 		["mobile_no_delay", "No Touch Delay", "The cursor reacts to your finger right away: every movement is used as it comes, and on iPhone the short hold Chromia's engine puts on each new touch is removed."],
-		["mobile_high_hz", "120 Hz", "Draws at your screen's highest refresh rate (120 Hz on ProMotion iPhones and iPads) for smoother movement and less delay. Uses more battery."],
+		["mobile_high_hz", "120 Hz", "Draws above 60 frames a second on a 120 Hz screen, for smoother movement and less delay. On an iPhone or iPad the game tries 120, then 80, in the menu and keeps the highest one the device really holds (an iPhone asked for 120 can end up at a delayed 60); what it's running at is shown next to the name. Takes a Max FPS under 120 off. Uses more battery."],
 		["mobile_old_cursor", "Old Cursor Movement", "Moves the cursor the way it did before the smoother prediction: led from each touch as it's handled, back on your finger the moment a frame has no new touch, and only with Absolute Mode. Needs No Touch Delay on (off, the cursor simply sits on your finger, as it always did). Takes effect in the next song."],
 	]:
 		if parent.has_node(opt[0]):
@@ -219,6 +236,14 @@ func _add_touch_toggle():
 		parent.add_child(t)
 		parent.move_child(t, after.get_index() + 1)
 		t.connect("pressed", self, "_mobile_tuning_pressed", [t, opt[0]])
+		if opt[0] == "mobile_high_hz":
+			# what it's really getting (scripts/HighHzCheck.gd), next to its name
+			var tm := Timer.new()
+			tm.wait_time = 1.0
+			tm.autostart = true
+			tm.connect("timeout", self, "_hz_note", [t])
+			t.add_child(tm)
+			_hz_note(t)
 		after = t
 	_add_predict_slider(parent)
 
@@ -260,6 +285,12 @@ func _add_predict_slider(parent: Node):
 func _on_predict_changed(v: float, val: Label):
 	Rhythia.mobile_predict_ms = v
 	val.text = "%d ms" % int(v)
+
+func _hz_note(box: CheckBox):
+	var n := ""
+	if box.pressed and Rhythia.dev == "mobile":
+		n = load("res://scripts/HighHzCheck.gd").note()
+	box.text = "120 Hz" if n == "" else "120 Hz  (%s)" % n
 
 # iPhone: say when the app needs reinstalling for these
 func _mobile_tuning_pressed(box: CheckBox, key: String):

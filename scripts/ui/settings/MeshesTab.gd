@@ -135,7 +135,7 @@ func _ready():
 	title.size_flags_horizontal = SIZE_EXPAND_FILL
 	top.add_child(title)
 	import_btn = _button("Import", "_on_import")
-	import_btn.hint_tooltip = "Add .obj meshes"
+	import_btn.hint_tooltip = "Add .obj or .glb meshes"
 	top.add_child(import_btn)
 
 	search = LineEdit.new()
@@ -681,7 +681,7 @@ func _on_import():
 		_show_status("The file picker isn't available")
 		return
 	Globals.file_sel.open_file(self, "_on_import_files",
-		PoolStringArray(["*.obj ; OBJ meshes"]), true, OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS))
+		PoolStringArray(["*.obj, *.glb ; Meshes (.obj, .glb)"]), true, OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS))
 
 func _on_import_files(files):
 	if not is_inside_tree():
@@ -694,17 +694,18 @@ func _on_import_files(files):
 	var msgs = []
 	for f in files:
 		f = String(f)
-		if f == "" or f.get_extension().to_lower() != "obj":
+		var ext = f.get_extension().to_lower()
+		if f == "" or not (ext in ["obj", "glb"]):
 			continue
-		# lowercase ".obj": the game only loads that extension from the meshes folder
-		var dest = Rhythia.user_mesh_dir.plus_file(f.get_file().get_basename() + ".obj")
+		# lowercase ".obj" / ".glb": the game only loads those from the meshes folder
+		var dest = Rhythia.user_mesh_dir.plus_file(f.get_file().get_basename() + "." + ext)
 		# picked from the meshes folder itself: copying a file onto itself empties it
 		var same = _same_file(f, dest)
 		if not same and d.copy(f, dest) != OK:
 			msgs.append("couldn't copy %s" % f.get_file())
 			continue
 		var mtl = f.get_basename() + ".mtl"
-		if not same and File.new().file_exists(mtl):
+		if ext == "obj" and not same and File.new().file_exists(mtl):
 			d.copy(mtl, dest.get_basename() + ".mtl")
 		var test = ObjParse.load_obj(dest)
 		if test == null or test.get_surface_count() == 0:

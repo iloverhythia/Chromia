@@ -168,12 +168,9 @@ func _on_channel(ch: Button):
 
 func _on_crash_reports():
 	var reports: Array = Rhythia.saved_crash_reports()
-	if reports.empty():
-		Globals.notify(Globals.NOTIFY_SUCCEED, "No crashes saved. If Chromia ever closes unexpectedly, its report shows up here.", "Crash Reports")
-		return
 	var f := File.new()
 	var text := ""
-	if f.open(reports[0], File.READ) == OK:
+	if not reports.empty() and f.open(reports[0], File.READ) == OK:
 		text = f.get_as_text()
 		f.close()
 	var lines := Array(text.strip_edges().split("\n"))
@@ -182,13 +179,22 @@ func _on_crash_reports():
 		var l := String(lines[i])
 		var cut := l.find("] ")
 		shown.append(l.substr(cut + 2) if cut != -1 else l)
-	Globals.confirm_prompt.open(
-		"%d saved crash report(s). The newest ended with:\n\n%s\n\nCopy it and paste it in a message to the developer." % [reports.size(), PoolStringArray(shown).join("\n")],
-		"Crash Reports",
-		[{text = "Close", wait = 0}, {text = "Copy newest", wait = 0}]
-	)
+	var body := "No crashes saved. If Chromia ever closes unexpectedly, its report shows up here."
+	if not reports.empty():
+		body = "%d saved crash report(s). The newest ended with:\n\n%s\n\nCopy it and paste it in a message to the developer." % [reports.size(), PoolStringArray(shown).join("\n")]
+	# (a crash's report also goes to the developers by itself: scripts/CrashSend.gd)
+	var sending: bool = Rhythia.send_crash_logs
+	body += "\n\nSending by itself is %s. When it's on, the report of a crash (what the game was doing, your version and device, your player name; never your account id) goes to the developers at the next start." % ("ON" if sending else "OFF")
+	var options := [{text = "Close", wait = 0}, {text = "Turn sending off" if sending else "Turn sending on", wait = 0}]
+	if not reports.empty():
+		options.append({text = "Copy newest", wait = 0})
+	Globals.confirm_prompt.open(body, "Crash Reports", options)
 	var picked = yield(Globals.confirm_prompt, "option_selected")
 	Globals.confirm_prompt.close()
 	if picked == 1:
+		Rhythia.send_crash_logs = not sending
+		Rhythia.save_settings()
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Crash reports are sent by themselves again." if Rhythia.send_crash_logs else "Crash reports stay on this device. You can still copy one here.", "Crash Reports")
+	elif picked == 2:
 		OS.clipboard = text
 		Globals.notify(Globals.NOTIFY_SUCCEED, "The crash report is copied.", "Copied")

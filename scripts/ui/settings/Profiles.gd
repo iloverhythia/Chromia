@@ -17,7 +17,7 @@ func import_profile():
 	Globals.file_sel.open_file(
 		self,
 		"_on_content_files_selected",
-		PoolStringArray(["*.json, *.txt, *.obj, *.mtl ; (profile, colorset, mesh)"]),
+		PoolStringArray(["*.json, *.txt, *.obj, *.mtl, *.glb ; (profile, colorset, mesh)"]),
 		false,
 		"user://"
 	)
@@ -43,13 +43,13 @@ func _on_content_files_selected(files: PoolStringArray):
 
 	for path in files:
 		var ext = path.get_extension().to_lower()
-		if ext == "obj":
+		if ext == "obj" or ext == "glb": # (.glb: a mesh on its own, GlbParse.gd)
 			obj_files[path.get_file().get_basename()] = path
 		elif ext == "mtl":
 			mtl_files[path.get_file().get_basename()] = path
 
 	for base in obj_files.keys():
-		if mtl_files.has(base):
+		if mtl_files.has(base) and obj_files[base].get_extension().to_lower() == "obj":
 			_import_mesh_pair(obj_files[base], mtl_files[base], base)
 			handled[obj_files[base]] = true
 			handled[mtl_files[base]] = true
@@ -72,11 +72,11 @@ func _on_content_files_selected(files: PoolStringArray):
 				_import_profile_file(path)
 			"txt":
 				_import_colorset_file(path)
-			"obj", "mtl":
+			"obj", "mtl", "glb":
 				pass
 			_:
 				Globals.notify(Globals.NOTIFY_ERROR,
-					"'%s' isn't a supported content file. Use .json (profile), .txt (colorset), or .obj+.mtl (mesh)." % path.get_file(),
+					"'%s' isn't a supported content file. Use .json (profile), .txt (colorset), or .obj+.mtl or .glb (mesh)." % path.get_file(),
 					"Import Failed")
 
 func _import_profile_file(path: String):
@@ -148,8 +148,9 @@ func _import_mesh_pair(obj_path: String, mtl_path: String, base_name: String):
 	if not dir.dir_exists(Globals.p(MESH_DIR)):
 		dir.make_dir_recursive(Globals.p(MESH_DIR))
 
-	# (lowercase .obj: the game only loads that from the meshes folder)
-	var obj_dest := Globals.p(MESH_DIR.plus_file(obj_path.get_file().get_basename() + ".obj"))
+	# (lowercase .obj / .glb: the game only loads those from the meshes folder)
+	var mext: String = "glb" if obj_path.get_extension().to_lower() == "glb" else "obj"
+	var obj_dest := Globals.p(MESH_DIR.plus_file(obj_path.get_file().get_basename() + "." + mext))
 	if dir.copy(obj_path, obj_dest) != OK or (mtl_path != "" and dir.copy(mtl_path, obj_dest.get_basename() + ".mtl") != OK):
 		Globals.notify(Globals.NOTIFY_ERROR, "Could not save mesh '%s'." % base_name, "Import Failed")
 		return

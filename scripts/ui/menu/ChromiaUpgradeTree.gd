@@ -176,6 +176,12 @@ var _fv := []                 # per effect: what the found ones add up to right 
 var _saved_t := 0
 var _mini := {} # the Games (TreeMinigames.gd): their boards and bests
 var _games = null
+# More (TreeExtras.gd): milestones, Insight, research, challenges, stage, streak
+const EXTRA = preload("res://scripts/ui/menu/TreeExtras.gd")
+var _extra := {}       # its state, kept in the save
+var _xb := {}          # its bonuses as last worked out
+var _x_cost_pow := 1.0 # a challenge's rule: prices with more digits
+var _extras = null     # its panel
 
 var _world: Control
 var _btn_layer: Control
@@ -454,6 +460,8 @@ func _ready():
 	_top_button("Recenter", -110, "_recenter")
 	_prestige_btn = _top_button("Prestige", -204, "_toggle_prestige")
 	_feat_btn = _top_button("Features", -298, "_toggle_features")
+	_more_btn = _top_button("More", -392, "_toggle_extras")
+	_more_btn.hint_tooltip = "Milestones, research, challenges, stage and streak"
 
 	var bottom := ColorRect.new()
 	bottom.color = Color(0, 0, 0, 0.94)
@@ -569,6 +577,10 @@ func open():
 	set_process(true)
 	_recalc()
 	_offline_earnings()
+	var x_note: String = EXTRA.on_open(self) # (a new day; what you played since last time)
+	if x_note != "":
+		_info_label.text = (_info_label.text + "\n" if _info_label.text != "" else "") + x_note
+		_recalc()
 	_rebuild_buttons()
 	_recenter()
 	_refresh_ui()
@@ -1071,6 +1083,8 @@ func progress_score() -> Array:
 func reload_from_save(note: String):
 	if _games != null and is_instance_valid(_games) and _games.has_method("close"):
 		_games.close()
+	if _extras_open():
+		_extras.visible = false
 	nodes = []
 	layers = []
 	_load()
@@ -1115,6 +1129,8 @@ func prestige(k: int) -> bool:
 	if not got.empty():
 		note += "%d new feature%s found." % [got.size(), "" if got.size() == 1 else "s"]
 	_last_prestige_note = note
+	EXTRA.on_prestige(self, k) # (Insight; a challenge ends)
+	_recalc()
 	_refresh_ui()
 	_save()
 	return true
@@ -1160,6 +1176,10 @@ func _recalc():
 		if FT_CAP[t] > 0.0:
 			v = min(v, FT_CAP[t])
 		_fv.append(v)
+	var x_rule: String = EXTRA.rule(self)
+	if x_rule == "blackout": # (a challenge: the features do nothing)
+		for t in range(FT_N):
+			_fv[t] = 0.0
 	# the layers
 	_coin_mult_l = 0.0
 	_click_mult_l = 0.0
@@ -1174,6 +1194,8 @@ func _recalc():
 	for k in range(1, layer_count() + 1):
 		boost.append(0.0)
 	for k in range(1, layer_count() + 1):
+		if x_rule == "solo": # (a challenge: points and perks do nothing for your coins)
+			break
 		var L := _layer(k)
 		var pts: float = float(L.p)
 		if not is_zero(pts):
@@ -1236,9 +1258,10 @@ func _recalc():
 	else:
 		_auto_every = 0.0
 	_branch_luck = _fv[19]
+	EXTRA.apply(self) # (milestones, research, challenges, stage and streak: TreeExtras.gd)
 
 func _cost_l(n) -> float:
-	return float(n.lc) + _cheap_l
+	return float(n.lc) * _x_cost_pow + _cheap_l
 
 func _affordable(n) -> bool:
 	return coins_l >= _cost_l(n) - 1e-9
@@ -1368,6 +1391,10 @@ func _process(delta):
 	if _calc_t >= 0.5:
 		_calc_t = 0.0
 		_recalc() # (features that grow with your coins, clicks and time)
+		var x_note: String = EXTRA.tick(self)
+		if x_note != "":
+			_info_label.text = x_note
+			_recalc()
 	_ui_t += delta
 	if _ui_t >= 0.1:
 		_ui_t = 0.0
@@ -1804,10 +1831,31 @@ func _build_prestige_panel():
 	_panel_hint.add_color_override("font_color", Color(1, 1, 1, 0.45))
 	v.add_child(_panel_hint)
 
+# milestones, research, challenges, stage and streak, over the tree (TreeExtras.gd)
+var _more_btn: Button
+func _toggle_extras():
+	_panel.visible = false
+	_feat_panel.visible = false
+	if _games_open():
+		_games.visible = false
+	if _extras == null or not is_instance_valid(_extras):
+		_extras = EXTRA.new()
+		_extras.tr = self
+		add_child(_extras)
+		return
+	_extras.visible = not _extras.visible
+	if _extras.visible:
+		_extras._rebuild()
+
+func _extras_open() -> bool:
+	return _extras != null and is_instance_valid(_extras) and _extras.visible
+
 # the minigames, over the tree (TreeMinigames.gd)
 func _toggle_games():
 	_panel.visible = false
 	_feat_panel.visible = false
+	if _extras_open():
+		_extras.visible = false
 	if _games == null or not is_instance_valid(_games):
 		_games = load("res://scripts/ui/menu/TreeMinigames.gd").new()
 		_games.tr = self
@@ -1821,6 +1869,8 @@ func _games_open() -> bool:
 	return _games != null and is_instance_valid(_games) and _games.visible
 
 func _toggle_prestige():
+	if _extras_open():
+		_extras.visible = false
 	_panel.visible = not _panel.visible
 	_feat_panel.visible = false
 	_confirm_layer = -1
@@ -1993,6 +2043,8 @@ func _build_feature_panel():
 	inner.add_child(_feat_list)
 
 func _toggle_features():
+	if _extras_open():
+		_extras.visible = false
 	_feat_panel.visible = not _feat_panel.visible
 	_panel.visible = false
 	if _feat_panel.visible:
@@ -2088,6 +2140,11 @@ func _input(ev):
 			_games.back()
 			get_tree().set_input_as_handled()
 		return
+	if _extras_open():
+		if ev is InputEventKey and ev.pressed and ev.scancode == KEY_ESCAPE:
+			_extras.visible = false
+			get_tree().set_input_as_handled()
+		return
 	if ev is InputEventKey and ev.pressed and ev.scancode == KEY_ESCAPE:
 		if _panel.visible:
 			_toggle_prestige()
@@ -2163,6 +2220,7 @@ func _save_text() -> String:
 	head.append("\"run_l\": %s" % JSON.print(run_l))
 	head.append("\"stats\": %s" % JSON.print(stats, "", true))
 	head.append("\"mini\": %s" % JSON.print(_mini, "", true))
+	head.append("\"extras\": %s" % JSON.print(_extra, "", true))
 	head.append("\"recent\": %s" % JSON.print(_recent))
 	var lines := PoolStringArray()
 	for l in layers:
@@ -2241,6 +2299,8 @@ func _load():
 				_saved_t = int(d.get("t", 0))
 			var mi = d.get("mini")
 			_mini = mi if mi is Dictionary else {}
+			var ex = d.get("extras")
+			_extra = ex if ex is Dictionary else {}
 			nodes = d.nodes
 			for n in nodes:
 				n.id = int(n.id)

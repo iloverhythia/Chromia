@@ -12,6 +12,8 @@ extends Control
 #   Upgrades (paid in chrome coins, priced in seconds of your coin rate like
 #   the games' prizes): faster and better new logos, a bigger board, more
 #   income and merge rewards, auto-merging and lucky merges.
+#   A bin under the board deletes a logo dragged onto it; clicking it twice
+#   clears the old logos (below the level new ones come at).
 # - Note Rush: hit the notes on the grid before they fade, 30 seconds.
 # - Lucky Wheel: a free spin every 10 minutes (coins, or a new feature).
 # - Memory Match: find the 8 pairs; the fewer tries, the bigger the prize.
@@ -249,6 +251,9 @@ class MergeGame extends Control:
 	var _font: DynamicFont
 	var _font_small: DynamicFont
 	var _pops := [] # [cell, time] merges, for a flash
+	var _bin_press := false # (the bin was pressed with no logo in hand)
+	var _bin_ask_t := 0.0 # > 0: a second click on the bin deletes the old logos
+	var _bin_flash := 0.0
 
 	func _ready():
 		mouse_filter = MOUSE_FILTER_STOP
@@ -446,6 +451,78 @@ class MergeGame extends Control:
 		_msg = t
 		_msg_t = 3.0
 
+	# --- the bin (under the board, on its left) ---
+	# Drag a logo onto it and it's gone. Clicking it (twice, so it isn't a slip)
+	# deletes the old logos: every one below the level new logos come at, which
+	# only fill the board up once you're past them.
+	func _bin_rect() -> Rect2:
+		var g := _geo()
+		var s: float = g[1] * N
+		return Rect2(g[0] + Vector2(-6, s + 14), Vector2(clamp(s * 0.42, 132.0, 210.0), 50))
+
+	func _old_logos() -> Array:
+		var lv := spawn_level()
+		var old := []
+		for i in board.size():
+			if board[i] > 0 and board[i] < lv:
+				old.append(i)
+		return old
+
+	func _bin_one(i: int):
+		if i < 0 or i >= board.size() or board[i] <= 0:
+			return
+		var lv: int = board[i]
+		board[i] = 0
+		_bin_flash = 0.35
+		_bin_ask_t = 0.0
+		_say("Deleted: level %d, %s" % [lv, games.logo_name(lv)])
+		_save()
+
+	func _bin_click():
+		var old := _old_logos()
+		if old.empty():
+			_bin_ask_t = 0.0
+			_say("Drag a logo onto the bin to delete it.")
+			return
+		if _bin_ask_t <= 0.0:
+			_bin_ask_t = 4.0
+			_say("Click the bin again to delete the %d old logo%s (below level %d)." % [old.size(), "" if old.size() == 1 else "s", spawn_level()])
+			return
+		for i in old:
+			board[i] = 0
+		_bin_ask_t = 0.0
+		_bin_flash = 0.35
+		_say("Deleted %d old logo%s." % [old.size(), "" if old.size() == 1 else "s"])
+		_save()
+
+	func _draw_bin(cell: float):
+		var r := _bin_rect()
+		var over: bool = _drag >= 0 and r.has_point(_drag_pos)
+		var hot: float = clamp(_bin_flash / 0.35, 0.0, 1.0)
+		var red := Color(1.0, 0.36, 0.42)
+		var line: Color = red if (over or _bin_ask_t > 0.0) else Color(1, 1, 1, 0.45 if _drag >= 0 else 0.22)
+		draw_rect(r, Color(0.1, 0.08, 0.13).linear_interpolate(Color(0.42, 0.1, 0.14), max(hot, 0.75 if over else 0.0)), true)
+		draw_rect(r, line, false, 2.0 if over else 1.0)
+		# a little bin: a lid with its handle, the can and its ribs (the lid lifts for a logo over it)
+		var ic: Color = red if (over or _bin_ask_t > 0.0) else Color(1, 1, 1, 0.75)
+		var c := r.position + Vector2(27, r.size.y / 2)
+		var lift: float = 4.0 if over else 0.0
+		draw_line(c + Vector2(-10, -9 - lift), c + Vector2(10, -9 - lift), ic, 2.0)
+		draw_line(c + Vector2(-3, -12 - lift), c + Vector2(3, -12 - lift), ic, 2.0)
+		draw_polyline(PoolVector2Array([c + Vector2(-8, -6), c + Vector2(-6, 12), c + Vector2(6, 12), c + Vector2(8, -6)]), ic, 2.0)
+		for x in [-3.0, 0.0, 3.0]:
+			draw_line(c + Vector2(x, -3), c + Vector2(x, 9), ic, 1.0)
+		var old := _old_logos().size()
+		var head := "Drop to delete" if over else ("Click again: delete %d" % old if _bin_ask_t > 0.0 else "Bin")
+		var sub := "" if (over or _bin_ask_t > 0.0) else ("drag a logo here" if old == 0 else "%d old: click to clear" % old)
+		var tx: float = r.position.x + 50
+		var room: float = r.size.x - 56
+		if sub == "":
+			draw_string(_font_small, Vector2(tx, r.position.y + 30), head, ic, room)
+		else:
+			draw_string(_font_small, Vector2(tx, r.position.y + 22), head, ic, room)
+			draw_string(_font_small, Vector2(tx, r.position.y + 40), sub, Color(1, 1, 1, 0.5), room)
+
 	# the board's place on screen: square, as big as fits
 	func _geo() -> Array:
 		var top := 54.0
@@ -467,13 +544,22 @@ class MergeGame extends Control:
 		if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
 			if ev.pressed:
 				var c := _cell_at(ev.position)
+				_bin_press = false
 				if c >= 0 and board[c] > 0:
 					_drag = c
 					_drag_pos = ev.position
+				elif _bin_rect().has_point(ev.position):
+					_bin_press = true
 			elif _drag >= 0:
-				var to := _cell_at(ev.position)
-				_drop(_drag, to)
+				if _bin_rect().has_point(ev.position):
+					_bin_one(_drag)
+				else:
+					_drop(_drag, _cell_at(ev.position))
 				_drag = -1
+			elif _bin_press:
+				_bin_press = false
+				if _bin_rect().has_point(ev.position):
+					_bin_click()
 			update()
 			accept_event()
 		elif ev is InputEventMouseMotion and _drag >= 0:
@@ -519,6 +605,8 @@ class MergeGame extends Control:
 			return
 		_t += delta
 		_msg_t -= delta
+		_bin_ask_t = max(0.0, _bin_ask_t - delta)
+		_bin_flash = max(0.0, _bin_flash - delta)
 		# a new logo every 3 seconds while there's room
 		_spawn_t += delta
 		if _spawn_t >= spawn_every():
@@ -561,13 +649,16 @@ class MergeGame extends Control:
 				continue
 			var p := o + Vector2(pop[0] % N, pop[0] / N) * cell + Vector2(cell, cell) / 2
 			draw_arc(p, cell * (0.35 + age), 0, TAU, 32, Color(1, 1, 1, 1.0 - age / 0.4), 3, true)
+		_draw_bin(cell)
 		if _drag >= 0:
 			games.draw_logo(self, _drag_pos, cell * 0.8, board[_drag], _t)
 		var info := "Best: level %d, %s    ·    new logos: level %d" % [best, games.logo_name(best), spawn_level()]
 		draw_string(_font_small, Vector2(312, 24), info, Color(1, 1, 1, 0.6))
 		if _msg_t > 0:
 			var ts := _font.get_string_size(_msg)
-			draw_string(_font, Vector2((rect_size.x - ts.x) / 2, o.y + cell * N + 40), _msg, Color(1, 0.86, 0.98, clamp(_msg_t, 0, 1)))
+			# (centred, but never over the bin)
+			var mx: float = max((rect_size.x - ts.x) / 2, _bin_rect().end.x + 14)
+			draw_string(_font, Vector2(mx, o.y + cell * N + 46), _msg, Color(1, 0.86, 0.98, clamp(_msg_t, 0, 1)))
 
 # --- Note Rush -------------------------------------------------------------------------
 
