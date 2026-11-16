@@ -2,12 +2,9 @@ extends Node
 
 onready var rootg = get_tree().root
 
-# (analytics go through the server, chromia.lol/ga-collect: no keys in the game)
+# (no analytics: the server's admin panel Stats page counts what it sees itself)
 
-const BANNED_LIST_URL = "https://raw.githubusercontent.com/SavvyScripter-GH/SavvyAssets/main/banned_players.json"
-var banned_clients: Array = []
 
-var heartbeat_timer: Timer
 var cid: String = ""
 var dev = "pc"
 const MOBILE_UI_SIZE := Vector2(1024, 860)
@@ -1015,90 +1012,6 @@ func _on_discord_login_poll_received(result, response_code, headers, body, http_
 		discord_login_error = Globals.s(data.get("error", "Discord login failed."))
 		emit_signal("discord_login_changed")
 
-func _on_heartbeat_timeout(cid: String):
-	send_analytics_event("session_heartbeat", {}, cid)
-
-func fetch_banned_list():
-	var http_request = HTTPRequest.new()
-	add_child(http_request)
-
-	http_request.connect("request_completed", self, "_on_request_completed", [http_request])
-
-	var error = http_request.request(BANNED_LIST_URL)
-	if error != OK:
-		print("An error occurred while initiating the HTTP request.")
-
-func _on_request_completed(result, response_code, headers, body, http_request: HTTPRequest = null):
-	# (this used to free whatever node was added last, e.g. the live ban timer)
-	if is_instance_valid(http_request):
-		http_request.queue_free()
-
-	if response_code == 200:
-		var raw_text = body.get_string_from_utf8()
-
-		var json_result = JSON.parse(raw_text)
-
-		if json_result.error == OK:
-			if typeof(json_result.result) == TYPE_ARRAY:
-				banned_clients = json_result.result
-
-			else:
-				print("Error: Fetched data is not an array format.")
-		else:
-			print("JSON Parsing failed: ", json_result.error_string)
-	else:
-		print("Failed to reach GitHub server. HTTP Status Code: ", response_code)
-
-func is_client_banned(client_id: String) -> bool:
-	# (no id, as in the website's game view of a replay, is never banned: the
-	# list on GitHub has an empty entry)
-	return client_id != "" and banned_clients.has(client_id)
-
-const LIVE_BAN_STATUS_URL = "https://chromia.lol/savia-live-ban-status"
-const LIVE_BAN_POLL_INTERVAL_SEC = 30.0
-var live_ban_reason := "" # (what the admin wrote when banning: shown on the ban screen, scenes/errors/banned.gd)
-var _live_ban_timer: Timer
-
-func check_live_ban():
-	if cid == "":
-		return
-	var http_request = HTTPRequest.new()
-	add_child(http_request)
-	http_request.connect("request_completed", self, "_on_live_ban_status_received", [http_request])
-	var error = http_request.request(LIVE_BAN_STATUS_URL + "?client_id=" + cid.http_escape())
-	if error != OK:
-		print("[live_ban] request failed to start, error ", error)
-		http_request.queue_free()
-
-func _on_live_ban_status_received(result, response_code, headers, body, http_request: HTTPRequest):
-	http_request.queue_free()
-	if response_code != 200:
-		print("[live_ban] status check failed, HTTP ", response_code)
-		return
-	var json_result = JSON.parse(body.get_string_from_utf8())
-	if json_result.error != OK or typeof(json_result.result) != TYPE_DICTIONARY:
-		print("[live_ban] status response wasn't valid JSON: ", json_result.error_string)
-		return
-	print("[live_ban] status check OK, banned=", json_result.result.get("banned", false))
-	if bool(json_result.result.get("banned", false)):
-		var r = json_result.result.get("reason", "")
-		live_ban_reason = String(r) if r is String else ""
-		# (already on the ban screen: it keeps itself up to date; loading it
-		# again every poll started its clip over)
-		var cs = get_tree().current_scene
-		if cs != null and cs.filename == "res://scenes/errors/banned.tscn":
-			return
-		get_tree().change_scene("res://scenes/errors/banned.tscn")
-
-func start_live_ban_poll():
-	if _live_ban_timer != null:
-		return
-	_live_ban_timer = Timer.new()
-	_live_ban_timer.wait_time = LIVE_BAN_POLL_INTERVAL_SEC
-	_live_ban_timer.autostart = true
-	_live_ban_timer.connect("timeout", self, "check_live_ban")
-	add_child(_live_ban_timer)
-
 func check_for_update_log():
 	var config = ConfigFile.new()
 	config.load("user://settings.cfg")
@@ -1106,14 +1019,6 @@ func check_for_update_log():
 	var client_id = _ensure_client_id()
 	Rhythia.cid = client_id
 
-	send_analytics_event("app_launch", {
-		"client_id": Rhythia.cid,
-		"version": ProjectSettings.get_setting("application/config/version"),
-		"platform": OS.get_name()
-		},
-		client_id
-	)
-	start_heartbeat(client_id)
 
 	var current_version = ProjectSettings.get_setting("application/config/version")
 	var last_seen_version = config.get_value("internal", "last_version", "0.0.0")
@@ -1122,7 +1027,6 @@ func check_for_update_log():
 		return
 
 	if current_version != last_seen_version:
-		send_analytics_event("app_update", {}, client_id)
 		# (no "What's New" popup after an update: it was big and in the way;
 		# the notes stay in the Update Log)
 		# Reload first so changes made since the start of this function aren't lost.
@@ -1133,45 +1037,6 @@ func check_for_update_log():
 
 func _is_testing_version(v: String) -> bool:
 	return v.findn("-testin") != -1
-
-func send_analytics_event(event_name: String, other_payload: Dictionary, cid: String):
-	var url = "https://chromia.lol/ga-collect"
-
-	var payload = {
-		"client_id": cid,
-		"events": [{
-			"name": event_name,
-			"params": other_payload
-		}]
-	}
-
-	var http = HTTPRequest.new()
-	http.use_threads = OS.can_use_threads() # connecting/TLS off the main thread (this runs as a song starts)
-	add_child(http)
-	http.request(url, ["Content-Type: application/json"], false, HTTPClient.METHOD_POST, JSON.print(payload))
-	yield(http, "request_completed")
-	http.queue_free()
-
-func start_heartbeat(cid: String):
-	if heartbeat_timer: return
-	heartbeat_timer = Timer.new()
-	heartbeat_timer.wait_time = 60
-	heartbeat_timer.autostart = true
-	heartbeat_timer.connect(
-	"timeout",
-	self,
-	"send_analytics_event",
-	[
-		"session_heartbeat",
-		{
-			"client_id": Rhythia.cid,
-			"version": ProjectSettings.get_setting("application/config/version"),
-			"platform": OS.get_name()
-		},
-		cid
-	]
-)
-	add_child(heartbeat_timer)
 
 func _generate_simple_id() -> String:
 	randomize()
@@ -6868,7 +6733,6 @@ func do_init(_ud = null):
 	check_player_xp()
 	installed_packs = []
 	yield(get_tree().create_timer(0.05), "timeout")
-	fetch_banned_list()
 	var lp: bool = false
 	var file: File = File.new()
 	var dir: Directory = Directory.new()
@@ -7374,11 +7238,6 @@ func do_init(_ud = null):
 	emit_signal("init_stage_reached", "Check Banned")
 	yield(get_tree(), "idle_frame")
 	print(cid)
-	if is_client_banned(cid):
-		get_tree().change_scene("res://scenes/errors/banned.tscn")
-		return
-	check_live_ban()
-	start_live_ban_poll()
 
 	emit_signal("init_stage_reached", "Read user settings")
 	yield(get_tree(), "idle_frame")

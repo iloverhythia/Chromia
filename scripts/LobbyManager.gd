@@ -24,7 +24,6 @@ signal announcement_received(text, from_name, ts)
 signal public_lobbies_received(lobbies)
 signal admin_all_lobbies_received(lobbies)
 signal admin_bans_received(bans)
-signal admin_live_bans_received(bans)
 signal admin_player_tags_received(tags)
 signal admin_rankers_received(rankers)
 signal admin_map_ranks_received(ranks)
@@ -370,21 +369,6 @@ func admin_list_bans():
 	if not has_admin_key():
 		return
 	_ensure_connected_then_send({"type": "admin_list_bans", "admin_key": _admin_key})
-
-func admin_live_ban_user(client_id: String, reason: String = ""):
-	if not has_admin_key() or client_id == "":
-		return
-	_ensure_connected_then_send({"type": "admin_live_ban_user", "admin_key": _admin_key, "client_id": client_id, "reason": reason})
-
-func admin_live_unban_user(client_id: String):
-	if not has_admin_key() or client_id == "":
-		return
-	_ensure_connected_then_send({"type": "admin_live_unban_user", "admin_key": _admin_key, "client_id": client_id})
-
-func admin_list_live_bans():
-	if not has_admin_key():
-		return
-	_ensure_connected_then_send({"type": "admin_list_live_bans", "admin_key": _admin_key})
 
 func admin_set_player_tag(client_id: String, text: String, color: String):
 	if not has_admin_key() or client_id == "" or text == "" or color == "":
@@ -2038,8 +2022,6 @@ func _handle_message(msg: Dictionary):
 			emit_signal("admin_all_lobbies_received", msg.get("lobbies", []))
 		"admin_bans":
 			emit_signal("admin_bans_received", msg.get("bans", []))
-		"admin_live_bans":
-			emit_signal("admin_live_bans_received", msg.get("bans", []))
 		"admin_player_tags":
 			emit_signal("admin_player_tags_received", msg.get("tags", []))
 		"admin_rankers":

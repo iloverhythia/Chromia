@@ -73,7 +73,6 @@ var admin_scope_chat_check: CheckBox
 var admin_scope_leaderboard_check: CheckBox
 var admin_bans_list_box: VBoxContainer
 var admin_lobbies_list_box: VBoxContainer
-var admin_live_bans_list_box: VBoxContainer
 var admin_tag_id_input: LineEdit
 var admin_tag_text_input: LineEdit
 var admin_tag_color_input: LineEdit
@@ -1004,33 +1003,6 @@ func _build_admin_ui():
 
 	vbox.add_child(HSeparator.new())
 
-	var live_ban_caption = Label.new()
-	live_ban_caption.text = "Live ban"
-	live_ban_caption.theme = ui_theme
-	vbox.add_child(live_ban_caption)
-
-	var live_ban_hbox = HBoxContainer.new()
-	live_ban_hbox.add_constant_override("separation", 8)
-	var live_ban_btn = _make_button("Live Ban", ui_theme)
-	live_ban_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	live_ban_btn.connect("pressed", self, "_on_admin_live_ban_pressed")
-	live_ban_hbox.add_child(live_ban_btn)
-	var live_unban_btn = _make_button("Live Unban", ui_theme)
-	live_unban_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	live_unban_btn.connect("pressed", self, "_on_admin_live_unban_pressed")
-	live_ban_hbox.add_child(live_unban_btn)
-	vbox.add_child(live_ban_hbox)
-
-	var live_bans_scroll = ScrollContainer.new()
-	live_bans_scroll.rect_min_size = Vector2(0, 80)
-	vbox.add_child(live_bans_scroll)
-	admin_live_bans_list_box = VBoxContainer.new()
-	admin_live_bans_list_box.add_constant_override("separation", 4)
-	admin_live_bans_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	live_bans_scroll.add_child(admin_live_bans_list_box)
-
-	vbox.add_child(HSeparator.new())
-
 	var tags_caption = Label.new()
 	tags_caption.text = "Player tags"
 	tags_caption.theme = ui_theme
@@ -1523,7 +1495,7 @@ func _on_perms_changed():
 	if lm.has_admin_key() and admin_canvas == null:
 		_build_admin_ui()
 		for pair in [["admin_bans_received", "_on_admin_bans_received"], ["admin_all_lobbies_received", "_on_admin_lobbies_received"],
-				["admin_live_bans_received", "_on_admin_live_bans_received"], ["admin_rankers_received", "_on_admin_rankers_received"]]:
+				["admin_rankers_received", "_on_admin_rankers_received"]]:
 			if not lm.is_connected(pair[0], self, pair[1]):
 				lm.connect(pair[0], self, pair[1])
 	elif not lm.has_admin_key() and admin_canvas != null:
@@ -1591,7 +1563,6 @@ func _on_admin_key_submitted(_text: String = ""):
 		_build_admin_ui()
 		lobby_manager.connect("admin_bans_received", self, "_on_admin_bans_received")
 		lobby_manager.connect("admin_all_lobbies_received", self, "_on_admin_lobbies_received")
-		lobby_manager.connect("admin_live_bans_received", self, "_on_admin_live_bans_received")
 		lobby_manager.connect("admin_player_tags_received", self, "_on_admin_player_tags_received")
 		lobby_manager.connect("admin_rankers_received", self, "_on_admin_rankers_received")
 
@@ -1602,7 +1573,6 @@ func _toggle_admin_panel():
 		if lobby_manager != null:
 			lobby_manager.admin_list_bans()
 			lobby_manager.admin_list_all_lobbies()
-			lobby_manager.admin_list_live_bans()
 			lobby_manager.admin_list_player_tags()
 			lobby_manager.admin_list_rankers()
 
@@ -1640,67 +1610,7 @@ func _on_admin_refresh_pressed():
 	if lobby_manager != null:
 		lobby_manager.admin_list_bans()
 		lobby_manager.admin_list_all_lobbies()
-		lobby_manager.admin_list_live_bans()
 		lobby_manager.admin_list_player_tags()
-
-func _on_admin_live_ban_pressed():
-	var client_id = admin_ban_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_live_ban_user(client_id, admin_ban_reason_input.text.strip_edges())
-	admin_ban_input.text = ""
-	admin_ban_reason_input.text = ""
-
-func _on_admin_live_unban_pressed():
-	var client_id = admin_ban_input.text.strip_edges()
-	if client_id == "":
-		return
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_live_unban_user(client_id)
-	admin_ban_input.text = ""
-
-func _on_admin_live_unban_row_pressed(client_id: String):
-	var lobby_manager = _get_lobby_manager()
-	if lobby_manager != null:
-		lobby_manager.admin_live_unban_user(client_id)
-
-func _on_admin_live_bans_received(bans: Array):
-	for child in admin_live_bans_list_box.get_children():
-		child.queue_free()
-	if bans.size() == 0:
-		var empty = Label.new()
-		empty.text = "No live bans."
-		admin_live_bans_list_box.add_child(empty)
-		return
-	var ui_theme = load("res://uitheme.tres")
-	for b in bans:
-		var client_id = String(b.get("client_id", ""))
-		var reason = String(b.get("reason", ""))
-
-		var row = VBoxContainer.new()
-		var top_row = HBoxContainer.new()
-		var label = Label.new()
-		label.text = client_id
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap = true
-		top_row.add_child(label)
-		var unban_btn = Button.new()
-		unban_btn.text = "Unban"
-		unban_btn.theme = ui_theme
-		unban_btn.rect_min_size = Vector2(0, 26)
-		unban_btn.connect("pressed", self, "_on_admin_live_unban_row_pressed", [client_id])
-		top_row.add_child(unban_btn)
-		row.add_child(top_row)
-		if reason != "":
-			var reason_label = Label.new()
-			reason_label.text = "reason: %s" % reason
-			reason_label.add_color_override("font_color", Color(0.7, 0.7, 0.7))
-			reason_label.autowrap = true
-			row.add_child(reason_label)
-		admin_live_bans_list_box.add_child(row)
 
 func _on_admin_set_tag_pressed():
 	var client_id = admin_tag_id_input.text.strip_edges()
@@ -3246,7 +3156,6 @@ func _ready():
 			_build_admin_ui()
 			lobby_manager.connect("admin_bans_received", self, "_on_admin_bans_received")
 			lobby_manager.connect("admin_all_lobbies_received", self, "_on_admin_lobbies_received")
-			lobby_manager.connect("admin_live_bans_received", self, "_on_admin_live_bans_received")
 			lobby_manager.connect("admin_rankers_received", self, "_on_admin_rankers_received")
 		# (staff permissions come after signing in: the admin tools then)
 		if lobby_manager.has_signal("perms_changed") and not lobby_manager.is_connected("perms_changed", self, "_on_perms_changed"):
