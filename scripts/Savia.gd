@@ -154,7 +154,9 @@ func apply_mobile_tuning():
 		mobile_tuned_v3 = true
 		if Engine.target_fps <= 0 or Engine.target_fps >= 120:
 			mobile_high_hz = true
-	Input.use_accumulated_input = not mobile_no_delay
+	# (New Absolute Mode: every finger movement by itself and no hold on a new touch, as with No Touch Delay)
+	var no_delay: bool = mobile_no_delay or new_abs_on()
+	Input.use_accumulated_input = not no_delay
 	if mobile_high_hz and Engine.target_fps > 0 and Engine.target_fps < 120:
 		_clear_fps_cap() # an FPS limit under 120 would hold it back
 	if not (OS.has_feature("iOS") or Engine.has_meta("ios_native_fake")):
@@ -171,13 +173,13 @@ func apply_mobile_tuning():
 	if Engine.target_fps >= fps:
 		_clear_fps_cap()
 	# only touch what's on, or what was turned off after being on
-	if not mobile_no_delay and not mobile_high_hz and not _tuned_once:
+	if not no_delay and not mobile_high_hz and not _tuned_once:
 		return
 	_tuned_once = true
 	# (Frame Smoothing used to hold a phone at 60 after a song with late frames
 	# at 120. On a 120 Hz iPhone the screen itself moves between 80 and 120, so
 	# ordinary frames counted as late and phones ended up capped at 60: gone.)
-	var delay := 0.0 if mobile_no_delay else 0.15
+	var delay := 0.0 if no_delay else 0.15
 	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay, int(ask[1]))
 	_start_high_hz_check()
 	print("[mobile tuning] ", mobile_tuning_status if mobile_tuning_status != "" else "native helper not in this app")
@@ -3389,6 +3391,15 @@ func get_cam_unlock():
 	return cam_unlock
 var lock_mouse: bool = true
 var absolute_mode: bool = false
+# New Absolute Mode (with Absolute Mode): the cursor on every sample of the
+# finger or mouse, nothing smoothed (scripts/game/Cursor.gd, TouchSnap.gd)
+var new_absolute_mode: bool = false setget _set_new_absolute_mode
+func _set_new_absolute_mode(v: bool):
+	new_absolute_mode = v
+	if is_inside_tree() and dev == "mobile":
+		call_deferred("apply_mobile_tuning") # (no touch delay with it, like No Touch Delay)
+func new_abs_on() -> bool:
+	return new_absolute_mode and absolute_mode
 var absolute_scale: float = 1
 var edge_drift: float = 0
 var disable_intro: bool = false
@@ -4586,6 +4597,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			lock_mouse = data.lock_mouse
 		if data.has("absolute_mode"):
 			absolute_mode = data.absolute_mode
+		new_absolute_mode = bool(data.get("new_absolute_mode", false))
 		if data.has("absolute_scale"):
 			absolute_scale = data.absolute_scale
 		if data.has("cursor_trail"):
@@ -5564,6 +5576,7 @@ func _write_settings_file(saveFile: String):
 			selected_miss_effect = (selected_miss_effect.id if selected_miss_effect else "ssp_miss"),
 			lock_mouse = lock_mouse,
 			absolute_mode = absolute_mode,
+			new_absolute_mode = new_absolute_mode,
 			absolute_scale = absolute_scale,
 			cursor_trail = cursor_trail,
 			trail_detail = trail_detail,

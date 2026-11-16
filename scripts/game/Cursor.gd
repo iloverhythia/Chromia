@@ -108,6 +108,8 @@ onready var absCamera = get_node("../../../AbsCamera")
 # and the relative one (the finger's movement).
 var _pred := false
 var _tp = null # TouchPredictor
+var _new_abs := false # Settings > New Absolute Mode (see _ready)
+var _new_abs_merged := false
 var _rel_px := Vector2.ZERO # relative mode: the finger's movements added up, px
 var _rel_true := Vector2.ZERO # relative mode: the cursor without the lead
 var _rel_shown := Vector2.ZERO # ...and where it was put with it
@@ -456,7 +458,19 @@ func _ready():
 	_tr_prev = _tr_now
 	if not Rhythia.show_cursor: visible = false
 	_pred = Rhythia.device("mobile") and bool(Rhythia.get("mobile_no_delay")) and not Rhythia.replaying and not Rhythia.vr
-	if _pred and bool(Rhythia.get("mobile_old_cursor")):
+	# Settings > New Absolute Mode: the cursor is put on each sample of your
+	# finger or mouse as it comes, with nothing smoothed. On a touch screen the
+	# lead (Prediction) is there at once and gone at once (TouchSnap.gd); a
+	# mouse gets no lead. Every sample is handled by itself (not merged a frame).
+	_new_abs = bool(Rhythia.get("new_absolute_mode")) and Rhythia.absolute_mode and not Rhythia.replaying and not Rhythia.vr and not _legacy
+	if _new_abs:
+		_pred = Rhythia.device("mobile")
+		if _pred:
+			_tp = load("res://scripts/game/TouchSnap.gd").new()
+		if not Rhythia.has_meta("no_delay_saved") and Input.use_accumulated_input:
+			Input.use_accumulated_input = false
+			_new_abs_merged = true # (put back when the song ends)
+	elif _pred and bool(Rhythia.get("mobile_old_cursor")):
 		# Settings > Old Cursor Movement: the prediction as it was (and, as then,
 		# only for the absolute cursor)
 		_pred = Rhythia.absolute_mode
@@ -529,5 +543,9 @@ func _ready():
 				trail.start()
 	trail_started = true
 func _exit_tree():
+	if _new_abs_merged:
+		_new_abs_merged = false
+		# (as it is outside songs: on a phone that's No Touch Delay's say)
+		Input.use_accumulated_input = not (Rhythia.device("mobile") and (bool(Rhythia.get("mobile_no_delay")) or Rhythia.new_abs_on()))
 	for n in trail_cache:
 		n.queue_free()
