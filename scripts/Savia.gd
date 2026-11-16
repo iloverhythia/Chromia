@@ -3429,6 +3429,10 @@ var legacy_mouse: bool = false # Experimental: Legacy Mouse Movement (Cursor.gd:
 # Online and Profile pages, with a search (scripts/ui/settings/SettingsNewUI.gd).
 # Changing it loads the menu again and comes back to this setting.
 var new_settings_ui: bool = true setget _set_new_settings_ui
+# The old Settings page (New Settings UI off): its tabs in a list down the left
+# side instead of across the top (scripts/ui/settings/SettingsHeader.gd).
+# Changing it loads the menu again, like New Settings UI.
+var settings_side_tabs: bool = false setget _set_settings_side_tabs
 # Experimental: notes move in even steps matched to the screen's refresh rate
 # (visual only: NoteManager._update_draw_clock). On from the start on phones
 # and standalone headsets, where every frame is shown one refresh apart.
@@ -3452,10 +3456,19 @@ func _set_frame_smoothing(v: bool):
 		call_deferred("_fs_apply")
 func _fs_apply():
 	load("res://scripts/game/SteadyRate.gd").apply()
+func _set_settings_side_tabs(v: bool):
+	if settings_side_tabs == v:
+		return
+	settings_side_tabs = v
+	_reload_menu_for_settings()
 func _set_new_settings_ui(v: bool):
 	if new_settings_ui == v:
 		return
 	new_settings_ui = v
+	_reload_menu_for_settings()
+# (the Settings page is built when the menu loads: a change to how it looks
+# loads the menu again and comes back to the tab with the switch)
+func _reload_menu_for_settings():
 	if not is_inside_tree() or in_map:
 		return
 	var cs = get_tree().current_scene
@@ -4590,6 +4603,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			fs_cap_hz = clamp(float(data.fs_cap_hz), 0.0, 240.0)
 		if data.has("new_settings_ui"):
 			new_settings_ui = bool(data.new_settings_ui)
+		if data.has("settings_side_tabs"):
+			settings_side_tabs = bool(data.settings_side_tabs)
 		if data.has("map_grid"):
 			map_grid = bool(data.map_grid)
 		if data.has("is_staff"):
@@ -5526,6 +5541,7 @@ func _write_settings_file(saveFile: String):
 			legacy_mouse = legacy_mouse,
 			show_map_rp = show_map_rp,
 			new_settings_ui = new_settings_ui,
+			settings_side_tabs = settings_side_tabs,
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
 			stream_mode = stream_mode,

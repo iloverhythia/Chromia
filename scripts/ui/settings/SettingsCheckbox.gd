@@ -24,6 +24,7 @@ func _ready():
 		call_deferred("_add_map_grid")
 		call_deferred("_add_show_map_rp")
 		call_deferred("_add_new_settings_ui")
+		call_deferred("_add_settings_side_tabs")
 		call_deferred("_add_frame_smoothing")
 		call_deferred("_add_stream_mode")
 	if target == "map_grid":
@@ -153,6 +154,22 @@ func _add_new_settings_ui():
 	var at: Node = parent.get_node_or_null("ShowMapRP")
 	if at == null:
 		at = parent.get_node_or_null("MapGrid")
+	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
+
+# "Side Tabs" for the old Settings page (SettingsHeader.gd): only shown there
+func _add_settings_side_tabs():
+	var parent = get_parent()
+	if parent == null or parent.has_node("SettingsSideTabs"):
+		return
+	if Rhythia.new_settings_ui and not Rhythia.sound_space_mode:
+		return # (the new page has its own list down the side)
+	var cb = duplicate()
+	cb.name = "SettingsSideTabs"
+	cb.target = "settings_side_tabs"
+	cb.text = "Side Tabs"
+	cb.hint_tooltip = "The Settings tabs in a list down the left side instead of across the top. Changing it loads the menu again."
+	parent.add_child(cb)
+	var at: Node = parent.get_node_or_null("NewSettingsUI")
 	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
 
 # Experimental: "Show RP on Maps" (off by default). RP is earned either way

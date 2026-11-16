@@ -8,12 +8,21 @@ extends VBoxContainer
 # that finds them by path still does.
 #
 # menu2.gd installs it after the settings tabs are all added.
+#
+# Side Tabs (Rhythia.settings_side_tabs): the tabs are a list of buttons down
+# the left side instead (under the header, scrolling on its own when there
+# are more than fit), and the page moves over to make room.
 
 var _scroll: ScrollContainer
 var _tc: TabContainer
 var _tabs := Tabs.new()
 var _sig := ""
 var _syncing := false
+const SIDE_W := 190.0
+var _side_on := false
+var _side_scroll: ScrollContainer = null
+var _side: VBoxContainer = null
+var _side_group := ButtonGroup.new()
 
 static func install(settings: Control):
 	if settings == null or settings.has_node("Header"):
@@ -28,13 +37,17 @@ static func install(settings: Control):
 	h._scroll = s
 	h._tc = tc
 	h.theme = f.theme
+	h._side_on = bool(Rhythia.settings_side_tabs)
 	settings.add_child(h)
 	var top = f.get_node_or_null("TopButtons")
 	if top != null:
 		f.remove_child(top)
 		h.add_child(top)
 		top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(h._tabs)
+	if h._side_on:
+		h._build_side(settings, f.theme)
+	else:
+		h.add_child(h._tabs)
 
 func _ready():
 	anchor_left = 0
@@ -60,9 +73,53 @@ func _ready():
 	_check()
 	call_deferred("_fit")
 
+# the list of tabs: left of the page, under the header
+func _build_side(settings: Control, th):
+	_side_scroll = ScrollContainer.new()
+	_side_scroll.name = "SideTabs"
+	_side_scroll.theme = th
+	_side_scroll.scroll_horizontal_enabled = false
+	_side_scroll.anchor_left = 0
+	_side_scroll.anchor_right = 0
+	_side_scroll.anchor_top = 0
+	_side_scroll.anchor_bottom = 1
+	_side_scroll.margin_left = _scroll.margin_left
+	_side_scroll.margin_right = _scroll.margin_left + SIDE_W
+	_side_scroll.margin_bottom = _scroll.margin_bottom
+	_side = VBoxContainer.new()
+	_side.size_flags_horizontal = SIZE_EXPAND_FILL
+	_side.add_constant_override("separation", 4)
+	_side_scroll.add_child(_side)
+	settings.add_child(_side_scroll)
+	_scroll.margin_left += SIDE_W + 12 # (the page moves over)
+
+func _fill_side(titles: Array):
+	for c in _side.get_children():
+		_side.remove_child(c)
+		c.queue_free()
+	for i in range(titles.size()):
+		var b := Button.new()
+		b.text = String(titles[i])
+		b.toggle_mode = true
+		b.group = _side_group
+		b.align = Button.ALIGN_LEFT
+		b.clip_text = true
+		b.focus_mode = FOCUS_NONE
+		b.rect_min_size = Vector2(0, 38)
+		b.size_flags_horizontal = SIZE_EXPAND_FILL
+		b.pressed = i == _tc.current_tab
+		b.connect("pressed", self, "_on_header_tab", [i])
+		_side.add_child(b)
+
+func _show_side_tab(i: int):
+	if _side != null and i >= 0 and i < _side.get_child_count():
+		_side.get_child(i).pressed = true
+
 # the scrolling page starts under the header
 func _fit():
 	_scroll.margin_top = rect_size.y
+	if _side_scroll != null:
+		_side_scroll.margin_top = rect_size.y + 8
 
 func _copy_look():
 	# (only when it changed: each copy made the header lay itself out again,
@@ -90,11 +147,14 @@ func _check():
 	if sig != _sig:
 		_sig = sig
 		_syncing = true
-		while _tabs.get_tab_count() > 0:
-			_tabs.remove_tab(_tabs.get_tab_count() - 1)
-		for t in titles:
-			_tabs.add_tab(t)
-		_tabs.current_tab = _tc.current_tab
+		if _side_on:
+			_fill_side(titles)
+		else:
+			while _tabs.get_tab_count() > 0:
+				_tabs.remove_tab(_tabs.get_tab_count() - 1)
+			for t in titles:
+				_tabs.add_tab(t)
+			_tabs.current_tab = _tc.current_tab
 		_syncing = false
 		call_deferred("_fit")
 	if _tc.tabs_visible:
@@ -106,6 +166,7 @@ func _on_header_tab(i: int):
 	_syncing = true
 	_tc.current_tab = i
 	_scroll.scroll_vertical = 0 # a new page starts at its top
+	_show_side_tab(i)
 	_syncing = false
 
 func _on_page_tab(i: int):
@@ -114,4 +175,5 @@ func _on_page_tab(i: int):
 	_syncing = true
 	if i < _tabs.get_tab_count():
 		_tabs.current_tab = i
+	_show_side_tab(i)
 	_syncing = false
