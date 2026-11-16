@@ -339,7 +339,7 @@ static func own_mesh_file(m = null) -> String:
 	if m == null or not ("path" in m) or String(m.path) == "" or String(m.path).begins_with("res://"):
 		return ""
 	var p: String = Globals.p(String(m.path))
-	if p.get_extension().to_lower() != "obj" or not File.new().file_exists(p):
+	if not (p.get_extension().to_lower() in ["obj", "glb"]) or not File.new().file_exists(p):
 		return ""
 	return p if _small_enough(p) else ""
 

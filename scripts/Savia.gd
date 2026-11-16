@@ -6471,7 +6471,7 @@ func register_meshes():
 		dir.list_dir_begin(true, false)
 		var mesh_name: String = dir.get_next()
 		while mesh_name != "":
-			if not dir.current_is_dir() and mesh_name.get_extension().to_lower() == "obj":
+			if not dir.current_is_dir() and mesh_name.get_extension().to_lower() in ["obj", "glb"]: # (.glb: GlbParse.gd)
 				registry_mesh.add_item(NoteMesh.new(
 					"ugc_" + mesh_name.get_file().to_lower().replace(" ", "_"),
 					mesh_name.get_basename() + " (custom)",
