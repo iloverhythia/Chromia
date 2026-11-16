@@ -11,4 +11,3 @@ in scripts/Savia.gd and empties this list.
 - VR: the Content Browser builds its map cards two a frame and loads two covers at a time, so opening a page of maps doesn't hitch
 - Note meshes can be .glb files too (Settings > Meshes > Import, Import Content, or drop the file on the game)
 - Videos: the Chromia mark is at the middle of the left edge instead of the bottom right corner
-- Anti-cheat: Cheat Engine is now also found on Linux (including through Wine / Proton) and macOS
