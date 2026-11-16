@@ -37,10 +37,9 @@
 <h2>Sent to the game's online server</h2>
 <p>Chromia's online features use the server at <code>chromia.lol</code>. It receives:</p>
 <ul>
-  <li><b>A random player ID</b> created the first time you start the game (not tied to your name or your Meta account), with the game version and platform. It is sent when the game starts, about once a minute while it runs, and when it updates, so we can count players and versions. When you start a map, the map's name is sent too.</li>
-  <li><b>Map passes</b>, for experience points and leaderboards: your player ID, the map, speed, misses, note count, hit window, the mods you used, a checksum of the map, and a one-way hashed device ID used to stop cheating (the real device ID is never sent).</li>
+  <li><b>A random player ID</b> created the first time you start the game (not tied to your name or your Meta account), with the game version and platform, while the game is connected, so we can count players and versions. While you play, the map's name is sent too (it shows in the Online list).</li>
+  <li><b>Map passes</b>, for experience points and leaderboards: your player ID, the map, speed, misses, note count, hit window, the mods you used, a checksum of the map, and a one-way hashed device ID used to stop cheating (the real device ID is never sent). To detect cheating tools, a pass can also include the names of the files loaded into the game and of programs running alongside it (names only, never their contents); only staff see them.</li>
   <li><b>Replays of passed maps</b>: your cursor movement during the map, your game settings and the same hashed device ID.</li>
-  <li><b>A ban check</b> of your player ID.</li>
   <li><b>Discord, only if you link it</b>: your Discord user ID, username and profile picture, to show your name on leaderboards. You can unlink it in the game at any time. On PC, Chromia can also show what you're playing in your Discord status through the Discord app.</li>
   <li><b>Multiplayer lobbies, only if you join one</b>: your player name, the lobby and your scores during the match.</li>
 </ul>

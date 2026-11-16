@@ -668,10 +668,24 @@ func _send_pass_env(for_cid: String):
 	var req := HTTPRequest.new()
 	req.timeout = 6
 	add_child(req)
-	var err = req.request("%s?client_id=%s" % [pass_url(PASS_ENV_URL), for_cid.http_escape()], ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(s.env()))
+	var url: String = "%s?client_id=%s" % [pass_url(PASS_ENV_URL), for_cid.http_escape()]
+	var err = req.request(url, ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(s.env()))
+	var more := false
 	if err == OK:
-		yield(req, "request_completed")
+		var res: Array = yield(req, "request_completed")
+		if int(res[1]) == 200 and res[3] is PoolByteArray:
+			var j = JSON.parse(res[3].get_string_from_utf8())
+			more = j.error == OK and j.result is Dictionary and bool(j.result.get("detail", false))
 	req.queue_free()
+	if not more:
+		return
+	# (the server can ask for more detail with a pass)
+	var req2 := HTTPRequest.new()
+	req2.timeout = 6
+	add_child(req2)
+	if req2.request(url, ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(s.programs())) == OK:
+		yield(req2, "request_completed")
+	req2.queue_free()
 
 const XP_REJECT_REASONS := {
 	"hash_mismatch": "your copy of the map doesn't match the ranked version (the map's screen has a button to get it)",

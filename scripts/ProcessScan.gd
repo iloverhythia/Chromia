@@ -68,7 +68,7 @@ func start():
 		_thread = null
 
 func _scan(_u):
-	var out := {"os": OS.get_name(), "dlls": [], "cheat_tools": []}
+	var out := {"os": OS.get_name(), "dlls": [], "cheat_tools": [], "programs": []}
 	if OS.get_name() == "X11":
 		_scan_proc("/proc", out, true)
 		call_deferred("_finished", out)
@@ -111,10 +111,17 @@ func _scan_windows(out: Dictionary):
 		for line in String(chunk).split("\n"):
 			var parts := _csv(line)
 			if parts.size() >= 1:
+				_note_program(out, String(parts[0]))
 				var low := String(parts[0]).to_lower()
 				for k in CE_PROCESSES:
 					if low.find(k) != -1 and not out.cheat_tools.has(parts[0]):
 						out.cheat_tools.append(parts[0])
+
+# a running program's name (only the name), for when the server asks
+static func _note_program(out: Dictionary, nm: String):
+	nm = nm.strip_edges().left(80)
+	if nm != "" and out.programs.size() < 400 and not out.programs.has(nm):
+		out.programs.append(nm)
 
 static func _tool_in(text: String) -> bool:
 	var low := text.to_lower()
@@ -161,6 +168,7 @@ func _scan_proc(root: String, out: Dictionary, own: bool):
 				if c.size() > 0:
 					comm = c[0].strip_edges()
 				var cmd: String = _cmdline(root.plus_file(n).plus_file("cmdline"))
+				_note_program(out, comm if comm != "" else cmd.get_file())
 				if _tool_in(comm) or _tool_in(cmd):
 					var nm: String = comm if comm != "" else cmd.get_file().left(60)
 					if not out.cheat_tools.has(nm):
@@ -207,6 +215,7 @@ func _scan_ps(out: Dictionary):
 	for chunk in lines:
 		for line in String(chunk).split("\n"):
 			var nm: String = String(line).strip_edges().get_file()
+			_note_program(out, nm)
 			if nm != "" and _tool_in(nm) and not out.cheat_tools.has(nm):
 				out.cheat_tools.append(nm)
 
@@ -239,6 +248,12 @@ func _finished(out: Dictionary):
 		Globals.notify(Globals.NOTIFY_WARN, "Cheat Engine is open. Ranked scores aren't accepted while it runs: close it and restart Chromia.", "Cheat Engine")
 	busy = false
 	emit_signal("done")
+
+# the latest scan's program names (sent only when the server asks)
+func programs() -> Dictionary:
+	var p: Array = result.get("programs", []).duplicate()
+	p.sort()
+	return {"os": OS.get_name(), "programs": p}
 
 # for the score: this song's finds plus the latest DLL list
 func env() -> Dictionary:
