@@ -49,6 +49,17 @@ static func screen_top() -> float:
 			top = float(digits) if digits != "" else 0.0
 	return top
 
+# (the screen's top rate, asked at most every ten seconds)
+static func _screen_top_kept() -> float:
+	var now := OS.get_ticks_msec()
+	if Engine.has_meta("screen_top_kept"):
+		var k: Array = Engine.get_meta("screen_top_kept")
+		if now - int(k[1]) < 10000:
+			return float(k[0])
+	var top := screen_top()
+	Engine.set_meta("screen_top_kept", [top, now])
+	return top
+
 # The rate this device draws at now (0: it doesn't say).
 static func current_hz() -> float:
 	if Rhythia.vr:
@@ -56,7 +67,12 @@ static func current_hz() -> float:
 		if cfg != null and cfg.has_method("get_refresh_rate"):
 			return float(cfg.get_refresh_rate())
 		return 0.0
-	var top: float = screen_top()
+	# (a computer without vsync: frames aren't paced by the screen. Answered
+	# before the screen is asked anything: this is called every second of a
+	# song, and asking Windows for the screen's rate isn't always quick)
+	if not OS.has_feature("iOS") and not OS.has_feature("Android") and not OS.vsync_enabled:
+		return 0.0
+	var top: float = _screen_top_kept()
 	if OS.has_feature("iOS"):
 		# Godot draws at 60 there unless the native helper raised it (120 Hz)
 		var asked := 60.0

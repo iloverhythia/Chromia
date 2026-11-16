@@ -1825,13 +1825,26 @@ func _trail_start():
 	add_child(_heartbeat)
 	_heartbeat.start()
 
+# (the song's note manager, looked up once a song: searching the whole scene
+# for it every ten seconds was a small hitch each time)
+var _heartbeat_spawn = null
+var _heartbeat_scene: int = 0
 func _on_heartbeat():
 	if in_map:
-		var sp = get_tree().current_scene.find_node("Spawn", true, false) if get_tree().current_scene else null
-		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and "ms" in sp else -1])
+		var cs = get_tree().current_scene
+		var id: int = cs.get_instance_id() if cs != null else 0
+		if id != _heartbeat_scene or _heartbeat_spawn == null or not is_instance_valid(_heartbeat_spawn):
+			_heartbeat_scene = id
+			_heartbeat_spawn = cs.find_node("Spawn", true, false) if cs != null else null
+		var sp = _heartbeat_spawn
+		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and is_instance_valid(sp) and "ms" in sp else -1])
 
 # Safe from any thread.
-func trail(msg: String):
+# flush: written to the disk at once, so the line is there after a crash. A
+# line about a slow frame during a song leaves that to the next line (within
+# ten seconds, the heartbeat): waiting for the disk right after a slow frame
+# made the next one slow too.
+func trail(msg: String, flush: bool = true):
 	if _trail_file == null or _session_closed:
 		return
 	_trail_mutex.lock()
@@ -1848,7 +1861,8 @@ func trail(msg: String):
 		Performance.get_monitor(Performance.OBJECT_COUNT),
 		vram,
 		msg])
-	_trail_file.flush()
+	if flush:
+		_trail_file.flush()
 	_trail_mutex.unlock()
 
 # Writes a line after each of the next `n` frames is drawn (song start uses it:

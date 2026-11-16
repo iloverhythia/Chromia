@@ -102,8 +102,8 @@ func _process(delta):
 		int(delta * 1000.0),
 		Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
-		-1 if Rhythia.vr else int(Performance.get_monitor(Performance.RENDER_DRAW_CALLS_IN_FRAME)), # (VR: the reading waits for the render thread)
+		-1, # (draw calls aren't read any more: the reading waits for the render thread, which made the frame after a slow one late as well)
 		int(Performance.get_monitor(Performance.OBJECT_COUNT)),
 		http,
 		int(Performance.get_monitor(Performance.TIME_FPS)),
-	])
+	], false)
