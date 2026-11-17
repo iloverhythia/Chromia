@@ -1781,6 +1781,100 @@ func _set_session_state(state: String):
 		f.store_string(state)
 		f.close()
 
+# --- How the last session ended ---------------------------------------------------
+# A crash report says what the game did last. That can't tell a crash from the
+# game being ended from outside (the PC shut down with the game open, Task
+# Manager), and most reports end with the menu open and nothing after it: the
+# menu writes nothing while you look at it. So:
+#  - every ten seconds the game notes that it is still running, and where
+#    (ALIVE_FILE, written over each time): the report says how long after its
+#    last line the game was still fine, and how long it took until the game
+#    was started again (minutes: someone reopening a game that crashed; hours:
+#    a PC that was turned off);
+#  - on Windows, Windows' own record of the crash is looked up (CrashFault.gd):
+#    which module it happened in, or that there is none.
+const ALIVE_FILE := "user://logs/alive.txt"
+var last_session_alive := {} # {t: seconds into that session, unix, what}; {} not known
+var last_session_fault := "" # Windows' record, one line ("" none looked up)
+var last_session_fault_known := true # false while it is being looked up
+signal last_session_fault_ready
+
+func _alive_what() -> String:
+	if in_map:
+		return "in a map"
+	var cs = get_tree().current_scene if get_tree() != null else null
+	var n := String(cs.name) if cs != null else ""
+	return "in the menu" if n == "Menu" else ("on the %s screen" % n if n != "" else "starting")
+
+func _write_alive():
+	if _session_closed or OS.has_feature("JavaScript"):
+		return
+	var f := File.new()
+	if f.open(Globals.p(ALIVE_FILE), File.WRITE) == OK:
+		f.store_string("%.1f|%d|%s" % [OS.get_ticks_msec() / 1000.0, OS.get_unix_time(), _alive_what()])
+		f.close()
+
+func _read_alive() -> Dictionary:
+	var f := File.new()
+	if f.open(Globals.p(ALIVE_FILE), File.READ) != OK:
+		return {}
+	var parts := f.get_as_text().strip_edges().split("|")
+	f.close()
+	if parts.size() < 3 or not parts[0].is_valid_float() or not parts[1].is_valid_integer():
+		return {}
+	return {"t": float(parts[0]), "unix": int(parts[1]), "what": String(parts[2]).left(60)}
+
+func set_last_session_fault(text: String):
+	last_session_fault = text
+	last_session_fault_known = true
+	if _crash_report_file != "":
+		# (the report saved at the start didn't have it yet)
+		var f := File.new()
+		if f.open(_crash_report_file, File.WRITE) == OK:
+			f.store_string(crash_report(120))
+			f.close()
+	emit_signal("last_session_fault_ready")
+
+static func _span(sec: float) -> String:
+	if sec < 90:
+		return "%d s" % int(round(sec))
+	if sec < 5400:
+		return "%d min" % int(round(sec / 60.0))
+	if sec < 48 * 3600:
+		return "%.1f h" % (sec / 3600.0)
+	return "%d days" % int(round(sec / 86400.0))
+
+# what is known about how the last session ended, a line each
+func how_it_ended(now_unix: int = -1) -> Array:
+	var out := []
+	var a: Dictionary = last_session_alive
+	if not a.empty():
+		var last_t := -1.0
+		var lines := last_session_trail.strip_edges().split("\n")
+		var re := RegEx.new()
+		re.compile("^\\[\\s*([0-9.]+)s")
+		var m := re.search(lines[lines.size() - 1]) if lines.size() > 0 else null
+		if m != null:
+			last_t = float(m.get_string(1))
+		var gap: float = float(a.t) - last_t
+		if last_t >= 0.0 and gap >= 15.0:
+			out.append("Still running %s after the last line above (%s): nothing was happening when it ended." % [_span(gap), a.what])
+		elif last_t >= 0.0:
+			out.append("It ended within seconds of the last line above (%s)." % a.what)
+		if now_unix < 0:
+			now_unix = _started_unix
+		var away: int = now_unix - int(a.unix)
+		if away >= 0:
+			out.append("Started again %s later." % _span(away))
+	if last_session_fault != "":
+		out.append(last_session_fault)
+	elif not last_session_fault_known:
+		out.append("(Windows' record of it is being looked up.)")
+	return out
+
+var _started_unix := 0
+var _crash_report_file := ""
+
 func _trail_start():
 	var d := Directory.new()
 	var logs := Globals.p("user://logs")
@@ -1805,7 +1899,17 @@ func _trail_start():
 	# (the replay game view never counts as crashed, see _set_session_state)
 	last_session_crashed = state == "running" and last_session_trail.strip_edges() != "" and not other_copy_running and not load("res://scripts/WebReplay.gd").wanted()
 	last_session_engine_log = _previous_engine_log(40)
+	_started_unix = OS.get_unix_time()
+	last_session_alive = _read_alive()
 	if last_session_crashed:
+		# (Windows: what Windows wrote down about it, read on a thread: CrashFault.gd)
+		var CF = load("res://scripts/CrashFault.gd")
+		if CF.supported() and not last_session_alive.empty():
+			last_session_fault_known = false
+			var cf: Node = CF.new()
+			cf.name = "CrashFault"
+			call_deferred("add_child", cf)
+			cf.call_deferred("look", int(last_session_alive.unix))
 		_save_crash_report()
 		# (and sent to the developers once the settings and the account are read: scripts/CrashSend.gd)
 		var CS = load("res://scripts/CrashSend.gd")
@@ -1818,6 +1922,7 @@ func _trail_start():
 	if _trail_file.open(Globals.p(TRAIL_FILE), File.WRITE) != OK:
 		_trail_file = null
 	trail("started %s on %s %s" % [ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name()])
+	_write_alive()
 	_heartbeat = Timer.new()
 	_heartbeat.wait_time = 10
 	_heartbeat.pause_mode = PAUSE_MODE_PROCESS
@@ -1830,6 +1935,7 @@ func _trail_start():
 var _heartbeat_spawn = null
 var _heartbeat_scene: int = 0
 func _on_heartbeat():
+	_write_alive() # (still running, and where: for the report of a session that ends without closing)
 	if in_map:
 		var cs = get_tree().current_scene
 		var id: int = cs.get_instance_id() if cs != null else 0
@@ -1905,7 +2011,8 @@ func _save_crash_report():
 	if not d.dir_exists(dir):
 		d.make_dir_recursive(dir)
 	var f := File.new()
-	if f.open(dir.plus_file("crash_%d.txt" % OS.get_unix_time()), File.WRITE) == OK:
+	_crash_report_file = dir.plus_file("crash_%d.txt" % OS.get_unix_time())
+	if f.open(_crash_report_file, File.WRITE) == OK:
 		f.store_string(crash_report(120))
 		f.close()
 	var all := saved_crash_reports()
@@ -1937,6 +2044,9 @@ func crash_report(lines: int = 60) -> String:
 	var out := "Chromia crash report (%s, %s %s)\n%s" % [
 		ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name(),
 		PoolStringArray(tail).join("\n")]
+	var ending := how_it_ended()
+	if not ending.empty():
+		out += "\n--- how it ended ---\n" + PoolStringArray(ending).join("\n")
 	if last_session_engine_log != "":
 		out += "\n--- engine log (last lines) ---\n" + last_session_engine_log
 	return out

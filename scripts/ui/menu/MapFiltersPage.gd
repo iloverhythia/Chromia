@@ -147,8 +147,6 @@ func _build():
 	emb.connect("toggled", self, "_on_embossed")
 	box.add_child(emb)
 	var ml = load("res://scripts/ui/menu/MapListOf.gd").find(filters)
-	if ml != null and ml.has_signal("reset_filters"):
-		ml.connect("reset_filters", self, "_embossed_reset", [emb])
 	# only the maps that aren't ranked, right under "ranked" (one or the other)
 	var unr: CheckBox = tmpl.duplicate(0)
 	unr.name = "UnrankedOnly"
@@ -166,8 +164,11 @@ func _build():
 			unr.pressed = false
 	if unr.pressed:
 		call_deferred("_on_unranked", true, unr)
+	# (Reset filters: both boxes unticked. One connection for the two: a
+	# second one to the same method is refused, which left "unranked" ticked
+	# after a reset and put an error in the log every time the menu opened)
 	if ml != null and ml.has_signal("reset_filters"):
-		ml.connect("reset_filters", self, "_embossed_reset", [unr])
+		ml.connect("reset_filters", self, "_boxes_reset", [[emb, unr]])
 	box.add_child(_heading("Sort by", title, true))
 	var cur := _current_key()
 	for s in SORTS:
@@ -228,9 +229,10 @@ func _move(n: String, to: Control) -> Control:
 		c.clip_text = false
 	return c
 
-func _embossed_reset(emb: CheckBox):
-	if is_instance_valid(emb):
-		emb.set_pressed_no_signal(false)
+func _boxes_reset(boxes: Array):
+	for b in boxes:
+		if is_instance_valid(b):
+			b.set_pressed_no_signal(false)
 
 func _on_unranked(on: bool, unr: CheckBox):
 	Rhythia.last_search_unranked_only = on

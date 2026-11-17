@@ -44,6 +44,9 @@ func _process(delta: float):
 	# (the settings say whether to send; the account id says whose it is)
 	if not Rhythia._settings_read or Rhythia.cid == "" or _t < 3.0:
 		return
+	# (Windows' own record of the crash is still being read: CrashFault.gd; not for ever)
+	if not Rhythia.last_session_fault_known and _t < 25.0:
+		return
 	set_process(false)
 	if not Rhythia.send_crash_logs:
 		_end(2, "not sent: turned off in Settings")
