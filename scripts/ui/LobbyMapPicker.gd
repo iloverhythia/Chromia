@@ -37,13 +37,17 @@ var _diff_buttons := []
 
 static func open_on(parent: Node):
 	var tree = parent.get_tree()
-	var old = tree.root.get_node_or_null("LobbyMapPickerLayer")
+	var old = tree.root.find_node("LobbyMapPickerLayer", true, false)
 	if old != null:
+		old.get_parent().remove_child(old)
 		old.queue_free()
 	var layer := CanvasLayer.new()
 	layer.layer = 110
 	layer.name = "LobbyMapPickerLayer"
-	tree.root.add_child(layer)
+	# On the screen the button is on: the window, or in VR the menu screen in
+	# front of you. (It opened on the computer's flat window, where nobody in a
+	# headset sees it: in VR "Pick map" seemed to do nothing.)
+	parent.get_viewport().add_child(layer)
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.anchor_right = 1

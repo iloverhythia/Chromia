@@ -28,3 +28,6 @@ in scripts/Savia.gd and empties this list.
 - Flashlight: the lit circle is now the same size on your screen whatever FOV you use (it used to shrink and grow with the FOV). At a high FOV, where the grid is small on screen, it still never lights more of the grid than before
 - Flashlight: holding the give up key (R) no longer lifts the darkness, so it can't be tapped to peek at the notes. While paused the darkness still lifts so you can read the pause screen, but the notes are hidden
 - New modifier: True Flashlight. Flashlight whose circle closes in every 100 combo (1.2 times narrower each time, up to 500 combo); a miss opens it again
+- VR multiplayer: "Pick map" in a lobby opens on the menu screen in front of you. It opened on the computer's flat window, so in a headset nothing seemed to happen
+- VR multiplayer (Meta Quest): during a match the game no longer builds a second scoreboard that a headset never shows, and the one in the headset is redrawn half as often
+- Settings > Crash Reports: "Send this session's log" sends what the game did this session to the developers (and copies it), for problems that aren't crashes. Handy in a headset or on a phone, where pasting a log is awkward

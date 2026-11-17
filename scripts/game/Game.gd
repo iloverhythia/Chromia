@@ -499,7 +499,11 @@ func _update_lobby_score_ui():
 	if lobby_score_canvas == null or lobby_manager == null:
 		return
 	var show = showing_round_results or (lobby_manager.lobby_active and lobby_manager.lobby_state.get("started", false) and not lobby_manager.watch_mode)
-	lobby_score_canvas.visible = show
+	# (A headset on its own has no window for the flat board: only the panel in
+	# the headset is kept up to date there. It was built and laid out a few
+	# times a second all the same.)
+	var flat: bool = not (Rhythia.vr and OS.has_feature("quest"))
+	lobby_score_canvas.visible = show and flat
 	if not show:
 		if _board_vr_shown:
 			_board_vr_shown = false
@@ -511,7 +515,9 @@ func _update_lobby_score_ui():
 	# the rows a few times a second, not every frame (with the board's in-place
 	# updates this keeps multiplayer smooth)
 	var now := OS.get_ticks_msec()
-	if now - _board_built_at < BOARD_EVERY_MS and _board != null and is_instance_valid(_board):
+	# (in VR half as often: each change draws the headset's board panel again)
+	var every: int = BOARD_EVERY_MS * (2 if Rhythia.vr else 1)
+	if now - _board_built_at < every and (not flat or (_board != null and is_instance_valid(_board))):
 		return
 	_board_built_at = now
 	lobby_score_title.text = "RESULTS" if showing_round_results else "LEADERBOARD"
@@ -545,11 +551,12 @@ func _update_lobby_score_ui():
 
 	# the board in the Online menu's look (LobbyBoard.gd); in VR also on a
 	# panel beside the left grid panel (HUD.gd)
-	_ensure_board()
 	var title := "Results" if showing_round_results else "Leaderboard"
 	var footer := _results_countdown_label.text if showing_round_results else ""
-	_board.set_board(rows, title, footer, showing_round_results and not Rhythia.vr)
-	_layout_lobby_score_ui()
+	if flat:
+		_ensure_board()
+		_board.set_board(rows, title, footer, showing_round_results and not Rhythia.vr)
+		_layout_lobby_score_ui()
 	var hud = get_node_or_null("HUD")
 	if hud != null and hud.has_method("update_leaderboard_vr"):
 		hud.update_leaderboard_vr(rows, title, footer, true)
