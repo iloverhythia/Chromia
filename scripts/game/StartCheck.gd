@@ -38,7 +38,7 @@ func _facts() -> String:
 	for id in Input.get_connected_joypads():
 		pads.append(Input.get_joy_name(id).left(40))
 	var mods := []
-	for m in ["nofail", "hardrock", "harderrock", "mirror_x", "mirror_y", "ghost", "flashlight", "nearsighted", "chaos", "earthquake", "360", "reverse", "hard_mode"]:
+	for m in ["nofail", "hardrock", "harderrock", "mirror_x", "mirror_y", "ghost", "flashlight", "true_flashlight", "nearsighted", "chaos", "earthquake", "360", "reverse", "hard_mode"]:
 		if bool(Rhythia.get("mod_" + m)):
 			mods.append(m)
 	return "window %d x %d%s, drawn %d x %d (render resolution %s, x%s, screen scale %s), mouse: %s, sensitivity %s%s%s%s, controllers: %s%s | hud: font %s, panels %s%s%s%s%s%s, cursor bloom %s | mods: %s" % [

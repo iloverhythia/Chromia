@@ -301,6 +301,20 @@ func note_check_collision(i: int):
 var asq = Rhythia.note_visual_approach
 
 # Cached once (nodes) and once per frame (settings) instead of per note.
+# Flashlight: the darkness lifts while the song is paused (so the pause screen
+# can be read), and the notes are hidden instead (Flashlight.gd)
+var _notes_hidden := false
+var _asq_was_visible := true
+func set_notes_hidden(h: bool):
+	if h == _notes_hidden:
+		return
+	_notes_hidden = h
+	if h:
+		_asq_was_visible = _n_asq.visible
+	_n_notes.visible = not h
+	_n_spawn.visible = not h
+	_n_asq.visible = (not h) and _asq_was_visible
+
 onready var _n_notes = $Notes
 onready var _n_asq = $ASq
 onready var _n_spawn = $SpawnEffect
@@ -339,7 +353,7 @@ func _cache_frame_settings():
 	# Strobe hides/shows all notes at once, so it's checked once per frame.
 	# It runs on real time, so the speed mod doesn't make it flash faster.
 	if Rhythia.mod_strobe:
-		var show_notes: bool = not (OS.get_ticks_msec() % 500 > 250)
+		var show_notes: bool = not (OS.get_ticks_msec() % 500 > 250) and not _notes_hidden
 		if _n_notes.visible != show_notes:
 			_n_notes.visible = show_notes
 	_f_spin = Rhythia.note_spin_x != 0 or Rhythia.note_spin_y != 0 or Rhythia.note_spin_z != 0

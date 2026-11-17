@@ -464,7 +464,8 @@ func _get_active_mods_dict() -> Dictionary:
 		"hardrock": mod_hardrock,
 		"harderrock": mod_harderrock,
 		"hard_mode": mod_hard_mode,
-		"flashlight": mod_flashlight,
+		"flashlight": flashlight_on(), # (True Flashlight counts as Flashlight wherever it isn't known)
+		"true_flashlight": mod_true_flashlight,
 		"reverse": mod_reverse,
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
@@ -3252,6 +3253,7 @@ func update_rpc_song():
 	if mod_harderrock: mods.append("Harder Rock")
 	if mod_hard_mode: mods.append("Hard Mode")
 	if mod_flashlight: mods.append("Flashlight")
+	if mod_true_flashlight: mods.append("True Flashlight")
 	if mod_reverse: mods.append("Reverse")
 	if mod_360: mods.append(("360x%s" % Rhythia.mod_360_speed))
 	if mod_strobe: mods.append(("Strobe!!!"))
@@ -3325,6 +3327,11 @@ const HARD_MODE_SCALE = 0.75
 var mod_hard_mode: bool = false setget set_mod_hard_mode
 # Flashlight: everything is dark except a circle around the cursor.
 var mod_flashlight: bool = false setget set_mod_flashlight
+# True Flashlight: Flashlight whose circle closes in as your combo grows
+# (scripts/game/Flashlight.gd). One or the other, like Hard Rock / Harder Rock.
+var mod_true_flashlight: bool = false setget set_mod_true_flashlight
+func flashlight_on() -> bool:
+	return mod_flashlight or mod_true_flashlight
 # Reverse: the map played backwards, the song too (scripts/game/ReverseSong.gd); never ranked
 var mod_reverse: bool = false setget set_mod_reverse
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
@@ -3415,7 +3422,13 @@ func set_mod_harderrock(v: bool):
 func set_mod_hard_mode(v: bool):
 	mod_hard_mode = v; emit_signal("mods_changed")
 func set_mod_flashlight(v: bool):
-	mod_flashlight = v; emit_signal("mods_changed")
+	mod_flashlight = v
+	if v: mod_true_flashlight = false
+	emit_signal("mods_changed")
+func set_mod_true_flashlight(v: bool):
+	mod_true_flashlight = v
+	if v: mod_flashlight = false
+	emit_signal("mods_changed")
 func set_mod_reverse(v: bool):
 	mod_reverse = v; emit_signal("mods_changed")
 
@@ -4366,6 +4379,7 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_harderrock: pts.append("m_harderrock")
 	if mod_hard_mode: pts.append("m_hardmode")
 	if mod_flashlight: pts.append("m_flashlight")
+	if mod_true_flashlight: pts.append("m_trueflashlight")
 	if mod_reverse: pts.append("m_reverse")
 	if mod_nofail: pts.append("m_nofail")
 
@@ -4399,6 +4413,7 @@ func parse_pb_str(txt: String):
 	data.mod_harderrock = false
 	data.mod_hard_mode = false
 	data.mod_flashlight = false
+	data.mod_true_flashlight = false
 	data.mod_reverse = false
 	data.mod_nofail = false
 	data.mod_strobe = false
@@ -4442,6 +4457,7 @@ func parse_pb_str(txt: String):
 				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true
 				"m_flashlight": data.mod_flashlight = true
+				"m_trueflashlight": data.mod_true_flashlight = true
 				"m_reverse": data.mod_reverse = true
 				"m_nofail": data.mod_nofail = true
 	return data

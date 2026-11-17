@@ -856,7 +856,7 @@ func _ready():
 
 	energy = max_energy
 
-	if Rhythia.mod_flashlight:
+	if Rhythia.flashlight_on():
 		var fl = preload("res://scripts/game/Flashlight.gd").new()
 		fl.name = "Flashlight"
 		fl.setup($Spawn/Cursor, $Spawn)

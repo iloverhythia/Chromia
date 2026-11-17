@@ -2378,6 +2378,10 @@ func _ready():
 	if Rhythia.mod_harderrock: _mod_icon("harderrock")
 	if Rhythia.mod_hard_mode: _mod_icon("hard_mode")
 	if Rhythia.mod_flashlight: _mod_icon("flashlight")
+	if Rhythia.mod_true_flashlight:
+		var tfl = _mod_icon("flashlight")
+		if tfl != null:
+			tfl.modulate = Color(1.0, 0.62, 0.4) # (the Flashlight icon, in orange)
 	if Rhythia.mod_reverse: _mod_icon("reverse")
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
