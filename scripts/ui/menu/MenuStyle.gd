@@ -6,8 +6,12 @@ extends Node
 # (WaveMenuBG.gd draws it: contour lines, grid, dots, waves, hexagons,
 # stripes, stars or a plain colour, in your colours and speed).
 #
+# And where things are: the order of the map screen's three parts (song
+# panel, map list, filters) and of the sidebar's buttons (layout).
+#
 # Kept in user://menu_style.json: { style: {key: "#rrggbbaa" | number},
-#   bg: {pattern, colors: ["#..", "#..", "#.."], speed} }. Only what you
+#   bg: {pattern, colors: ["#..", "#..", "#.."], speed},
+#   layout: {maps_order: ["info", "list", "filters"], sidebar_order: [button names]} }. Only what you
 # changed is kept; the rest is the game's own look. Skins (Skin.gd) carry it,
 # so exporting a skin exports your menu too.
 #
@@ -48,12 +52,18 @@ const KEYS := {
 	"accent": Color(1, 0.756863, 0.960784),
 }
 
+# The map screen's parts (the nodes under Main/Maps that move together) and
+# the order the game has them in
+const MAPS_PARTS := {"info": ["Results"], "list": ["MapRegistry", "ScrollControl"], "filters": ["VSeparator2", "Filters", "VSeparator3"]}
+const MAPS_ORDER := ["info", "list", "filters"]
+const MAPS_NAMES := {"info": "Song panel", "list": "Map list", "filters": "Filters"}
+
 # --- the saved look --------------------------------------------------------------
 
 static func data() -> Dictionary:
 	if Engine.has_meta("menu_style_data"):
 		return Engine.get_meta("menu_style_data")
-	var d := {"style": {}, "bg": {}}
+	var d := {"style": {}, "bg": {}, "layout": {}}
 	var f := File.new()
 	if f.open(Globals.p(FILE), File.READ) == OK:
 		var parsed = parse_json(f.get_as_text())
@@ -64,9 +74,28 @@ static func data() -> Dictionary:
 
 # what came from a file or a skin -> only known keys, sane values
 static func clean(raw) -> Dictionary:
-	var out := {"style": {}, "bg": {}}
+	var out := {"style": {}, "bg": {}, "layout": {}}
 	if not (raw is Dictionary):
 		return out
+	var lay = raw.get("layout", {})
+	if lay is Dictionary:
+		var mo = lay.get("maps_order")
+		if mo is Array and mo.size() == MAPS_ORDER.size():
+			var seen := []
+			for part in mo:
+				if MAPS_ORDER.has(String(part)) and not seen.has(String(part)):
+					seen.append(String(part))
+			if seen.size() == MAPS_ORDER.size() and seen != MAPS_ORDER:
+				out.layout.maps_order = seen
+		var so = lay.get("sidebar_order")
+		if so is Array and not so.empty():
+			var names := []
+			for n in so:
+				var name := String(n)
+				if name != "" and name.length() <= 40 and name.is_valid_identifier() and not names.has(name) and names.size() < 40:
+					names.append(name)
+			if not names.empty():
+				out.layout.sidebar_order = names
 	var s = raw.get("style", {})
 	if s is Dictionary:
 		for k in KEYS:
@@ -143,7 +172,41 @@ static func set_bg(key: String, v):
 	save(d)
 
 static func reset():
-	save({"style": {}, "bg": {}})
+	save({"style": {}, "bg": {}, "layout": {}})
+
+# --- where things are ---
+# the map screen's parts, left to right
+static func maps_order() -> Array:
+	var o = data().get("layout", {}).get("maps_order")
+	return o if o is Array and o.size() == MAPS_ORDER.size() else MAPS_ORDER
+
+# the sidebar's buttons you put in an order of your own (node names; the rest follow as the game has them)
+static func sidebar_order() -> Array:
+	var o = data().get("layout", {}).get("sidebar_order")
+	return o if o is Array else []
+
+# null: the game's own again
+static func set_layout(key: String, v):
+	var d := data()
+	if not d.has("layout") or not (d.layout is Dictionary):
+		d["layout"] = {}
+	if v == null:
+		d.layout.erase(key)
+	else:
+		d.layout[key] = v
+	save(clean(d))
+
+# the sidebar's buttons as they stand now: [[node name, what it says], ...] (the ones that show)
+static func sidebar_buttons(menu: Node) -> Array:
+	var out := []
+	var l = menu.get_node_or_null("Sidebar/L") if menu != null else null
+	if l == null:
+		return out
+	for b in l.get_children():
+		if b is Button and b.visible:
+			var lab = b.get_node_or_null("Label")
+			out.append([String(b.name), String(lab.text) if lab is Label and String(lab.text) != "" else String(b.name)])
+	return out
 
 # put a look on (a skin's, or a file's): saved, then shown
 static func put_on(raw, tree: SceneTree):
@@ -449,9 +512,41 @@ func _meta_orig(n: Object, key: String, v):
 		n.set_meta(key, v)
 	return n.get_meta(key)
 
+# the map screen's parts and the sidebar's buttons in your order (or the game's)
+func apply_layout():
+	var maps = menu.get_node_or_null("Main/Maps")
+	if maps != null:
+		var at := 0
+		for part in maps_order():
+			for n in MAPS_PARTS[part]:
+				var c = maps.get_node_or_null(n)
+				if c != null:
+					maps.move_child(c, at)
+					at += 1
+	var l = menu.get_node_or_null("Sidebar/L")
+	if l != null:
+		# (the game's order, as it was when this first looked: the buttons the sidebar adds are in it)
+		var now := []
+		for c in l.get_children():
+			now.append(String(c.name))
+		var orig: Array = _meta_orig(l, "ms_order", now)
+		var want := []
+		for n in sidebar_order():
+			if l.has_node(n) and not want.has(n):
+				want.append(n)
+		for n in orig:
+			if l.has_node(n) and not want.has(n):
+				want.append(n)
+		for n in now:
+			if not want.has(n):
+				want.append(n)
+		for i in want.size():
+			l.move_child(l.get_node(want[i]), i)
+
 func restyle():
 	if menu == null or not is_instance_valid(menu):
 		return
+	apply_layout()
 	restyle_tree(get_tree().root)
 	var s: Dictionary = data().style
 	if menu is ColorRect:
