@@ -195,6 +195,15 @@ func _card(c: Dictionary) -> Control:
 		pic.texture = fi.pic(iu)
 		if not fi.is_connected("loaded", self, "_on_art_loaded"):
 			fi.connect("loaded", self, "_on_art_loaded")
+	# a moving card (Supporter's hearts: CardFx.gd)
+	var fx: String = String(c.get("fx", "")) if c.get("fx") != null else ""
+	if fx != "":
+		var cfx = load("res://scripts/ui/CardFx.gd").new()
+		cfx.anchor_right = 1
+		cfx.anchor_bottom = 1
+		cfx.inset = 1.0
+		b.add_child(cfx)
+		cfx.set_fx(fx)
 	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND if have else CURSOR_ARROW
 	b.disabled = not have
 	b.hint_tooltip = ("Showing" if picked else "Use this card") if have else "Locked"

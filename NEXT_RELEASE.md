@@ -23,3 +23,4 @@ in scripts/Savia.gd and empties this list.
 - Map downloads: a download that stops coming in now ends by itself after 25 seconds and says so. It used to leave "Downloading map..." up for good, which looked like a freeze
 - Map downloads no longer fail with "Failed to connect" when google.com can't be reached (the game asked it first, as a connection check). A failed download is also reported once, not twice
 - Watching someone or taking a lobby's mods: the map screen is built again once instead of 20 to 50 times in a row (a hitch each time)
+- Supporters have their own card (opal hearts drifting up, lights running round its edge) and frame (an opal ring with a gem heart that beats, its pulse running up both sides, little hearts floating round it), in profile > Cards and Frames
