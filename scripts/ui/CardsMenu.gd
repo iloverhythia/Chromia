@@ -203,7 +203,7 @@ func _card(c: Dictionary) -> Control:
 		cfx.anchor_bottom = 1
 		cfx.inset = 1.0
 		b.add_child(cfx)
-		cfx.set_fx(fx)
+		cfx.set_fx(fx, border)
 	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND if have else CURSOR_ARROW
 	b.disabled = not have
 	b.hint_tooltip = ("Showing" if picked else "Use this card") if have else "Locked"

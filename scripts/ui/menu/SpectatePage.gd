@@ -1201,9 +1201,11 @@ func _fill_card(c: Dictionary, p: Dictionary):
 		c.img_url = iu
 		_card_img(c)
 	var fx: String = String(cd.get("fx", "")) if cd is Dictionary and cd.get("fx") != null else ""
-	if fx != c.fx:
-		c.fx = fx
-		c.cfx.set_fx(fx)
+	# (the effect takes the card's border colour: set again when either changes)
+	var fx_sig: String = fx + "|" + (c.card_border.to_html() if c.card_border != null else "")
+	if fx_sig != c.fx:
+		c.fx = fx_sig
+		c.cfx.set_fx(fx, c.card_border)
 	var fsig := var2str(p.get("frame"))
 	if fsig != c.frame_sig:
 		c.frame_sig = fsig
