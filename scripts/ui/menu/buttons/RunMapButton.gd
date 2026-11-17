@@ -180,6 +180,9 @@ func _pressed():
 
 func _begin_start(in_lobby: bool, lobby_manager):
 	has_been_pressed = true
+	# (crash reports: several end with a map picked in the menu and nothing
+	# after. Between here and the song loader the whole menu is taken down)
+	Rhythia.trail("play pressed: %s" % String(Rhythia.selected_song.id))
 	if in_lobby:
 		if lobby_manager.has_method("push_current_mods"):
 			lobby_manager.push_current_mods()

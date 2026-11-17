@@ -2195,6 +2195,7 @@ func _refresh_rp():
 			"%s RP" % Globals.comma_sep(int(round(float(p.rp)))))
 
 func _exit_tree():
+	Rhythia.trail("menu: out of the tree") # (everything in it has left; it is deleted next)
 	var rp_store = preload("res://scripts/RhythiaPoints.gd").get_store()
 	if rp_store.is_connected("changed", self, "_refresh_rp"):
 		rp_store.disconnect("changed", self, "_refresh_rp")

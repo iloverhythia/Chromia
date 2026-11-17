@@ -17,6 +17,9 @@ var black_fade_target: bool = false
 var black_fade: float = 0
 
 
+func _enter_tree():
+	Rhythia.trail("song loader: entering (the screen before it is gone)")
+
 func _ready():
 	Rhythia.trail("song loader: ready")
 	# your own settings for a normal play (someone else's stay on only when

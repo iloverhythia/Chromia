@@ -1435,6 +1435,8 @@ func select_border(b: Border):
 		selected_border = b
 		emit_signal("selected_border_changed", b)
 func select_song(song: Song):
+	if song == null:
+		return
 	if song.is_online:
 		emit_signal("download_start")
 		get_tree().paused = true

@@ -72,9 +72,41 @@ func mapdl_error(id: String, error: String, map: Song):
 	print("[MapDB Download] Map %s errored with code %s" % [map.id, error])
 	emit_signal("map_downloaded", {id = id, success = false, error = error})
 
-func _process(_d):
+# A map download that stops coming in. The game is paused on "Downloading
+# map..." while a map downloads and the request has no time limit (maps are
+# big, connections slow), so a connection that went quiet left that screen up
+# for good: it looked frozen, and the way out people know is ending the game.
+# No new bytes for MAPDL_STALL_S: the download is ended and says so.
+const MAPDL_STALL_S := 25.0
+var _mapdl_watching := false
+var _mapdl_seen_bytes := -1
+var _mapdl_quiet := 0.0
+
+func _process(d):
 	mapdl_bs = mapdl_hr.get_body_size()
 	mapdl_bd = mapdl_hr.get_downloaded_bytes()
+	if _mapdl_watching:
+		if int(mapdl_bd) != _mapdl_seen_bytes:
+			_mapdl_seen_bytes = int(mapdl_bd)
+			_mapdl_quiet = 0.0
+		else:
+			_mapdl_quiet += min(d, 0.25)
+			if _mapdl_quiet >= MAPDL_STALL_S:
+				_mapdl_watching = false
+				Rhythia.trail("map download stopped coming in after %d bytes" % _mapdl_seen_bytes)
+				mapdl_hr.cancel_request()
+				emit_signal("_mapdl_req", {result = -2})
+
+const MAPDL_ERRORS := {
+	HTTPRequest.RESULT_CANT_RESOLVE: "Can't Resolve",
+	HTTPRequest.RESULT_CANT_CONNECT: "Can't Connect",
+	HTTPRequest.RESULT_CONNECTION_ERROR: "Connection Error",
+	HTTPRequest.RESULT_SSL_HANDSHAKE_ERROR: "SSL Handshake Error",
+	HTTPRequest.RESULT_TIMEOUT: "Timeout",
+	HTTPRequest.RESULT_REDIRECT_LIMIT_REACHED: "Redirect Limit Reached",
+	HTTPRequest.RESULT_DOWNLOAD_FILE_CANT_OPEN: "Download File Open Error",
+	HTTPRequest.RESULT_DOWNLOAD_FILE_WRITE_ERROR: "Download File Write Error",
+}
 
 signal _connection_test
 var ctest_hr: HTTPRequest = HTTPRequest.new()
@@ -103,10 +135,10 @@ func _mapdl_handler(id: String, map: Song):
 	if is_web() and map.web_blocked:
 		mapdl_error(id, "This map's host doesn't allow downloads from the browser. Get it in the desktop client, or look for it in the Map Browser.", map); return
 
-	call_deferred("test_connection")
-	if not yield(self, "_connection_test"):
-		mapdl_error(id, "Failed to connect", map); return
-
+	# (No "can the internet be reached" check first. It asked google.com, with
+	# five seconds to answer: where that site is blocked or slow, no map could
+	# be downloaded at all ("Failed to connect"), whatever the map's own host
+	# did. The download itself says what went wrong.)
 	var dir: Directory = Directory.new()
 	if dir.file_exists(Globals.p("user://mapdl.sspm.part")):
 		dir.remove(Globals.p("user://mapdl.sspm.part"))
@@ -118,25 +150,14 @@ func _mapdl_handler(id: String, map: Song):
 		elif res == ERR_CANT_CONNECT: mapdl_error(id, "Can't Connect", map)
 		else: mapdl_error(id, "Unknown Error (%s)" % res, map)
 	else:
+		_mapdl_seen_bytes = -1
+		_mapdl_quiet = 0.0
+		_mapdl_watching = true
 		var mapdl_res = yield(self, "_mapdl_req")
+		_mapdl_watching = false
 
-		if mapdl_res.result == HTTPRequest.RESULT_CANT_RESOLVE:
-			mapdl_error(id, "Can't Resolve", map)
-		elif mapdl_res.result == HTTPRequest.RESULT_CANT_CONNECT:
-			mapdl_error(id, "Can't Connect", map)
-		elif mapdl_res.result == HTTPRequest.RESULT_CONNECTION_ERROR:
-			mapdl_error(id, "Connection Error", map)
-		elif mapdl_res.result == HTTPRequest.RESULT_SSL_HANDSHAKE_ERROR:
-			mapdl_error(id, "SSL Handshake Error", map)
-		elif mapdl_res.result == HTTPRequest.RESULT_TIMEOUT:
-			mapdl_error(id, "Timeout", map)
-		elif mapdl_res.result == HTTPRequest.RESULT_REDIRECT_LIMIT_REACHED:
-			mapdl_error(id, "Redirect Limit Reached", map)
-		elif mapdl_res.result == HTTPRequest.RESULT_DOWNLOAD_FILE_CANT_OPEN:
-			mapdl_error(id, "Download File Open Error", map)
-		elif mapdl_res.result == HTTPRequest.RESULT_DOWNLOAD_FILE_WRITE_ERROR:
-			mapdl_error(id, "Download File Write Error", map)
-
+		# (one answer for a download: a failed one used to be told twice, the
+		# second time as "Unknown Error")
 		if mapdl_res.result == HTTPRequest.RESULT_SUCCESS:
 			if mapdl_res.response_code == 200:
 				var old_db_id = map.id
@@ -180,8 +201,10 @@ func _mapdl_handler(id: String, map: Song):
 				else: mapdl_error(id, "HTTP-%s" % mapdl_res.response_code, map)
 		elif mapdl_res.result == -1:
 			mapdl_error(id, "Cancelled", map)
+		elif mapdl_res.result == -2:
+			mapdl_error(id, "The download stopped coming in (nothing for %d seconds). Check your connection and try again." % int(MAPDL_STALL_S), map)
 		else:
-			mapdl_error(id, "Unknown Error", map)
+			mapdl_error(id, String(MAPDL_ERRORS.get(mapdl_res.result, "Unknown Error")), map)
 
 
 # a downloaded map that didn't come out right: told, and kept in the trail
