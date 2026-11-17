@@ -264,8 +264,8 @@ func _add_extra_pages():
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
 	# everyone online and what they play, and the global chat: the eye button
 	_add_spectate()
-	if ed != null and (Rhythia.vr or OS.has_feature("Android") or OS.has_feature("iOS")):
-		ed.visible = false # needs a keyboard
+	# (The editor used to be left out on phones and in VR: it needed a keyboard.
+	# It has a layout for fingers and buttons for the keys now, SSQEPanels.gd.)
 	# browser version: a new player has no maps yet; point them to the Map Browser
 	if OS.has_feature("JavaScript") and Rhythia.registry_song != null:
 		var has_local := false
