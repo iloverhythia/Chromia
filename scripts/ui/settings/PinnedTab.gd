@@ -21,6 +21,10 @@ extends VBoxContainer
 
 const FILE := "user://pinned_settings.json"
 const MAX_PINS := 60
+# A page marks what isn't a setting with this meta (set_meta(NO_PIN, true)):
+# read-outs, explanations, lists it fills in. No Pin button shows on it or on
+# anything inside it. (The Settings Generator's findings and play lists.)
+const NO_PIN := "no_pin"
 const TEXT := Color(0.898039, 0.94902, 1, 1)
 const DIM := Color(0.62, 0.6, 0.68, 1)
 const PINK := Color(0.96, 0.6, 0.78)
@@ -153,6 +157,8 @@ func _index_node(n: Node, tab: String, seen: Dictionary, is_page: bool, out: Arr
 		return
 	if n is Popup:
 		return
+	if n.has_meta(NO_PIN):
+		return # (text that isn't a setting: neither it nor anything in it)
 	var text := ""
 	if n is CheckBox or n is Label or (n is Button and not (n is OptionButton) and not (n is ColorPickerButton)):
 		text = String(n.text).strip_edges()

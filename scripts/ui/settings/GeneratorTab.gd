@@ -79,8 +79,11 @@ func _ready():
 	box.add_constant_override("separation", 10)
 	m.add_child(box)
 
-	_label("Settings Generator", f_title, ACCENT)
-	_label("Chromia tracks how you play (on this device only). Generate suggests settings that suit you, each with a reason and how sure it is. It only changes how the game feels, never hitbox, hit window or mods.", f_body, DIM, true)
+	# (only the checkbox and the three buttons are settings: the title, the
+	# explanation, the findings, the suggestions and the play lists are text
+	# to read, with no Pin button: PinnedTab.NO_PIN)
+	_label("Settings Generator", f_title, ACCENT).set_meta("no_pin", true)
+	_label("Chromia tracks how you play (on this device only). Generate suggests settings that suit you, each with a reason and how sure it is. It only changes how the game feels, never hitbox, hit window or mods.", f_body, DIM, true).set_meta("no_pin", true)
 
 	var track := CheckBox.new()
 	track.text = "Track my plays"
@@ -106,6 +109,8 @@ func _ready():
 	box.add_child(recs_box)
 	profiles_box = VBoxContainer.new()
 	box.add_child(profiles_box)
+	for n in [summary, insights, recs_box, profiles_box]:
+		n.set_meta("no_pin", true)
 	summary.text = "%d plays tracked." % PT.list_files().size()
 
 func _label(text: String, f: Font, col: Color, wrap: bool = false, parent: Node = null) -> Label:
