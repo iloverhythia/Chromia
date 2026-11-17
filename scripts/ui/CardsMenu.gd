@@ -11,6 +11,7 @@ const OnlineStyle = preload("res://scripts/ui/menu/OnlineStyle.gd")
 var S
 var lm
 var _grid: GridContainer
+var _scroll: ScrollContainer = null
 var _msg: Label
 var _code: LineEdit
 var _chosen := "default"
@@ -62,7 +63,11 @@ func _init():
 	_grid.columns = 3
 	_grid.add_constant_override("hseparation", 10)
 	_grid.add_constant_override("vseparation", 10)
-	v.add_child(_grid)
+	# (in a list that scrolls once there are more tiles than fit on the screen: _place)
+	_scroll = ScrollContainer.new()
+	_scroll.scroll_horizontal_enabled = false
+	v.add_child(_scroll)
+	_scroll.add_child(_grid)
 	_msg = S.label("Loading your cards...", S.f_small, S.DIM)
 	v.add_child(_msg)
 	v.add_child(S.rule())
@@ -88,12 +93,31 @@ func _ready():
 		lm.connect("card_message", self, "_on_message")
 		lm.get_cards()
 	get_viewport().connect("size_changed", self, "_place")
-	call_deferred("_place")
+	call_deferred("_place_soon")
 
+# The window is as big as what's in it, never taller than the screen (the
+# tiles scroll then), in the middle. Its size is worked out afresh each time:
+# it used to be set to "at least what's needed" while the old tiles of the
+# list were still there next to the new ones, so after picking one it was
+# twice as tall and stayed that way, down past the bottom of the screen.
 func _place():
+	if not is_inside_tree() or _scroll == null:
+		return
 	var vp := get_viewport_rect().size
+	var tiles: Vector2 = _grid.get_combined_minimum_size()
+	_scroll.rect_min_size = Vector2(tiles.x, 0)
+	var rest: float = get_combined_minimum_size().y # (everything but the tiles)
+	var room: float = max(120.0, vp.y - 40.0 - rest)
+	var bar: float = 14.0 if tiles.y > room else 0.0
+	_scroll.rect_min_size = Vector2(tiles.x + bar, min(tiles.y, room))
 	rect_size = get_combined_minimum_size()
 	rect_position = ((vp - rect_size) / 2.0).floor()
+
+# (now, and once more when the new tiles and the wrapped text have their sizes)
+func _place_soon():
+	_place()
+	yield(get_tree(), "idle_frame")
+	_place()
 
 func _on_dim(ev):
 	if ev is InputEventMouseButton and ev.pressed:
@@ -115,6 +139,7 @@ func close():
 func _on_cards(cards: Array, chosen: String):
 	_chosen = chosen
 	for c in _grid.get_children():
+		_grid.remove_child(c) # (out of the list now: its size is worked out right after)
 		c.queue_free()
 	# Only the cards you have are shown (the others stay a secret until you get
 	# them); admins see every card, the locked ones too. The server sends the
@@ -135,7 +160,7 @@ func _on_cards(cards: Array, chosen: String):
 		_msg.text = "%d locked (only admins see these)." % locked
 	else:
 		_msg.text = "These are the cards you have. There are more to find: keep playing (and looking)."
-	call_deferred("_place")
+	call_deferred("_place_soon")
 
 func _card(c: Dictionary) -> Control:
 	var id := String(c.get("id", ""))

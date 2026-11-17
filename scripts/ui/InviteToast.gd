@@ -84,13 +84,23 @@ func _ready():
 		S.button(join, true, true)
 		join.connect("pressed", self, "_join")
 		row.add_child(join)
-	rect_min_size = Vector2(300, 0)
 	get_viewport().connect("size_changed", self, "_place")
-	_place()
 	modulate.a = 0.0
+	_place()
+	# Once more when the text has its width. A line that wraps says it needs a
+	# great height until then (one word a line), and the notice took that: during
+	# a song, where it has such a line, it came out a thousand pixels tall.
+	yield(get_tree(), "idle_frame")
+	_place()
+	yield(get_tree(), "idle_frame")
+	_place()
 
 func _place():
+	if not is_inside_tree():
+		return
 	var vp := get_viewport_rect().size
+	rect_min_size = Vector2(min(300.0, max(160.0, vp.x - 32.0)), 0)
+	rect_size = Vector2(rect_min_size.x, 0) # (as narrow and as low as it can be)
 	rect_size = get_combined_minimum_size()
 	# above the round Spectate button in the corner
 	rect_position = Vector2(vp.x - rect_size.x - 16, vp.y - rect_size.y - 70)
