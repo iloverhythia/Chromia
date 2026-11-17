@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - VR and phones: the cursor trail no longer gives up when the frame rate drops. Each frame's new trail was only drawn a frame later; at a low frame rate with a short Trail Time it had already faded by then, so the trail came apart from the cursor or vanished
 - Cards and Frames: the window no longer grows down past the bottom of the screen after you pick one, and with many cards or frames the list scrolls instead of running off the screen
 - The lobby invite notice during a song is its normal small size (it came out as tall as the screen)
+- Videos: the Chromia mark is in the bottom left corner instead of the middle of the left edge

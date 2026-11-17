@@ -405,7 +405,7 @@ func _process(_delta):
 		_buttons.visible = true
 		_layer.visible = true
 
-# The Chromia mark at the middle of the left edge of every video (not while just watching)
+# The Chromia mark in the bottom left corner of every video (not while just watching)
 var _logo_layer: CanvasLayer = null
 func _show_logo(on: bool):
 	if not on:
@@ -425,15 +425,15 @@ func _show_logo(on: bool):
 	logo.texture = load("res://assets/images/branding/icon.png")
 	logo.expand = true
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# (at the middle of the left edge)
+	# (in the bottom left corner)
 	logo.anchor_left = 0.0
-	logo.anchor_top = 0.5
+	logo.anchor_top = 1.0
 	logo.anchor_right = 0.0
-	logo.anchor_bottom = 0.5
+	logo.anchor_bottom = 1.0
 	logo.margin_left = margin
-	logo.margin_top = -round(side / 2)
+	logo.margin_top = -(margin + side)
 	logo.margin_right = margin + side
-	logo.margin_bottom = side - round(side / 2)
+	logo.margin_bottom = -margin
 	logo.modulate = Color(1, 1, 1, 0.8)
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_logo_layer.add_child(logo)
