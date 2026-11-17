@@ -896,6 +896,8 @@ func _ready():
 	$ForceMatLoad.visible = false
 	Rhythia.start_log("playing")
 	add_child(load("res://scripts/game/HitchLog.gd").new()) # (slow frames go to the trail)
+	if not Rhythia.replaying and not Rhythia.vr:
+		add_child(load("res://scripts/game/StartCheck.gd").new()) # (what this song is played with, and whether the mouse and HUD work: to the trail)
 	if not Rhythia.replaying:
 		_scan_processes() # (Cheat Engine finds for this song start over; nothing is scanned now)
 

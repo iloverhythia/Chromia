@@ -1941,6 +1941,29 @@ func crash_report(lines: int = 60) -> String:
 		out += "\n--- engine log (last lines) ---\n" + last_session_engine_log
 	return out
 
+# This session's log (the trail so far and the engine's own log), for a
+# problem that isn't a crash: Settings > Crash Reports > Copy this session's
+# log. Without the account id and the computer's user name (CrashSend.scrub).
+func session_report(lines: int = 400) -> String:
+	_trail_mutex.lock()
+	if _trail_file != null:
+		_trail_file.flush()
+	_trail_mutex.unlock()
+	var tail := []
+	var f := File.new()
+	if f.open(Globals.p(TRAIL_FILE), File.READ) == OK:
+		var all := f.get_as_text().strip_edges().split("\n")
+		f.close()
+		for i in range(max(0, all.size() - lines), all.size()):
+			tail.append(all[i])
+	var out := "Chromia session log (%s, %s %s)\n%s" % [
+		ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name(),
+		PoolStringArray(tail).join("\n")]
+	var eng := _engine_log_tail(Globals.p("user://logs/godot.log"), 80)
+	if eng != "":
+		out += "\n--- engine log (last lines) ---\n" + eng
+	return load("res://scripts/CrashSend.gd").scrub(out)
+
 # The engine's own log of the last session (errors and warnings from Godot,
 # which the trail doesn't have). Godot keeps the current one as godot.log and
 # renames the previous ones to godot<date>.log when it starts.
@@ -1960,8 +1983,12 @@ func _previous_engine_log(lines: int) -> String:
 	d.list_dir_end()
 	if newest == "":
 		return ""
+	return _engine_log_tail(logs.plus_file(newest), lines)
+
+# the last lines of an engine log, without the lines every offline start has
+func _engine_log_tail(path: String, lines: int) -> String:
 	var f := File.new()
-	if f.open(logs.plus_file(newest), File.READ) != OK:
+	if f.open(path, File.READ) != OK:
 		return ""
 	var all := f.get_as_text().strip_edges().split("\n")
 	f.close()
