@@ -59,13 +59,65 @@ func _set_limit(v: int):
 	_applied = v
 	Engine.target_fps = v
 
+# --- Limit FPS in Menus (Settings > Video & Audio, on from the start) -----------
+# With no frame limit the game draws as many frames as the graphics card can
+# make: around two thousand a second on a fast one, also while you're only
+# looking at the map list. That is the card at 90% and more, its fans up and
+# less left for whatever is recording or streaming, for nothing: the screen
+# shows a few hundred of them at most. In the menu the game therefore draws
+# as often as the screen shows (144 a second at most), and 30 a second while
+# its window isn't the one in front. In a map nothing changes: your own Max
+# FPS, or none. Your Max FPS is kept the same way Streaming Mode keeps it
+# (Rhythia.stream_user_fps) and is what gets saved.
+const MENU_MOST := 144
+const MENU_LEAST := 60
+const MENU_BACKGROUND := 30
+var _menu_hold := false
+
+func menu_limit_usable() -> bool:
+	return bool(Rhythia.menu_fps_limit) and not Rhythia.vr and Rhythia.dev != "mobile" \
+		and not OS.has_feature("JavaScript") and not OS.has_feature("quest") and Rhythia.render_fps <= 0 \
+		and not Rhythia.has_meta("no_delay_saved")
+
+static func menu_cap() -> int:
+	if not OS.is_window_focused() or OS.window_minimized:
+		return MENU_BACKGROUND
+	var hz: float = load("res://scripts/game/SteadyRate.gd")._screen_top_kept()
+	return int(clamp(round(hz) if hz >= 20.0 else float(MENU_MOST), MENU_LEAST, MENU_MOST))
+
+# true: the menu's limit is on (and Streaming Mode has nothing to do)
+func _menu_tick() -> bool:
+	var cs = get_tree().current_scene
+	if not menu_limit_usable() or cs == null or cs.name != "Menu":
+		if _menu_hold:
+			# (a map, the editor, a loading screen: your own limit, at once)
+			_menu_hold = false
+			_release()
+		return false
+	if Rhythia.stream_user_fps < 0:
+		Rhythia.stream_user_fps = Engine.target_fps
+	elif _applied >= 0 and Engine.target_fps != _applied:
+		Rhythia.stream_user_fps = Engine.target_fps # (changed elsewhere: Max FPS, a profile. That's yours now)
+	var mine: int = Rhythia.stream_user_fps
+	var cap: int = menu_cap()
+	var want: int = cap if mine <= 0 else int(min(cap, mine))
+	if Engine.target_fps != want or _applied != want:
+		_set_limit(want)
+	_menu_hold = true
+	return true
+
 func _process(delta: float):
 	_clock += delta
 	if not usable():
+		if _menu_tick():
+			return
 		if Rhythia.stream_user_fps >= 0:
 			_release()
 			Rhythia.trail("streaming mode: let go of the frame limit")
 		return
+	if _menu_hold:
+		_menu_hold = false # (Streaming Mode was turned on: it holds the limit from here)
+		_release()
 	var cs = get_tree().current_scene
 	var id: int = cs.get_instance_id() if cs != null else 0
 	if id != _scene_id:

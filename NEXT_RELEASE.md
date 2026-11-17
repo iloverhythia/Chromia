@@ -12,3 +12,5 @@ in scripts/Savia.gd and empties this list.
 - Cards and Frames: the window no longer grows down past the bottom of the screen after you pick one, and with many cards or frames the list scrolls instead of running off the screen
 - The lobby invite notice during a song is its normal small size (it came out as tall as the screen)
 - Videos: the Chromia mark is in the bottom left corner instead of the middle of the left edge
+- PC: new "Limit FPS in Menus" (Settings > Video & Audio > Graphics, on from the start). In the menus the game draws as often as your screen shows (144 times a second at most) and 30 times a second while its window isn't in front, instead of as often as the graphics card can: a few percent of a fast card instead of nearly all of it. Maps aren't touched: your Max FPS, or no limit
+- Max FPS typed while Streaming Mode holds the frame limit is taken now (it was ignored until Streaming Mode was turned off)

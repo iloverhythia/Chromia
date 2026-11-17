@@ -34,3 +34,19 @@ func _add_no_delay():
 
 func _add_render_res():
 	load("res://scripts/ui/settings/RenderRes.gd").attach(self)
+	_add_menu_limit()
+
+# Limit FPS in Menus (scripts/StreamMode.gd), computers only
+func _add_menu_limit():
+	var p = get_parent()
+	if p == null or p.has_node("MenuFpsLimit") or Rhythia.device("mobile") or OS.has_feature("JavaScript") or OS.has_feature("quest"):
+		return
+	var cb: CheckBox = duplicate(0)
+	cb.name = "MenuFpsLimit"
+	cb.set_script(load("res://scripts/ui/settings/SettingsCheckbox.gd"))
+	cb.target = "menu_fps_limit"
+	cb.text = "Limit FPS in Menus"
+	cb.hint_tooltip = "In the menus the game draws as often as your screen shows (144 times a second at most), and 30 times a second while its window isn't in front, instead of as often as the graphics card can. On a fast card that is a few percent of it instead of nearly all, with less heat and fan noise and more room for a stream or a recording.\nMaps aren't touched: there it's your Max FPS, or no limit. Off: no limit in the menus either."
+	p.add_child(cb)
+	p.move_child(cb, get_index() + 1)
+	cb.pressed = Rhythia.menu_fps_limit

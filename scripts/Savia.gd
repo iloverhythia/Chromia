@@ -3499,6 +3499,12 @@ var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android")
 # what the computer manages, so Discord / OBS have room. stream_user_fps is
 # your own Max FPS while it holds the frame limit (-1: it doesn't).
 var stream_mode: bool = false
+# Limit FPS in Menus (scripts/StreamMode.gd, _menu_tick): the menu draws as
+# often as the screen shows, not as often as the graphics card can
+var menu_fps_limit: bool = true
+# your own Max FPS, also while something holds the frame limit lower
+func user_fps_cap() -> int:
+	return stream_user_fps if stream_user_fps >= 0 else Engine.target_fps
 # Settings > Transfer > Settings backups (scripts/SettingsBackup.gd)
 var settings_backup: bool = true
 var settings_backup_profile_only: bool = true
@@ -3573,7 +3579,7 @@ func no_delay_active() -> bool:
 func no_delay_begin():
 	if not no_delay_active() or has_meta("no_delay_saved"):
 		return
-	set_meta("no_delay_saved", [OS.vsync_enabled, Engine.target_fps, OS.vsync_via_compositor, Input.use_accumulated_input])
+	set_meta("no_delay_saved", [OS.vsync_enabled, user_fps_cap(), OS.vsync_via_compositor, Input.use_accumulated_input]) # (your Max FPS, not a limit the menu had on)
 	Input.use_accumulated_input = false
 	OS.vsync_enabled = false
 	OS.vsync_via_compositor = false
@@ -4656,6 +4662,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			frame_smoothing = bool(data.frame_smoothing)
 		if data.has("stream_mode"):
 			stream_mode = bool(data.stream_mode)
+		if data.has("menu_fps_limit"):
+			menu_fps_limit = bool(data.menu_fps_limit)
 		if data.has("settings_backup"):
 			settings_backup = bool(data.settings_backup)
 		if data.has("settings_backup_profile_only"):
@@ -5609,6 +5617,7 @@ func _write_settings_file(saveFile: String):
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
 			stream_mode = stream_mode,
+			menu_fps_limit = menu_fps_limit,
 			settings_backup = settings_backup,
 			settings_backup_profile_only = settings_backup_profile_only,
 			map_grid = map_grid,
