@@ -129,6 +129,9 @@ func _do_upd(t, s):
 	_preview_was_playing = false
 	if Rhythia.selected_song == null:
 		return
+	# (a song the game can't play by itself, .m4a and such, starts being
+	# converted now rather than when Play is pressed)
+	load("res://scripts/content/AudioPrefetch.gd").selected(Rhythia.selected_song)
 	if s != song:
 		if was_playing or $Song.playing or (Rhythia.auto_preview_song and !has_auto_previewed):
 			if Rhythia.auto_preview_song: has_auto_previewed = true

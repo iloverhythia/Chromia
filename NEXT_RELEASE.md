@@ -31,3 +31,5 @@ in scripts/Savia.gd and empties this list.
 - VR multiplayer: "Pick map" in a lobby opens on the menu screen in front of you. It opened on the computer's flat window, so in a headset nothing seemed to happen
 - VR multiplayer (Meta Quest): during a match the game no longer builds a second scoreboard that a headset never shows, and the one in the headset is redrawn half as often
 - Settings > Crash Reports: "Send this session's log" sends what the game did this session to the developers (and copies it), for problems that aren't crashes. Handy in a headset or on a phone, where pasting a log is awkward
+- Reverse: the song is turned around in a second or two instead of 8 and more (a 4 minute song took about 3 seconds here; it's instant the next time, and the last 6 songs are kept instead of 4)
+- Maps whose song is .m4a, FLAC, AAC or Opus: the song starts being made playable when you select the map, not when you press Play, so the first play no longer waits on the loading screen for it. When another player has already played that song, your game only downloads it instead of sending the song up first
