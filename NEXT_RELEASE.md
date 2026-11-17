@@ -19,3 +19,4 @@ in scripts/Savia.gd and empties this list.
 - Picture frames can move: a frame made from a GIF plays in the game (profile, Spectate, Online players, Frames menu) and on the website. It shows as a still picture for the moment it takes to load
 - Crash reports say how the game ended: how long it kept running after the last thing it did, how soon it was opened again, and on Windows what Windows itself recorded (where the crash was, or that the game was closed from outside, like a PC shut down with the game open)
 - Map list: "Reset filters" unticks the "unranked" box too
+- iPhone: a new way of reaching 120 Hz on 120 Hz iPhones, where the game used to end up at 80 or a delayed 60. It needs the latest chromia-ios.ipa installed once (an in-app update can't add it). The first time it works, the game asks whether the picture looks right and goes back by itself if you don't answer

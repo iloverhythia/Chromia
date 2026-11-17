@@ -30,7 +30,7 @@ rm -rf "$fw"
 mkdir -p "$fw"
 clang -target arm64-apple-ios12.0 -isysroot "$sdk" -fobjc-arc -O2 -Wall -dynamiclib -fuse-ld=lld \
   -install_name @rpath/ChromiaPicker.framework/ChromiaPicker \
-  -framework UIKit -framework Foundation -framework QuartzCore -framework OpenGLES \
+  -framework UIKit -framework Foundation -framework QuartzCore -framework OpenGLES -framework CoreVideo -framework CoreGraphics \
   -o "$fw/ChromiaPicker" "$repo/ios/picker/ChromiaPicker.m"
 cp "$repo/ios/picker/Info.plist" "$fw/Info.plist"
 rm -rf "$work"

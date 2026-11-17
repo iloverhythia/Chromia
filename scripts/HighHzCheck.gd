@@ -5,18 +5,21 @@ extends Node
 #
 # Asking the screen for 120 isn't enough there. The engine draws with OpenGL
 # ES, and an iPhone asked for 120 that way settles at 60: its screen timer
-# keeps firing 120 times a second, but each frame then waits for the last
-# picture to come back from the screen and misses every other refresh. It
-# shows 60 frames a second and feels delayed, which is worse than plain 60.
-# 80 holds. (iOS itself can also hold the screen at 60: Low Power Mode,
-# Accessibility > Motion > Limit Frame Rate, heat, an app installed before
-# 120 Hz was supported.)
+# keeps firing 120 times a second, but each frame then waits about 15 ms for
+# the last picture to come back from the screen and misses every other
+# refresh (the layer has two buffers, and at 120 both are busy). It shows 60
+# frames a second and feels delayed, which is worse than plain 60. 80 holds.
+# (iOS itself can also hold the screen at 60: Low Power Mode, Accessibility >
+# Motion > Limit Frame Rate, heat, an app installed before 120 Hz was
+# supported.)
 #
 # So a few seconds after the menu is up, each way is tried for a few seconds
 # and the frames are counted, best first:
 #   120 Hz as the engine shows frames
-#   120 Hz with each of the two other ways of handing a frame to the screen
-#     (native helper 3: ios/picker/ChromiaPicker.m, only in an installed .ipa)
+#   120 Hz with the other ways of handing a frame to the screen (the native
+#     helper, ios/picker/ChromiaPicker.m, only in an installed .ipa):
+#     helper 4: three buffers of our own (ways 4 and 5), the engine's way
+#       inside a transaction (3); helper 3 and up: two timed presents (1, 2)
 #   80 Hz
 #   60 Hz
 # The first that gives its rate is kept, and remembered for this device for a
@@ -24,6 +27,12 @@ extends Node
 # still holds. Turning 120 Hz off and on starts over. Until a way has passed,
 # songs run at 80 (never on a 120 that hasn't been seen to work). Low Power
 # Mode ends the tries (nothing is remembered: it's looked at again next start).
+#
+# Another way of showing frames could show them wrongly (black, upside down,
+# flickering) and still count 120, so the first time one passes the player is
+# asked whether the picture looks right. No answer in ASK_S (a black screen
+# can't be answered) or "Go back": that way is never used again by this
+# helper, and the next one is tried.
 
 const FILE := "user://phone_hz.json"
 const TRY_FILE := "user://phone_hz_try.txt"
@@ -34,12 +43,21 @@ const PASS_SHARE := 0.92 # (of the asked rate)
 const KEEP_S := 7 * 86400
 const KEEP_60_S := 86400
 const SAFE := [80, 0] # asked for while nothing has passed yet
+const ASK_S := 15.0
+# (the ways of showing frames, best chance first, by the helper that has them)
+const WAYS_4 := [4, 5, 3, 1, 2]
+const WAYS_3 := [1, 2]
 
 var _plan := []
 var _i := 0
 var _t := 0.0
 var _frames := 0
-var _state := 0 # 0 settling, 1 measuring
+var _state := 0 # 0 settling, 1 measuring, 2 asking whether the picture looks right
+var _ask_t := 0.0
+var _ask_fps := 0.0
+var _asking := false # (our question is the one on screen)
+var _frame_at := 0 # this frame's start, in usec
+var _busy := 0.0 # seconds of the measured frames spent working (up to the frame being drawn)
 var _applied := false
 var _away := false
 var _log := ""
@@ -55,10 +73,13 @@ static func st() -> Dictionary:
 		var f := File.new()
 		if f.file_exists(TRY_FILE):
 			if f.open(TRY_FILE, File.READ) == OK:
-				var mode := f.get_as_text().strip_edges()
+				# ("4", or "4 asked": it went down while the player was asked whether
+				# the picture looked right, which a black screen makes likely)
+				var parts := f.get_as_text().strip_edges().split(" ")
 				f.close()
+				var mode := String(parts[0])
 				var bad: Dictionary = saved.get("bad", {}) if saved.get("bad", {}) is Dictionary else {}
-				bad[mode] = int(bad.get(mode, 0)) + 1
+				bad[mode] = int(bad.get(mode, 0)) + (2 if parts.size() > 1 else 1)
 				saved["bad"] = bad
 				saved.erase("rate")
 				_write(saved)
@@ -103,6 +124,7 @@ static func forget():
 	var saved: Dictionary = s.saved
 	saved.erase("rate")
 	saved.erase("told")
+	saved.erase("seen") # (the picture is asked about again)
 	_write(saved)
 	s.ask = SAFE.duplicate()
 	s.done = false
@@ -119,7 +141,8 @@ static func _value(report: String, key: String) -> String:
 			return line.substr(key.length() + 1).strip_edges()
 	return ""
 
-# 0: no helper in this app, 1: sets the rate, 2: also says why 60, 3: other ways of showing frames
+# 0: no helper in this app, 1: sets the rate, 2: also says why 60, 3: other ways
+# of showing frames (1, 2), 4: three buffers of its own and one more (3 to 5)
 static func helper_level(report: String) -> int:
 	if report == "":
 		return 0
@@ -142,9 +165,14 @@ func _ready():
 	var s := st()
 	var level := helper_level(String(Rhythia.mobile_tuning_status))
 	var ladder := [[120, 0]]
+	# (a way that went down or looked wrong did so with that helper: a newer one starts clean)
+	if int(s.saved.get("bad_helper", level)) != level:
+		s.saved.erase("bad")
+		s.saved.erase("seen")
+	s.saved["bad_helper"] = level
 	var bad: Dictionary = s.saved.get("bad", {}) if s.saved.get("bad", {}) is Dictionary else {}
 	if level >= 3:
-		for mode in [1, 2]:
+		for mode in (WAYS_4 if level >= 4 else WAYS_3):
 			if int(bad.get(str(mode), 0)) < 2:
 				ladder.append([120, mode])
 	ladder.append([80, 0])
@@ -157,6 +185,27 @@ func _ready():
 				from = k
 	_plan = ladder.slice(from, ladder.size() - 1)
 	_t = -(FIRST_SETTLE_S - SETTLE_S)
+	VisualServer.connect("frame_post_draw", self, "_drawn")
+
+# (how long a frame keeps the game busy: with the engine's way at 120 that is
+# the 15 ms wait for the screen; without the wait it's what the menu costs)
+func _drawn():
+	if _state == 1 and _frame_at > 0:
+		_busy += float(OS.get_ticks_usec() - _frame_at) / 1000000.0
+	_frame_at = 0
+
+func _exit_tree():
+	_close_question()
+
+func _close_question():
+	if not _asking:
+		return
+	_asking = false
+	var p = Globals.confirm_prompt
+	if p != null and is_instance_valid(p):
+		if p.is_connected("option_selected", self, "_answered"):
+			p.disconnect("option_selected", self, "_answered")
+		p.close()
 
 func _calm(delta: float) -> bool:
 	var cs = get_tree().current_scene
@@ -181,6 +230,11 @@ func _process(delta: float):
 			_set_ask(SAFE, false)
 		queue_free()
 		return
+	if _state == 2:
+		_ask_t += delta
+		if _ask_t >= ASK_S:
+			_looks_right(false, "no answer")
+		return
 	if not _calm(delta):
 		# (only a calm stretch of the menu says anything; a song meanwhile runs on the safe rate)
 		if _applied and not _away:
@@ -204,15 +258,25 @@ func _process(delta: float):
 			_state = 1
 			_t = 0.0
 			_frames = 0
+			_busy = 0.0
 		return
 	_frames += 1
+	_frame_at = OS.get_ticks_usec()
 	if _t < MEASURE_S:
 		return
 	var fps: float = float(_frames) / _t
 	if Engine.has_meta("ios_native_fake"):
 		fps = float(Engine.get_meta("ios_native_fake").fps(cur[0], cur[1]))
-	_log += "%s%d%s: %.0f fps" % ["" if _log == "" else ", ", cur[0], "" if cur[1] == 0 else " (way %d)" % cur[1], fps]
+	_log += "%s%d%s: %.0f fps, %.1f ms a frame" % ["" if _log == "" else ", ", cur[0], "" if cur[1] == 0 else " (way %d)" % cur[1], fps, _busy / float(max(_frames - 1, 1)) * 1000.0]
+	if int(cur[1]) >= 4:
+		# (what became of our own buffers, from the helper)
+		var b := _value(load("res://scripts/IosNative.gd").tune(0, -1.0), "buffers")
+		if b != "":
+			_log += " [buffers %s]" % b
 	if int(cur[0]) <= 60 or fps >= float(cur[0]) * PASS_SHARE:
+		if int(cur[1]) > 0 and int(st().saved.get("seen", 0)) != int(cur[1]):
+			_ask(fps)
+			return
 		_finish(cur, "ok", fps)
 		return
 	# is iOS holding the screen at 60? (then nothing higher can pass, whatever the way)
@@ -229,6 +293,51 @@ func _process(delta: float):
 		return
 	_i += 1
 	_applied = false
+	_t = 0.0
+
+# A way of showing frames that isn't the engine's passed for the first time:
+# does the picture look right?
+func _ask(fps: float):
+	var p = Globals.confirm_prompt
+	if p == null or not is_instance_valid(p) or p.is_open or p.visible:
+		# (another question is up: measured again after it)
+		_state = 0
+		_t = 0.0
+		_log += " (measured again)"
+		return
+	_state = 2
+	_ask_t = 0.0
+	_ask_fps = fps
+	_asking = true
+	var f := File.new()
+	if f.open(TRY_FILE, File.WRITE) == OK:
+		f.store_string("%d asked" % int(_plan[_i][1]))
+		f.close()
+	p.open("The game is drawing %d frames a second with a new way of showing the picture.\n\nDoes everything look right: nothing black, upside down, stretched or flickering?\n\nWithout an answer it goes back by itself in %d seconds." % [int(round(fps)), int(ASK_S)], "120 Hz", [{text = "Go back"}, {text = "Looks right, keep it"}])
+	p.connect("option_selected", self, "_answered", [], CONNECT_ONESHOT)
+
+func _answered(option):
+	if _state != 2:
+		return
+	_looks_right(int(option) == 1, "the player said no")
+
+func _looks_right(yes: bool, why: String):
+	_close_question()
+	var cur: Array = _plan[_i]
+	var s := st()
+	if yes:
+		s.saved["seen"] = int(cur[1])
+		_finish(cur, "ok", _ask_fps)
+		return
+	# (not this way again with this helper)
+	var bad: Dictionary = s.saved.get("bad", {}) if s.saved.get("bad", {}) is Dictionary else {}
+	bad[str(int(cur[1]))] = 2
+	s.saved["bad"] = bad
+	_write(s.saved)
+	_log += " (picture not right: %s)" % why
+	_i += 1
+	_applied = false
+	_state = 0
 	_t = 0.0
 
 func _finish(a: Array, how: String, fps: float):
@@ -270,8 +379,8 @@ func _finish(a: Array, how: String, fps: float):
 			elif int(a[0]) == 80:
 				s.note = "running at 80"
 				text = "This device doesn't hold 120 frames a second with the game's engine (asked for 120, it shows 60 and feels delayed), but it holds 80. The game is at 80 Hz now, up from 60."
-				if level < 3:
-					text += " Installing the latest chromia-ios.ipa once lets the game try two more ways of reaching 120."
+				if level < 4:
+					text += " Installing the latest chromia-ios.ipa once lets the game try more ways of reaching 120."
 				kind = Globals.NOTIFY_INFO
 			else:
 				s.note = "60: nothing higher held"
