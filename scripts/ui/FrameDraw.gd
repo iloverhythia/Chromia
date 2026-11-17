@@ -47,6 +47,7 @@ static func parse(f) -> Dictionary:
 		"color": Color(c1) if c1.is_valid_html_color() else Color("#a78bfa"),
 		"color2": Color(c2) if c2.is_valid_html_color() else Color("#13111a"),
 		"image_url": String(f.get("image_url", "")) if f.get("image_url") != null else "",
+		"image_gif_url": String(f.get("image_gif_url", "")) if f.get("image_gif_url") != null else "",
 	}
 
 static func animated(fr: Dictionary) -> bool:
@@ -432,8 +433,16 @@ static func _note(ci: CanvasItem, p: Vector2, s: float, col: Color):
 # a picture frame: an admin's picture (FrameImages.gd), a square 2 x REACH
 # times the avatar's radius wide, centred on it (the avatar covers its middle
 # 1 / REACH, about 70 %)
+# A moving frame (an animated upload) also has a GIF, image_gif_url: that one
+# is shown once it has come and been decoded, the still picture until then.
 static func _image(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary):
-	var tex = load("res://scripts/ui/FrameImages.gd").instance().pic(String(fr.get("image_url", "")))
+	var fi = load("res://scripts/ui/FrameImages.gd").instance()
+	var tex = null
+	var gif := String(fr.get("image_gif_url", ""))
+	if gif != "":
+		tex = fi.pic(gif)
+	if tex == null:
+		tex = fi.pic(String(fr.get("image_url", "")))
 	if tex == null:
 		return
 	var s := r * REACH

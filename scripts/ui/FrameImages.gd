@@ -4,6 +4,11 @@ extends Node
 # src/customart.js, /savia-art/<file>.png): downloaded once each and kept,
 # for FrameDraw.gd ("image" frames) and the card backgrounds. pic() returns
 # the picture, or null while it's coming ("loaded(url)" when it's there).
+#
+# A moving frame's picture is a GIF (the server keeps one next to an animated
+# upload: /savia-art/<file>.gif, the frame's image_gif_url). It is decoded on
+# a thread (AnimPic.gd) into a picture that plays by itself, so whatever
+# draws it shows it moving.
 
 signal loaded(url)
 
@@ -54,6 +59,10 @@ func _on_done(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, u
 	r.queue_free()
 	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.empty():
 		return
+	var AnimPic = load("res://scripts/ui/AnimPic.gd")
+	if AnimPic.is_gif(body):
+		AnimPic.load_async(body, "frameart:" + url, 0, false, self, "_on_gif", [url])
+		return
 	var img := Image.new()
 	if img.load_png_from_buffer(body) != OK and img.load_jpg_from_buffer(body) != OK and img.load_webp_from_buffer(body) != OK:
 		return
@@ -61,4 +70,11 @@ func _on_done(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequest, u
 	var t := ImageTexture.new()
 	t.create_from_image(img, Texture.FLAG_FILTER | Texture.FLAG_MIPMAPS)
 	_tex[url] = t
+	emit_signal("loaded", url)
+
+# a GIF, decoded (null: it couldn't be read; the still picture stays)
+func _on_gif(tex, url: String):
+	if tex == null:
+		return
+	_tex[url] = tex
 	emit_signal("loaded", url)

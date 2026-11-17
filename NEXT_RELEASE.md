@@ -16,3 +16,4 @@ in scripts/Savia.gd and empties this list.
 - Max FPS typed while Streaming Mode holds the frame limit is taken now (it was ignored until Streaming Mode was turned off)
 - Settings > Crash Reports: "Copy this session's log", for a problem that is not a crash (a map where the cursor or the HUD does not work on your computer). The log now also says what a song is started with (screen, mouse, controllers, HUD) and whether the mouse moved the cursor in its first seconds
 - Settings Generator: the Pin button no longer shows on its findings, suggestions and play lists (text to read, not settings). "Track my plays" and its three buttons can still be pinned
+- Picture frames can move: a frame made from a GIF plays in the game (profile, Spectate, Online players, Frames menu) and on the website. It shows as a still picture for the moment it takes to load
