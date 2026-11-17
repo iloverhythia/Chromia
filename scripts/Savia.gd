@@ -3626,6 +3626,10 @@ func _set_wave_menu_colorset(v: bool):
 var record_replays: bool = false
 var alt_cam: bool = false
 var hide_replay_ui: bool = false
+# the replay viewer's drawings on the grid (scripts/game/ReplayOverlay.gd; its bar has the buttons)
+var replay_cursor_path: bool = false
+var replay_note_hitbox: bool = false
+var replay_frame_marker: bool = false
 var show_xp_notifications: bool = true
 var half_ghost_strength: float = 0.8
 var record_limit: int = 0
@@ -4903,6 +4907,9 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			alt_cam = data.alt_cam
 		if data.has("hide_replay_ui"):
 			hide_replay_ui = bool(data.hide_replay_ui)
+		for rk in ["replay_cursor_path", "replay_note_hitbox", "replay_frame_marker"]:
+			if data.has(rk):
+				set(rk, bool(data[rk]))
 		if data.has("sort_by_stars"):
 			sort_by_stars = bool(data.sort_by_stars)
 		if data.has("sort_by_plays"):
@@ -5833,6 +5840,9 @@ func _write_settings_file(saveFile: String):
 			record_replays = record_replays and not _forced_replay,
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
+			replay_cursor_path = replay_cursor_path,
+			replay_note_hitbox = replay_note_hitbox,
+			replay_frame_marker = replay_frame_marker,
 			sort_by_stars = sort_by_stars,
 			sort_by_plays = sort_by_plays,
 			map_sort = map_sort,

@@ -1,5 +1,15 @@
 extends CanvasLayer
 
+# The replay viewer's bar: play / pause, the scrub bar with the time, the
+# playback speed, and three switches for drawings on the grid (Cursor Path,
+# Note Hitboxes, Frame Markers: ReplayOverlay.gd). In the menus' look
+# (OnlineStyle.gd), so it takes the colours of your Menu Customizer look.
+# F1 hides it all (for recording); Hide leaves the small logo to bring it back.
+
+const OnlineStyle = preload("res://scripts/ui/menu/OnlineStyle.gd")
+var S
+var _time_label: Label
+
 onready var play_button: Button = $Panel/Row/PlayButton
 onready var scrub_slider: HSlider = $Panel/Row/ScrubSlider
 onready var speed_slider: HSlider = $Panel/Row/SpeedBox/SpeedSlider
@@ -19,6 +29,66 @@ var _speed_bar: Dictionary
 func setup(spawn: NoteManager):
 	Spawn = spawn
 	scrub_slider.max_value = max(Rhythia.replay.end_ms, 1)
+	# the drawings on the grid, in the note area's own units
+	var ov = load("res://scripts/game/ReplayOverlay.gd").new()
+	ov.name = "ReplayOverlay"
+	ov.setup(spawn, spawn.get_node_or_null("Cursor"))
+	spawn.add_child(ov)
+
+static func _clock(ms: float) -> String:
+	var sec := int(max(ms, 0.0) / 1000.0)
+	return "%d:%02d" % [sec / 60, sec % 60]
+
+# the bar in the menus' look
+func _restyle():
+	S = OnlineStyle.new()
+	var panel: PanelContainer = $Panel
+	panel.add_stylebox_override("panel", OnlineStyle.flat(S.WINDOW_BG, 8, Color(S.LILAC.r, S.LILAC.g, S.LILAC.b, 0.35), 1, 18, 10))
+	panel.margin_top = -122
+	var row: HBoxContainer = $Panel/Row
+	panel.remove_child(row)
+	var col := VBoxContainer.new()
+	col.add_constant_override("separation", 8)
+	panel.add_child(col)
+	# the switches
+	var top := HBoxContainer.new()
+	top.add_constant_override("separation", 8)
+	col.add_child(top)
+	var cap: Label = S.label("REPLAY", S.f_bold, S.PINK)
+	top.add_child(cap)
+	for it in [["Cursor Path", "replay_cursor_path", "The line the cursor took, a little behind and ahead of where it is"],
+			["Note Hitboxes", "replay_note_hitbox", "The square each note is hit in: green once it was hit, red when it was missed"],
+			["Frame Markers", "replay_frame_marker", "A dot on every cursor position the replay recorded"]]:
+		var b := Button.new()
+		b.text = it[0]
+		S.tab(b)
+		b.add_font_override("font", S.f_small)
+		b.rect_min_size = Vector2(0, 30)
+		b.hint_tooltip = it[2]
+		b.pressed = bool(Rhythia.get(it[1]))
+		b.pause_mode = PAUSE_MODE_PROCESS
+		b.connect("toggled", self, "_on_switch", [it[1]])
+		top.add_child(b)
+	top.add_child(S.spacer())
+	var hide: Button = S.make_button("Hide", self, "_set_collapsed", [true], false, true)
+	hide.hint_tooltip = "Leaves only the small logo in the corner (F1 hides that too)"
+	hide.pause_mode = PAUSE_MODE_PROCESS
+	top.add_child(hide)
+	col.add_child(row)
+	row.add_constant_override("separation", 14)
+	S.button(play_button, true)
+	play_button.rect_min_size = Vector2(96, 36)
+	_time_label = S.label("0:00 / 0:00", S.f_small, S.DIM)
+	_time_label.rect_min_size = Vector2(92, 0)
+	_time_label.align = Label.ALIGN_CENTER
+	row.add_child(_time_label)
+	row.move_child(_time_label, play_button.get_index() + 1)
+	speed_label.add_font_override("font", S.f_bold)
+	speed_label.add_color_override("font_color", S.TEXT)
+
+func _on_switch(on: bool, key: String):
+	Rhythia.set(key, on)
+	Rhythia.call_deferred("save_settings")
 
 func _make_circle_texture(diameter: int, color: Color) -> ImageTexture:
 	var img := Image.new()
@@ -121,11 +191,12 @@ func _ready():
 	$Panel.pause_mode = PAUSE_MODE_PROCESS
 	logo_button.pause_mode = PAUSE_MODE_PROCESS
 
-	var grabber_tex = _make_circle_texture(16, Color(1, 1, 1, 1))
+	_restyle()
+	var grabber_tex = _make_circle_texture(16, S.TEXT)
 	var blank_tex = _make_blank_texture()
 
-	var track_color := Color(0.560784, 0.592157, 0.639216, 1)
-	var fill_color := Color(0.286275, 0.482353, 0.980392, 1)
+	var track_color: Color = S.FIELD_BG
+	var fill_color: Color = S.LILAC
 	_scrub_bar = _wrap_slider_with_bar(scrub_slider, track_color, fill_color, grabber_tex, blank_tex)
 	_speed_bar = _wrap_slider_with_bar(speed_slider, track_color, fill_color, grabber_tex, blank_tex)
 
@@ -202,6 +273,8 @@ func _process(delta):
 		_syncing_slider = true
 		scrub_slider.value = Spawn.rms
 		_syncing_slider = false
+	if _time_label != null:
+		_time_label.text = "%s / %s" % [_clock(scrub_slider.value), _clock(scrub_slider.max_value)]
 	play_button.text = "Play" if Spawn.viewer_paused else "Pause"
 
 	if get_tree().paused:
