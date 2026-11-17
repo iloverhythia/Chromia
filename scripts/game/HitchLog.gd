@@ -106,4 +106,4 @@ func _process(delta):
 		int(Performance.get_monitor(Performance.OBJECT_COUNT)),
 		http,
 		int(Performance.get_monitor(Performance.TIME_FPS)),
-	], false)
+	])

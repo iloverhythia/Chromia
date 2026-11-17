@@ -592,6 +592,7 @@ func transfer_host(target_peer_id: int):
 
 
 var _last_connect_try: int = -100000
+var _conn_error_trailed: int = -100000
 func _connect_socket() -> bool:
 	# (the website's game view of a replay stays offline: WebReplay.gd)
 	if load("res://scripts/WebReplay.gd").wanted():
@@ -648,7 +649,11 @@ func _send_lobby_intent():
 		_send(msg)
 	_connecting_intent = "generic"
 
+# (Online events are noted in the trail: a crash report then shows what
+# happened in the seconds before, e.g. someone starting to watch or the
+# connection dropping. Counts only, no names.)
 func _on_connected(_proto = ""):
+	Rhythia.trail("server: connected")
 	_send_lobby_intent()
 	_send({"type": "hello"})
 	if Rhythia.cid != "":
@@ -666,12 +671,16 @@ func _on_connected(_proto = ""):
 			_send(msg)
 
 func _on_closed(was_clean: bool = false):
+	Rhythia.trail("server: connection closed%s" % ("" if was_clean else " (not cleanly)"))
 	_solo_settings_sent = false # (a new connection: the server doesn't have them any more)
 	if lobby_active and not was_clean:
 		emit_signal("lobby_error", "Disconnected from the server — the lobby may no longer exist.")
 	close_lobby()
 
 func _on_conn_error():
+	if OS.get_ticks_msec() - _conn_error_trailed > 60000: # (not every retry while the server is away)
+		_conn_error_trailed = OS.get_ticks_msec()
+		Rhythia.trail("server: couldn't connect")
 	_solo_settings_sent = false
 	var was_joining = _connecting_intent == "create" or _connecting_intent == "join"
 	if was_joining:
@@ -1372,6 +1381,7 @@ func _start_map_upload(song_id: String):
 	var bytes = f.get_buffer(f.get_len())
 	f.close()
 	print("[furria] uploading ", song.filePath, " — ", bytes.size(), " bytes")
+	Rhythia.trail("sending the map to the server for someone else (%d KB)" % int(bytes.size() / 1024))
 	_map_upload_b64 = Marshalls.raw_to_base64(bytes)
 	_map_upload_song_id = song_id
 	_map_upload_pos = 0
@@ -1949,6 +1959,8 @@ func _handle_message(msg: Dictionary):
 			watchers_count = int(msg.get("count", 0))
 			var nm = msg.get("names", [])
 			watcher_names = nm if nm is Array else []
+			if watchers_count != was:
+				Rhythia.trail("watched by %d (was %d)" % [watchers_count, was])
 			if watchers_count > 0 and was == 0 and Rhythia.in_map:
 				# so they see it your way (playing alone, the server has had them
 				# since the song started and gives them to whoever watches: sending
@@ -2023,6 +2035,7 @@ func _handle_message(msg: Dictionary):
 		"frame_denied":
 			emit_signal("frame_message", Globals.s(msg.get("reason", "You can't use that frame.")), false)
 		"lobby_invite":
+			Rhythia.trail("lobby invite received")
 			_on_lobby_invite(msg)
 		"invite_result":
 			if bool(msg.get("ok", false)):

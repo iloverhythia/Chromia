@@ -1840,10 +1840,8 @@ func _on_heartbeat():
 		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and is_instance_valid(sp) and "ms" in sp else -1])
 
 # Safe from any thread.
-# flush: written to the disk at once, so the line is there after a crash. A
-# line about a slow frame during a song leaves that to the next line (within
-# ten seconds, the heartbeat): waiting for the disk right after a slow frame
-# made the next one slow too.
+# flush: handed to the system at once, so the line is there after a crash
+# (false: with the next line that is).
 func trail(msg: String, flush: bool = true):
 	if _trail_file == null or _session_closed:
 		return
