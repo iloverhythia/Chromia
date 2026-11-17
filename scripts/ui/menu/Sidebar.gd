@@ -284,6 +284,7 @@ func _ready():
 	get_tree().create_timer(2.0).connect("timeout", Rhythia, "keep_scripts", [get_tree().root])
 	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
 	load("res://scripts/PackGuard.gd").ok()
+	Rhythia.vr_scale_menu_reached()
 	if OS.get_environment("CHROMIA_BOOT_CHECK") == "1":
 		# release check (.github/workflows/release.yml): the game started and got to the menu
 		print("CHROMIA_BOOT_OK")

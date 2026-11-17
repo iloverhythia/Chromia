@@ -2743,6 +2743,25 @@ func apply_vr_pacing():
 var vr_boot_hold: bool = false
 var _vr_started_ms: int = 0
 
+# Settings > VR > Render resolution goes up to 200% (it was 140%).
+const VR_SCALE_MAX := 2.0
+const VR_SCALE_TRY := "user://vr_scale_try.txt"
+var _vr_scale_fell_back := 0.0
+
+# The menu is up: a high render resolution started fine (or it didn't, and
+# this start ran at 100%: the setting goes back to 150% and says so).
+func vr_scale_menu_reached():
+	var d := Directory.new()
+	if d.file_exists(Globals.p(VR_SCALE_TRY)):
+		d.remove(Globals.p(VR_SCALE_TRY))
+	if _vr_scale_fell_back > 0.0:
+		var was := _vr_scale_fell_back
+		_vr_scale_fell_back = 0.0
+		vr_render_scale = 1.5
+		save_settings()
+		trail("VR render resolution %d%% didn't reach the menu last time: 100%% now, setting back to 150%%" % int(round(was * 100.0)))
+		Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Render resolution %d%% didn't get to the menu last time, so this start runs at 100%% and the setting is back at 150%%." % int(round(was * 100.0)), "VR", 10)
+
 func boot_vr_wanted() -> bool:
 	if vr:
 		return false
@@ -2764,7 +2783,17 @@ func start_vr_at_boot() -> bool:
 			if parsed.error == OK and parsed.result is Dictionary:
 				var rs = parsed.result.get("vr_render_scale")
 				if rs is float or rs is int:
-					vr_render_scale = clamp(float(rs), 0.5, 1.5)
+					vr_render_scale = clamp(float(rs), 0.5, VR_SCALE_MAX)
+		# A render resolution above 150% that didn't get to the menu the last
+		# time (the headset can't be reached to lower it then): 100% this time
+		if vr_render_scale > 1.5:
+			var guard := File.new()
+			if guard.file_exists(Globals.p(VR_SCALE_TRY)):
+				_vr_scale_fell_back = vr_render_scale
+				vr_render_scale = 1.0
+			elif guard.open(Globals.p(VR_SCALE_TRY), File.WRITE) == OK:
+				guard.store_string(str(vr_render_scale))
+				guard.close()
 		vr_boot_hold = true
 	start_vr(true)
 	if not vr:
@@ -2825,8 +2854,15 @@ func start_vr(at_boot: bool = false):
 			if ResourceLoader.exists(cfg_path0):
 				vr_xr_config = load(cfg_path0).new()
 				if vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
-					vr_xr_config.set_render_target_size_multiplier(clamp(vr_render_scale, 0.5, 1.5))
-		if vr_interface == null or not vr_interface.initialize():
+					vr_xr_config.set_render_target_size_multiplier(clamp(vr_render_scale, 0.5, VR_SCALE_MAX))
+		var vr_up: bool = vr_interface != null and vr_interface.initialize()
+		if not vr_up and vr_interface != null and vr_render_scale > 1.5 and vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
+			# (a picture this big may be more than the headset takes: once more at 100%)
+			_vr_scale_fell_back = vr_render_scale
+			vr_render_scale = 1.0
+			vr_xr_config.set_render_target_size_multiplier(1.0)
+			vr_up = vr_interface.initialize()
+		if not vr_up:
 			print("Failed to initialize VR!")
 			Globals.notify(Globals.NOTIFY_ERROR, "Couldn't start VR. Make sure SteamVR is running and your headset is on, then try again.", "VR")
 			return
@@ -5120,7 +5156,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("vr_refresh"):
 			vr_refresh = clamp(float(data.vr_refresh), 0.0, 480.0) # (whatever a headset offers: the list in Settings > VR is the headset's own)
 		if data.has("vr_render_scale"):
-			vr_render_scale = clamp(float(data.vr_render_scale), 0.5, 1.5)
+			vr_render_scale = clamp(float(data.vr_render_scale), 0.5, VR_SCALE_MAX)
 		if data.has("vr_glow"):
 			vr_glow = int(clamp(int(data.vr_glow), -1, 1))
 		if data.has("vr_simple_bg"):

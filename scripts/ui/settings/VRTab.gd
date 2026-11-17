@@ -170,7 +170,7 @@ func _ready():
 	_button(box, "Reset hand direction", "_reset_hand_rot")
 	box.add_child(HSeparator.new())
 	_label("Graphics", f_title, ACCENT)
-	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
+	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts; above 140% is sharper but much heavier (200% draws four times the pixels), so lower it again if songs stutter. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
 	if OS.has_feature("quest"):
 		_fov_pick = _option_row("Foveated rendering", [["Off", 0], ["Low", 1], ["Medium", 2], ["High", 3]], "_on_foveation")
 		var rates: Array = load("res://vr/VRPlayer.gd").refresh_rates()
@@ -186,7 +186,7 @@ func _ready():
 		box.add_child(_unlock_box)
 		if not rates.empty():
 			_label("Highest here: %d Hz. Quest 2: turn on 120 Hz in the headset's Settings > System > Display (or Experimental) first." % int(round(rates[-1])), f_body, DIM, true)
-		_value_row(["Render resolution", "vr_render_scale", 0.6, 1.4, 0.05, " %", 100.0])
+		_value_row(["Render resolution", "vr_render_scale", 0.6, 2.0, 0.05, " %", 100.0])
 	else:
 		_label("Refresh rate: on PC VR it's set in SteamVR (or the Oculus app); the game never holds the frame rate back in VR.", f_body, DIM, true)
 	_glow_pick = _option_row("Glow", [["Auto (off on Quest)", -1], ["Off", 0], ["On", 1]], "_on_glow")
