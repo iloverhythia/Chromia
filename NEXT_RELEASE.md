@@ -10,3 +10,4 @@ in scripts/Savia.gd and empties this list.
 - VR (Meta Quest): Refresh rate has a 240 Hz entry. It asks the headset for 240 Hz even though the headset doesn't list it, and tells you whether the headset took it or which rate it is really at
 - VR (Meta Quest): a headset that keeps refusing the refresh rate asked for (another app holding it, for one) is no longer asked again every five seconds, which could cost a hitch each time; after three refusals it's left alone for a minute
 - VR (Meta Quest): Settings > VR > Graphics > "Set up for the best frame rate": one press for foveated rendering High, glow off, the simple background, and render resolution back to 100% if it was higher
+- Every pass now saves your display settings to the server (even with spectators off), so replays of your passes on the website play with your settings

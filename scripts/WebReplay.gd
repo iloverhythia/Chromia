@@ -206,6 +206,11 @@ func _run():
 	replay_path = "user://web_replay.sspre"
 	if not _save(replay_path, rep):
 		return _fail("The replay couldn't be saved in the browser.")
+	# the player's own saved settings (sent with each pass), as for a video
+	_status.text = "Putting on their settings..."
+	var settings = _json(yield(_fetch("/savia-public/api/player/%s/settings" % String(p.player).http_escape()), "completed"))
+	if settings is Dictionary and not settings.empty():
+		yield(_apply_settings(settings), "completed")
 	ready_to_play = true
 	_status.text = ""
 	_buttons.visible = true
@@ -351,7 +356,7 @@ func _play():
 	_waiting = true
 	_seen_loader = false
 	_ending = false
-	_put_render_settings() # (a private video: the player's settings)
+	_put_render_settings() # (the player's settings)
 	Rhythia.replay = Replay.new()
 	Rhythia.replaying = true
 	var r360 = _spin360 if _spin360 != null else (float(params().get("r360")) if params().has("r360") else null)

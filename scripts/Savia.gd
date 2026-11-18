@@ -337,6 +337,30 @@ const LEADERBOARD_URL = "https://chromia.lol/savia-leaderboard"
 const LEADERBOARD_SP_URL = "https://chromia.lol/savia-leaderboard-sp"
 const PUBLIC_LB_URL = "https://chromia.lol/savia-public/api/leaderboard/"
 const UPLOAD_REPLAY_URL = "https://chromia.lol/savia-upload-replay"
+const PASS_SETTINGS_URL = "https://chromia.lol/savia-pass-settings"
+
+# With every pass: your display settings (SpectateSettings.collect) and their
+# pictures go to the server as your saved ones, so every replay of your
+# passes (the website's Watch replay, a video someone else makes) is shown
+# your way. Sent whether or not spectators are allowed.
+func send_pass_settings():
+	if cid == "":
+		return
+	var spec = load("res://scripts/SpectateSettings.gd")
+	var lm = get_node_or_null("/root/LobbyManager")
+	if lm != null:
+		lm.upload_cursor_picture()
+		lm.upload_spectate_assets()
+	var req := HTTPRequest.new()
+	req.timeout = 15
+	add_child(req)
+	req.connect("request_completed", self, "_on_pass_settings_sent", [req])
+	var url := "%s?client_id=%s" % [pass_url(PASS_SETTINGS_URL), cid.http_escape()]
+	if req.request(url, ["Content-Type: application/json"], true, HTTPClient.METHOD_POST, JSON.print(spec.collect())) != OK:
+		req.queue_free()
+
+func _on_pass_settings_sent(_result, _code, _headers, _body, req: HTTPRequest):
+	req.queue_free()
 
 func upload_replay_for_pass(song_id: String, replay_id: String):
 	if cid == "" or song_id == "" or replay_id == "":
@@ -638,6 +662,7 @@ func report_map_completion(song_id: String):
 		return
 	var content_hash = selected_song.compute_chart_hash() if selected_song != null else ""
 	var replay_id_snapshot = replay.id if replay != null else ""
+	send_pass_settings()
 	# ranked maps only give XP with the play's replay (recorded even with
 	# Record Replays off, see begin_forced_replay): it goes with the score
 	var replay_b64 := ""
