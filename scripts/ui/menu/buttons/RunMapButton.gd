@@ -134,7 +134,19 @@ func files_dropped(files: PoolStringArray, _screen: int):
 				if skin_result.errors.size() > 0:
 					Globals.notify(Globals.NOTIFY_WARN, PoolStringArray(skin_result.errors).join(", "), "Skin Import")
 				elif skin_result.imported.size() > 0:
-					Globals.notify(Globals.NOTIFY_SUCCEED, "Skin imported.", "Skin Import")
+					var skin_msg: String = "Skin imported: %d settings and pictures." % skin_result.imported.size()
+					var left: Array = skin_result.get("unmatched", [])
+					if not left.empty():
+						skin_msg += " %d of Rhythia's settings have no match in Chromia (%s%s)." % [left.size(), PoolStringArray(left.slice(0, 3)).join(", "), "..." if left.size() > 4 else ""]
+					Globals.notify(Globals.NOTIFY_SUCCEED, skin_msg, "Skin Import", 8)
+					Rhythia.trail("rhs import: %d imported, no match: %s" % [skin_result.imported.size(), PoolStringArray(left).join(" ")])
+					# The menu again, from the saved settings (like putting on a
+					# Chromia skin): right now, in this frame. Once Settings has
+					# been opened its boxes write their own values back over the
+					# imported ones (parallax, approach rate ...) on the next frame.
+					Rhythia.is_init = true
+					get_tree().change_scene("res://scenes/init.tscn")
+					return
 				else:
 					Globals.notify(Globals.NOTIFY_WARN, "Nothing found to import.", "Skin Import")
 		var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")

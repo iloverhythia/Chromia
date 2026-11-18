@@ -55,6 +55,85 @@ func _cfg(cfg: Dictionary, key: String, def = null):
 # The rest of a Rhythia skin: its cursor, trail and border pictures, the
 # settings Chromia has too, and the whole config kept for the Rhythia look
 # (game/RhythiaLook.gd: the song's HUD as Rhythia draws it).
+# Rhythia's settings that Chromia has no setting for (told to the player after the import)
+const NO_MATCH := ["HitEffectColor", "SplashEffect", "BreakEffect", "CursorTrailSpacingMultiplier", "BackgroundAccent",
+	"BackgroundTunnel", "BackgroundSine", "BackgroundChevron", "BackgroundRays", "BackgroundGrid", "FailVignette",
+	"PlayfieldGridColor", "PlayfieldGridThickness", "InterfaceLayout", "InterfaceFont", "HideLeaderboard"]
+# and the ones this import reads (anything else in a config is a setting newer than this list)
+const KNOWN := ["Parallax", "GridParallax", "NoteScale", "NoteOpacity", "NoteSkin", "BorderSkin", "ColorSet", "HitEffect",
+	"ApproachRate", "SpawnDistance", "CameraFov", "SpinCamera", "SpinBoundedCamera", "FadeLength", "HalfGhost",
+	"DeathSlowdown", "PushBack", "Cursor", "MissEffectOpacity", "Border", "PlayfieldGrid", "GameSceneDisableGui",
+	"ReplayOverlayEnabled", "InvertMouse", "Background", "Panel", "SongInfoEnabled", "SongProgressBar", "HealthBar",
+	"Interface", "PlayfieldComboText", "ComboRing", "LeftPanel", "RightPanel"]
+
+func _unmatched(cfg: Dictionary) -> Array:
+	var out := []
+	for k in cfg:
+		var key := String(k)
+		var none := false
+		for pre in NO_MATCH:
+			if key.begins_with(pre):
+				none = true
+				break
+		if not none:
+			none = true
+			for pre in KNOWN:
+				if key.begins_with(pre):
+					none = false
+					break
+		if none:
+			out.append(key)
+	return out
+
+# the rest of the settings both games have
+func _import_more(cfg: Dictionary, result: Dictionary):
+	var v = _cfg(cfg, "DeathSlowdown")
+	if v != null:
+		Rhythia.death_slowdown_enabled = bool(v)
+		result.imported.append("Death slowdown")
+	# Rhythia's two spin cameras are Chromia's Spin (which keeps the cursor on the grid)
+	if _cfg(cfg, "SpinCamera") != null or _cfg(cfg, "SpinBoundedCamera") != null:
+		Rhythia.cam_unlock = bool(_cfg(cfg, "SpinCamera", false)) or bool(_cfg(cfg, "SpinBoundedCamera", false))
+		result.imported.append("Spin camera")
+	v = _cfg(cfg, "CursorRotation")
+	if v != null:
+		Rhythia.cursor_spin = float(v)
+		result.imported.append("Cursor rotation")
+	v = _cfg(cfg, "ReplayOverlayEnabled")
+	if v != null:
+		Rhythia.hide_replay_ui = not bool(v)
+		result.imported.append("Replay overlay")
+	# no HUD at all in a song
+	if bool(_cfg(cfg, "GameSceneDisableGui", false)):
+		for k in ["show_left_panel", "show_right_panel", "show_timer", "show_hp_bar"]:
+			Rhythia.set(k, false)
+		result.imported.append("HUD off")
+	# the hit effect: Rhythia's kinds as Chromia's nearest (its own colour only as white or the note's)
+	var he := String(_cfg(cfg, "HitEffect", "")).to_lower()
+	if he != "" and he != "none":
+		var hc = _cfg_color(cfg, "HitEffectColor")
+		var white: bool = hc == null or (hc.r > 0.97 and hc.g > 0.97 and hc.b > 0.97)
+		var id := ""
+		if "break" in he or "shard" in he or "shatter" in he:
+			id = "ssp_shards_w" if white else "ssp_shards"
+		else:
+			id = "ssp_ripple" if white else "ssp_ripple_n"
+		var eff = Rhythia.registry_effect.get_item(id)
+		if eff != null:
+			Rhythia.select_hit_effect(eff)
+			Rhythia.show_hit_effect = true
+			result.imported.append("Hit effect")
+	v = _cfg(cfg, "MissEffectOpacity")
+	if v != null and float(v) > 0.0:
+		Rhythia.show_miss_effect = true
+		result.imported.append("Miss effect")
+	# the trail's own colour (when it isn't the cursor's, and has no gradient)
+	var tc = _cfg_color(cfg, "CursorTrailColor")
+	if tc != null and not bool(_cfg(cfg, "CursorTrailInheritFromCursor", true)) and not bool(_cfg(cfg, "CursorTrailGradientEnabled", false)):
+		Rhythia.trail_gradient = [[0.0, tc.to_html(true)], [1.0, tc.to_html(true)]]
+		Rhythia.trail_gradient_enabled = true
+		result.imported.append("Trail colour")
+
 func _import_look(cfg: Dictionary, root: String, result: Dictionary, import_name: String, full_look: bool = true):
 	var dir := Directory.new()
 	# the cursor's picture and the trail's
@@ -81,6 +160,8 @@ func _import_look(cfg: Dictionary, root: String, result: Dictionary, import_name
 	for it in [["Parallax", "parallax"], ["GridParallax", "grid_parallax"], ["CursorTrailOpacity", "trail_opacity"],
 			["CursorTrailShrinkOverTime", "trail_mode_scale"], ["CursorTrailGradientEnabled", "trail_gradient_enabled"]]:
 		var v = _cfg(cfg, it[0])
+		if it[0] == "CursorTrailGradientEnabled" and "Trail colour" in result.imported:
+			continue # (the trail's one colour is kept as a gradient of it: _import_more)
 		if v != null and it[1] in Rhythia:
 			Rhythia.set(it[1], v)
 	var fade = _cfg(cfg, "CursorTrailFadeTimeSeconds")
@@ -92,7 +173,7 @@ func _import_look(cfg: Dictionary, root: String, result: Dictionary, import_name
 		for g in grad:
 			if g is Dictionary:
 				stops.append([clamp(float(g.get("Position", 0.0)), 0.0, 1.0), Color(float(g.get("Red", 255)) / 255.0, float(g.get("Green", 255)) / 255.0, float(g.get("Blue", 255)) / 255.0).to_html(true)])
-		if stops.size() >= 2:
+		if stops.size() >= 2 and not ("Trail colour" in result.imported):
 			Rhythia.trail_gradient = stops
 	var op = _cfg(cfg, "CursorOpacity")
 	if op != null:
@@ -119,9 +200,11 @@ func _import_look(cfg: Dictionary, root: String, result: Dictionary, import_name
 	if bool(_cfg(cfg, "HalfGhost", false)):
 		_sync_range_control(SETTINGS_ROOT + "/Notes/Notes/Group/H/HalfGhostStrength/Strength", 50.0) # (its box in Settings writes the setting)
 		Rhythia.half_ghost_strength = 0.5
-	# the song's HUD as Rhythia has it: every part shows, and the look decides which
+	# the song's HUD as Rhythia has it: every part shows, and the look decides
+	# which (none of it with Rhythia's "disable GUI")
+	var gui: bool = not bool(_cfg(cfg, "GameSceneDisableGui", false))
 	for k in ["show_left_panel", "show_right_panel", "show_timer", "show_hp_bar"]:
-		Rhythia.set(k, true)
+		Rhythia.set(k, gui)
 	Rhythia.simple_hud = false
 	Rhythia.attach_hp_to_grid = false
 	Rhythia.attach_timer_to_grid = false
@@ -419,7 +502,9 @@ func import_rhs(path: String, full_look: bool = true) -> Dictionary:
 		Rhythia.cursor_color_type = Globals.CURSOR_CUSTOM_COLOR
 		result.imported.append("Cursor color")
 
+	_import_more(cfg, result)
 	_import_look(cfg, root, result, import_name, full_look)
+	result["unmatched"] = _unmatched(cfg)
 
 	# Nothing above saves: the imported skin/settings were lost on the next start.
 	if result.imported.size() > 0:
