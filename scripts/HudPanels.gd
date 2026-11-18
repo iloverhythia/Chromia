@@ -12,6 +12,7 @@ extends Reference
 const STYLES := [
 	["chromia", "Chromia (default)"],
 	["soundspace", "Sound Space"],
+	["rhythia", "Rhythia (your imported .rhs skin)"],
 	["outlined", "Outlined"],
 	["glass", "Glass"],
 	["neon", "Neon glow"],
@@ -76,6 +77,8 @@ static func apply(hud: Node):
 	if hud == null:
 		return
 	var style := current()
+	if style == "rhythia":
+		style = "none" # (the look itself is put on by game/RhythiaLook.gd; without an imported skin: no background)
 	if style != "chromia" and style != "soundspace":
 		var accent: Color = Rhythia.get("panel_text") if Rhythia.get("panel_text") is Color else Color(1, 0.76, 0.96)
 		var tex: Texture = _image() if style == "image" else null

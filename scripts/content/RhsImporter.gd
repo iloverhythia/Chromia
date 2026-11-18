@@ -8,18 +8,138 @@ const SOUND_EXTS = ["ogg", "mp3", "wav"]
 
 const TMP_ZIP := "user://tmp_rhs_import.zip"
 const TMP_DIR := "user://tmp_rhs_import"
+const RHYTHIA_VIEW := 0.943 # how much of what Chromia's camera sees Rhythia's does, at the same FOV (measured)
 
 func _real_path(user_path: String) -> String:
 	return user_path.replace("user://", OS.get_user_data_dir() + "/")
 
+# A .rhs is a zip. It used to be unpacked with Windows' tar.exe, so skins
+# could only be imported on Windows; ZipReader reads it on every device.
 func _extract_zip(zip_path: String, dest_dir: String, exec_log: Dictionary) -> bool:
 	var dir := Directory.new()
 	dir.make_dir_recursive(dest_dir)
-	var output := []
-	var exit_code := OS.execute("tar.exe", ["-xf", zip_path, "-C", dest_dir], true, output, true)
-	exec_log.exit_code = exit_code
-	exec_log.output = PoolStringArray(output).join(" ")
-	return exit_code == 0
+	var f := File.new()
+	if f.open(zip_path, File.READ) != OK:
+		exec_log.output = "the file couldn't be opened"
+		return false
+	var bytes := f.get_buffer(f.get_len())
+	f.close()
+	var files: Dictionary = load("res://scripts/content/ZipReader.gd").read(bytes)
+	if files.empty():
+		exec_log.output = "it isn't a zip archive"
+		return false
+	for name in files:
+		var rel := String(name).replace("\\", "/")
+		if rel.ends_with("/") or rel.find("..") != -1 or rel.begins_with("/"):
+			continue
+		var out := dest_dir.plus_file(rel)
+		dir.make_dir_recursive(out.get_base_dir())
+		var w := File.new()
+		if w.open(out, File.WRITE) == OK:
+			w.store_buffer(files[name])
+			w.close()
+	exec_log.exit_code = 0
+	return true
+
+# "<prefix>Red" / "Green" / "Blue" of a Rhythia config (0-255) as a colour, or null
+func _cfg_color(cfg: Dictionary, prefix: String, alpha: float = 1.0):
+	for c in ["Red", "Green", "Blue"]:
+		if not (cfg.get(prefix + c) is Dictionary) or not cfg[prefix + c].has("Value"):
+			return null
+	return Color(float(cfg[prefix + "Red"].Value) / 255.0, float(cfg[prefix + "Green"].Value) / 255.0, float(cfg[prefix + "Blue"].Value) / 255.0, alpha)
+
+func _cfg(cfg: Dictionary, key: String, def = null):
+	var e = cfg.get(key)
+	return e.Value if e is Dictionary and e.has("Value") else def
+
+# The rest of a Rhythia skin: its cursor, trail and border pictures, the
+# settings Chromia has too, and the whole config kept for the Rhythia look
+# (game/RhythiaLook.gd: the song's HUD as Rhythia draws it).
+func _import_look(cfg: Dictionary, root: String, result: Dictionary, import_name: String, full_look: bool = true):
+	var dir := Directory.new()
+	# the cursor's picture and the trail's
+	for it in [["cursorSkin", "cursor", "Cursor picture"], ["cursorTrailSkin", "trail", "Trail picture"]]:
+		var src := _find_file(root, it[0], IMAGE_EXTS)
+		if src == "":
+			continue
+		for ext in IMAGE_EXTS:
+			dir.remove(Globals.p("user://%s.%s" % [it[1], ext]))
+		if _copy_file(src, "user://%s.%s" % [it[1], src.get_extension().to_lower()]):
+			result.imported.append(it[2])
+	# the border's picture, colour and see-through
+	var bsrc := _find_file(root, "borderSkin", IMAGE_EXTS)
+	if bsrc != "":
+		var b = Rhythia.create_border_from_file("%s (Rhythia)" % import_name, bsrc)
+		if b != null:
+			Rhythia.select_border(b)
+			Rhythia.enable_border = true
+			result.imported.append("Border")
+	var bc = _cfg_color(cfg, "BorderColor", clamp(float(_cfg(cfg, "BorderOpacity", 1.0)), 0.0, 1.0))
+	if bc != null:
+		Rhythia.border_color = bc
+	# settings both games have
+	for it in [["Parallax", "parallax"], ["GridParallax", "grid_parallax"], ["CursorTrailOpacity", "trail_opacity"],
+			["CursorTrailShrinkOverTime", "trail_mode_scale"], ["CursorTrailGradientEnabled", "trail_gradient_enabled"]]:
+		var v = _cfg(cfg, it[0])
+		if v != null and it[1] in Rhythia:
+			Rhythia.set(it[1], v)
+	var fade = _cfg(cfg, "CursorTrailFadeTimeSeconds")
+	if fade != null:
+		Rhythia.trail_time = clamp(float(fade), 0.01, 2.0)
+	var grad = _cfg(cfg, "CursorTrailGradient")
+	if grad is Array and grad.size() >= 2:
+		var stops := []
+		for g in grad:
+			if g is Dictionary:
+				stops.append([clamp(float(g.get("Position", 0.0)), 0.0, 1.0), Color(float(g.get("Red", 255)) / 255.0, float(g.get("Green", 255)) / 255.0, float(g.get("Blue", 255)) / 255.0).to_html(true)])
+		if stops.size() >= 2:
+			Rhythia.trail_gradient = stops
+	var op = _cfg(cfg, "CursorOpacity")
+	if op != null:
+		Rhythia.cursor_color.a = clamp(float(op), 0.0, 1.0)
+	if String(_cfg(cfg, "HitEffect", "")) == "none":
+		Rhythia.show_hit_effect = false
+	if _cfg(cfg, "MissEffectOpacity") != null and float(_cfg(cfg, "MissEffectOpacity")) <= 0.0:
+		Rhythia.show_miss_effect = false
+	var grid_a = _cfg(cfg, "PlayfieldGridOpacity")
+	if _cfg(cfg, "PlayfieldGridEnabled") != null:
+		Rhythia.enable_grid = bool(_cfg(cfg, "PlayfieldGridEnabled")) and (grid_a == null or float(grid_a) > 0.0)
+	if not full_look:
+		return
+	# --- Rhythia's look (the "Full" import) ---
+	# Rhythia's camera sees less than Chromia's at the same FOV (the grid is
+	# bigger on its screen): the FOV that shows the grid at Rhythia's size
+	var rf = _cfg(cfg, "CameraFov")
+	if rf != null and float(rf) >= 10.0 and float(rf) <= 150.0:
+		var view_fov: float = rad2deg(2.0 * atan(tan(deg2rad(float(rf)) / 2.0) * RHYTHIA_VIEW))
+		_sync_range_control(SETTINGS_ROOT + "/Gameplay/Camera/Group/H/FOV/FOV", view_fov)
+		Rhythia.fov = view_fov # (after the slider, which rounds it)
+	# Rhythia's half ghost leaves more of a note than Chromia's usual 80% fade
+	# (a note four fifths of the way in was still at two thirds in its picture)
+	if bool(_cfg(cfg, "HalfGhost", false)):
+		_sync_range_control(SETTINGS_ROOT + "/Notes/Notes/Group/H/HalfGhostStrength/Strength", 50.0) # (its box in Settings writes the setting)
+		Rhythia.half_ghost_strength = 0.5
+	# the song's HUD as Rhythia has it: every part shows, and the look decides which
+	for k in ["show_left_panel", "show_right_panel", "show_timer", "show_hp_bar"]:
+		Rhythia.set(k, true)
+	Rhythia.simple_hud = false
+	Rhythia.attach_hp_to_grid = false
+	Rhythia.attach_timer_to_grid = false
+	Rhythia.show_config = false
+	# a plain background when none of Rhythia's own is on (the look colours it)
+	var plain := true
+	for k in ["BackgroundTunnelEnabled", "BackgroundSineEnabled", "BackgroundChevronEnabled", "BackgroundRaysEnabled", "BackgroundGridEnabled"]:
+		plain = plain and not bool(_cfg(cfg, k, false))
+	var imgs = _cfg(cfg, "BackgroundImages", [])
+	if plain and not (imgs is Array and not imgs.empty()):
+		var void_world = Rhythia.registry_world.get_item("ssp_void")
+		if void_world != null:
+			Rhythia.select_world(void_world)
+	var RL = load("res://scripts/game/RhythiaLook.gd")
+	RL.save_config(cfg)
+	Rhythia.ss_hud = false
+	Rhythia.hud_panel_style = RL.STYLE
+	result.imported.append("Rhythia's look for the song's HUD")
 
 func _remove_dir_recursive(path: String):
 	var dir := Directory.new()
@@ -115,7 +235,9 @@ func _apply_value(cfg: Dictionary, key: String, rhythia_var: String, result: Dic
 		_sync_range_control(ui_path, float(v) * ui_scale)
 		result.imported.append(label)
 
-func import_rhs(path: String) -> Dictionary:
+# full_look: Rhythia's look for the song as well (its HUD, its camera's reach,
+# its plain background), not only the settings and pictures both games have
+func import_rhs(path: String, full_look: bool = true) -> Dictionary:
 	yield(get_tree(), "idle_frame")
 
 	var result := {"imported": [], "skipped": [], "errors": []}
@@ -180,9 +302,11 @@ func import_rhs(path: String) -> Dictionary:
 			if mtl_path != "":
 				_copy_file(mtl_path, "user://meshes/%s.mtl" % mesh_slug)
 
-			Rhythia.register_meshes()
-			var mesh_id := "ugc_" + mesh_slug
-			Rhythia.registry_mesh.add_item(NoteMesh.new(mesh_id, mesh_name + " (custom)", "user://meshes/%s" % mesh_dest_name, "???"))
+			# (the id the game gives a file in user://meshes at every start: with
+			# another one the skin's note was back to the default after a restart)
+			var mesh_id := "ugc_" + mesh_dest_name.to_lower().replace(" ", "_")
+			if Rhythia.registry_mesh.get_item(mesh_id) == null:
+				Rhythia.registry_mesh.add_item(NoteMesh.new(mesh_id, mesh_name + " (custom)", "user://meshes/%s" % mesh_dest_name, "???"))
 			var mesh_item = Rhythia.registry_mesh.get_item(mesh_id)
 			if mesh_item:
 				Rhythia.select_mesh(mesh_item)
@@ -294,6 +418,8 @@ func import_rhs(path: String) -> Dictionary:
 		)
 		Rhythia.cursor_color_type = Globals.CURSOR_CUSTOM_COLOR
 		result.imported.append("Cursor color")
+
+	_import_look(cfg, root, result, import_name, full_look)
 
 	# Nothing above saves: the imported skin/settings were lost on the next start.
 	if result.imported.size() > 0:
