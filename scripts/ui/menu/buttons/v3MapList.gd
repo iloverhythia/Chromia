@@ -112,6 +112,18 @@ var has_been_pressed = false
 func play_song():
 	if not Rhythia.selected_song: return
 	if has_been_pressed: return
+	# The Play button's own way in, when it is there: its checks (a lobby's
+	# rules, controllers), its line in the crash trail, and the song loader
+	# straight away. This used to be a second way into a song, with a wait of
+	# its own in which the just-picked map's preview and song check started.
+	var run = get_viewport().get_node_or_null("Menu/Main/Maps/Results/Results/RS/H1/Info/Run")
+	if run != null and run.has_method("_pressed") and "has_been_pressed" in run:
+		Rhythia.trail("play from the map list (a quick second click)")
+		run._pressed()
+		if run.has_been_pressed:
+			has_been_pressed = true
+			emit_signal("lock_type")
+		return
 	emit_signal("lock_type")
 	has_been_pressed = true
 	get_viewport().get_node("Menu").black_fade_target = true
@@ -130,8 +142,9 @@ func on_pressed(i, s: Song):
 	if s != Rhythia.selected_song:
 		Rhythia.select_song(s)
 	else:
-		print(pt)
-		if pt < 0.25:
+		# (a second click: not the same click arriving twice, which comes
+		# within a frame or two)
+		if pt < 0.25 and pt >= 0.06:
 
 			check_drag = false
 			dragged = false
@@ -914,7 +927,7 @@ func grid_pressed(i: int):
 	var s: Song = disp[i]
 	if s != Rhythia.selected_song:
 		Rhythia.select_song(s)
-	elif pt < 0.25:
+	elif pt < 0.25 and pt >= 0.06:
 		play_song()
 	pt = 0
 	get_viewport().get_node("Menu/Main/Maps/Results").visible = true

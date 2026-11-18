@@ -1,5 +1,10 @@
 extends Node
 
+# (read in with this script, on the main thread: a script loaded from a
+# worker thread while the main thread loads a scene or scripts of its own, as
+# when a song starts, brings the game down)
+const DataFolder = preload("res://scripts/DataFolder.gd")
+
 # Settings > Move maps & replays (computers): the big folders (maps, packs,
 # replays...) moved to another folder or drive, for players with lots of maps
 # and little room left where Chromia's data folder is.
@@ -36,7 +41,7 @@ static func current_location() -> String:
 		if parsed.error == OK and parsed.result is Dictionary and String(parsed.result.get("dir", "")) != "":
 			return String(parsed.result.dir)
 	# moved in from the old shared folder: they're still there, linked (DataFolder.gd)
-	var moved: String = user_dir().plus_file(load("res://scripts/DataFolder.gd").MARKER)
+	var moved: String = user_dir().plus_file(DataFolder.MARKER)
 	if f.file_exists(moved) and f.open(moved, File.READ) == OK:
 		var lines: PoolStringArray = f.get_as_text().split("\n")
 		f.close()

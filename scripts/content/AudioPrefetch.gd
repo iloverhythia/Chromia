@@ -13,6 +13,11 @@ extends Node
 # MB: not on the menu's own time), one map at a time; a map selected meanwhile
 # is looked at next.
 
+# (read in with this script, on the main thread: a script loaded from a
+# worker thread while the main thread loads a scene or scripts of its own, as
+# when a song starts, brings the game down)
+const AudioConvert = preload("res://scripts/content/AudioConvert.gd")
+
 var _thread: Thread = null
 var _next = null # the song to look at after the one being read
 
@@ -39,8 +44,7 @@ func _look(song):
 
 func _read(song):
 	var buf = song.get_music_buffer()
-	var AC = load("res://scripts/content/AudioConvert.gd")
-	var need: bool = buf is PoolByteArray and buf.size() <= AC.MAX_BYTES and AC.needed(buf)
+	var need: bool = buf is PoolByteArray and buf.size() <= AudioConvert.MAX_BYTES and AudioConvert.needed(buf)
 	call_deferred("_read_done", song, buf if need else null)
 
 func _read_done(song, buf):
@@ -49,7 +53,7 @@ func _read_done(song, buf):
 		_thread = null
 	if buf != null and Rhythia.selected_song == song:
 		Rhythia.trail("song of %s is being converted ahead of playing it" % String(song.id))
-		load("res://scripts/content/AudioConvert.gd").start(buf)
+		AudioConvert.start(buf)
 	if _next != null:
 		var s = _next
 		_next = null
