@@ -132,8 +132,9 @@ func files_dropped(files: PoolStringArray, _screen: int):
 				var skin_result = yield(skin_importer.import_rhs(file, skin_choice == 2), "completed")
 				skin_importer.queue_free()
 				if skin_result.errors.size() > 0:
-					Globals.notify(Globals.NOTIFY_WARN, PoolStringArray(skin_result.errors).join(", "), "Skin Import")
-				elif skin_result.imported.size() > 0:
+					Globals.notify(Globals.NOTIFY_WARN, PoolStringArray(skin_result.errors).join(", "), "Skin Import", 8)
+				# (a part that failed doesn't hold back the parts that were imported)
+				if skin_result.imported.size() > 0:
 					var skin_msg: String = "Skin imported: %d settings and pictures." % skin_result.imported.size()
 					var left: Array = skin_result.get("unmatched", [])
 					if not left.empty():
@@ -144,10 +145,13 @@ func files_dropped(files: PoolStringArray, _screen: int):
 					# Chromia skin): right now, in this frame. Once Settings has
 					# been opened its boxes write their own values back over the
 					# imported ones (parallax, approach rate ...) on the next frame.
+					# (and nothing is saved until the settings have been read
+					# again: a box's old value would go into the file)
+					Rhythia.set("_settings_read", false)
 					Rhythia.is_init = true
 					get_tree().change_scene("res://scenes/init.tscn")
 					return
-				else:
+				elif skin_result.errors.empty():
 					Globals.notify(Globals.NOTIFY_WARN, "Nothing found to import.", "Skin Import")
 		var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
 		if list: list.refresh_songs()
