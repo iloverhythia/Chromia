@@ -2660,10 +2660,14 @@ var _menu_bag: Array = []
 var _menu_last: String = ""
 var _menu_seeded: bool = false
 
-func next_menu_track() -> AudioStream:
+# Which menu song is next: its file, "" when none is here yet. On the main
+# thread only: it looks in the scene tree (MenuMusic) and changes the bag.
+# The menu used to do this on its song-reading thread, every time it opened,
+# while the main thread was still putting the menu into the tree.
+func next_menu_track_path() -> String:
 	var have: Array = load("res://scripts/MenuMusic.gd").get_or_start().ready_paths()
 	if have.empty():
-		return null # (none downloaded yet: PlaySong starts when one is)
+		return "" # (none downloaded yet: PlaySong starts when one is)
 	for p in _menu_bag.duplicate():
 		if not have.has(p):
 			_menu_bag.erase(p)
@@ -2677,12 +2681,21 @@ func next_menu_track() -> AudioStream:
 			_menu_bag.push_back(_menu_bag.pop_front())
 	var path: String = _menu_bag.pop_front()
 	_menu_last = path
+	return path
+
+# A menu song read from its file (fine on a thread: nothing shared is touched)
+func load_menu_track(path: String) -> AudioStream:
+	if path == "":
+		return null
 	var s = Globals.audioLoader.load_file(path)
 	if s == Globals.error_sound or not (s is AudioStream):
 		return null
 	if s is AudioStreamOGGVorbis or s is AudioStreamMP3:
 		s.loop = false # the next song follows instead
 	return s
+
+func next_menu_track() -> AudioStream:
+	return load_menu_track(next_menu_track_path())
 
 
 var fail_asp: AudioStreamPlayer = AudioStreamPlayer.new()

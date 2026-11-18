@@ -258,6 +258,10 @@ func upd(_s = null):
 
 func _ready():
 	visible = false
+	# (named before they go in: the popup looks its submenus up by name, and
+	# for a frame it looked for "Copy" and "Difficulty" and found neither)
+	copy_submenu.name = "Copy"
+	difficulty_submenu.name = "Difficulty"
 	get_popup().call_deferred("add_child", copy_submenu)
 	get_popup().call_deferred("add_child", difficulty_submenu)
 	get_popup().connect("id_pressed", self, "item_selected")
