@@ -28,7 +28,12 @@ static func on() -> bool:
 
 # the rate held to (0: none)
 static func cap() -> float:
-	return float(Rhythia.get("fs_cap_hz")) if on() and Rhythia.vr else 0.0
+	return float(Rhythia.get("fs_cap_hz")) if auto_rate() and Rhythia.vr else 0.0
+
+# Lowering the rate by itself is a choice now (Settings > VR, off unless turned
+# on): the rate picked in the settings is the rate the headset is asked for.
+static func auto_rate() -> bool:
+	return on() and bool(Rhythia.get("fs_auto_rate"))
 
 # the most the screen does (0: it doesn't say)
 static func screen_top() -> float:
@@ -146,7 +151,7 @@ static func song_done(frames: int, late: int, secs: float, hz: float):
 		return
 	var share: float = float(late) / float(frames)
 	Engine.set_meta("fs_song", {"fps": float(frames) / secs, "hz": hz, "late": share, "frames": frames})
-	if not on() or frames < MIN_FRAMES or hz <= 0.0 or Rhythia.render_fps > 0:
+	if not auto_rate() or frames < MIN_FRAMES or hz <= 0.0 or Rhythia.render_fps > 0:
 		return
 	var list: Array = rates()
 	if list.size() < 2:

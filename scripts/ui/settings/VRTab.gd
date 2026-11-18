@@ -175,8 +175,15 @@ func _ready():
 		_fov_pick = _option_row("Foveated rendering", [["Off", 0], ["Low", 1], ["Medium", 2], ["High", 3]], "_on_foveation")
 		var rates: Array = load("res://vr/VRPlayer.gd").refresh_rates()
 		var items := [["Headset default", 0.0]]
+		var has_240 := false
 		for r in rates:
 			items.append(["%d Hz" % int(round(r)), float(r)])
+			if abs(float(r) - 240.0) < 0.5:
+				has_240 = true
+		# (not a rate the headset lists for the game: asked for all the same,
+		# and the game says what the headset made of it)
+		if not has_240:
+			items.append(["240 Hz (asked for anyway; the game says if the headset took it)", 240.0])
 		_rate_pick = _option_row("Refresh rate", items, "_on_rate")
 		_unlock_box = CheckBox.new()
 		_unlock_box.text = "Unlock refresh rate (always the highest your headset can do, e.g. 120 Hz, kept on even after the headset sleeps)"
@@ -186,7 +193,15 @@ func _ready():
 		box.add_child(_unlock_box)
 		if not rates.empty():
 			_label("Highest here: %d Hz. Quest 2: turn on 120 Hz in the headset's Settings > System > Display (or Experimental) first." % int(round(rates[-1])), f_body, DIM, true)
+		_auto_rate_box = CheckBox.new()
+		_auto_rate_box.text = "Lower the refresh rate by itself when songs keep dropping frames (it goes back up after a few clean songs)"
+		_auto_rate_box.theme = load("res://uitheme.tres")
+		_auto_rate_box.add_font_override("font", f_bold)
+		_auto_rate_box.connect("toggled", self, "_on_auto_rate")
+		box.add_child(_auto_rate_box)
 		_value_row(["Render resolution", "vr_render_scale", 0.6, 2.0, 0.05, " %", 100.0])
+		_label("Frames dropping or stuttering in songs? This sets what costs the headset most to its lightest: foveated rendering High, glow off, the simple background, and render resolution back to 100% if it was higher (that one from the next start of the game).", f_body, DIM, true)
+		_button(box, "Set up for the best frame rate", "_best_frame_rate")
 	else:
 		_label("Refresh rate: on PC VR it's set in SteamVR (or the Oculus app); the game never holds the frame rate back in VR.", f_body, DIM, true)
 	_glow_pick = _option_row("Glow", [["Auto (off on Quest)", -1], ["Off", 0], ["On", 1]], "_on_glow")
@@ -321,6 +336,7 @@ func _toggle_creator():
 var _fov_pick: OptionButton
 var _rate_pick: OptionButton
 var _unlock_box: CheckBox = null
+var _auto_rate_box: CheckBox = null
 var _glow_pick: OptionButton
 var _hide_beam_box: CheckBox = null
 var _simple_box: CheckBox
@@ -576,6 +592,25 @@ func _on_unlock_rate(on: bool):
 		_rate_pick.disabled = on
 	_apply_xr()
 
+func _on_auto_rate(on: bool):
+	if _loading:
+		return
+	Rhythia.fs_auto_rate = on
+	if not on:
+		load("res://scripts/game/SteadyRate.gd").let_go() # (a rate it was holding: back to yours)
+	_save_soon()
+
+func _best_frame_rate():
+	Rhythia.vr_foveation = 3
+	Rhythia.vr_glow = 0
+	Rhythia.vr_simple_bg = true
+	var was: float = float(Rhythia.vr_render_scale)
+	if was > 1.0:
+		Rhythia.vr_render_scale = 1.0
+	_load_values()
+	_apply_xr()
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Foveated rendering High, glow off, simple background on%s." % (", render resolution %d%% -> 100%% from the next start of the game" % int(round(was * 100.0)) if was > 1.0 else ""), "VR", 8)
+
 func _on_rate(i: int):
 	if _loading:
 		return
@@ -695,6 +730,8 @@ func _load_values():
 	if _unlock_box:
 		_unlock_box.pressed = bool(Rhythia.vr_refresh_unlock)
 		_rate_pick.disabled = bool(Rhythia.vr_refresh_unlock)
+	if _auto_rate_box:
+		_auto_rate_box.pressed = bool(Rhythia.fs_auto_rate)
 	_select_meta(_glow_pick, Rhythia.vr_glow)
 	if _simple_box:
 		_simple_box.pressed = bool(Rhythia.vr_simple_bg)

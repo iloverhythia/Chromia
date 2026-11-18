@@ -484,6 +484,9 @@ static func wanted_rate() -> float:
 		for r in rs:
 			if abs(float(r) - Rhythia.vr_refresh) < 0.5:
 				return float(r)
+		# (a rate the headset doesn't list, such as 240: asked for all the
+		# same, and apply_refresh says what the headset made of it)
+		return float(Rhythia.vr_refresh)
 	return 0.0
 
 func _target_rate() -> float:
@@ -510,10 +513,38 @@ func apply_refresh():
 	if want <= 0.0:
 		return
 	_fs_held = SteadyRate.cap() > 0.0
+	_refresh_refused = 0
+	_refresh_wait = 0
 	if not (cfg.has_method("get_refresh_rate") and abs(float(cfg.get_refresh_rate()) - want) < 0.5):
 		cfg.set_refresh_rate(want)
+		_tell_rate_soon(want)
 	if _unlocked_rate() > 0.0 or _fs_held:
 		_watch_refresh()
+
+# A rate that isn't one the headset lists (240 Hz): a moment after asking, the
+# rate it is really at is read back and said, once for each rate asked.
+var _rate_told := 0.0
+func _tell_rate_soon(want: float):
+	var listed := false
+	for r in refresh_rates():
+		if abs(float(r) - want) < 0.5:
+			listed = true
+	if listed or abs(_rate_told - want) < 0.5:
+		return
+	_rate_told = want
+	yield(get_tree().create_timer(1.5), "timeout")
+	var cfg = Rhythia.vr_xr_config
+	if cfg == null or not cfg.has_method("get_refresh_rate") or not is_inside_tree():
+		return
+	var got: float = float(cfg.get_refresh_rate())
+	var offers := PoolStringArray()
+	for r in refresh_rates():
+		offers.append(str(int(round(float(r)))))
+	Rhythia.trail("VR refresh: asked for %d Hz, the headset is at %d Hz (it offers %s)" % [int(round(want)), int(round(got)), offers.join(", ")])
+	if abs(got - want) < 0.5:
+		Globals.notify(Globals.NOTIFY_SUCCEED, "The headset took %d Hz." % int(round(want)), "Refresh rate")
+	else:
+		Globals.notify(Globals.NOTIFY_WARN, "The headset didn't take %d Hz: it is running at %d Hz. The rates it offers the game: %s." % [int(round(want)), int(round(got)), offers.join(", ") if offers.size() > 0 else "none"], "Refresh rate", 10)
 
 # Unlock refresh rate: the highest rate the headset offers (0: not on, or the
 # headset doesn't say)
@@ -536,6 +567,12 @@ func _watch_refresh():
 	_refresh_timer.connect("timeout", self, "_check_refresh")
 	add_child(_refresh_timer)
 
+# A headset that keeps refusing the rate (another app holding it at its own, a
+# rate it can't do just now) is no longer asked every five seconds for as long
+# as the game runs: each ask can cost a hitch. After three refusals in a row
+# it is left alone for a minute, then asked again.
+var _refresh_refused := 0
+var _refresh_wait := 0
 func _check_refresh():
 	var want := _target_rate()
 	var cfg = Rhythia.vr_xr_config
@@ -544,7 +581,17 @@ func _check_refresh():
 	if _unlocked_rate() <= 0.0 and not _fs_held:
 		return
 	if cfg.has_method("get_refresh_rate") and abs(float(cfg.get_refresh_rate()) - want) < 0.5:
+		_refresh_refused = 0
+		_refresh_wait = 0
 		return
+	if _refresh_wait > 0:
+		_refresh_wait -= 1
+		return
+	_refresh_refused += 1
+	if _refresh_refused >= 3:
+		Rhythia.trail("VR refresh: the headset stays at %s Hz, not the %d asked for; asked again in a minute" % [str(cfg.get_refresh_rate()) if cfg.has_method("get_refresh_rate") else "?", int(round(want))])
+		_refresh_refused = 0
+		_refresh_wait = 12 # (checks of five seconds)
 	cfg.set_refresh_rate(want)
 
 static func refresh_rates() -> Array:

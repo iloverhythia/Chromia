@@ -3718,6 +3718,11 @@ var stream_user_fps: int = -1
 # Frame Smoothing: the rate the device is held at because it kept dropping
 # frames at a higher one (0: none; scripts/game/SteadyRate.gd)
 var fs_cap_hz: float = 0.0
+# Settings > VR: Frame Smoothing may lower the headset's refresh rate by itself
+# when songs keep dropping frames (SteadyRate.gd). Off unless turned on: it
+# used to do so always, and a headset set to 120 Hz could sit at 90 or 72 for
+# many songs after one bad one.
+var fs_auto_rate: bool = false
 func _set_frame_smoothing(v: bool):
 	var was: bool = frame_smoothing
 	frame_smoothing = v
@@ -4879,6 +4884,10 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			settings_backup_profile_only = bool(data.settings_backup_profile_only)
 		if data.has("fs_cap_hz"):
 			fs_cap_hz = clamp(float(data.fs_cap_hz), 0.0, 240.0)
+		if data.has("fs_auto_rate"):
+			fs_auto_rate = bool(data.fs_auto_rate)
+		if not fs_auto_rate:
+			fs_cap_hz = 0.0 # (a rate held from before this was a choice: let go of)
 		if data.has("new_settings_ui"):
 			new_settings_ui = bool(data.new_settings_ui)
 		if data.has("settings_side_tabs"):
@@ -5828,6 +5837,7 @@ func _write_settings_file(saveFile: String):
 			settings_side_tabs = settings_side_tabs,
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
+			fs_auto_rate = fs_auto_rate,
 			stream_mode = stream_mode,
 			menu_fps_limit = menu_fps_limit,
 			settings_backup = settings_backup,
