@@ -252,6 +252,95 @@ static func tip(design) -> float:
 					far = max(far, -t.xform(Vector3(h.x * sx, h.y * sy, h.z * sz)).z)
 	return clamp(far * 0.92, 0.0, 0.3) # (a box's corners reach a little past its shape)
 
+# --- My hands: the hands you saved, to load, change and save again ---------------
+# user://vr_hands.json: [{"name": ..., "lines": [...]}], newest first. The
+# Hand Creator's "Start from" lists them after the hands that come with the
+# game; one downloaded in the Content Browser lands here too.
+
+const LIB_FILE := "user://vr_hands.json"
+const LIB_MAX := 100
+const FILE_EXT := "chand" # a hand as a file (the Content Browser's uploads): its lines, one a row
+
+static func library() -> Array:
+	var f := File.new()
+	if f.open(Globals.p(LIB_FILE), File.READ) != OK:
+		return []
+	var p = JSON.parse(f.get_as_text())
+	f.close()
+	var out := []
+	if p.error == OK and p.result is Array:
+		for e in p.result:
+			if e is Dictionary and e.get("lines") is Array and String(e.get("name", "")) != "":
+				out.append({"name": String(e.name), "lines": e.lines})
+	return out
+
+static func _library_write(list: Array):
+	var f := File.new()
+	if f.open(Globals.p(LIB_FILE), File.WRITE) == OK:
+		f.store_string(JSON.print(list))
+		f.close()
+
+static func clean_name(name: String) -> String:
+	var n := name.strip_edges().replace("\n", " ").left(40)
+	return n if n != "" else "My hand"
+
+# saves a design under a name (one with that name already is replaced) -> the name it has
+static func library_put(name: String, design) -> String:
+	var n := clean_name(name)
+	var lines: Array = encode(design) if design is Dictionary else Array(design)
+	var list := library()
+	for i in range(list.size() - 1, -1, -1):
+		if String(list[i].name).to_lower() == n.to_lower():
+			list.remove(i)
+	list.push_front({"name": n, "lines": lines})
+	if list.size() > LIB_MAX:
+		list.resize(LIB_MAX)
+	_library_write(list)
+	return n
+
+static func library_remove(name: String) -> bool:
+	var list := library()
+	for i in list.size():
+		if String(list[i].name).to_lower() == name.strip_edges().to_lower():
+			list.remove(i)
+			_library_write(list)
+			return true
+	return false
+
+# the name a design is saved under ("" if it isn't)
+static func library_name_of(design) -> String:
+	var lines: Array = encode(design) if design is Dictionary else Array(design)
+	var sig := PoolStringArray(lines).join("\n")
+	for e in library():
+		if PoolStringArray(e.lines).join("\n") == sig:
+			return String(e.name)
+	return ""
+
+# a hand as a file, and back (null when the file isn't one)
+static func write_file(path: String, design) -> bool:
+	var lines: Array = encode(design) if design is Dictionary else Array(design)
+	var f := File.new()
+	if f.open(path, File.WRITE) != OK:
+		return false
+	f.store_string(PoolStringArray(lines).join("\n") + "\n")
+	f.close()
+	return true
+
+static func read_file(path: String):
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return null
+	var text := f.get_as_text()
+	f.close()
+	var lines := []
+	for l in text.replace("\r", "").split("\n", false):
+		if l.strip_edges() != "":
+			lines.append(l.strip_edges())
+	if lines.empty() or not String(lines[0]).begins_with("H1"):
+		return null
+	var d := parse(lines)
+	return d if not d.parts.empty() else null
+
 # --- hands to start from ---------------------------------------------------------
 
 const PRESETS := [

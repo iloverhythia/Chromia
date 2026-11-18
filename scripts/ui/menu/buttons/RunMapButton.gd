@@ -116,15 +116,42 @@ func files_dropped(files: PoolStringArray, _screen: int):
 				elif import_result.error != "":
 					Globals.notify(Globals.NOTIFY_WARN, import_result.error, "Map Import Failed")
 			elif ext == "rhs":
+				# all of it (the song looks as it does in Rhythia), or only the settings and pictures
+				Globals.confirm_prompt.open(
+					"Full: your settings, skin pictures and Rhythia's look in a song (its HUD, camera and background).\nSettings only: the settings and skin pictures, with Chromia's own HUD.",
+					"Import Rhythia skin",
+					[{ text = "Cancel" }, { text = "Settings only" }, { text = "Full" }]
+				)
+				var skin_choice: int = yield(Globals.confirm_prompt, "option_selected")
+				Globals.confirm_prompt.close()
+				yield(Globals.confirm_prompt, "done_closing")
+				if skin_choice == 0:
+					continue
 				var skin_importer = RhsImporter.new()
 				add_child(skin_importer)
-				var skin_result = yield(skin_importer.import_rhs(file), "completed")
+				var skin_result = yield(skin_importer.import_rhs(file, skin_choice == 2), "completed")
 				skin_importer.queue_free()
 				if skin_result.errors.size() > 0:
-					Globals.notify(Globals.NOTIFY_WARN, PoolStringArray(skin_result.errors).join(", "), "Skin Import")
-				elif skin_result.imported.size() > 0:
-					Globals.notify(Globals.NOTIFY_SUCCEED, "Skin imported.", "Skin Import")
-				else:
+					Globals.notify(Globals.NOTIFY_WARN, PoolStringArray(skin_result.errors).join(", "), "Skin Import", 8)
+				# (a part that failed doesn't hold back the parts that were imported)
+				if skin_result.imported.size() > 0:
+					var skin_msg: String = "Skin imported: %d settings and pictures." % skin_result.imported.size()
+					var left: Array = skin_result.get("unmatched", [])
+					if not left.empty():
+						skin_msg += " %d of Rhythia's settings have no match in Chromia (%s%s)." % [left.size(), PoolStringArray(left.slice(0, 3)).join(", "), "..." if left.size() > 4 else ""]
+					Globals.notify(Globals.NOTIFY_SUCCEED, skin_msg, "Skin Import", 8)
+					Rhythia.trail("rhs import: %d imported, no match: %s" % [skin_result.imported.size(), PoolStringArray(left).join(" ")])
+					# The menu again, from the saved settings (like putting on a
+					# Chromia skin): right now, in this frame. Once Settings has
+					# been opened its boxes write their own values back over the
+					# imported ones (parallax, approach rate ...) on the next frame.
+					# (and nothing is saved until the settings have been read
+					# again: a box's old value would go into the file)
+					Rhythia.set("_settings_read", false)
+					Rhythia.is_init = true
+					get_tree().change_scene("res://scenes/init.tscn")
+					return
+				elif skin_result.errors.empty():
 					Globals.notify(Globals.NOTIFY_WARN, "Nothing found to import.", "Skin Import")
 		var list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
 		if list: list.refresh_songs()
@@ -180,6 +207,9 @@ func _pressed():
 
 func _begin_start(in_lobby: bool, lobby_manager):
 	has_been_pressed = true
+	# (crash reports: several end with a map picked in the menu and nothing
+	# after. Between here and the song loader the whole menu is taken down)
+	Rhythia.trail("play pressed: %s" % String(Rhythia.selected_song.id))
 	if in_lobby:
 		if lobby_manager.has_method("push_current_mods"):
 			lobby_manager.push_current_mods()

@@ -19,6 +19,8 @@ func _ready():
 	upd()
 	if target == "absolute_mode" and Rhythia.device("mobile"):
 		call_deferred("_add_touch_toggle")
+	if target == "absolute_mode":
+		call_deferred("_add_new_absolute")
 	if target == "wave_menu":
 		call_deferred("_add_xp_boost_toggle")
 		call_deferred("_add_map_grid")
@@ -199,6 +201,36 @@ func _add_xp_boost_toggle():
 	parent.add_child(cb)
 
 # Phones: "Touch Indicator" (rings under the fingers) goes under this one.
+# Settings > New Absolute Mode, right under Absolute Mode (which it needs:
+# ticking it turns Absolute Mode on, and turning that off turns this off)
+func _add_new_absolute():
+	var parent = get_parent()
+	if parent == null or parent.has_node("NewAbsoluteMode"):
+		return
+	var cb = duplicate()
+	cb.name = "NewAbsoluteMode"
+	cb.target = "new_absolute_mode"
+	cb.text = "New Absolute Mode"
+	cb.hint_tooltip = "Absolute Mode with nothing smoothed: the cursor is put exactly where your finger or mouse is, on every sample as it comes. No easing, no gliding between samples.\nOn a touch screen it still leads your finger by the Prediction amount, but all at once: there the moment you move, back on your finger the moment you stop (set Prediction to 0 for no lead at all). Also removes the touch delay, like No Touch Delay.\nSnappier, and less even than Absolute Mode alone. Turns Absolute Mode on. Takes effect in the next song."
+	parent.add_child(cb)
+	parent.move_child(cb, get_index() + 1)
+	cb.pressed = Rhythia.new_absolute_mode
+	cb.connect("pressed", self, "_new_absolute_pressed", [cb])
+	connect("pressed", self, "_absolute_pressed", [cb])
+
+func _new_absolute_pressed(cb: CheckBox):
+	if cb.pressed and not Rhythia.absolute_mode:
+		Rhythia.absolute_mode = true
+		pressed = true
+		Rhythia.new_absolute_mode = true # (again: phones go by both)
+
+func _absolute_pressed(cb: CheckBox):
+	if not pressed and Rhythia.new_absolute_mode:
+		Rhythia.new_absolute_mode = false
+		cb.pressed = false
+	elif Rhythia.device("mobile"):
+		Rhythia.call_deferred("apply_mobile_tuning")
+
 func _add_touch_toggle():
 	var parent = get_parent()
 	if parent == null or parent.has_node("TouchIndicator"):

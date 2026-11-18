@@ -937,6 +937,18 @@ func _make_card() -> Dictionary:
 	bgimg.modulate = Color(0.62, 0.62, 0.62)
 	bgimg.visible = false
 	box.add_child(bgimg)
+	# a moving card (Supporter's hearts: CardFx.gd), over the picture, under
+	# the text; it reaches the card's edge so its lights run along the border
+	var cfx = load("res://scripts/ui/CardFx.gd").new()
+	cfx.anchor_right = 1.0
+	cfx.anchor_bottom = 1.0
+	cfx.margin_left = -8 * _k
+	cfx.margin_top = -8 * _k
+	cfx.margin_right = 8 * _k
+	cfx.margin_bottom = 8 * _k
+	cfx.inset = 1.0
+	cfx.visible = false
+	box.add_child(cfx)
 	var v := VBoxContainer.new()
 	v.anchor_right = 1.0
 	v.anchor_bottom = 1.0
@@ -1071,7 +1083,7 @@ func _make_card() -> Dictionary:
 	alt.visible = false
 	box.add_child(alt)
 
-	var c := {"bgimg": bgimg, "img_url": "", "fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+	var c := {"bgimg": bgimg, "cfx": cfx, "fx": "", "img_url": "", "fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
 		"status": status_l, "prog_l": prog_l, "bar": bar, "bar_fill": bar_fill, "prog": null, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
 		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
 		"name_full": "", "status_full": ""}
@@ -1188,6 +1200,12 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	if iu != c.img_url:
 		c.img_url = iu
 		_card_img(c)
+	var fx: String = String(cd.get("fx", "")) if cd is Dictionary and cd.get("fx") != null else ""
+	# (the effect takes the card's border colour: set again when either changes)
+	var fx_sig: String = fx + "|" + (c.card_border.to_html() if c.card_border != null else "")
+	if fx_sig != c.fx:
+		c.fx = fx_sig
+		c.cfx.set_fx(fx, c.card_border)
 	var fsig := var2str(p.get("frame"))
 	if fsig != c.frame_sig:
 		c.frame_sig = fsig

@@ -264,8 +264,8 @@ func _add_extra_pages():
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
 	# everyone online and what they play, and the global chat: the eye button
 	_add_spectate()
-	if ed != null and (Rhythia.vr or OS.has_feature("Android") or OS.has_feature("iOS")):
-		ed.visible = false # needs a keyboard
+	# (The editor used to be left out on phones and in VR: it needed a keyboard.
+	# It has a layout for fingers and buttons for the keys now, SSQEPanels.gd.)
 	# browser version: a new player has no maps yet; point them to the Map Browser
 	if OS.has_feature("JavaScript") and Rhythia.registry_song != null:
 		var has_local := false
@@ -284,6 +284,7 @@ func _ready():
 	get_tree().create_timer(2.0).connect("timeout", Rhythia, "keep_scripts", [get_tree().root])
 	PackUpdate.boot_ok() # a downloaded update (iOS) got the game to the menu
 	load("res://scripts/PackGuard.gd").ok()
+	Rhythia.vr_scale_menu_reached()
 	if OS.get_environment("CHROMIA_BOOT_CHECK") == "1":
 		# release check (.github/workflows/release.yml): the game started and got to the menu
 		print("CHROMIA_BOOT_OK")

@@ -13,6 +13,7 @@ const FrameView = preload("res://scripts/ui/FrameView.gd")
 var S
 var lm
 var _grid: GridContainer
+var _scroll: ScrollContainer = null
 var _msg: Label
 var _chosen := "default"
 var _me_name := ""
@@ -65,7 +66,11 @@ func _init():
 	_grid.columns = 4
 	_grid.add_constant_override("hseparation", 10)
 	_grid.add_constant_override("vseparation", 10)
-	v.add_child(_grid)
+	# (in a list that scrolls once there are more tiles than fit on the screen: _place)
+	_scroll = ScrollContainer.new()
+	_scroll.scroll_horizontal_enabled = false
+	v.add_child(_scroll)
+	_scroll.add_child(_grid)
 	_msg = S.label("Loading your frames...", S.f_small, S.DIM)
 	v.add_child(_msg)
 
@@ -80,12 +85,31 @@ func _ready():
 		lm.connect("frame_message", self, "_on_message")
 		lm.get_frames()
 	get_viewport().connect("size_changed", self, "_place")
-	call_deferred("_place")
+	call_deferred("_place_soon")
 
+# The window is as big as what's in it, never taller than the screen (the
+# tiles scroll then), in the middle. Its size is worked out afresh each time:
+# it used to be set to "at least what's needed" while the old tiles of the
+# list were still there next to the new ones, so after picking one it was
+# twice as tall and stayed that way, down past the bottom of the screen.
 func _place():
+	if not is_inside_tree() or _scroll == null:
+		return
 	var vp := get_viewport_rect().size
+	var tiles: Vector2 = _grid.get_combined_minimum_size()
+	_scroll.rect_min_size = Vector2(tiles.x, 0)
+	var rest: float = get_combined_minimum_size().y # (everything but the tiles)
+	var room: float = max(120.0, vp.y - 40.0 - rest)
+	var bar: float = 14.0 if tiles.y > room else 0.0
+	_scroll.rect_min_size = Vector2(tiles.x + bar, min(tiles.y, room))
 	rect_size = get_combined_minimum_size()
 	rect_position = ((vp - rect_size) / 2.0).floor()
+
+# (now, and once more when the new tiles and the wrapped text have their sizes)
+func _place_soon():
+	_place()
+	yield(get_tree(), "idle_frame")
+	_place()
 
 func _on_dim(ev):
 	if ev is InputEventMouseButton and ev.pressed:
@@ -124,7 +148,7 @@ func _on_frames(frames: Array, chosen: String):
 		_msg.text = "%d locked (only admins see these)." % locked
 	else:
 		_msg.text = "These are the frames you have. Each card you unlock brings its frame."
-	call_deferred("_place")
+	call_deferred("_place_soon")
 
 func _tile(f: Dictionary) -> Control:
 	var id := String(f.get("id", ""))

@@ -47,6 +47,8 @@ var _spin: CheckBox
 var _status: Label
 var _del: Button
 var _undo_btn: Button
+var _save_name: LineEdit
+var _starts := [] # what "Start from" lists: [name, lines, is one of My hands]
 var _pivot: Spatial
 var _mesh: MeshInstance
 var _mark: MeshInstance
@@ -231,12 +233,23 @@ func _build():
 	add_child(HSeparator.new())
 	var st := _row()
 	_lbl("Start from", st, "bold")
-	var names := []
-	for p in HC.PRESETS:
-		names.append([p[0], p[0]])
-	_preset = _opt(st, names, "_noop", 280)
+	# (the hands that come with the game, then the ones you saved: My hands)
+	_preset = _opt(st, [["", ""]], "_noop", 320)
+	_fill_start_list()
 	_btn("Load it", st, "_on_preset", 100)
 	_undo_btn = _btn("Undo", st, "_on_undo", 90)
+	var sv := _row()
+	_lbl("Save as", sv, "bold")
+	_save_name = LineEdit.new()
+	_save_name.theme = load("res://uitheme.tres")
+	_save_name.placeholder_text = "a name for this hand"
+	_save_name.max_length = 40
+	_save_name.rect_min_size = Vector2(240, 34)
+	if _font("body") != null:
+		_save_name.add_font_override("font", _font("body"))
+	sv.add_child(_save_name)
+	_btn("Save to My hands", sv, "_on_save_mine", 170)
+	_btn("Delete from My hands", sv, "_on_delete_mine", 190)
 	var br := _row()
 	_btn("Wear this hand", br, "_on_wear", 170)
 	_btn("Copy its code", br, "_on_copy", 150)
@@ -501,12 +514,46 @@ func _on_scale(v: float):
 func _on_spin(_on: bool):
 	pass
 
+# "Start from": the game's hands, then My hands (the ones you saved or downloaded)
+func _fill_start_list(pick: String = ""):
+	_starts = []
+	for p in HC.PRESETS:
+		_starts.append([p[0], p[1], false])
+	for e in HC.library():
+		_starts.append([String(e.name), e.lines, true])
+	_preset.clear()
+	for i in _starts.size():
+		_preset.add_item(("My hands: " if _starts[i][2] else "") + String(_starts[i][0]))
+		if pick != "" and _starts[i][2] and String(_starts[i][0]) == pick:
+			_preset.select(i)
+
 func _on_preset():
+	if _preset.selected < 0 or _preset.selected >= _starts.size():
+		return
+	var e: Array = _starts[_preset.selected]
 	_keep_undo()
-	d = HC.parse(HC.PRESETS[_preset.selected][1])
+	d = HC.parse(e[1])
 	sel = 0
 	_changed(true)
-	_say("Loaded \"%s\". Undo brings your hand back." % HC.PRESETS[_preset.selected][0])
+	if e[2] and _save_name != null:
+		_save_name.text = String(e[0]) # (saving again keeps its name)
+	_say("Loaded \"%s\". Change it as you like; Undo brings the hand before back." % String(e[0]))
+
+func _on_save_mine():
+	var name: String = HC.library_put(_save_name.text, d)
+	_save_name.text = name
+	_fill_start_list(name)
+	_say("Saved as \"%s\" in My hands. It's in the Start from list, to load and change again." % name)
+
+func _on_delete_mine():
+	var name := _save_name.text.strip_edges()
+	if name == "" and _preset.selected >= 0 and _preset.selected < _starts.size() and _starts[_preset.selected][2]:
+		name = String(_starts[_preset.selected][0])
+	if name == "" or not HC.library_remove(name):
+		_say("Type the name of one of My hands (or pick it in Start from) to delete it.")
+		return
+	_fill_start_list()
+	_say("\"%s\" is gone from My hands. The hand you are working on stays as it is." % name)
 
 func _on_undo():
 	if _undo == null:

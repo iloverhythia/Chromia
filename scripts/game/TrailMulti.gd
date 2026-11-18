@@ -223,6 +223,9 @@ func add(global_pos: Vector3, rot: Vector3, col: Color, t0: float):
 		multimesh.set_instance_color(j, col)
 		multimesh.set_instance_custom_data(j, Color(_now - t0 * tt, 0, 0, 0))
 		_last_add = _now
+		if not _show_queued:
+			_show_queued = true
+			call_deferred("show_added")
 		return
 	var i: int
 	if _count < MAX_PIECES:
@@ -235,6 +238,22 @@ func add(global_pos: Vector3, rot: Vector3, col: Color, t0: float):
 	_rot[i] = rot
 	_col[i] = col
 	_t[i] = 1.0 - t0
+
+# The pieces made this frame are drawn in this frame. How many slots are drawn
+# used to be told to the graphics card only in _process, which runs before
+# the cursor makes its pieces: while the trail was filling its slots (after
+# every pause of the hand, for the next two thousand pieces) each frame's new
+# pieces were first drawn a frame later, already that much older. At a high
+# frame rate that only cut the trail a little short at the cursor. When the
+# frame rate dropped, a frame was longer than what was left of the pieces'
+# life: the trail came apart from the cursor, and with a short Trail Time
+# there was no trail at all.
+var _show_queued := false
+func show_added():
+	_show_queued = false
+	if gpu and not classic and _shown != _high:
+		_shown = _high
+		multimesh.visible_instance_count = _high
 
 func live() -> int:
 	return _high if gpu else _count

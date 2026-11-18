@@ -11,6 +11,9 @@ extends Reference
 #   Ranker, Contributor, Tester, Moderator   a ring in the role's colour with
 #              its emblem seated at the bottom (trophy, heart, flask, shield)
 #              and its own trim (stars, plus signs, a dashed ring, brackets)
+#   Supporter  opal: a pearly band turning through lilac, periwinkle, mint
+#              and peach, a gem heart beating at the bottom whose pulse runs
+#              up both sides of the ring, little hearts drifting up round it
 #   Prestige 1 / 10 / 100 / 1,000 / 10,000   bronze, silver, gold, diamond and
 #              the rainbow, with one to five gems, points from gold on
 # and the looks an admin can give a card they make, in the card's colours:
@@ -47,6 +50,7 @@ static func parse(f) -> Dictionary:
 		"color": Color(c1) if c1.is_valid_html_color() else Color("#a78bfa"),
 		"color2": Color(c2) if c2.is_valid_html_color() else Color("#13111a"),
 		"image_url": String(f.get("image_url", "")) if f.get("image_url") != null else "",
+		"image_gif_url": String(f.get("image_gif_url", "")) if f.get("image_gif_url") != null else "",
 	}
 
 static func animated(fr: Dictionary) -> bool:
@@ -74,6 +78,7 @@ static func draw(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float 
 		"contributor": _contributor(ci, c, r, fr, t)
 		"tester": _tester(ci, c, r, fr, t)
 		"mod": _mod(ci, c, r, fr, t)
+		"supporter": _supporter(ci, c, r, fr, t)
 		"prestige1": _prestige(ci, c, r, t, 0)
 		"prestige10": _prestige(ci, c, r, t, 1)
 		"prestige100": _prestige(ci, c, r, t, 2)
@@ -432,8 +437,16 @@ static func _note(ci: CanvasItem, p: Vector2, s: float, col: Color):
 # a picture frame: an admin's picture (FrameImages.gd), a square 2 x REACH
 # times the avatar's radius wide, centred on it (the avatar covers its middle
 # 1 / REACH, about 70 %)
+# A moving frame (an animated upload) also has a GIF, image_gif_url: that one
+# is shown once it has come and been decoded, the still picture until then.
 static func _image(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary):
-	var tex = load("res://scripts/ui/FrameImages.gd").instance().pic(String(fr.get("image_url", "")))
+	var fi = load("res://scripts/ui/FrameImages.gd").instance()
+	var tex = null
+	var gif := String(fr.get("image_gif_url", ""))
+	if gif != "":
+		tex = fi.pic(gif)
+	if tex == null:
+		tex = fi.pic(String(fr.get("image_url", "")))
 	if tex == null:
 		return
 	var s := r * REACH
@@ -671,3 +684,85 @@ static func _prestige(ci: CanvasItem, c: Vector2, r: float, t: float, tier: int)
 		var sc := _conic(m, spin * 3.0)
 		ci.draw_circle(sp, r * 0.2 * k2, _with_a(sc, 0.3))
 		_gpoly(ci, _star5(sp, r * 0.17 * k2), Color(1, 1, 1, 1), sc, sc.darkened(0.5), 1.0)
+
+# ------------------------------------------------------------------ Supporter
+
+# opal: soft lilac, periwinkle, mint and peach (not Valentine's reds)
+const OPAL := [Color("#c9a7ff"), Color("#9db8ff"), Color("#9ff0d0"), Color("#ffd29d")]
+const BEAT := 1.5 # seconds between heartbeats
+
+# a heart's outline around p, s about its half width, turned by rot
+static func heart_pts(p: Vector2, s: float, rot: float = 0.0, n: int = 24) -> PoolVector2Array:
+	var pts := PoolVector2Array()
+	var k := s / 16.0
+	for i in n:
+		var a: float = i * TAU / float(n)
+		var v := Vector2(16.0 * pow(sin(a), 3.0), -(13.0 * cos(a) - 5.0 * cos(2.0 * a) - 2.0 * cos(3.0 * a) - cos(4.0 * a)) - 1.5) * k
+		pts.append(p + v.rotated(rot))
+	return pts
+
+# the heartbeat: a strong beat, then a softer one (0..about 1)
+static func beat(t: float) -> float:
+	var ph: float = fposmod(t, BEAT) / BEAT
+	return exp(-pow((ph - 0.03) / 0.05, 2.0)) + 0.6 * exp(-pow((ph - 0.21) / 0.055, 2.0))
+
+static func _supporter(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float):
+	var col: Color = fr.color
+	var dark: Color = fr.color2
+	var b := beat(t)
+	var ph: float = fposmod(t, BEAT) / BEAT
+	var turn: float = t * 0.05
+	# a soft opal glow that swells with each beat
+	_glow(ci, c, r * 1.08, r * 0.24, OPAL, 0.2 + 0.16 * b, turn)
+	# the opal band, slowly turning, with a pearl rim outside it
+	var pearl := []
+	for o in OPAL:
+		pearl.append(o.linear_interpolate(Color(1, 1, 1), 0.18))
+	_band(ci, c, r * 0.99, r * 1.1, pearl, turn, [-0.28, 0.18, 0.22])
+	_band(ci, c, r * 1.122, r * 1.142, [Color(1, 1, 1)], 0.0, [0.0, 0.0, 0.0], 0.45 + 0.2 * b)
+	# the pulse: from the heart at the bottom, up both sides, meeting at the top
+	if ph < 0.62:
+		var s: float = ph / 0.62
+		var reach: float = s * PI
+		var fade: float = (1.0 - s) * (1.0 - s)
+		for side in [-1.0, 1.0]:
+			var head: float = PI / 2.0 + side * reach
+			for k in 4:
+				var a: float = head - side * k * 0.09
+				var w: float = 0.08
+				_band(ci, c, r * 0.985, r * 1.115, [Color(1, 1, 1)], 0.0, [0.2, 0.45, 0.2], fade * (0.95 - k * 0.2), a - w, a + w)
+	# little hearts drifting up round the outside, three a side
+	for i in 6:
+		var side: float = -1.0 if i % 2 == 0 else 1.0
+		var u: float = fposmod(t / 4.8 + float(i) / 6.0, 1.0)
+		var a: float = PI / 2.0 - side * (0.5 + u * (PI - 0.95))
+		var rad: float = r * (1.29 + 0.035 * sin(t * 2.2 + i * 1.3))
+		var hp := _pt(c, rad, a)
+		var life: float = sin(u * PI)
+		var hs: float = r * 0.07 * (0.55 + 0.45 * life)
+		var hc := _conic(OPAL, float(i) * 0.23 + t * 0.08)
+		var tilt: float = side * 0.25 * sin(t * 1.7 + i)
+		ci.draw_circle(hp, hs * 1.3, _with_a(hc, 0.14 * life))
+		_gpoly(ci, heart_pts(hp, hs, tilt, 20), _with_a(hc.lightened(0.45), life), _with_a(hc, life))
+	# twinkles on the band
+	for i in 3:
+		var k2: float = max(0.0, sin(t * 1.25 + i * 2.1))
+		_twinkle(ci, _pt(c, r * 1.06, -PI / 2.0 + (i - 1) * 1.05 + sin(t * 0.3 + i) * 0.2), r * 0.075, col, k2 * k2)
+	# the heart, beating, sitting on the ring at the bottom
+	var p := Vector2(c.x, c.y + r * 1.1)
+	var u2: float = r * 0.25 * (1.0 + 0.11 * b)
+	var top := _conic(OPAL, t * 0.07).lightened(0.15)
+	var bottom := _conic(OPAL, t * 0.07 + 0.4).darkened(0.22)
+	# (a ring of light leaving it on each beat)
+	var wave: float = clamp(ph / 0.7, 0.0, 1.0)
+	if wave < 1.0:
+		var wo := heart_pts(p, u2 * (1.0 + wave * 1.3), 0.0, 28)
+		wo.append(wo[0])
+		ci.draw_polyline(wo, _with_a(top, (1.0 - wave) * (1.0 - wave) * 0.75), max(1.0, r * 0.03), true)
+	ci.draw_circle(p, u2 * 1.35, _with_a(dark.darkened(0.2), 0.5))
+	ci.draw_circle(p, u2 * 1.2, _with_a(top, 0.12 + 0.18 * b))
+	_gpoly(ci, heart_pts(p, u2, 0.0, 28), top, bottom, dark.darkened(0.35), max(1.0, r * 0.025))
+	# a facet and a shine, so it reads as a gem
+	_gpoly(ci, heart_pts(p + Vector2(0, -u2 * 0.12), u2 * 0.62, 0.0, 24), _with_a(Color(1, 1, 1), 0.2), _with_a(Color(1, 1, 1), 0.0))
+	ci.draw_circle(p + Vector2(-u2 * 0.42, -u2 * 0.38), u2 * 0.13, Color(1, 1, 1, 0.85))
+	_twinkle(ci, p + Vector2(u2 * 0.55, -u2 * 0.62), u2 * 0.32, top, b * 0.9)

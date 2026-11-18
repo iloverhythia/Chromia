@@ -3,13 +3,20 @@ extends Node
 # The Reverse mod's song: the map's music backwards.
 #
 # Chromia can't decode songs itself (MP3 / OGG), so the song is read through
-# the audio engine, like the map editor's waveform (editor/ssqe/SSQEAudio.gd):
-# it plays silently in several slices at once at 2x speed, each slice through
-# a bus that records it (AudioEffectCapture). At 2x the recording keeps every
-# 2nd sample (~22-24 kHz, plenty for a song played backwards), so a 3 minute
-# song is read in about 8 seconds on PC. The recording is turned around, made
-# into a sound (16 bit) and kept in user://caches/reverse, so the same song
-# backwards is ready straight away next time.
+# the audio engine: it plays silently in many slices at once at 2x speed, each
+# slice through a bus that records it. At 2x the recording keeps every 2nd
+# sample (~22-24 kHz, plenty for a song played backwards). The recording is
+# turned around, made into a sound (16 bit) and kept in user://caches/reverse,
+# so the same song backwards is ready straight away next time.
+#
+# It used to take 8 seconds and more for a 3 minute song: 12 slices, so 7.5 s
+# of playing, and then every sample turned into 16 bit by script (4 million
+# times round a loop). Now a slice is about SLICE_S long (a 3 minute song is 64
+# of them: 1.4 s of playing), and nothing goes sample by sample in script:
+# each bus records with AudioEffectRecord, which hands back 16 bit sound made
+# by the engine, and the frames are put in reverse order by an Image
+# (a frame is 4 bytes, like an RGBA8 pixel: flipped both ways, the pixels are
+# in reverse order).
 #
 # The song loader (loaders/songload.gd) makes one while showing its progress
 # bar; Game.gd plays Rhythia.reverse_stream and turns the notes around
@@ -21,7 +28,9 @@ signal done(stream)
 const PITCH := 2.0
 const CACHE_DIR := "user://caches/reverse"
 const MAGIC := "CRV1"
-const KEEP := 4 # songs kept backwards in the cache
+const KEEP := 6 # songs kept backwards in the cache
+const SLICE_S := 2.8 # a slice of the song, in seconds (played at PITCH)
+const ROW := 16384 # frames in a row of the Image that turns them around (an Image's widest)
 
 var _stream: AudioStream
 var _length := 0.0 # the song's seconds
@@ -31,10 +40,7 @@ var _segs := []
 var _state := "idle" # capturing, converting, done
 var _started := 0
 var _key := ""
-# converting
-var _frames := PoolVector2Array()
-var _pos := 0
-var _buf: StreamPeerBuffer
+var _wait := 0 # frames left before the recordings are read (their threads end first)
 
 static func _key_for(song) -> String:
 	return ("%s|%s|%d" % [String(song.id), String(song.musicFile), int(song.last_ms)]).md5_text()
@@ -82,25 +88,27 @@ func start(song, stream: AudioStream):
 		return
 	var sink := _bus("RevSink", "Master")
 	AudioServer.set_bus_mute(sink, true)
-	var count := 3 if Rhythia.device("mobile") else 12
-	count = int(clamp(ceil(_length / 12.0), 1, count))
+	# (each slice is a decoder running at twice the song's speed: fewer on a
+	# phone or a headset, whose audio thread has less to spare)
+	var most := 24 if (Rhythia.device("mobile") or Rhythia.vr) else 64
+	var count := int(clamp(ceil(_length / SLICE_S), 1, most))
 	_rate = AudioServer.get_mix_rate() / PITCH
 	var slice := _length / count
 	_segs = []
 	for i in count:
 		var b := _bus("RevCap%d" % i, "RevSink")
-		var cap := _capture(b)
+		var rec := _recorder(b)
 		var p := AudioStreamPlayer.new()
 		p.stream = stream
 		p.bus = "RevCap%d" % i
 		p.pitch_scale = PITCH
 		add_child(p)
-		_segs.append({"player": p, "cap": cap, "parts": [], "got": 0, "from": i * slice,
+		_segs.append({"player": p, "rec": rec, "from": i * slice, "to": (i + 1) * slice if i < count - 1 else _length,
 			"need": int(ceil(slice * _rate)) if i < count - 1 else int(ceil((_length - i * slice) * _rate)), "done": false})
 	AudioServer.lock()
 	for sg in _segs:
 		sg.player.play(sg.from)
-		sg.cap.clear_buffer()
+		sg.rec.set_recording_active(true)
 	AudioServer.unlock()
 	_started = OS.get_ticks_msec()
 	_state = "capturing"
@@ -114,89 +122,106 @@ func _bus(name: String, send: String) -> int:
 	AudioServer.set_bus_send(i, send)
 	return i
 
-func _capture(bus: int) -> AudioEffectCapture:
+func _recorder(bus: int) -> AudioEffectRecord:
 	for k in AudioServer.get_bus_effect_count(bus):
 		var e = AudioServer.get_bus_effect(bus, k)
-		if e is AudioEffectCapture:
+		if e is AudioEffectRecord:
 			return e
-	var c := AudioEffectCapture.new()
-	c.buffer_length = 4.0
-	AudioServer.add_bus_effect(bus, c)
-	return c
+	var r := AudioEffectRecord.new()
+	r.format = AudioStreamSample.FORMAT_16_BITS
+	AudioServer.add_bus_effect(bus, r)
+	return r
+
+# the buses made for this go again (each is mixed every moment for as long as it's there)
+func _drop_buses():
+	for i in range(AudioServer.bus_count - 1, 0, -1):
+		var n: String = AudioServer.get_bus_name(i)
+		if n.begins_with("RevCap") or n == "RevSink":
+			AudioServer.remove_bus(i)
 
 func _process(_d):
 	if _state == "capturing":
 		var all := true
-		var got := 0
-		var need := 0
+		var got := 0.0
 		for sg in _segs:
-			need += sg.need
 			if not sg.done:
-				var n: int = sg.cap.get_frames_available()
-				if n > 0:
-					sg.parts.append(sg.cap.get_buffer(n))
-					sg.got += n
-				if sg.got >= sg.need or (not sg.player.playing and n == 0 and OS.get_ticks_msec() - _started > 500):
+				var pos: float = sg.player.get_playback_position()
+				# (a little past its end: what is recorded is cut to its length after)
+				if pos >= sg.to + 0.05 or (not sg.player.playing and OS.get_ticks_msec() - _started > 500):
 					sg.done = true
+					sg.rec.set_recording_active(false)
 					sg.player.stop()
 				else:
 					all = false
-			got += min(sg.got, sg.need)
-		emit_signal("progress", 0.8 * float(got) / max(1.0, float(need)))
-		if OS.get_ticks_msec() - _started > 180000:
+					got += clamp((pos - sg.from) / max(0.001, sg.to - sg.from), 0.0, 1.0)
+			if sg.done:
+				got += 1.0
+		emit_signal("progress", 0.9 * got / max(1.0, float(_segs.size())))
+		if OS.get_ticks_msec() - _started > 120000:
+			cancel()
+			_drop_buses()
 			_finish(null) # (something's wrong: the map plays with its song as it is)
 			return
 		if all:
+			_state = "joining"
+			_wait = 3
+	elif _state == "joining":
+		_wait -= 1
+		if _wait <= 0:
 			_join()
-	elif _state == "converting":
-		_convert_some()
+
+# n bytes of silence (a new byte array isn't empty by itself; an Image is)
+static func _zeros(n: int) -> PoolByteArray:
+	if n <= 0:
+		return PoolByteArray()
+	var img := Image.new()
+	var w: int = min(n, ROW)
+	img.create(w, int(ceil(float(n) / w)), false, Image.FORMAT_L8)
+	var d := img.get_data()
+	return d if d.size() == n else d.subarray(0, n - 1)
+
+# 16 bit stereo frames (4 bytes each) in reverse order
+static func reversed(frames: PoolByteArray) -> PoolByteArray:
+	var n := frames.size() / 4
+	if n <= 1:
+		return frames
+	# (an Image's rows are full: what is missing goes in front, and comes out at the end)
+	var rows := int(ceil(float(n) / ROW))
+	var fill := (rows * ROW - n) * 4
+	var data := _zeros(fill)
+	data.append_array(frames)
+	var img := Image.new()
+	img.create_from_data(ROW, rows, false, Image.FORMAT_RGBA8, data)
+	img.flip_x()
+	img.flip_y()
+	var out := img.get_data()
+	return out if fill == 0 else out.subarray(0, n * 4 - 1)
 
 # the slices as one recording, turned around, with silence first when the map
 # goes on past the end of the song
 func _join():
-	var whole := PoolVector2Array()
+	var whole := PoolByteArray()
+	var ok := true
 	for sg in _segs:
-		var r := PoolVector2Array()
-		for part in sg.parts:
-			r.append_array(part)
-		if r.size() > sg.need:
-			r.resize(sg.need)
-		whole.append_array(r)
+		var smp = sg.rec.get_recording()
 		sg.player.queue_free()
+		if smp == null or smp.data.size() < 4:
+			ok = false
+			continue
+		var d: PoolByteArray = smp.data
+		if d.size() > sg.need * 4:
+			d = d.subarray(0, sg.need * 4 - 1)
+		whole.append_array(d)
 	_segs = []
-	whole.invert()
+	_drop_buses()
+	if not ok or whole.size() < 4:
+		_finish(null)
+		return
 	var pad := int(max(0.0, (_total_ms / 1000.0 - _length) * _rate))
-	_frames = PoolVector2Array()
-	if pad > 0:
-		_frames.resize(pad)
-		for i in pad:
-			_frames[i] = Vector2()
-	_frames.append_array(whole)
-	_buf = StreamPeerBuffer.new()
-	_buf.resize(_frames.size() * 4)
-	_buf.seek(0)
-	_pos = 0
-	_state = "converting"
-
-# float frames to 16 bit sound, a piece each frame (the loading screen keeps moving)
-func _convert_some():
-	var t0 := OS.get_ticks_msec()
-	var n := _frames.size()
-	var f := _frames
-	var b := _buf
-	while _pos < n and OS.get_ticks_msec() - t0 < 12:
-		var end: int = min(n, _pos + 8192)
-		for i in range(_pos, end):
-			var v: Vector2 = f[i]
-			b.put_16(int(clamp(v.x, -1.0, 1.0) * 32767.0))
-			b.put_16(int(clamp(v.y, -1.0, 1.0) * 32767.0))
-		_pos = end
-	emit_signal("progress", 0.8 + 0.2 * float(_pos) / max(1.0, float(n)))
-	if _pos >= n:
-		var data := _buf.data_array
-		_save(data)
-		_frames = PoolVector2Array()
-		_finish(_sample(data, int(_rate)))
+	var data := _zeros(pad * 4)
+	data.append_array(reversed(whole))
+	_save(data)
+	_finish(_sample(data, int(_rate)))
 
 func _save(data: PoolByteArray):
 	var dir := Directory.new()
@@ -229,6 +254,7 @@ func _newer(a, b) -> bool:
 
 func cancel():
 	for sg in _segs:
+		sg.rec.set_recording_active(false)
 		if is_instance_valid(sg.player):
 			sg.player.stop()
 	_segs = []

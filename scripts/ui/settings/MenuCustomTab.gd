@@ -20,6 +20,8 @@ var _pattern: OptionButton
 var _bg_pickers := []
 var _speed: HSlider
 var _filling := false
+var _maps_box: HBoxContainer
+var _side_box: VBoxContainer
 
 static func add_tab(tab_container) -> void:
 	if tab_container == null or not is_instance_valid(tab_container) or tab_container.has_node("Menu Customizer"):
@@ -140,6 +142,27 @@ func _ready():
 	_color_row("Sidebar icons and names", "sidebar_icon")
 	_color_row("Menu tint (over the background)", "menu_tint")
 
+	# --- where things are
+	box.add_child(HSeparator.new())
+	_label("Layout", f_title, ACCENT)
+	_label("Move things to where you like them. The map screen's three parts can stand in any order, and the sidebar's buttons too.", f_body, DIM, true)
+	_label("Map screen (left to right)", f_bold, TEXT)
+	_maps_box = HBoxContainer.new()
+	_maps_box.add_constant_override("separation", 10)
+	box.add_child(_maps_box)
+	_label("Sidebar buttons (top to bottom)", f_bold, TEXT)
+	_side_box = VBoxContainer.new()
+	_side_box.add_constant_override("separation", 4)
+	box.add_child(_side_box)
+	var lr := Button.new()
+	lr.text = "  The game's own layout  "
+	lr.theme = load("res://uitheme.tres")
+	lr.add_font_override("font", f_body)
+	lr.size_flags_horizontal = 0
+	lr.connect("pressed", self, "_layout_reset")
+	box.add_child(lr)
+	_fill_layout()
+
 	# --- a preview of the theme
 	box.add_child(HSeparator.new())
 	_label("Preview", f_title, ACCENT)
@@ -221,6 +244,78 @@ func _fill():
 func _changed():
 	MenuStyle.refresh(get_tree())
 
+# --- Layout: the map screen's parts and the sidebar's buttons, each with arrows to move it
+func _small(text: String, method: String, args: Array, parent: Control, off: bool) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.theme = load("res://uitheme.tres")
+	b.add_font_override("font", f_bold)
+	b.rect_min_size = Vector2(40, 34)
+	b.disabled = off
+	b.connect("pressed", self, method, args)
+	parent.add_child(b)
+	return b
+
+func _fill_layout():
+	for c in _maps_box.get_children():
+		_maps_box.remove_child(c)
+		c.queue_free()
+	var order: Array = MenuStyle.maps_order()
+	for i in order.size():
+		var cell := HBoxContainer.new()
+		cell.add_constant_override("separation", 4)
+		_maps_box.add_child(cell)
+		_small("<", "_move_part", [i, -1], cell, i == 0)
+		var l := _label(String(MenuStyle.MAPS_NAMES[order[i]]), f_bold, TEXT, false, cell)
+		l.rect_min_size.x = 120
+		l.align = Label.ALIGN_CENTER
+		_small(">", "_move_part", [i, 1], cell, i == order.size() - 1)
+	for c in _side_box.get_children():
+		_side_box.remove_child(c)
+		c.queue_free()
+	var btns: Array = MenuStyle.sidebar_buttons(Rhythia.menu_node("."))
+	for i in btns.size():
+		var r := HBoxContainer.new()
+		r.add_constant_override("separation", 6)
+		_side_box.add_child(r)
+		_small("Up", "_move_side", [i, -1], r, i == 0).rect_min_size.x = 64
+		_small("Down", "_move_side", [i, 1], r, i == btns.size() - 1).rect_min_size.x = 64
+		_label(String(btns[i][1]), f_body, TEXT, false, r)
+
+func _move_part(i: int, by: int):
+	var order: Array = MenuStyle.maps_order().duplicate()
+	var j := i + by
+	if j < 0 or j >= order.size():
+		return
+	var x = order[i]
+	order[i] = order[j]
+	order[j] = x
+	MenuStyle.set_layout("maps_order", order)
+	_changed()
+	_fill_layout()
+
+func _move_side(i: int, by: int):
+	var btns: Array = MenuStyle.sidebar_buttons(Rhythia.menu_node("."))
+	var j := i + by
+	if j < 0 or j >= btns.size():
+		return
+	# (the buttons that show, in their new order; hidden ones keep their places after them)
+	var names := []
+	for b in btns:
+		names.append(b[0])
+	var x = names[i]
+	names[i] = names[j]
+	names[j] = x
+	MenuStyle.set_layout("sidebar_order", names)
+	_changed()
+	_fill_layout()
+
+func _layout_reset():
+	MenuStyle.set_layout("maps_order", null)
+	MenuStyle.set_layout("sidebar_order", null)
+	_changed()
+	_fill_layout()
+
 func _on_color(c: Color, key: String):
 	if _filling:
 		return
@@ -275,3 +370,4 @@ func _reset_all():
 		Rhythia.save_settings()
 	_fill()
 	_changed()
+	_fill_layout()

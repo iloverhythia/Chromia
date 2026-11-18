@@ -310,6 +310,10 @@ func _layout():
 	hd = rect_size.y / H0
 	TRACK = stage_rect(0, 0, 1920, 86)
 	var size := 300.0 * clamp(float(s.gridZoom) / 100.0, 0.5, 2.0)
+	if panels and panels.touch_layout():
+		# (phones: a track and a grid for fingers, SSQEPanels T_*)
+		TRACK = stage_rect(0, 0, 1920, panels.T_TRACK_H)
+		size = panels.T_GRID
 	GRID = stage_rect(960 - size / 2, 540 - size / 2, size, size, "")
 	if panels:
 		panels.layout()
@@ -499,6 +503,7 @@ func _process(delta):
 			set_current_time(total_time())
 			_pos = song_length
 	_update_modifiers()
+	_touch_step()
 	grid_pre_render()
 	track_pre_render()
 	_play_sounds()
@@ -521,6 +526,10 @@ func _update_modifiers():
 	key_ctrl = Input.is_key_pressed(KEY_CONTROL) or Input.is_key_pressed(KEY_META)
 	key_alt = Rhythia.alt_held() # (not stuck on after Alt-Tab)
 	key_shift = Input.is_key_pressed(KEY_SHIFT)
+	# (no keyboard: the bar's CTRL and SHIFT buttons, SSQEPanels)
+	if panels:
+		key_ctrl = key_ctrl or panels.hold_ctrl
+		key_shift = key_shift or panels.hold_shift
 
 # index of the last object at or before ms (-1 if none)
 static func last_at_or_before(items: Array, ms: float) -> int:
@@ -620,9 +629,41 @@ func _input(ev):
 	if handled:
 		get_tree().set_input_as_handled()
 
+var _range_drag := false
+
+# A finger (the engine makes mouse presses of touches, device -1): which note
+# is under the pointer is worked out while the grid and the track are drawn,
+# from where the pointer is. A mouse was already there when it's pressed; a
+# finger lands somewhere new, and the press was judged by where the last
+# touch had been (a tap on an empty cell picked up the note under the tap
+# before). So a finger's press waits for one drawing with the pointer on it,
+# and what follows it (the release) waits its turn behind it.
+var _touch_queue := []
+var _touch_wait := 0
+var _touch_replay := false
+
+func _touch_step():
+	if _touch_queue.empty():
+		return
+	if _touch_wait > 0:
+		_touch_wait -= 1
+		return
+	var ev = _touch_queue.pop_front()
+	_touch_replay = true
+	_gui_input(ev)
+	_touch_replay = false
+
 # clicks that no button took (GuiWindow.MouseDown: the track and grid first)
 func _gui_input(ev):
 	if map == null:
+		return
+	if ev is InputEventMouseButton and ev.device == -1 and ev.button_index == BUTTON_LEFT and not _touch_replay:
+		mouse = ev.position
+		if ev.pressed:
+			grid_mouse_move(mouse)
+			_touch_wait = 1
+		_touch_queue.append(ev)
+		accept_event()
 		return
 	if ev is InputEventMouseButton:
 		var p: Vector2 = ev.position
@@ -630,7 +671,27 @@ func _gui_input(ev):
 		var f := get_focus_owner()
 		if ev.pressed and f and f != self:
 			f.release_focus()
-		if ev.button_index == BUTTON_LEFT:
+		# A finger has no hover: what is under it is worked out as it lands (a
+		# mouse was there already, so this changes nothing for one).
+		if ev.pressed and (ev.button_index == BUTTON_LEFT or ev.button_index == BUTTON_RIGHT):
+			_update_modifiers()
+			grid_mouse_move(p)
+			track_mouse_move(p)
+		# The bar's RANGE button: a drag along the track selects what it
+		# passes, as the right button does.
+		var as_right: bool = ev.button_index == BUTTON_LEFT and panels != null and panels.range_mode \
+			and ((ev.pressed and TRACK.has_point(p)) or (not ev.pressed and _range_drag))
+		if as_right:
+			_range_drag = ev.pressed
+			if ev.pressed:
+				mouse_right = true
+				map.selected_point = null
+				track_mouse_down_right(p)
+			else:
+				mouse_right = false
+				selecting = false
+			accept_event()
+		elif ev.button_index == BUTTON_LEFT:
 			if ev.pressed:
 				mouse_left = true
 				var on_track := TRACK.has_point(p)

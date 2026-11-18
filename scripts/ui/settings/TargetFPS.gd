@@ -10,6 +10,7 @@ extends SpinBox
 # this box then shows that. It used to put its own number straight back, so
 # with a Max FPS of 60 the 120 Hz switch did nothing but add delay.
 var _cap_rev := 0
+var _held_seen := -1 # your Max FPS as this box last saw it while Streaming Mode / Limit FPS in Menus held the limit
 
 func upd():
 	if value < 15 and value != 0:
@@ -43,7 +44,18 @@ func _process(_d):
 	if Rhythia.vr: return
 	# (Streaming Mode holds the frame limit lower: the box keeps showing yours,
 	# and changing it here still sets it, scripts/StreamMode.gd)
-	if Rhythia.stream_user_fps >= 0: return
+	if Rhythia.stream_user_fps >= 0:
+		if Rhythia.stream_user_fps != _held_seen:
+			# (changed elsewhere, or the limit was just taken hold of: shown here)
+			_held_seen = Rhythia.stream_user_fps
+			value = _held_seen
+		elif int(value) != _held_seen:
+			# (a new number set here while the limit is held is your new Max FPS:
+			# whoever holds the limit sees it change and takes it as yours)
+			_held_seen = int(value)
+			upd()
+		return
+	_held_seen = -1
 	if _cap_rev != Rhythia.fps_cap_rev:
 		_cap_rev = Rhythia.fps_cap_rev
 		value = Engine.target_fps
@@ -52,5 +64,6 @@ func _process(_d):
 
 func _ready():
 	_cap_rev = Rhythia.fps_cap_rev
+	_held_seen = Rhythia.stream_user_fps # (what the box starts out showing, below)
 	value = Rhythia._desk_fps if Rhythia.vr else (Rhythia.stream_user_fps if Rhythia.stream_user_fps >= 0 else Engine.target_fps)
 	connect("changed",self,"upd")

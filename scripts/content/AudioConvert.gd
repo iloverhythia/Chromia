@@ -19,6 +19,11 @@ extends Node
 signal finished(ok, text)
 
 const URL := "https://chromia.lol/savia-convert-audio?to=ogg"
+# The server keeps the Ogg it made for a song, under the song's SHA-1: it is
+# asked for there first, and the song is only sent up when the server hasn't
+# got it (a 404). Sending the song is most of the wait, so only the first
+# player of a song has it.
+const HAVE_URL := "https://chromia.lol/savia-convert-audio/ogg/"
 const DIR := "user://caches/audio_convert"
 const MAX_BYTES := 40 * 1024 * 1024
 const FORMATS := ["m4a", "flac", "aac", "opus"]
@@ -85,11 +90,37 @@ var done := false
 var ok := false
 var text := ""
 
+var _bytes := PoolByteArray()
+
 func _begin(b: PoolByteArray):
 	if kind(b) == "":
 		return _done(false, "that isn't a song this needs to convert")
 	if b.size() > MAX_BYTES:
 		return _done(false, "the song is too big to convert (40 MB at most)")
+	# has the server made this one already?
+	_bytes = b
+	var c := HashingContext.new()
+	c.start(HashingContext.HASH_SHA1)
+	c.update(b)
+	var ask := HTTPRequest.new()
+	ask.use_threads = OS.can_use_threads()
+	ask.timeout = 20
+	add_child(ask)
+	ask.connect("request_completed", self, "_on_have", [ask])
+	if ask.request(HAVE_URL + c.finish().hex_encode()) != OK:
+		ask.queue_free()
+		_send()
+
+func _on_have(result: int, code: int, _headers, body: PoolByteArray, ask: HTTPRequest):
+	ask.queue_free()
+	if result == HTTPRequest.RESULT_SUCCESS and code == 200 and body.size() >= 64 and body.subarray(0, 3).get_string_from_ascii() == "OggS":
+		_bytes = PoolByteArray()
+		return _on_answer(result, code, _headers, body)
+	_send() # (not made yet, or a server from before this: the song goes up)
+
+func _send():
+	var b := _bytes
+	_bytes = PoolByteArray()
 	var http := HTTPRequest.new()
 	http.use_threads = OS.can_use_threads() # (megabytes each way: off the game's main thread)
 	http.timeout = 180

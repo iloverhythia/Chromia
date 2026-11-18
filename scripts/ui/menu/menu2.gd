@@ -1283,7 +1283,8 @@ func _format_mods(mods: Dictionary) -> String:
 	if mods.get("hardrock", false): parts.append("Hard Rock")
 	if mods.get("harderrock", false): parts.append("Harder Rock")
 	if mods.get("hard_mode", false): parts.append("Hard Mode")
-	if mods.get("flashlight", false): parts.append("Flashlight")
+	if mods.get("true_flashlight", false): parts.append("True Flashlight")
+	elif mods.get("flashlight", false): parts.append("Flashlight")
 	if mods.get("mod_360", false): parts.append("360x%s" % mods.get("mod_360_speed", 1))
 	if mods.get("strobe", false): parts.append("Strobe!!!")
 	var start_offset = float(mods.get("start_offset", 0.0))
@@ -2195,6 +2196,7 @@ func _refresh_rp():
 			"%s RP" % Globals.comma_sep(int(round(float(p.rp)))))
 
 func _exit_tree():
+	Rhythia.trail("menu: out of the tree") # (everything in it has left; it is deleted next)
 	var rp_store = preload("res://scripts/RhythiaPoints.gd").get_store()
 	if rp_store.is_connected("changed", self, "_refresh_rp"):
 		rp_store.disconnect("changed", self, "_refresh_rp")
@@ -2920,6 +2922,8 @@ func _add_new_mod_checkboxes():
 		"Everything is dark except a circle around your cursor")
 	_mod_checkbox(mods, right, "HarderRockMod", "Harder Rock", "mod_harderrock", y + row_h,
 		"Hard Rock, but the notes spread even further out and the hit window is tighter")
+	_mod_checkbox(mods, right, "TrueFlashlightMod", "True Flashlight", "mod_true_flashlight", y + row_h * 2,
+		"Flashlight, and the circle closes in every 100 combo (up to 500); a miss opens it again")
 	# (more mods than fit: they're on pages now, ModPages.gd)
 	load("res://scripts/ui/menu/ModPages.gd").install(mods)
 

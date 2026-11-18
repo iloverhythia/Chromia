@@ -186,6 +186,9 @@ func _on_crash_reports():
 	var sending: bool = Rhythia.send_crash_logs
 	body += "\n\nSending by itself is %s. When it's on, the report of a crash (what the game was doing, your version and device, your player name; never your account id) goes to the developers at the next start." % ("ON" if sending else "OFF")
 	var options := [{text = "Close", wait = 0}, {text = "Turn sending off" if sending else "Turn sending on", wait = 0}]
+	# (a problem that isn't a crash: what the game did this session)
+	body += "\n\nSomething not working without a crash? Send this session's log right after it happened: it goes to the developers (your account id is cut out) and is also copied, so you can paste it in a message."
+	options.append({text = "Send this session's log", wait = 0})
 	if not reports.empty():
 		options.append({text = "Copy newest", wait = 0})
 	Globals.confirm_prompt.open(body, "Crash Reports", options)
@@ -196,5 +199,8 @@ func _on_crash_reports():
 		Rhythia.save_settings()
 		Globals.notify(Globals.NOTIFY_SUCCEED, "Crash reports are sent by themselves again." if Rhythia.send_crash_logs else "Crash reports stay on this device. You can still copy one here.", "Crash Reports")
 	elif picked == 2:
+		OS.clipboard = Rhythia.session_report()
+		load("res://scripts/SessionSend.gd").send(get_tree())
+	elif picked == 3:
 		OS.clipboard = text
 		Globals.notify(Globals.NOTIFY_SUCCEED, "The crash report is copied.", "Copied")

@@ -189,6 +189,7 @@ static func current_mod_tags() -> Array:
 	if R.get("mod_harderrock") == true: m.append("HHR")
 	if R.mod_hard_mode: m.append("HM")
 	if R.mod_flashlight: m.append("FL")
+	if R.get("mod_true_flashlight") == true: m.append("TFL")
 	if R.get("mod_reverse") == true: m.append("RV")
 	if R.mod_360: m.append("360")
 	if R.mod_strobe: m.append("ST")

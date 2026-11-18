@@ -62,7 +62,8 @@ func floating(id: String, title: String, w: float, h: float, big := false) -> Di
 	var k := scale()
 	var vp: Vector2 = ed.rect_size
 	var fit: float = min((vp.x - 8) / (w + 2), (vp.y - 8) / (h + 32))
-	k = fit * 0.92 if big else min(k, fit)
+	# (phones: every window as large as fits, for fingers)
+	k = fit * 0.92 if (big or (ed.panels and ed.panels.touch_layout())) else min(k, fit)
 	var win := Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.075, 0.065, 0.11, 0.98)

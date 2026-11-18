@@ -100,6 +100,21 @@ func _on_my_map_stats_received(song_id: String, has_passed: bool, best_xp: int, 
 	if Rhythia.selected_song != null and Rhythia.selected_song.id == song_id:
 		_rebuild_data_label(Rhythia.selected_song)
 
+# Mods and RP changing: the screen is built again once, at the end of the
+# frame. Taking over someone's settings (watching them, a lobby's mods) changes
+# dozens of mods in one go, and each change built this whole screen again:
+# twenty to fifty times in a row, a hitch, and most of a crash report's lines.
+var _update_queued := false
+func _update_soon(_a = null):
+	if _update_queued:
+		return
+	_update_queued = true
+	call_deferred("_update_queued_now")
+
+func _update_queued_now():
+	_update_queued = false
+	update()
+
 func update(_s = null):
 	if not Rhythia.selected_song: return
 	print("[map] selected %s" % String(Rhythia.selected_song.id))
@@ -220,8 +235,8 @@ func return_to_song_select():
 func _ready():
 	Rhythia.connect("selected_song_changed", self, "update")
 	Rhythia.connect("selected_song_changed", self, "_cover_clip_roll")
-	Rhythia.connect("mods_changed", self, "update")
-	RhythiaPoints.get_store().connect("changed", self, "update")
+	Rhythia.connect("mods_changed", self, "_update_soon")
+	RhythiaPoints.get_store().connect("changed", self, "_update_soon")
 	Rhythia.connect("show_map_rp_changed", self, "_on_show_map_rp_changed")
 	Rhythia.connect("star_rating_ready", self, "_on_star_rating_ready")
 	Rhythia.connect("favorite_songs_changed", self, "update")
@@ -244,8 +259,8 @@ func _ready():
 # The RP store outlives this screen, so stop listening when it goes.
 func _exit_tree():
 	var st = RhythiaPoints.get_store()
-	if st.is_connected("changed", self, "update"):
-		st.disconnect("changed", self, "update")
+	if st.is_connected("changed", self, "_update_soon"):
+		st.disconnect("changed", self, "_update_soon")
 
 
 # Player 4's game: one map click in a hundred plays a clip over the map's

@@ -129,6 +129,9 @@ func _do_upd(t, s):
 	_preview_was_playing = false
 	if Rhythia.selected_song == null:
 		return
+	# (a song the game can't play by itself, .m4a and such, starts being
+	# converted now rather than when Play is pressed)
+	load("res://scripts/content/AudioPrefetch.gd").selected(Rhythia.selected_song)
 	if s != song:
 		if was_playing or $Song.playing or (Rhythia.auto_preview_song and !has_auto_previewed):
 			if Rhythia.auto_preview_song: has_auto_previewed = true
@@ -163,19 +166,29 @@ func _ready():
 	# order, one after another (Savia.gd: next_menu_track). Read on a thread:
 	# reading an MP3 goes through the whole file (it held up the menu opening)
 	_ready_ms = OS.get_ticks_msec()
+	# Which song it will be is settled here, on the main thread: choosing the
+	# next menu song looks in the scene tree and changes the playlist, and the
+	# thread used to do that while this menu was still being put into the
+	# tree (two threads in the same list: the game could die a moment after
+	# the menu opened). The thread only reads the file.
+	var f := File.new()
+	var base: String = Globals.p("user://menu")
+	var custom_here: bool = f.file_exists(base + ".ogg") or f.file_exists(base + ".mp3") or f.file_exists(base + ".wav") or f.file_exists(base)
+	var job := [custom_here, "" if custom_here else Rhythia.next_menu_track_path()]
 	if OS.can_use_threads():
 		_mm_thread = Thread.new()
-		if _mm_thread.start(self, "_read_menu_song") != OK:
+		if _mm_thread.start(self, "_read_menu_song", job) != OK:
 			_mm_thread = null
 	if _mm_thread == null:
-		_menu_song_read(_read_menu_song(null))
+		_menu_song_read(_read_menu_song(job))
 
 var _mm_thread: Thread = null
 var _ready_ms := 0
 
-func _read_menu_song(_u):
-	var custom = Rhythia.get_stream_with_default("user://menu", null)
-	var out := [custom != null, custom if custom != null else Rhythia.next_menu_track()]
+# job: [your own menu song is there, the next menu song's file]
+func _read_menu_song(job: Array):
+	var custom = Rhythia.get_stream_with_default("user://menu", null) if job[0] else null
+	var out := [custom != null, custom if custom != null else Rhythia.load_menu_track(String(job[1])), job[0]]
 	if _mm_thread != null:
 		call_deferred("_menu_song_thread_done")
 	return out
@@ -194,6 +207,9 @@ func _exit_tree():
 	_mm_thread = null
 
 func _menu_song_read(res: Array):
+	# (your own menu song couldn't be read: one of the game's, chosen here)
+	if not res[0] and res[1] == null and res.size() > 2 and res[2]:
+		res[1] = Rhythia.next_menu_track()
 	var custom = res[1] if res[0] else null
 	if custom:
 		$MenuSong.stream = custom

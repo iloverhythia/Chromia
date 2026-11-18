@@ -228,6 +228,10 @@ func note_reposition(i: int):
 
 			alpha = min(fade_in, fade_out)
 
+		if _f_lut:
+			var lx: float = clamp(alpha, 0.0, 1.0) * 64.0
+			var li: int = int(lx)
+			alpha = lerp(alpha_lut[li], alpha_lut[int(min(li + 1, 64))], lx - li)
 
 		_mm_notes.set_instance_transform(slot, nt)
 		_mm_notes.set_instance_color(slot, Color(col.r, col.g, col.b, col.a * alpha))
@@ -301,6 +305,20 @@ func note_check_collision(i: int):
 var asq = Rhythia.note_visual_approach
 
 # Cached once (nodes) and once per frame (settings) instead of per note.
+# Flashlight: the darkness lifts while the song is paused (so the pause screen
+# can be read), and the notes are hidden instead (Flashlight.gd)
+var _notes_hidden := false
+var _asq_was_visible := true
+func set_notes_hidden(h: bool):
+	if h == _notes_hidden:
+		return
+	_notes_hidden = h
+	if h:
+		_asq_was_visible = _n_asq.visible
+	_n_notes.visible = not h
+	_n_spawn.visible = not h
+	_n_asq.visible = (not h) and _asq_was_visible
+
 onready var _n_notes = $Notes
 onready var _n_asq = $ASq
 onready var _n_spawn = $SpawnEffect
@@ -311,6 +329,12 @@ onready var _lobby_manager = get_node_or_null("/root/LobbyManager")
 var _f_spawn_dist: float = 40.0
 var _f_spawn_effect: bool = false
 var _f_opacity: float = 1.0
+var _f_lut: bool = false
+# The Rhythia look (game/RhythiaLook.gd) shows see-through notes as Rhythia
+# does: 65 steps from the see-through wanted to the one to give the material
+# (Chromia mixes in light, and an imported mesh is drawn front and back).
+var alpha_lut := PoolRealArray()
+var notes_two_layers := false
 var _f_any_offset_mod: bool = false
 var _f_spin: bool = false
 var _f_spin_basis: Basis = Basis()
@@ -327,6 +351,7 @@ func _cache_frame_settings():
 	_f_spawn_dist = Rhythia.get("spawn_distance")
 	_f_spawn_effect = Rhythia.note_spawn_effect
 	_f_opacity = Rhythia.note_opacity
+	_f_lut = alpha_lut.size() == 65
 	_f_any_offset_mod = Rhythia.mod_360 or Rhythia.mod_chaos or Rhythia.mod_earthquake
 	_f_ghost = Rhythia.mod_ghost
 	_f_approach_speed = approach_rate / speed_multi
@@ -339,7 +364,7 @@ func _cache_frame_settings():
 	# Strobe hides/shows all notes at once, so it's checked once per frame.
 	# It runs on real time, so the speed mod doesn't make it flash faster.
 	if Rhythia.mod_strobe:
-		var show_notes: bool = not (OS.get_ticks_msec() % 500 > 250)
+		var show_notes: bool = not (OS.get_ticks_msec() % 500 > 250) and not _notes_hidden
 		if _n_notes.visible != show_notes:
 			_n_notes.visible = show_notes
 	_f_spin = Rhythia.note_spin_x != 0 or Rhythia.note_spin_y != 0 or Rhythia.note_spin_z != 0
@@ -871,6 +896,7 @@ func _ready():
 		var m = ObjParse.load_obj(note_mesh.path)
 		if m != null:
 			mesh = _double_sided(m) # imported meshes may face away from the camera
+			notes_two_layers = true
 		else:
 			mesh = load("res://assets/blocks/rounded.obj")
 	else:

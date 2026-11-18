@@ -71,6 +71,25 @@ var fever_preview: ColorRect
 var background: ColorRect
 var settings_button: Button
 var touch_bar: Array = []
+# Phones, tablets and headsets have no keyboard, wheel or right mouse button:
+# the bar's buttons do what those do. CTRL and SHIFT stay on until pressed
+# again (they count as held: SSQEEditor._update_modifiers); RANGE makes a drag
+# along the track select the notes it passes, as a right-button drag does.
+var hold_ctrl := false
+var hold_shift := false
+var range_mode := false
+var _hold_buttons := {}
+var _drawer_left: Panel
+var _drawer_right: Panel
+
+# no keyboard: the shortcut bar is there
+static func no_keys() -> bool:
+	return Rhythia.device("mobile") or Rhythia.vr
+
+# a phone or tablet: the layout made for fingers (T_* below). A headset keeps
+# the usual layout: its pointer is as exact as a mouse.
+static func touch_layout() -> bool:
+	return Rhythia.device("mobile")
 var am_stars_label: Label
 var am_quantum_label: Label
 var am_similar_label: Label
@@ -394,6 +413,22 @@ func build():
 	ed.track = load("res://scripts/editor/ssqe/SSQETrack.gd").new()
 	ed.track.ed = ed
 	ed.add_child(ed.track)
+	if touch_layout():
+		# (the panels open over the grid there: something to stand on, that takes the taps)
+		for side in ["left", "right"]:
+			var bg := Panel.new()
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.075, 0.065, 0.11, 0.97)
+			sb.border_color = Color(0.78, 0.62, 1.0, 0.45)
+			sb.set_border_width_all(2)
+			sb.set_corner_radius_all(10)
+			bg.add_stylebox_override("panel", sb)
+			bg.mouse_filter = Control.MOUSE_FILTER_STOP
+			_add(bg, 0, 0, 10, 10, 0, "drawer_" + side)
+			if side == "left":
+				_drawer_left = bg
+			else:
+				_drawer_right = bg
 
 	# ------------------------------------------------ nav buttons
 	for it in [["OPTIONS", 10, 172, 175], ["TIMING", 195, 172, 175], ["PATTERNS", 380, 172, 175], ["PLAYTEST", 10, 946, 545]]:
@@ -402,6 +437,10 @@ func build():
 		nav_buttons[it[0]] = _btn(it[1], 172, 175, 50, it[0], 31, "_on_right_nav", [it[0]])
 	left_nav = SSQEMap.ss(s.lastLeftNav) if SSQEMap.ss(s.lastLeftNav) in LEFT_NAVS else "TIMING"
 	right_nav = SSQEMap.ss(s.lastRightNav) if SSQEMap.ss(s.lastRightNav) in RIGHT_NAVS else "SNAPPING"
+	if touch_layout():
+		# (a panel covers the grid while it's open: none to begin with)
+		left_nav = ""
+		right_nav = ""
 
 	# ------------------------------------------------ Options (10, 222)
 	var g := "OPTIONS"
@@ -612,13 +651,21 @@ func build():
 	total_time_label = _label(1280, 1048, 64, 32, "", 26)
 	notes_label = _label(0, 1048, 1344, 32, "", 30)
 
-	# phones: buttons for the shortcuts (the web editor's touch bar)
-	if Rhythia.device("mobile"):
-		var acts := [["UNDO", "undo"], ["REDO", "redo"], ["SELECT ALL", "selectAll"], ["COPY", "copy"], ["CUT", "cut"],
-			["PASTE", "paste"], ["DELETE", "delete"], ["SAVE", "save"]]
-		var tw := (790.0 - 6 * (acts.size() - 1)) / acts.size()
+	# no keyboard (phones, tablets, headsets): buttons for the shortcuts, and
+	# for what the wheel, the modifier keys and the right button do
+	if no_keys():
+		var acts := [["UNDO", "undo"], ["REDO", "redo"], ["COPY", "copy"], ["CUT", "cut"], ["PASTE", "paste"],
+			["DELETE", "delete"], ["SELECT ALL", "selectAll"], ["DESELECT", "t:deselect"], ["SAVE", "save"],
+			["<", "t:back"], [">", "t:forward"], ["ZOOM -", "t:zoomOut"], ["ZOOM +", "t:zoomIn"],
+			["DIV -", "t:divDown"], ["DIV +", "t:divUp"], ["RANGE", "t:range"], ["CTRL", "t:ctrl"], ["SHIFT", "t:shift"]]
+		# (the usual layout: two rows under the grid; phones: one row, T_BAR_Y)
+		var per := 9
+		var tw := (790.0 - 6 * (per - 1)) / per
 		for i in range(acts.size()):
-			touch_bar.append(_btn(565 + i * (tw + 6), 946, tw, 50, acts[i][0], 20, "_kb", [acts[i][1]], "touch"))
+			var b := _btn(565 + (i % per) * (tw + 6), 890 + (i / per) * 56, tw, 50, acts[i][0], 20, "_kb", [acts[i][1]], "touch")
+			touch_bar.append(b)
+			if acts[i][1] in ["t:range", "t:ctrl", "t:shift"]:
+				_hold_buttons[acts[i][1]] = b
 	_update_nav_text()
 	refresh_values()
 
@@ -633,13 +680,15 @@ func on_map_opened():
 
 func layout():
 	var mn: float = min(ed.wd, ed.hd)
+	var touch := touch_layout()
 	for it in items:
 		var n: Control = it.node
-		var r: Rect2 = ed.stage_rect(it.x, it.y, it.w, it.h, it.stretch)
+		var g: Array = _touch_geom(it) if touch else [it.x, it.y, it.w, it.h, it.ts]
+		var r: Rect2 = ed.stage_rect(g[0], g[1], g[2], g[3], it.stretch)
 		n.rect_position = r.position
 		n.rect_size = r.size
-		if it.ts > 0:
-			var f: DynamicFont = ed.text_font(it.ts, mn)
+		if g[4] > 0:
+			var f: DynamicFont = ed.text_font(g[4], mn)
 			# (a button's text shrinks to fit, as SSQE's narrower font would)
 			if n is Button and not n is CheckBox and not n is OptionButton and n.text != "":
 				var avail: float = r.size.x - 6
@@ -653,8 +702,136 @@ func layout():
 				n.get_popup().add_font_override("font", f)
 			elif n is SpinBox:
 				n.get_line_edit().add_font_override("font", f)
-	_layout_grid_buttons()
+	if not touch:
+		_layout_grid_buttons()
 	_apply_visibility()
+	if touch:
+		_raise_drawers()
+
+# phones: an open drawer lies over everything else (the shortcut row and the
+# timeline were made after it), and the editor's windows over the drawer
+func _raise_drawers():
+	for it in items:
+		if it.group == "drawer_left" or it.group == "drawer_right":
+			if it.node.visible:
+				it.node.raise()
+	for it in items:
+		var g: String = it.group
+		if (g in LEFT_NAVS or g in RIGHT_NAVS or g in ["special_nova", "lyric", "notenav"]) and it.node.visible:
+			it.node.raise()
+	if ed.dialogs:
+		ed.dialogs.raise()
+
+# ------------------------------------------------------------------ phones
+# The same controls, placed for fingers on the same 1920x1080 stage:
+#   the track on top and the timeline at the bottom are taller, the grid in
+#   the middle is nearly twice as big (SSQEEditor._layout);
+#   the panel buttons stand in a column on each side (OPTIONS ... on the
+#   left with BACK TO MENU, SETTINGS and COPY MAP DATA; SNAPPING ... on the
+#   right over the volume sliders);
+#   a panel opens as a drawer over the grid, one and a half times the size,
+#   and closes with its button;
+#   the shortcut buttons are one row over the timeline.
+const T_TRACK_H := 110.0
+const T_GRID := 560.0
+const T_BAR_Y := 878.0
+const T_BAR_H := 98.0
+const T_TL_Y := 990.0
+const T_TL_H := 90.0
+const T_STACK_W := 230.0
+const T_SLOT_Y := 236.0
+const T_SLOT_H := 80.0
+const T_SLOT_STEP := 90.0
+const T_DRAWER_K := 1.5
+# where a panel's own controls end on the stage (they all start at 232)
+const T_BOTTOM := {"OPTIONS": 552, "TIMING": 652, "PATTERNS": 919, "PLAYTEST": 782, "SNAPPING": 634, "GRAPHICS": 624, "EXPORT": 612, "special": 930}
+
+func _slot(i: int, right := false) -> Array:
+	return [1920.0 - 10.0 - T_STACK_W if right else 10.0, T_SLOT_Y + i * T_SLOT_STEP, T_STACK_W, T_SLOT_H]
+
+# a drawer's [x, y, scale] (its controls' stage x / y of 10 or 1365 / 232 land there)
+func _drawer(panel: String, right: bool) -> Array:
+	var tall: float = float(T_BOTTOM.get(panel, 900)) - 232.0
+	var k: float = T_DRAWER_K
+	var y: float = T_SLOT_Y
+	if tall * k > T_BAR_Y - 20.0 - y:
+		# (too long for under the track: the whole height, as big as fits)
+		y = 24.0
+		k = min(T_DRAWER_K, (1080.0 - 2 * y) / tall)
+	var x: float = 10.0 + T_STACK_W + 22.0
+	if right:
+		x = 1920.0 - 10.0 - T_STACK_W - 22.0 - 545.0 * k
+	return [x, y, k]
+
+func _touch_geom(it: Dictionary) -> Array:
+	var n = it.node
+	var g: String = it.group
+	# the panels' own controls: in their drawer
+	if g in LEFT_NAVS or g in ["special_nova", "lyric", "notenav"]:
+		var d: Array = _drawer(g if g in LEFT_NAVS else "special", false)
+		return [d[0] + (it.x - 10.0) * d[2], d[1] + (it.y - 232.0) * d[2], it.w * d[2], it.h * d[2], it.ts * d[2]]
+	if g in RIGHT_NAVS:
+		var d2: Array = _drawer(g, true)
+		return [d2[0] + (it.x - 1365.0) * d2[2], d2[1] + (it.y - 232.0) * d2[2], it.w * d2[2], it.h * d2[2], it.ts * d2[2]]
+	if g == "drawer_left" or g == "drawer_right":
+		var right: bool = g == "drawer_right"
+		var open: String = right_nav if right else ("special" if special_on else left_nav)
+		var d3: Array = _drawer(open, right)
+		var tall: float = (float(T_BOTTOM.get(open, 900)) - 232.0) * d3[2]
+		return [d3[0] - 14.0, d3[1] - 14.0, 545.0 * d3[2] + 28.0, tall + 28.0, 0]
+	# the panel buttons: a column on each side
+	for i in LEFT_NAVS.size():
+		if nav_buttons.get(LEFT_NAVS[i]) == n:
+			return _slot(i) + [34.0]
+	for i in RIGHT_NAVS.size():
+		if nav_buttons.get(RIGHT_NAVS[i]) == n:
+			return _slot(i, true) + [34.0]
+	if g == "special":
+		# (Extra Objects: its two buttons take the column's first places)
+		return _slot(0 if it.y < 500 else 1) + [30.0]
+	if n == back_button:
+		return _slot(4) + [30.0]
+	if n == settings_button:
+		return _slot(5) + [30.0]
+	if n == copy_button:
+		return _slot(6) + [30.0]
+	if g == "touch":
+		var i2: int = touch_bar.find(n)
+		var w: float = (1900.0 - 6.0 * (touch_bar.size() - 1)) / max(1, touch_bar.size())
+		return [10.0 + i2 * (w + 6.0), T_BAR_Y, w, T_BAR_H, 27.0]
+	# the bottom row: timeline, play button, playback speed
+	if n == ed.timeline:
+		return [0, T_TL_Y, 1250, T_TL_H, 0]
+	if n == play_pause:
+		return [1255, T_TL_Y, T_TL_H, T_TL_H, 0]
+	if n.has_meta("tempo"):
+		return [1355, T_TL_Y, 555, T_TL_H, 0]
+	if n == tempo_label:
+		return [1355, 1042, 555, 34, 32]
+	if n == current_time_label:
+		return [4, 1042, 90, 34, 30]
+	if n == current_ms_label:
+		return [4, T_TL_Y, 90, 34, 30]
+	if n == total_time_label:
+		return [1156, 1042, 90, 34, 30]
+	if n == notes_label:
+		return [0, 1042, 1250, 34, 32]
+	if n == toast_label:
+		return [0, 2 * T_TRACK_H + 10, 1920, 64, 44]
+	if n == click_mode_label:
+		return [810, 540 + T_GRID / 2 + 8, 300, 42, 32]
+	if n == lyric_preview:
+		return [0, 540 + T_GRID / 2 - 60, 1920, 56, 48]
+	if n == zoom_value_label:
+		return [350, T_SLOT_Y - 2, 120, 40, 36]
+	if n is Label and n.text == "Zoom:":
+		return [264, T_SLOT_Y - 2, 90, 40, 36]
+	# the two volume sliders with their icons and numbers: under the right column
+	if g == "" and it.x >= 1780 and it.y >= 700 and it.y < 1010:
+		var sx := T_STACK_W / 148.0
+		var sy := (T_BAR_Y - 16.0 - 520.0) / 306.0
+		return [1680.0 + (it.x - 1772.0) * sx, 520.0 + (it.y - 720.0) * sy, it.w * sx, it.h * (sy if it.h > 60 else 1.3), it.ts * 1.3]
+	return [it.x, it.y, it.w, it.h, it.ts]
 
 # Grid Zoom moves the buttons above and below the grid with it
 func _layout_grid_buttons():
@@ -705,6 +882,10 @@ func _group_visible(g: String) -> bool:
 			return false
 		"touch":
 			return true
+		"drawer_left":
+			return left_nav != "" or special_on
+		"drawer_right":
+			return right_nav != ""
 	return true
 
 func _apply_visibility():
@@ -932,21 +1113,60 @@ static func _comma(n: int) -> String:
 # ================================================================== actions
 
 func _kb(bind: String):
-	ed.run_keybind(bind)
+	if not bind.begins_with("t:"):
+		ed.run_keybind(bind)
+		return
+	# the bar's own buttons (no keyboard, wheel or right button)
+	match bind:
+		"t:deselect":
+			ed.map.selected_point = null
+			ed.map.clear_selected()
+		"t:back":
+			ed.scroll(true)
+		"t:forward":
+			ed.scroll(false)
+		"t:zoomOut":
+			ed.map.increment_zoom(-1)
+		"t:zoomIn":
+			ed.map.increment_zoom(1)
+		"t:divDown":
+			ed.map.beat_divisor = clamp(ed.map.beat_divisor - 1.0, 0, 31)
+		"t:divUp":
+			ed.map.beat_divisor = clamp(ed.map.beat_divisor + 1.0, 0, 31)
+		"t:range":
+			range_mode = not range_mode
+		"t:ctrl":
+			hold_ctrl = not hold_ctrl
+		"t:shift":
+			hold_shift = not hold_shift
+	for k in _hold_buttons:
+		var on: bool = range_mode if k == "t:range" else (hold_ctrl if k == "t:ctrl" else hold_shift)
+		var name: String = k.substr(2).to_upper()
+		_hold_buttons[k].text = ("[%s]" % name) if on else name
 
 func _on_left_nav(name: String):
 	left_nav = "" if left_nav == name else name
+	if touch_layout() and left_nav != "":
+		right_nav = "" # (one drawer at a time: they would lie over each other)
 	ed.s.lastLeftNav = left_nav
 	ed.settings_changed()
 	_update_nav_text()
-	_apply_visibility()
+	if touch_layout():
+		layout()
+	else:
+		_apply_visibility()
 
 func _on_right_nav(name: String):
 	right_nav = "" if right_nav == name else name
+	if touch_layout() and right_nav != "":
+		left_nav = ""
 	ed.s.lastRightNav = right_nav
 	ed.settings_changed()
 	_update_nav_text()
-	_apply_visibility()
+	if touch_layout():
+		layout()
+	else:
+		_apply_visibility()
 
 func _set_special(on: bool):
 	special_on = on
@@ -957,7 +1177,10 @@ func on_special_changed(on: bool):
 	special_on = on
 	special_mode = ""
 	_update_nav_text()
-	_apply_visibility()
+	if touch_layout():
+		layout()
+	else:
+		_apply_visibility()
 
 const OBJ_MODES = {"Beats": 12, "Mines": 14, "Glides": 13, "Lyrics": 15, "Fevers": 16, "Modify Notes": 1}
 func _on_special_mode(name: String):

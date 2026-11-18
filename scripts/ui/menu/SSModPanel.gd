@@ -45,6 +45,7 @@ const TILES := [
 	["Invert Mouse", "InvertMouse", "invert", Color(0.7, 0.5, 1.0)],
 	["360", "360", "spin", Color(0.3, 0.85, 0.75)],
 	["Flashlight", "FlashlightMod", "light", Color(0.95, 0.9, 0.45)],
+	["True Flashlight", "TrueFlashlightMod", "light", Color(1.0, 0.6, 0.35)],
 ]
 
 var mods: Control

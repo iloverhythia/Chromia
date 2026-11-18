@@ -154,7 +154,9 @@ func apply_mobile_tuning():
 		mobile_tuned_v3 = true
 		if Engine.target_fps <= 0 or Engine.target_fps >= 120:
 			mobile_high_hz = true
-	Input.use_accumulated_input = not mobile_no_delay
+	# (New Absolute Mode: every finger movement by itself and no hold on a new touch, as with No Touch Delay)
+	var no_delay: bool = mobile_no_delay or new_abs_on()
+	Input.use_accumulated_input = not no_delay
 	if mobile_high_hz and Engine.target_fps > 0 and Engine.target_fps < 120:
 		_clear_fps_cap() # an FPS limit under 120 would hold it back
 	if not (OS.has_feature("iOS") or Engine.has_meta("ios_native_fake")):
@@ -171,13 +173,13 @@ func apply_mobile_tuning():
 	if Engine.target_fps >= fps:
 		_clear_fps_cap()
 	# only touch what's on, or what was turned off after being on
-	if not mobile_no_delay and not mobile_high_hz and not _tuned_once:
+	if not no_delay and not mobile_high_hz and not _tuned_once:
 		return
 	_tuned_once = true
 	# (Frame Smoothing used to hold a phone at 60 after a song with late frames
 	# at 120. On a 120 Hz iPhone the screen itself moves between 80 and 120, so
 	# ordinary frames counted as late and phones ended up capped at 60: gone.)
-	var delay := 0.0 if mobile_no_delay else 0.15
+	var delay := 0.0 if no_delay else 0.15
 	mobile_tuning_status = load("res://scripts/IosNative.gd").tune(fps, delay, int(ask[1]))
 	_start_high_hz_check()
 	print("[mobile tuning] ", mobile_tuning_status if mobile_tuning_status != "" else "native helper not in this app")
@@ -462,7 +464,8 @@ func _get_active_mods_dict() -> Dictionary:
 		"hardrock": mod_hardrock,
 		"harderrock": mod_harderrock,
 		"hard_mode": mod_hard_mode,
-		"flashlight": mod_flashlight,
+		"flashlight": flashlight_on(), # (True Flashlight counts as Flashlight wherever it isn't known)
+		"true_flashlight": mod_true_flashlight,
 		"reverse": mod_reverse,
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
@@ -1080,11 +1083,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a", "nov13-2026-b", "nov15-2026-a", "nov15-2026-b", "nov16-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a", "nov13-2026-b", "nov15-2026-a", "nov15-2026-b", "nov16-2026-a", "nov18-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov18-2026-a": "- New Absolute Mode (Settings, under Absolute Mode): the cursor is put exactly where your finger or mouse is on every sample, with nothing smoothed. On a touch screen it leads by the Prediction amount at once and is back on your finger the moment you stop. Snappier and less even than Absolute Mode alone\n- VR: the menu no longer crawls. When the headset didn't reach its refresh rate (120 Hz set, 60 to 72 frames a second made), the menu screen was only redrawn 15 to 18 times a second and stayed that way. It is now redrawn at least 36 times a second while you use it, whatever the headset manages\n- VR multiplayer: the scoreboard beside the left panel is turned towards you. It was angled away, so you saw it nearly edge-on and the scores were hard to read\n- PC: fixed a small stutter once a second during maps. Every second the game checked which HUD panels have a moving background by asking the graphics thread for a shader's code, and the whole game waited for the answer. It is asked once now\n- A slow frame during a map no longer makes the next frame slow too (the note about it for the log waited for the graphics thread and the disk)\n- VR and phones: the cursor trail no longer gives up when the frame rate drops. Each frame's new trail was only drawn a frame later; at a low frame rate with a short Trail Time it had already faded by then, so the trail came apart from the cursor or vanished\n- Cards and Frames: the window no longer grows down past the bottom of the screen after you pick one, and with many cards or frames the list scrolls instead of running off the screen\n- The lobby invite notice during a song is its normal small size (it came out as tall as the screen)\n- Videos: the Chromia mark is in the bottom left corner instead of the middle of the left edge\n- PC: new \"Limit FPS in Menus\" (Settings > Video & Audio > Graphics, on from the start). In the menus the game draws as often as your screen shows (144 times a second at most) and 30 times a second while its window isn't in front, instead of as often as the graphics card can: a few percent of a fast card instead of nearly all of it. Maps aren't touched: your Max FPS, or no limit\n- Max FPS typed while Streaming Mode holds the frame limit is taken now (it was ignored until Streaming Mode was turned off)\n- Settings > Crash Reports: \"Copy this session's log\", for a problem that is not a crash (a map where the cursor or the HUD does not work on your computer). The log now also says what a song is started with (screen, mouse, controllers, HUD) and whether the mouse moved the cursor in its first seconds\n- Settings Generator: the Pin button no longer shows on its findings, suggestions and play lists (text to read, not settings). \"Track my plays\" and its three buttons can still be pinned\n- Picture frames can move: a frame made from a GIF plays in the game (profile, Spectate, Online players, Frames menu) and on the website. It shows as a still picture for the moment it takes to load\n- Crash reports say how the game ended: how long it kept running after the last thing it did, how soon it was opened again, and on Windows what Windows itself recorded (where the crash was, or that the game was closed from outside, like a PC shut down with the game open)\n- Map list: \"Reset filters\" unticks the \"unranked\" box too\n- iPhone: a new way of reaching 120 Hz on 120 Hz iPhones, where the game used to end up at 80 or a delayed 60. It needs the latest chromia-ios.ipa installed once (an in-app update can't add it). The first time it works, the game asks whether the picture looks right and goes back by itself if you don't answer\n- Map downloads: a download that stops coming in now ends by itself after 25 seconds and says so. It used to leave \"Downloading map...\" up for good, which looked like a freeze\n- Map downloads no longer fail with \"Failed to connect\" when google.com can't be reached (the game asked it first, as a connection check). A failed download is also reported once, not twice\n- Watching someone or taking a lobby's mods: the map screen is built again once instead of 20 to 50 times in a row (a hitch each time)\n- Supporters have their own card (opal hearts drifting up, lights running round its edge) and frame (an opal ring with a gem heart that beats, its pulse running up both sides, little hearts floating round it), in profile > Cards and Frames\n- VR: Render resolution (Settings > VR > Graphics) now goes up to 200% (it stopped at 140%). Above 140% is sharper but much heavier. If a setting above 150% doesn't get the headset to the menu, the next start runs at 100% and puts the setting back to 150%\n- Flashlight: the lit circle is now the same size on your screen whatever FOV you use (it used to shrink and grow with the FOV). At a high FOV, where the grid is small on screen, it still never lights more of the grid than before\n- Flashlight: holding the give up key (R) no longer lifts the darkness, so it can't be tapped to peek at the notes. While paused the darkness still lifts so you can read the pause screen, but the notes are hidden\n- New modifier: True Flashlight. Flashlight whose circle closes in every 100 combo (1.2 times narrower each time, up to 500 combo); a miss opens it again\n- VR multiplayer: \"Pick map\" in a lobby opens on the menu screen in front of you. It opened on the computer's flat window, so in a headset nothing seemed to happen\n- VR multiplayer (Meta Quest): during a match the game no longer builds a second scoreboard that a headset never shows, and the one in the headset is redrawn half as often\n- Settings > Crash Reports: \"Send this session's log\" sends what the game did this session to the developers (and copies it), for problems that aren't crashes. Handy in a headset or on a phone, where pasting a log is awkward\n- Reverse: the song is turned around in a second or two instead of 8 and more (a 4 minute song took about 3 seconds here; it's instant the next time, and the last 6 songs are kept instead of 4)\n- Maps whose song is .m4a, FLAC, AAC or Opus: the song starts being made playable when you select the map, not when you press Play, so the first play no longer waits on the loading screen for it. When another player has already played that song, your game only downloads it instead of sending the song up first\n- Map Editor on phones and tablets: it's in the menu now, with a layout for fingers. A much bigger grid, a taller track and timeline, the panel buttons in a column on each side, and each panel opening as a large drawer over the grid (tap its button again to close it). A tap puts the note where your finger lands\n- Map Editor in VR: it's in the menu now. Point and click as with a mouse; the thumbstick scrolls the song, and text boxes bring up the VR keyboard\n- Map Editor without a keyboard (phones and VR): a row of buttons for the shortcuts (undo, redo, copy, cut, paste, delete, select all, deselect, save), for stepping through the song, zoom and the beat divisor, and CTRL / SHIFT buttons that stay on until you press them again. RANGE makes a drag along the track select the notes it passes (what the right mouse button does)\n- Replays: three new switches on the replay bar. Cursor Path draws the line the cursor took (a little behind and ahead of it), Note Hitboxes draws the square each note is hit in (green once it was hit, red when it was missed), Frame Markers puts a dot on every cursor position the replay recorded. They stay as you left them\n- Replays: the replay bar has the look of the new menus and takes the colours of your Menu Customizer look. It shows the time, and has a Hide button (F1 still hides everything for recording)\n- Cards: every badge card moves now, like the Supporter card. Admin has gold sparks and a gold sheen, Developer falling bits and a scan line, DJ sound bars, Ranker rising stars, Contributor turning plus signs, Tester bubbles that pop, Moderator spreading rings, and the five Prestige cards a metal shine that grows with each step, up to the rainbow at 10,000\n- VR Hand Creator: My hands. Save the hand you're building under a name, and load it again later from \"Start from\" (after the hands that come with the game) to change it and save it again\n- Content Browser: a VR Hands tab (in VR; the game's admins see it on every device). Share the hand you built, and download other players' hands: a downloaded hand goes into My hands and onto your hands, and the hand you had is kept in My hands\n- Menu Customizer: a Layout section. Put the map screen's three parts (song panel, map list, filters) in any order from left to right, and move the sidebar's buttons up and down into the order you like. \"The game's own layout\" puts it all back, and a skin carries your layout along with your colours\n- Rhythia skins (.rhs): dropping one on the game now asks \"Full\" or \"Settings only\". Full makes a song look as it does in Rhythia: its HUD (the combo ring with your combo in it, accuracy, points and misses where Rhythia has them, the song's name, time and bars, the faint combo in the grid) with Rhythia's fonts, sizes and brightness, the border, cursor and trail pictures, the plain background, the grid at Rhythia's size on screen, and see-through notes as faint as Rhythia shows them. Settings only\n- Rhythia skins (.rhs) now import on every device (it only worked on Windows), and the imported note mesh stays selected after a restart\n- Rhythia skins (.rhs): the import also brings death slowdown, the spin camera, cursor rotation, the replay overlay, the hit and miss effect (as Chromia's nearest), the trail's own colour and \"disable GUI\", says how many of Rhythia's settings have no match in Chromia, and opens the menu again afterwards so the imported values show in Settings\n- Rhythia skins (.rhs): every setting the two games share now comes over and stays. Before, parallax, grid parallax, approach rate, spawn distance, FOV, note size and see-through, the cursor's size and the note mesh could go back to your old values right after the import (the Settings boxes put them back), and on a fresh install the note mesh failed to import and the colorset was lost after a restart. Also imported now: the trail's spacing, and with Full the HUD's colours (text, panel, combo ring,\n- Fixed a way the game could close by itself a moment after the menu opened (coming back from a song, mostly): the menu's music was being chosen on a second thread while the menu was still being put together",
 	"nov16-2026-a": "- The game no longer sends usage data to Google Analytics\n- The ban screen is gone: bans are handled by the server\n- Meta Quest: moving from the sideloaded version to the store version. In the sideloaded version, Settings > Transfer > \"Move to the store version\" > \"Send everything\" sends your whole game through the game's server (your account, settings, profiles, scores, level, colorsets, meshes, skins, hands, and your maps and replays unless you untick them) and shows a code. The store version asks about it the first time it opens, and has \"Bring everything over from the sideloaded version\" at the top of Settings > Transfer: type the code there, then close the game and open it again. Nothing is removed from the sideloaded version; the code works once, for a day\n- Settings: with New Settings UI off, a new Side Tabs switch (under it) puts the settings tabs in a list down the left side\n- VR: heavy menu pages (the Content Browser's map cards most of all) no longer drag the headset's frame rate down. The menu screen is redrawn less often when frames start coming late, and more often again once they are on time; before, a page heavy enough to pull the frame rate under 80 was redrawn every single frame, which kept it laggy. Your view, hands and pointer stay at the headset's full rate\n- VR: the Content Browser builds its map cards two a frame and loads two covers at a time, so opening a page of maps doesn't hitch\n- Note meshes can be .glb files too (Settings > Meshes > Import, Import Content, or drop the file on the game)\n- Videos: the Chromia mark is at the middle of the left edge instead of the bottom right corner\n- Staff: the in-game admin panel is gone (everything is in the website's admin panel)\n- iPhone: 120 Hz no longer leaves you at a delayed 60. With the game's engine an iPhone asked for 120 frames a second drops to 60 and feels late, so the game now tries 120, then 80, for a few seconds in the menu and keeps the highest one the phone really holds. What it's running at is shown next to the 120 Hz setting, and it's remembered\n- iPhone: installing the latest chromia-ios.ipa once lets the game also try two other ways of showing frames that may reach a real 120 (in-app updates can't add that part)\n- Phones: ticking 120 Hz with a Max FPS under 120 set now really takes the limit off (the Max FPS box used to put it straight back, which left 120 Hz at 60 with extra delay). Setting a Max FPS under 120 turns 120 Hz off\n- iPhone: a Max FPS at or above the screen's rate is taken off, because there it only showed every frame late\n- When the game crashes, its crash report is sent to the developers by itself at the next start, so bugs can be found without you copying anything (what the game was doing, your version and device; never your account id). Settings > Crash Reports turns it off. Not in the browser version\n- The Spectators list (and \"Spectating ...\") shows names written in Cyrillic, Japanese and other non-Latin letters. They used to be a blank line, so it only said \"Spectators (1)\"\n- \"Get the ranked version\" on a map whose ranked version the server doesn't have (it kept an older file after the map was ranked again with changed notes) now says so and tells the rankers, instead of \"doesn't match\". A ranker's game then publishes the ranked version by itself, and the button works for everyone",
 	"nov15-2026-b": "- The game now connects to chromia.lol, the server's new address",
 	"nov15-2026-a": "- Spectating: when the player you watch skips ahead, your view now jumps straight there and keeps up as usual (it fell up to 2 seconds behind and caught up slowly). In a lobby, the host's skip no longer hides the notes on a spectator's screen\n- Skipping ahead in solo play moves the music right away (it played on from before the skip for a moment, and for good with Disable Desync on)\n- Staff can now set your level and prestige; your game takes it the next time it is online and tells you (\"set by staff\")\n- Ranked maps: if your copy of a ranked map has different notes than the ranked version (so passes on it don't count), the map's screen now has a \"Get the ranked version\" button that downloads the right copy and swaps it in. Your old copy is kept in the map_backups folder\n- Maps no longer lose part of their notes after you restart the game (maps with a tempo marker, like Camellia - Flamewall, started minutes in with \"SP Not Valid\"). Nothing to re-download: your map files were never changed\n- Map Editor: Load map works again when it asks for the song after the map file (picking the song did nothing and it kept saying \"Now pick the song\"). The same goes for Paste map and every other place that asks for two files in a row\n- Settings no longer reset at a restart when one setting in your file has an unexpected value: the game used to stop reading the file at that setting, leave everything after it at default and then save it that way. (The reset that came from signing in during startup was fixed in nov13-2026-a.)\n- PC: the game no longer freezes for a moment about two seconds into a song (the anti-cheat scan ran right then). On maps that start early the first note popped in late and close, or didn't show at all. The scan now runs while you're in the menu\n- Your own profile picture shows again in a map's History list and the Sound Space menu when it is kept on the Chromia server (its address was incomplete)\n- Windows: starting a second copy of the game (e.g. the test build next to the stable one) no longer shows a crash report for the copy that is still running\n- Settings > Transfer > Settings backups: copies of your settings are kept in a settings_backups folder so they can't be lost. Back Up Settings (on) makes the copies; Only When Saving a New Profile (on) makes one each time you create a profile, and with it off a copy is made every time your settings change. Back up now, Restore a backup (adds it as a profile) and Open backups folder are there too\n- New cards and frames: Ranker, Contributor, Tester and Moderator each get their own card and frame (trophy, heart, flask and shield), and Prestige 1, 10, 100, 1,000 and 10,000 each unlock a card and a frame (bronze, silver, gold, diamond and the rainbow)\n- The Cards and Frames menus only show the ones you have unlocked (admins see all of them)\n- Notes are drawn the way they were before the stacked / dense notes change: every note of a stack is drawn again (see-through notes on one square build up as they used to), and far notes of long stacks are no longer thinned out\n- The Spectate window is much lighter, most of all in VR: players' picture frames are drawn once for everyone showing the same frame instead of once per player 30 times a second (with 30 framed players the window took 3 times as long to draw; now it is close to having no frames at all). The Online list and the Frames menu gain the same\n- Map list > Filters > Show: new \"unranked\" box shows only the maps that aren't ranked (ticking it unticks \"ranked\", and the other way round)\n- Settings: a number box no longer stretches right across the page after its hint has shown (it happened when the mouse rested on a setting with a long hint, like Approach Rate, and stayed until the menu was reloaded)\n- Map screen: the \"Get the ranked version\" button no longer runs into the Start button (there is room between them now)\n- Removed the experimental Modern UI (it was only shown to staff)\n- Meta Quest: opening the game no longer leaves you looking at nothing for a long time. VR now starts first, and a panel in front of you says \"Loading\" (with what is being loaded) or \"Updating\" (with how far the download is) until the menu opens. The game also no longer builds a flat menu it then threw away before the VR one, so it opens sooner\n- VR: the loading panel of Reload Content, a profile switch and a skin change is the same new one (bigger, with moving dots, and it stays in front of you)\n- Rhythia Nightly (and other older clients) get your bests and attempts back: the ones Chromia saved in the shared SoundSpacePlus folder were in a newer format they saw as broken. The first start of this version writes every map's bests there again in the older format, with the ones you made in Chromia since added (the better of the two for each speed and mods). The old files are kept in Chromia's folder\n- Settings > Notes: Half Ghost strength goes in 1% steps instead of 5%\n- Replays: the 360 mod shows when you watch one (the notes stayed still), and on the website's Game view at the speed it was played with; video links you make send the 360 speed too\n- Mac: the game ran at 10 to 20 frames a second on Retina screens (iMacs most of all), because it drew every one of the screen's pixels: four times as many as a normal screen the same size. It now draws a Retina screen at a normal screen's resolution by default, a quarter of the work\n- Settings > Video & Audio > Graphics: new \"Render Resolution\" (Auto, 100%, 75%, 50%) on computers. Fewer pixels drawn is faster and a little softer; useful on 4K screens with a slow graphics chip too. Your mouse feels the same at every choice. Never under 720 lines\n- VR: new Hand Creator (Settings > VR > Hands > \"Open the Hand Creator\"). Build your own hands out of parts: balls, boxes, capsules, cylinders, cones, rings and crystals, each with its own place, turn, size, colour and look (cartoon, shiny, glowing or flat), up to 48 parts. The whole hand can have an outline in any colour, be made bigger or smaller, and have a mirrored or same-shaped left hand. A turning 3D preview shows it with the part you are editing marked, and your real hands in the headset change as you edit. Seven hands to start from (rounded hand, blocky hand, mitten, robot claw, orb, crystals, one ball), Undo for big changes, and \"Copy its code\" / \"Paste a code\" to share a hand with someone. Pick \"My own (Hand Creator)\" in the Hands list to wear it\n- VR: people who spectate you see the hand you made in the Hand Creator\n- Settings > Select Profile opens a panel beside the button instead of a small menu that ran off the screen: every profile in a list that scrolls, \"Save over\" and \"Delete\" right next to each one (both ask first now), New / Import / Export under the list, and an X in the corner to close it (Esc and the button close it too)\n- The lists that dropdowns open match the menu now: a dark panel with the item under the pointer filled in the accent colour (Settings, Online, Profile and the other pages in the new look), instead of the old grey list. With button colours of your own (Settings > Menu Customizer) the lists on the other pages follow them too\n- Settings: new \"Pinned\" page, first in the list. Rest the pointer on any setting on any page and press the \"Pin\" button that shows next to it; it then also shows on the Pinned page as a working copy (checkboxes, number boxes, sliders, dropdowns, text boxes, colours and buttons), so the settings you change most are in one place. \"Go to\" opens a pinned setting on its own page, \"Unpin\" takes it off. Your pins stay when you switch profiles, and with something pinned Settings opens on the Pinned page\n- Translate Chat: a chat line now waits up to 3 seconds for its translation instead of 1.5 (a translation that took a little longer came too late and the line showed untranslated), and the server has two more translation services to fall back on when the first doesn't answer. If the server doesn't answer twice in a row, chat stops waiting for a minute instead of holding every line up\n- VR: the Cards and Frames buttons on your profile (and Invite players in a lobby) open on the menu screen in front of you. They used to open on the computer's flat window, where nobody in a headset could see or close them, one more with every press, which is what made the game lag\n- VR: the cursor trail starts on the cursor again. It was made from where the cursor was one frame earlier, so it trailed behind with a gap that grew the faster your hand moved and looked torn off the cursor\n- VR menu: the pointer's trail works with every Trail Time. With most values (0.15, 0.2, 0.4 and so on; only a few like 0.25 and 0.5 were spared) the trail was started over every single frame, so it showed nothing or flickered",
@@ -1433,6 +1437,8 @@ func select_border(b: Border):
 		selected_border = b
 		emit_signal("selected_border_changed", b)
 func select_song(song: Song):
+	if song == null:
+		return
 	if song.is_online:
 		emit_signal("download_start")
 		get_tree().paused = true
@@ -1779,6 +1785,100 @@ func _set_session_state(state: String):
 		f.store_string(state)
 		f.close()
 
+# --- How the last session ended ---------------------------------------------------
+# A crash report says what the game did last. That can't tell a crash from the
+# game being ended from outside (the PC shut down with the game open, Task
+# Manager), and most reports end with the menu open and nothing after it: the
+# menu writes nothing while you look at it. So:
+#  - every ten seconds the game notes that it is still running, and where
+#    (ALIVE_FILE, written over each time): the report says how long after its
+#    last line the game was still fine, and how long it took until the game
+#    was started again (minutes: someone reopening a game that crashed; hours:
+#    a PC that was turned off);
+#  - on Windows, Windows' own record of the crash is looked up (CrashFault.gd):
+#    which module it happened in, or that there is none.
+const ALIVE_FILE := "user://logs/alive.txt"
+var last_session_alive := {} # {t: seconds into that session, unix, what}; {} not known
+var last_session_fault := "" # Windows' record, one line ("" none looked up)
+var last_session_fault_known := true # false while it is being looked up
+signal last_session_fault_ready
+
+func _alive_what() -> String:
+	if in_map:
+		return "in a map"
+	var cs = get_tree().current_scene if get_tree() != null else null
+	var n := String(cs.name) if cs != null else ""
+	return "in the menu" if n == "Menu" else ("on the %s screen" % n if n != "" else "starting")
+
+func _write_alive():
+	if _session_closed or OS.has_feature("JavaScript"):
+		return
+	var f := File.new()
+	if f.open(Globals.p(ALIVE_FILE), File.WRITE) == OK:
+		f.store_string("%.1f|%d|%s" % [OS.get_ticks_msec() / 1000.0, OS.get_unix_time(), _alive_what()])
+		f.close()
+
+func _read_alive() -> Dictionary:
+	var f := File.new()
+	if f.open(Globals.p(ALIVE_FILE), File.READ) != OK:
+		return {}
+	var parts := f.get_as_text().strip_edges().split("|")
+	f.close()
+	if parts.size() < 3 or not parts[0].is_valid_float() or not parts[1].is_valid_integer():
+		return {}
+	return {"t": float(parts[0]), "unix": int(parts[1]), "what": String(parts[2]).left(60)}
+
+func set_last_session_fault(text: String):
+	last_session_fault = text
+	last_session_fault_known = true
+	if _crash_report_file != "":
+		# (the report saved at the start didn't have it yet)
+		var f := File.new()
+		if f.open(_crash_report_file, File.WRITE) == OK:
+			f.store_string(crash_report(120))
+			f.close()
+	emit_signal("last_session_fault_ready")
+
+static func _span(sec: float) -> String:
+	if sec < 90:
+		return "%d s" % int(round(sec))
+	if sec < 5400:
+		return "%d min" % int(round(sec / 60.0))
+	if sec < 48 * 3600:
+		return "%.1f h" % (sec / 3600.0)
+	return "%d days" % int(round(sec / 86400.0))
+
+# what is known about how the last session ended, a line each
+func how_it_ended(now_unix: int = -1) -> Array:
+	var out := []
+	var a: Dictionary = last_session_alive
+	if not a.empty():
+		var last_t := -1.0
+		var lines := last_session_trail.strip_edges().split("\n")
+		var re := RegEx.new()
+		re.compile("^\\[\\s*([0-9.]+)s")
+		var m := re.search(lines[lines.size() - 1]) if lines.size() > 0 else null
+		if m != null:
+			last_t = float(m.get_string(1))
+		var gap: float = float(a.t) - last_t
+		if last_t >= 0.0 and gap >= 15.0:
+			out.append("Still running %s after the last line above (%s): nothing was happening when it ended." % [_span(gap), a.what])
+		elif last_t >= 0.0:
+			out.append("It ended within seconds of the last line above (%s)." % a.what)
+		if now_unix < 0:
+			now_unix = _started_unix
+		var away: int = now_unix - int(a.unix)
+		if away >= 0:
+			out.append("Started again %s later." % _span(away))
+	if last_session_fault != "":
+		out.append(last_session_fault)
+	elif not last_session_fault_known:
+		out.append("(Windows' record of it is being looked up.)")
+	return out
+
+var _started_unix := 0
+var _crash_report_file := ""
+
 func _trail_start():
 	var d := Directory.new()
 	var logs := Globals.p("user://logs")
@@ -1803,7 +1903,17 @@ func _trail_start():
 	# (the replay game view never counts as crashed, see _set_session_state)
 	last_session_crashed = state == "running" and last_session_trail.strip_edges() != "" and not other_copy_running and not load("res://scripts/WebReplay.gd").wanted()
 	last_session_engine_log = _previous_engine_log(40)
+	_started_unix = OS.get_unix_time()
+	last_session_alive = _read_alive()
 	if last_session_crashed:
+		# (Windows: what Windows wrote down about it, read on a thread: CrashFault.gd)
+		var CF = load("res://scripts/CrashFault.gd")
+		if CF.supported() and not last_session_alive.empty():
+			last_session_fault_known = false
+			var cf: Node = CF.new()
+			cf.name = "CrashFault"
+			call_deferred("add_child", cf)
+			cf.call_deferred("look", int(last_session_alive.unix))
 		_save_crash_report()
 		# (and sent to the developers once the settings and the account are read: scripts/CrashSend.gd)
 		var CS = load("res://scripts/CrashSend.gd")
@@ -1816,6 +1926,7 @@ func _trail_start():
 	if _trail_file.open(Globals.p(TRAIL_FILE), File.WRITE) != OK:
 		_trail_file = null
 	trail("started %s on %s %s" % [ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name()])
+	_write_alive()
 	_heartbeat = Timer.new()
 	_heartbeat.wait_time = 10
 	_heartbeat.pause_mode = PAUSE_MODE_PROCESS
@@ -1823,13 +1934,25 @@ func _trail_start():
 	add_child(_heartbeat)
 	_heartbeat.start()
 
+# (the song's note manager, looked up once a song: searching the whole scene
+# for it every ten seconds was a small hitch each time)
+var _heartbeat_spawn = null
+var _heartbeat_scene: int = 0
 func _on_heartbeat():
+	_write_alive() # (still running, and where: for the report of a session that ends without closing)
 	if in_map:
-		var sp = get_tree().current_scene.find_node("Spawn", true, false) if get_tree().current_scene else null
-		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and "ms" in sp else -1])
+		var cs = get_tree().current_scene
+		var id: int = cs.get_instance_id() if cs != null else 0
+		if id != _heartbeat_scene or _heartbeat_spawn == null or not is_instance_valid(_heartbeat_spawn):
+			_heartbeat_scene = id
+			_heartbeat_spawn = cs.find_node("Spawn", true, false) if cs != null else null
+		var sp = _heartbeat_spawn
+		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and is_instance_valid(sp) and "ms" in sp else -1])
 
 # Safe from any thread.
-func trail(msg: String):
+# flush: handed to the system at once, so the line is there after a crash
+# (false: with the next line that is).
+func trail(msg: String, flush: bool = true):
 	if _trail_file == null or _session_closed:
 		return
 	_trail_mutex.lock()
@@ -1846,7 +1969,8 @@ func trail(msg: String):
 		Performance.get_monitor(Performance.OBJECT_COUNT),
 		vram,
 		msg])
-	_trail_file.flush()
+	if flush:
+		_trail_file.flush()
 	_trail_mutex.unlock()
 
 # Writes a line after each of the next `n` frames is drawn (song start uses it:
@@ -1891,7 +2015,8 @@ func _save_crash_report():
 	if not d.dir_exists(dir):
 		d.make_dir_recursive(dir)
 	var f := File.new()
-	if f.open(dir.plus_file("crash_%d.txt" % OS.get_unix_time()), File.WRITE) == OK:
+	_crash_report_file = dir.plus_file("crash_%d.txt" % OS.get_unix_time())
+	if f.open(_crash_report_file, File.WRITE) == OK:
 		f.store_string(crash_report(120))
 		f.close()
 	var all := saved_crash_reports()
@@ -1923,9 +2048,35 @@ func crash_report(lines: int = 60) -> String:
 	var out := "Chromia crash report (%s, %s %s)\n%s" % [
 		ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name(),
 		PoolStringArray(tail).join("\n")]
+	var ending := how_it_ended()
+	if not ending.empty():
+		out += "\n--- how it ended ---\n" + PoolStringArray(ending).join("\n")
 	if last_session_engine_log != "":
 		out += "\n--- engine log (last lines) ---\n" + last_session_engine_log
 	return out
+
+# This session's log (the trail so far and the engine's own log), for a
+# problem that isn't a crash: Settings > Crash Reports > Copy this session's
+# log. Without the account id and the computer's user name (CrashSend.scrub).
+func session_report(lines: int = 400) -> String:
+	_trail_mutex.lock()
+	if _trail_file != null:
+		_trail_file.flush()
+	_trail_mutex.unlock()
+	var tail := []
+	var f := File.new()
+	if f.open(Globals.p(TRAIL_FILE), File.READ) == OK:
+		var all := f.get_as_text().strip_edges().split("\n")
+		f.close()
+		for i in range(max(0, all.size() - lines), all.size()):
+			tail.append(all[i])
+	var out := "Chromia session log (%s, %s %s)\n%s" % [
+		ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name(),
+		PoolStringArray(tail).join("\n")]
+	var eng := _engine_log_tail(Globals.p("user://logs/godot.log"), 80)
+	if eng != "":
+		out += "\n--- engine log (last lines) ---\n" + eng
+	return load("res://scripts/CrashSend.gd").scrub(out)
 
 # The engine's own log of the last session (errors and warnings from Godot,
 # which the trail doesn't have). Godot keeps the current one as godot.log and
@@ -1946,8 +2097,12 @@ func _previous_engine_log(lines: int) -> String:
 	d.list_dir_end()
 	if newest == "":
 		return ""
+	return _engine_log_tail(logs.plus_file(newest), lines)
+
+# the last lines of an engine log, without the lines every offline start has
+func _engine_log_tail(path: String, lines: int) -> String:
 	var f := File.new()
-	if f.open(logs.plus_file(newest), File.READ) != OK:
+	if f.open(path, File.READ) != OK:
 		return ""
 	var all := f.get_as_text().strip_edges().split("\n")
 	f.close()
@@ -2506,10 +2661,14 @@ var _menu_bag: Array = []
 var _menu_last: String = ""
 var _menu_seeded: bool = false
 
-func next_menu_track() -> AudioStream:
+# Which menu song is next: its file, "" when none is here yet. On the main
+# thread only: it looks in the scene tree (MenuMusic) and changes the bag.
+# The menu used to do this on its song-reading thread, every time it opened,
+# while the main thread was still putting the menu into the tree.
+func next_menu_track_path() -> String:
 	var have: Array = load("res://scripts/MenuMusic.gd").get_or_start().ready_paths()
 	if have.empty():
-		return null # (none downloaded yet: PlaySong starts when one is)
+		return "" # (none downloaded yet: PlaySong starts when one is)
 	for p in _menu_bag.duplicate():
 		if not have.has(p):
 			_menu_bag.erase(p)
@@ -2523,12 +2682,21 @@ func next_menu_track() -> AudioStream:
 			_menu_bag.push_back(_menu_bag.pop_front())
 	var path: String = _menu_bag.pop_front()
 	_menu_last = path
+	return path
+
+# A menu song read from its file (fine on a thread: nothing shared is touched)
+func load_menu_track(path: String) -> AudioStream:
+	if path == "":
+		return null
 	var s = Globals.audioLoader.load_file(path)
 	if s == Globals.error_sound or not (s is AudioStream):
 		return null
 	if s is AudioStreamOGGVorbis or s is AudioStreamMP3:
 		s.loop = false # the next song follows instead
 	return s
+
+func next_menu_track() -> AudioStream:
+	return load_menu_track(next_menu_track_path())
 
 
 var fail_asp: AudioStreamPlayer = AudioStreamPlayer.new()
@@ -2590,6 +2758,25 @@ func apply_vr_pacing():
 var vr_boot_hold: bool = false
 var _vr_started_ms: int = 0
 
+# Settings > VR > Render resolution goes up to 200% (it was 140%).
+const VR_SCALE_MAX := 2.0
+const VR_SCALE_TRY := "user://vr_scale_try.txt"
+var _vr_scale_fell_back := 0.0
+
+# The menu is up: a high render resolution started fine (or it didn't, and
+# this start ran at 100%: the setting goes back to 150% and says so).
+func vr_scale_menu_reached():
+	var d := Directory.new()
+	if d.file_exists(Globals.p(VR_SCALE_TRY)):
+		d.remove(Globals.p(VR_SCALE_TRY))
+	if _vr_scale_fell_back > 0.0:
+		var was := _vr_scale_fell_back
+		_vr_scale_fell_back = 0.0
+		vr_render_scale = 1.5
+		save_settings()
+		trail("VR render resolution %d%% didn't reach the menu last time: 100%% now, setting back to 150%%" % int(round(was * 100.0)))
+		Globals.call_deferred("notify", Globals.NOTIFY_WARN, "Render resolution %d%% didn't get to the menu last time, so this start runs at 100%% and the setting is back at 150%%." % int(round(was * 100.0)), "VR", 10)
+
 func boot_vr_wanted() -> bool:
 	if vr:
 		return false
@@ -2611,7 +2798,17 @@ func start_vr_at_boot() -> bool:
 			if parsed.error == OK and parsed.result is Dictionary:
 				var rs = parsed.result.get("vr_render_scale")
 				if rs is float or rs is int:
-					vr_render_scale = clamp(float(rs), 0.5, 1.5)
+					vr_render_scale = clamp(float(rs), 0.5, VR_SCALE_MAX)
+		# A render resolution above 150% that didn't get to the menu the last
+		# time (the headset can't be reached to lower it then): 100% this time
+		if vr_render_scale > 1.5:
+			var guard := File.new()
+			if guard.file_exists(Globals.p(VR_SCALE_TRY)):
+				_vr_scale_fell_back = vr_render_scale
+				vr_render_scale = 1.0
+			elif guard.open(Globals.p(VR_SCALE_TRY), File.WRITE) == OK:
+				guard.store_string(str(vr_render_scale))
+				guard.close()
 		vr_boot_hold = true
 	start_vr(true)
 	if not vr:
@@ -2672,8 +2869,15 @@ func start_vr(at_boot: bool = false):
 			if ResourceLoader.exists(cfg_path0):
 				vr_xr_config = load(cfg_path0).new()
 				if vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
-					vr_xr_config.set_render_target_size_multiplier(clamp(vr_render_scale, 0.5, 1.5))
-		if vr_interface == null or not vr_interface.initialize():
+					vr_xr_config.set_render_target_size_multiplier(clamp(vr_render_scale, 0.5, VR_SCALE_MAX))
+		var vr_up: bool = vr_interface != null and vr_interface.initialize()
+		if not vr_up and vr_interface != null and vr_render_scale > 1.5 and vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
+			# (a picture this big may be more than the headset takes: once more at 100%)
+			_vr_scale_fell_back = vr_render_scale
+			vr_render_scale = 1.0
+			vr_xr_config.set_render_target_size_multiplier(1.0)
+			vr_up = vr_interface.initialize()
+		if not vr_up:
 			print("Failed to initialize VR!")
 			Globals.notify(Globals.NOTIFY_ERROR, "Couldn't start VR. Make sure SteamVR is running and your headset is on, then try again.", "VR")
 			return
@@ -3063,6 +3267,7 @@ func update_rpc_song():
 	if mod_harderrock: mods.append("Harder Rock")
 	if mod_hard_mode: mods.append("Hard Mode")
 	if mod_flashlight: mods.append("Flashlight")
+	if mod_true_flashlight: mods.append("True Flashlight")
 	if mod_reverse: mods.append("Reverse")
 	if mod_360: mods.append(("360x%s" % Rhythia.mod_360_speed))
 	if mod_strobe: mods.append(("Strobe!!!"))
@@ -3136,6 +3341,11 @@ const HARD_MODE_SCALE = 0.75
 var mod_hard_mode: bool = false setget set_mod_hard_mode
 # Flashlight: everything is dark except a circle around the cursor.
 var mod_flashlight: bool = false setget set_mod_flashlight
+# True Flashlight: Flashlight whose circle closes in as your combo grows
+# (scripts/game/Flashlight.gd). One or the other, like Hard Rock / Harder Rock.
+var mod_true_flashlight: bool = false setget set_mod_true_flashlight
+func flashlight_on() -> bool:
+	return mod_flashlight or mod_true_flashlight
 # Reverse: the map played backwards, the song too (scripts/game/ReverseSong.gd); never ranked
 var mod_reverse: bool = false setget set_mod_reverse
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
@@ -3226,7 +3436,13 @@ func set_mod_harderrock(v: bool):
 func set_mod_hard_mode(v: bool):
 	mod_hard_mode = v; emit_signal("mods_changed")
 func set_mod_flashlight(v: bool):
-	mod_flashlight = v; emit_signal("mods_changed")
+	mod_flashlight = v
+	if v: mod_true_flashlight = false
+	emit_signal("mods_changed")
+func set_mod_true_flashlight(v: bool):
+	mod_true_flashlight = v
+	if v: mod_flashlight = false
+	emit_signal("mods_changed")
 func set_mod_reverse(v: bool):
 	mod_reverse = v; emit_signal("mods_changed")
 
@@ -3389,6 +3605,15 @@ func get_cam_unlock():
 	return cam_unlock
 var lock_mouse: bool = true
 var absolute_mode: bool = false
+# New Absolute Mode (with Absolute Mode): the cursor on every sample of the
+# finger or mouse, nothing smoothed (scripts/game/Cursor.gd, TouchSnap.gd)
+var new_absolute_mode: bool = false setget _set_new_absolute_mode
+func _set_new_absolute_mode(v: bool):
+	new_absolute_mode = v
+	if is_inside_tree() and dev == "mobile":
+		call_deferred("apply_mobile_tuning") # (no touch delay with it, like No Touch Delay)
+func new_abs_on() -> bool:
+	return new_absolute_mode and absolute_mode
 var absolute_scale: float = 1
 var edge_drift: float = 0
 var disable_intro: bool = false
@@ -3415,6 +3640,10 @@ func _set_wave_menu_colorset(v: bool):
 var record_replays: bool = false
 var alt_cam: bool = false
 var hide_replay_ui: bool = false
+# the replay viewer's drawings on the grid (scripts/game/ReplayOverlay.gd; its bar has the buttons)
+var replay_cursor_path: bool = false
+var replay_note_hitbox: bool = false
+var replay_frame_marker: bool = false
 var show_xp_notifications: bool = true
 var half_ghost_strength: float = 0.8
 var record_limit: int = 0
@@ -3476,6 +3705,12 @@ var frame_smoothing: bool = OS.has_feature("quest") or OS.has_feature("Android")
 # what the computer manages, so Discord / OBS have room. stream_user_fps is
 # your own Max FPS while it holds the frame limit (-1: it doesn't).
 var stream_mode: bool = false
+# Limit FPS in Menus (scripts/StreamMode.gd, _menu_tick): the menu draws as
+# often as the screen shows, not as often as the graphics card can
+var menu_fps_limit: bool = true
+# your own Max FPS, also while something holds the frame limit lower
+func user_fps_cap() -> int:
+	return stream_user_fps if stream_user_fps >= 0 else Engine.target_fps
 # Settings > Transfer > Settings backups (scripts/SettingsBackup.gd)
 var settings_backup: bool = true
 var settings_backup_profile_only: bool = true
@@ -3550,7 +3785,7 @@ func no_delay_active() -> bool:
 func no_delay_begin():
 	if not no_delay_active() or has_meta("no_delay_saved"):
 		return
-	set_meta("no_delay_saved", [OS.vsync_enabled, Engine.target_fps, OS.vsync_via_compositor, Input.use_accumulated_input])
+	set_meta("no_delay_saved", [OS.vsync_enabled, user_fps_cap(), OS.vsync_via_compositor, Input.use_accumulated_input]) # (your Max FPS, not a limit the menu had on)
 	Input.use_accumulated_input = false
 	OS.vsync_enabled = false
 	OS.vsync_via_compositor = false
@@ -4162,6 +4397,7 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_harderrock: pts.append("m_harderrock")
 	if mod_hard_mode: pts.append("m_hardmode")
 	if mod_flashlight: pts.append("m_flashlight")
+	if mod_true_flashlight: pts.append("m_trueflashlight")
 	if mod_reverse: pts.append("m_reverse")
 	if mod_nofail: pts.append("m_nofail")
 
@@ -4195,6 +4431,7 @@ func parse_pb_str(txt: String):
 	data.mod_harderrock = false
 	data.mod_hard_mode = false
 	data.mod_flashlight = false
+	data.mod_true_flashlight = false
 	data.mod_reverse = false
 	data.mod_nofail = false
 	data.mod_strobe = false
@@ -4238,6 +4475,7 @@ func parse_pb_str(txt: String):
 				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true
 				"m_flashlight": data.mod_flashlight = true
+				"m_trueflashlight": data.mod_true_flashlight = true
 				"m_reverse": data.mod_reverse = true
 				"m_nofail": data.mod_nofail = true
 	return data
@@ -4586,6 +4824,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			lock_mouse = data.lock_mouse
 		if data.has("absolute_mode"):
 			absolute_mode = data.absolute_mode
+		new_absolute_mode = bool(data.get("new_absolute_mode", false))
 		if data.has("absolute_scale"):
 			absolute_scale = data.absolute_scale
 		if data.has("cursor_trail"):
@@ -4632,6 +4871,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			frame_smoothing = bool(data.frame_smoothing)
 		if data.has("stream_mode"):
 			stream_mode = bool(data.stream_mode)
+		if data.has("menu_fps_limit"):
+			menu_fps_limit = bool(data.menu_fps_limit)
 		if data.has("settings_backup"):
 			settings_backup = bool(data.settings_backup)
 		if data.has("settings_backup_profile_only"):
@@ -4680,6 +4921,9 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			alt_cam = data.alt_cam
 		if data.has("hide_replay_ui"):
 			hide_replay_ui = bool(data.hide_replay_ui)
+		for rk in ["replay_cursor_path", "replay_note_hitbox", "replay_frame_marker"]:
+			if data.has(rk):
+				set(rk, bool(data[rk]))
 		if data.has("sort_by_stars"):
 			sort_by_stars = bool(data.sort_by_stars)
 		if data.has("sort_by_plays"):
@@ -4949,7 +5193,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("vr_refresh"):
 			vr_refresh = clamp(float(data.vr_refresh), 0.0, 480.0) # (whatever a headset offers: the list in Settings > VR is the headset's own)
 		if data.has("vr_render_scale"):
-			vr_render_scale = clamp(float(data.vr_render_scale), 0.5, 1.5)
+			vr_render_scale = clamp(float(data.vr_render_scale), 0.5, VR_SCALE_MAX)
 		if data.has("vr_glow"):
 			vr_glow = int(clamp(int(data.vr_glow), -1, 1))
 		if data.has("vr_simple_bg"):
@@ -5564,6 +5808,7 @@ func _write_settings_file(saveFile: String):
 			selected_miss_effect = (selected_miss_effect.id if selected_miss_effect else "ssp_miss"),
 			lock_mouse = lock_mouse,
 			absolute_mode = absolute_mode,
+			new_absolute_mode = new_absolute_mode,
 			absolute_scale = absolute_scale,
 			cursor_trail = cursor_trail,
 			trail_detail = trail_detail,
@@ -5584,6 +5829,7 @@ func _write_settings_file(saveFile: String):
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
 			stream_mode = stream_mode,
+			menu_fps_limit = menu_fps_limit,
 			settings_backup = settings_backup,
 			settings_backup_profile_only = settings_backup_profile_only,
 			map_grid = map_grid,
@@ -5608,6 +5854,9 @@ func _write_settings_file(saveFile: String):
 			record_replays = record_replays and not _forced_replay,
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
+			replay_cursor_path = replay_cursor_path,
+			replay_note_hitbox = replay_note_hitbox,
+			replay_frame_marker = replay_frame_marker,
 			sort_by_stars = sort_by_stars,
 			sort_by_plays = sort_by_plays,
 			map_sort = map_sort,

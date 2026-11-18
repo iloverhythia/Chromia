@@ -11,13 +11,15 @@ extends ReferenceRect
 
 const SITE := "https://chromia.lol"
 const API := SITE + "/savia-content"
-const TABS := [["map", "Maps"], ["colorset", "Colorsets"], ["mesh", "Note Meshes"], ["profile", "Settings Profiles"], ["cursor", "Cursors"], ["hitsound", "Hit Sounds"], ["skin", "Skins"]]
-const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json", "cursor": "png", "hitsound": "ogg", "skin": "cskin"}
+const TABS := [["map", "Maps"], ["colorset", "Colorsets"], ["mesh", "Note Meshes"], ["profile", "Settings Profiles"], ["cursor", "Cursors"], ["hitsound", "Hit Sounds"], ["skin", "Skins"], ["hand", "VR Hands"]]
+# (VR Hands: hands made in the Hand Creator. The tab is there in VR, and for
+# the game's admins on any device: hands_tab())
+const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json", "cursor": "png", "hitsound": "ogg", "skin": "cskin", "hand": "chand"}
 const PICK := {"map": "*.sspm ; Maps (.sspm)", "colorset": "*.txt ; Colorsets (.txt)", "mesh": "*.obj ; Note meshes (.obj)",
 	"profile": "*.json ; Settings profiles (.json)", "cursor": "*.png, *.jpg, *.jpeg, *.webp ; Pictures",
-	"hitsound": "*.ogg, *.mp3, *.wav ; Sounds", "skin": "*.cskin ; Chromia skins (.cskin)"}
-const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "512 KB", "cursor": "2 MB", "hitsound": "2 MB", "skin": "30 MB"}
-const NOUN := {"map": "map", "colorset": "colorset", "mesh": "note mesh", "profile": "settings profile", "cursor": "cursor", "hitsound": "hit sound", "skin": "skin"}
+	"hitsound": "*.ogg, *.mp3, *.wav ; Sounds", "skin": "*.cskin ; Chromia skins (.cskin)", "hand": "*.chand ; VR hands (.chand)"}
+const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "512 KB", "cursor": "2 MB", "hitsound": "2 MB", "skin": "30 MB", "hand": "16 KB"}
+const NOUN := {"map": "map", "colorset": "colorset", "mesh": "note mesh", "profile": "settings profile", "cursor": "cursor", "hitsound": "hit sound", "skin": "skin", "hand": "VR hand"}
 const SORTS := [["new", "Newest"], ["popular", "Most downloaded"], ["name", "Name"]]
 const DOWNLOAD_DIR := "user://content_downloads"
 
@@ -76,6 +78,11 @@ func _on_visibility():
 		_built = true
 		_build()
 		_show_tab("map")
+	elif is_visible_in_tree() and tab_buttons.has("hand"):
+		# (VR started, or the server said you're an admin, since it was built)
+		tab_buttons["hand"].visible = hands_tab()
+		if kind == "hand" and not hands_tab():
+			_show_tab("map")
 
 # ------------------------------------------------------------------ building
 
@@ -162,6 +169,7 @@ func _build():
 		b.rect_min_size = Vector2(0, 36)
 		tabs.add_child(b)
 		tab_buttons[t[0]] = b
+	tab_buttons["hand"].visible = hands_tab()
 
 	# Maps from rhythia.com: the old Map Browser (its own margins fit under the header)
 	rhythia_page = ReferenceRect.new()
@@ -257,7 +265,13 @@ func _relayout():
 
 # ------------------------------------------------------------------ tabs
 
+# VR Hands are for headsets: the tab shows in VR, and for the game's admins everywhere
+static func hands_tab() -> bool:
+	return Rhythia.vr or bool(Rhythia.is_staff)
+
 func _show_tab(k: String):
+	if k == "hand" and not hands_tab():
+		k = "map"
 	kind = k
 	page = 1
 	for t in tab_buttons:
@@ -422,7 +436,7 @@ func _preview(it: Dictionary) -> Control:
 		box.add_child(t)
 		_show_pic(SITE + String(it.preview), t)
 	else:
-		var glyph: String = {"map": "♪", "mesh": "◆", "profile": "{ }", "hitsound": "♫", "skin": "✦"}.get(k, "?")
+		var glyph: String = {"map": "♪", "mesh": "◆", "profile": "{ }", "hitsound": "♫", "skin": "✦", "hand": "✋"}.get(k, "?")
 		var l := _label(glyph, f_big, LILAC)
 		l.align = Label.ALIGN_CENTER
 		l.valign = Label.VALIGN_CENTER
@@ -649,6 +663,25 @@ static func install(tree: SceneTree, k: String, path: String, title: String):
 					Directory.new().remove(old)
 			if Directory.new().copy(path, Globals.p("user://cursor.png")) == OK:
 				Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is your cursor now (Settings > World & Cursor to change it)." % title, "Cursor")
+		"hand":
+			# a Hand Creator design: into My hands (Settings > VR > Hands), and on
+			# your hands; the hand you had is kept in My hands first
+			var HC = load("res://vr/HandCreator.gd")
+			var design = HC.read_file(path)
+			if design == null:
+				Globals.notify(Globals.NOTIFY_WARN, "That isn't a hand made in the Hand Creator.", "VR Hand")
+				return
+			var mine: Array = Array(Rhythia.vr_hand_design)
+			if not mine.empty() and HC.library_name_of(mine) == "" and not HC.parse(mine).parts.empty():
+				HC.library_put("My hand before %s" % (title if title != "" else "a download"), mine)
+			var hname: String = HC.library_put(title if title != "" else "Downloaded hand", design)
+			Rhythia.vr_hand_design = HC.encode(design)
+			Rhythia.vr_hand = "built"
+			var vp = Rhythia.vr_player
+			if is_instance_valid(vp) and vp.has_method("refresh_built_hand"):
+				vp.refresh_built_hand()
+			Rhythia.save_settings()
+			Globals.notify(Globals.NOTIFY_SUCCEED, "'%s' is in My hands and on your hands now%s. Change it in Settings > VR > Hands (Hand Creator)." % [hname, "" if Rhythia.vr else " (you see it in VR)"], "VR Hand")
 		"skin":
 			# kept in My skins, and shown in Settings > Skins to put on (it says
 			# what it has and keeps your look first)
@@ -736,6 +769,17 @@ static func prepare_share(k: String) -> Dictionary:
 			if hp == "":
 				return {"error": "You use the game's own hit sound. Add one of yours in Settings first to share it."}
 			return {"path": hp, "name": String(hs.name) if hs != null and String(hs.path) != "" else "My hit sound"}
+		"hand":
+			# the hand you built in the Hand Creator
+			var HC = load("res://vr/HandCreator.gd")
+			var hd: Dictionary = HC.parse(Rhythia.vr_hand_design)
+			if hd.parts.empty():
+				return {"error": "Build a hand first: Settings > VR > Hands > Hand Creator."}
+			var hp2: String = Globals.p(DOWNLOAD_DIR).plus_file("share_hand." + HC.FILE_EXT)
+			if not HC.write_file(hp2, hd):
+				return {"error": "Couldn't write the hand's file."}
+			var saved: String = HC.library_name_of(hd)
+			return {"path": hp2, "name": saved if saved != "" else "My hand"}
 		"profile":
 			var p2: String = Globals.p(DOWNLOAD_DIR).plus_file("share_settings.json")
 			Rhythia.save_settings(p2)

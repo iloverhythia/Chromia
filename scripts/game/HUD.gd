@@ -416,6 +416,16 @@ var _hud_last: Array = [] # when each was last redrawn (usec)
 var _hud_pending: Array = [] # changed, not redrawn yet
 var _hud_always: Array = [] # something on it moves by itself
 var _hud_scan_t: float = 0.0
+# What can move by itself on each panel (the few things with an animated
+# shader), found once and looked at again only when the panel's contents
+# change. It used to be found afresh every second by going through every
+# text, bar and picture of every panel and reading each one's shader: a few
+# milliseconds on a fast computer, once a second, in the middle of the map.
+# That was the stutter.
+var _hud_cands: Array = []
+var _hud_cands_dirty: Array = []
+var _hud_recheck: int = 0
+var _hud_recheck_t: float = 0.0
 var _hud_floor_usec: int = HUD_FLOOR_USEC
 var _stats_t: float = 0.0
 
@@ -432,6 +442,8 @@ func _setup_hud_viewports():
 			_hud_last.append(OS.get_ticks_usec())
 			_hud_pending.append(false)
 			_hud_always.append(false)
+			_hud_cands.append([])
+			_hud_cands_dirty.append(true)
 			_hud_watch(c, idx)
 			if shown != null and not shown.is_connected("visibility_changed", self, "_hud_changed"):
 				shown.connect("visibility_changed", self, "_hud_changed", [idx])
@@ -440,6 +452,7 @@ func _setup_hud_viewports():
 		lettergrade.set_meta("hud_animated", false)
 	if not get_tree().is_connected("node_added", self, "_hud_node_added"):
 		get_tree().connect("node_added", self, "_hud_node_added")
+	add_to_group("hud_panels_host") # (HudPanels says when it changed a panel's look: hud_panels_changed)
 	_hud_scan()
 
 func _hud_watch(n: Node, idx: int):
@@ -460,6 +473,7 @@ func _hud_node_added(n: Node):
 		return
 	_hud_watch(n, idx)
 	_hud_changed(idx)
+	_hud_cands_dirty[idx] = true
 	_hud_scan_t = 1.0 # (it may be an animated one: looked at on the next frame)
 
 # (something moved: only if it's there to be seen)
@@ -484,32 +498,62 @@ func _hud_arm(idx: int, now: int):
 	_hud_last[idx] = now
 	_hud_pending[idx] = false
 
-# a shader that moves by itself (the panel styles' rainbow / hologram / glow,
-# the SS grade's shine): HudPanels and the grade say so with the "hud_animated"
-# meta; any other shader that reads TIME counts
-static func _hud_moves(n: Node) -> bool:
-	if n is CanvasItem and n.visible:
+# The things on a panel that can move by themselves: a shader that animates
+# (the panel styles' rainbow / hologram / glow, the SS grade's shine). HudPanels
+# and the grade say so with the "hud_animated" meta; any other shader that
+# reads TIME counts.
+static func _hud_collect(n: Node, out: Array):
+	if n is CanvasItem:
 		if n.has_meta("hud_animated"):
-			if bool(n.get_meta("hud_animated")):
-				return true
-		elif n.material is ShaderMaterial and n.material.shader != null and n.material.shader.code.find("TIME") != -1:
-			return true
-		for c in n.get_children():
-			if _hud_moves(c):
-				return true
-	elif not (n is CanvasItem):
-		for c in n.get_children():
-			if _hud_moves(c):
-				return true
-	return false
+			out.append(n)
+		elif n.material is ShaderMaterial and n.material.shader != null and _shader_moves(n.material.shader):
+			out.append(n)
+	for c in n.get_children():
+		_hud_collect(c, out)
 
+# Does a shader read TIME? Asked of each shader once, and kept on the shader.
+# Reading a shader's code waits for the drawing thread to finish what it is
+# doing (the game draws on a thread of its own on computers). This was done
+# every second for the combo ring's shader: the whole game waited a moment,
+# every second of every map.
+static func _shader_moves(sh: Shader) -> bool:
+	if not sh.has_meta("hud_reads_time"):
+		sh.set_meta("hud_reads_time", sh.code.find("TIME") != -1)
+	return bool(sh.get_meta("hud_reads_time"))
+
+# (HudPanels: a panel got another look)
+func hud_panels_changed():
+	for i in range(_hud_cands_dirty.size()):
+		_hud_cands_dirty[i] = true
+	_hud_scan_t = 1.0
+
+# Which panels have something moving on them right now. The lists are made
+# anew only for panels whose contents changed; otherwise it's a look at the
+# few things on each list.
 func _hud_scan():
 	_hud_scan_t = 0.0
 	for i in range(_hud_vps.size()):
-		_hud_always[i] = _hud_moves(_hud_vps[i])
+		if _hud_cands_dirty[i]:
+			var out := []
+			_hud_collect(_hud_vps[i], out)
+			_hud_cands[i] = out
+			_hud_cands_dirty[i] = false
+		var moves := false
+		for c in _hud_cands[i]:
+			if is_instance_valid(c) and c.is_visible_in_tree() and (not c.has_meta("hud_animated") or bool(c.get_meta("hud_animated"))):
+				moves = true
+				break
+		_hud_always[i] = moves
 
 func _refresh_hud_viewports(delta: float):
 	_hud_scan_t += delta
+	# (a look that was changed without anything being added, and nobody said:
+	# one panel's list is made anew every few seconds, each in its turn)
+	_hud_recheck_t += delta
+	if _hud_recheck_t >= 3.0 and not _hud_vps.empty():
+		_hud_recheck_t = 0.0
+		_hud_recheck = (_hud_recheck + 1) % _hud_vps.size()
+		_hud_cands_dirty[_hud_recheck] = true
 	if _hud_scan_t >= 1.0:
 		_hud_scan()
 	var now: int = OS.get_ticks_usec()
@@ -1894,6 +1938,7 @@ var _board_vr_vp: Viewport = null
 var _board_vr_sprite: Sprite3D = null
 var _board_vr = null
 const BOARD_VR_SIZE := Vector2(700, 1100)
+const BOARD_VR_TURN := 36.0 # degrees towards the player, from the left panel's own facing
 
 func update_leaderboard_vr(rows: Array, title: String, footer: String, show: bool):
 	if not Rhythia.vr:
@@ -1951,9 +1996,13 @@ func _place_board_vr():
 	t.basis = t.basis.orthonormalized()
 	var out: Vector3 = t.basis.x
 	var up: Vector3 = t.basis.z
-	var origin: Vector3 = t.origin + out * (lw / 2.0 + 0.12 + nw / 2.0) + up * (lh / 2.0 - nh / 2.0)
-	# turned towards the middle, so it faces you
-	var basis := Basis(Vector3.UP, deg2rad(-14)) * t.basis
+	# Turned towards you, like a door hinged on the left panel's outer edge: its
+	# far edge swings forward. (It used to be turned 14 degrees the other way,
+	# outward, so from where you stand it was seen at about 50 degrees and its
+	# far columns were hard to read.)
+	var basis := Basis(Vector3.UP, deg2rad(BOARD_VR_TURN)) * t.basis
+	var hinge: Vector3 = t.origin + out * (lw / 2.0 + 0.12)
+	var origin: Vector3 = hinge + basis.x.normalized() * (nw / 2.0) + up * (lh / 2.0 - nh / 2.0)
 	s.transform = Transform(basis, origin)
 
 func _redraw_board_vr():
@@ -2281,6 +2330,7 @@ func _ready():
 	load("res://scripts/HudFont.gd").apply_hud(self) # Settings > Fonts
 	load("res://scripts/HudPanels.gd").apply(self) # Settings > Background Editor > HUD panels
 	load("res://scripts/game/SoundSpaceMode.gd").apply_hud(self) # Sound Space Mode (Experimental)
+	load("res://scripts/game/RhythiaLook.gd").apply_hud(self) # an imported Rhythia skin's look (HUD panels: Rhythia)
 
 	var ms = ""
 
@@ -2329,6 +2379,10 @@ func _ready():
 	if Rhythia.mod_harderrock: _mod_icon("harderrock")
 	if Rhythia.mod_hard_mode: _mod_icon("hard_mode")
 	if Rhythia.mod_flashlight: _mod_icon("flashlight")
+	if Rhythia.mod_true_flashlight:
+		var tfl = _mod_icon("flashlight")
+		if tfl != null:
+			tfl.modulate = Color(1.0, 0.62, 0.4) # (the Flashlight icon, in orange)
 	if Rhythia.mod_reverse: _mod_icon("reverse")
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
