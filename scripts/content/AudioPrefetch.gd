@@ -24,6 +24,14 @@ var _next = null # the song to look at after the one being read
 static func selected(song):
 	if song == null or OS.has_feature("JavaScript") or not OS.can_use_threads():
 		return
+	# Not on headsets and phones. Two Quest 3 reports from the first build
+	# with this (nov18-2026-a) end seconds after a map was picked in the menu,
+	# which is when this thread runs. Its script load on the thread is gone
+	# (see above), and that is the likely cause, but it couldn't be made to
+	# crash here to prove it: until reports say it's safe, these devices do
+	# without it and convert such a song when Play is pressed, as before.
+	if OS.has_feature("Android") or OS.has_feature("iOS"):
+		return
 	if bool(song.get("is_online")) or bool(song.get("is_builtin")):
 		return
 	var root: Node = Engine.get_main_loop().root
