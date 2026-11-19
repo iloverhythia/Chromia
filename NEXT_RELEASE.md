@@ -20,3 +20,4 @@ in scripts/Savia.gd and empties this list.
 - Secret codes have their own Codes tab (the box was in the Cards window). Unlocking something with a code shows an "Unlocked!" notification and lists what you got; a code for something you already have just says so
 - The Avatar Creator moved there from Settings > Replays & Misc > Experimental, and opens inside the page instead of on a screen of its own
 - Changing a map's difficulty (map screen > Change Difficulty) now sticks: it went back to the old one the next time you opened the game
+- Chat bans can have a length now (an hour, a day...): while banned, the chat box says how long is left, and you can talk again as soon as it's up. Staff picking Chat ban from the right-click menu choose 1 hour, 1 day or until lifted

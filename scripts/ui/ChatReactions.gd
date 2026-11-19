@@ -162,11 +162,12 @@ func _on_mod_pick(id: int):
 	if id == 0:
 		_lm.staff_delete_chat(mid)
 	elif id == 1:
-		Globals.confirm_prompt.open("Ban %s from chat? Undo it in the admin panel (Bans)." % String(_menu.get_meta("who")), "Chat ban", [{text = "Cancel"}, {text = "Ban"}])
+		Globals.confirm_prompt.open("Ban %s from chat for how long? They see how long is left. Other lengths, or undo it: the admin panel (Bans)." % String(_menu.get_meta("who")), "Chat ban", [{text = "Cancel"}, {text = "1 hour"}, {text = "1 day"}, {text = "Until lifted"}])
 		var option = yield(Globals.confirm_prompt, "option_selected")
 		Globals.confirm_prompt.close()
-		if option == 1 and is_instance_valid(_lm):
-			_lm.staff_chat_ban(mid)
+		var minutes: int = [0, 60, 1440, 0][int(option)] if int(option) >= 0 and int(option) <= 3 else 0
+		if int(option) >= 1 and int(option) <= 3 and is_instance_valid(_lm):
+			_lm.staff_chat_ban(mid, minutes)
 
 func _on_hover(meta, on: bool):
 	var m := String(meta)

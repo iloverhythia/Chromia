@@ -49,6 +49,10 @@ signal collab_event(msg)
 # banned from chat (the server says so on connect and when it changes): chat boxes go grey (ChatBan.gd)
 signal chat_ban_changed(banned)
 var chat_banned := false
+# when a chat ban with an end runs out (OS.get_ticks_msec(); 0: no end, or not
+# banned): the server says how long is left, the chat boxes show it
+var chat_ban_end_ticks := 0
+var _chat_ban_refresh: Timer = null
 signal unpublished_ranked_maps_received(song_ids)
 
 var _live_state_cache: Dictionary = {}
@@ -159,6 +163,13 @@ func _ready():
 	_client.connect("data_received", self, "_on_data")
 	Rhythia.connect("mods_changed", self, "_on_local_mods_changed")
 	set_process(true)
+	# a chat ban's time left, shown in the chat boxes: brought up to date every 20 s
+	_chat_ban_refresh = Timer.new()
+	_chat_ban_refresh.wait_time = 20.0
+	_chat_ban_refresh.pause_mode = Node.PAUSE_MODE_PROCESS
+	add_child(_chat_ban_refresh)
+	_chat_ban_refresh.connect("timeout", self, "_on_chat_ban_refresh")
+	_chat_ban_refresh.start()
 	# the connection keeps answering the server's pings while the game is
 	# paused (a playtest's pause menu, a song loading): the server dropped a
 	# connection that went quiet for 30-60 s, which ended mapping together
@@ -891,9 +902,46 @@ func staff_delete_chat(mid: String):
 	if mid != "" and _connected():
 		_send({"type": "staff_chat_delete", "id": mid})
 
-func staff_chat_ban(mid: String):
+# minutes: how long (0: until lifted in the admin panel)
+func staff_chat_ban(mid: String, minutes: int = 0):
 	if mid != "" and _connected():
-		_send({"type": "staff_chat_ban", "id": mid})
+		var m := {"type": "staff_chat_ban", "id": mid}
+		if minutes > 0:
+			m["minutes"] = minutes
+		_send(m)
+
+# banned from chat or not, and how long is left (ms; null: no end)
+func _set_chat_ban(banned: bool, left_ms):
+	var end_ticks := 0
+	if banned and left_ms != null and float(left_ms) > 0.0:
+		end_ticks = OS.get_ticks_msec() + int(float(left_ms))
+	if banned == chat_banned and abs(end_ticks - chat_ban_end_ticks) < 2000:
+		return
+	chat_banned = banned
+	chat_ban_end_ticks = end_ticks
+	emit_signal("chat_ban_changed", chat_banned)
+
+# "2h 13m", "3d 4h", "45s": how long a chat ban has left ("" when it has no end)
+func chat_ban_left_text() -> String:
+	if not chat_banned or chat_ban_end_ticks <= 0:
+		return ""
+	var s: int = int(max(1, ceil(float(chat_ban_end_ticks - OS.get_ticks_msec()) / 1000.0)))
+	var d: int = s / 86400
+	var h: int = (s % 86400) / 3600
+	var m: int = (s % 3600) / 60
+	if d > 0:
+		return ("%dd %dh" % [d, h]) if h > 0 else ("%dd" % d)
+	if h > 0:
+		return ("%dh %dm" % [h, m]) if m > 0 else ("%dh" % h)
+	if m > 0:
+		return "%dm" % m
+	return "%ds" % s
+
+# the chat boxes' time left brought up to date (the server lifts the ban itself
+# when it's up, and says so)
+func _on_chat_ban_refresh():
+	if chat_banned and chat_ban_end_ticks > 0:
+		emit_signal("chat_ban_changed", chat_banned)
 
 func _on_chat_deleted(mid: String):
 	if mid == "":
@@ -1737,13 +1785,10 @@ func _handle_message(msg: Dictionary):
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
-			if msg.has("chat_banned") and bool(msg.get("chat_banned")) != chat_banned:
-				chat_banned = bool(msg.get("chat_banned"))
-				emit_signal("chat_ban_changed", chat_banned)
+			if msg.has("chat_banned"):
+				_set_chat_ban(bool(msg.get("chat_banned")), msg.get("chat_ban_left_ms"))
 		"chat_ban":
-			if bool(msg.get("banned", false)) != chat_banned:
-				chat_banned = bool(msg.get("banned", false))
-				emit_signal("chat_ban_changed", chat_banned)
+			_set_chat_ban(bool(msg.get("banned", false)), msg.get("left_ms"))
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))
