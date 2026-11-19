@@ -19,3 +19,4 @@ in scripts/Savia.gd and empties this list.
 - Cards and Frames moved there from the profile page (they were buttons that opened windows), and they now use the whole page
 - Secret codes have their own Codes tab (the box was in the Cards window). Unlocking something with a code shows an "Unlocked!" notification and lists what you got; a code for something you already have just says so
 - The Avatar Creator moved there from Settings > Replays & Misc > Experimental, and opens inside the page instead of on a screen of its own
+- Changing a map's difficulty (map screen > Change Difficulty) now sticks: it went back to the old one the next time you opened the game

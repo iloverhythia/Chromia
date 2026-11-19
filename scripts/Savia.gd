@@ -2488,6 +2488,30 @@ var map_cache_dirty: bool = false
 const MAP_SEARCH_DEPTH := 12 # folders deep in the maps folder(s)
 const MAP_REPORT_FILE := "user://logs/map_report.txt"
 
+# One map's entry in the saved map list (map_cache.json), written now: the
+# list is read by file path at startup and only rewritten when maps come or
+# go, so a change to a map's file (its difficulty) would come back undone on
+# the next launch.
+func update_map_cache_entry(song) -> void:
+	if song == null or String(song.filePath) == "":
+		return
+	var path: String = Globals.p("user://map_cache.json")
+	var file := File.new()
+	if file.open(path, File.READ) != OK:
+		return
+	var res: JSONParseResult = JSON.parse(file.get_as_text())
+	file.close()
+	if res.error != OK or typeof(res.result) != TYPE_DICTIONARY:
+		return
+	var caches: Dictionary = res.result
+	var key: String = String(song.filePath)
+	if not caches.has(key):
+		return
+	caches[key] = song.make_cache()
+	if file.open(path, File.WRITE) == OK:
+		file.store_string(JSON.print(caches))
+		file.close()
+
 func _make_full_sspm_cache(v: int) -> Dictionary:
 	var cache_dict = registry_song.make_sspm_cache(v)
 	for path in _loaded_from_file.keys():

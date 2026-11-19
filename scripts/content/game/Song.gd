@@ -1469,6 +1469,7 @@ func change_difficulty(to: int):
 		difficulty = to
 		file.store_8(difficulty + 1)
 		file.close()
+		Rhythia.update_map_cache_entry(self) # (else the old difficulty comes back next launch)
 		return OK
 
 	elif songType == Globals.MAP_SSPM2:
@@ -1494,6 +1495,7 @@ func change_difficulty(to: int):
 		difficulty = to
 		file.store_8(difficulty + 1)
 		file.close()
+		Rhythia.update_map_cache_entry(self) # (else the old difficulty comes back next launch)
 		return OK
 
 	else:
