@@ -1835,12 +1835,33 @@ func _alive_what() -> String:
 	var n := String(cs.name) if cs != null else ""
 	return "in the menu" if n == "Menu" else ("on the %s screen" % n if n != "" else "starting")
 
+# Written on a thread of its own. On a headset or a phone the game's files are
+# on the device's shared storage, where opening a file to write it can take
+# long enough to cost frames: every ten seconds, on the main thread, that was
+# a stutter every ten seconds of every song (new with this file, nov18-2026-a).
+var _alive_thread: Thread = null
+var _alive_path := ""
 func _write_alive():
 	if _session_closed or OS.has_feature("JavaScript"):
 		return
+	if _alive_path == "":
+		_alive_path = Globals.p(ALIVE_FILE) # (asked once: on Android each ask goes to the system)
+	var job := [_alive_path, "%.1f|%d|%s" % [OS.get_ticks_msec() / 1000.0, OS.get_unix_time(), _alive_what()]]
+	if not OS.can_use_threads():
+		_alive_job(job)
+		return
+	if _alive_thread != null:
+		if _alive_thread.is_alive():
+			return # (the last one is still being written: this one is left out)
+		_alive_thread.wait_to_finish()
+	_alive_thread = Thread.new()
+	if _alive_thread.start(self, "_alive_job", job, Thread.PRIORITY_LOW) != OK:
+		_alive_thread = null
+
+func _alive_job(job: Array):
 	var f := File.new()
-	if f.open(Globals.p(ALIVE_FILE), File.WRITE) == OK:
-		f.store_string("%.1f|%d|%s" % [OS.get_ticks_msec() / 1000.0, OS.get_unix_time(), _alive_what()])
+	if f.open(String(job[0]), File.WRITE) == OK:
+		f.store_string(String(job[1]))
 		f.close()
 
 func _read_alive() -> Dictionary:
@@ -1972,7 +1993,11 @@ func _on_heartbeat():
 			_heartbeat_scene = id
 			_heartbeat_spawn = cs.find_node("Spawn", true, false) if cs != null else null
 		var sp = _heartbeat_spawn
-		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and is_instance_valid(sp) and "ms" in sp else -1])
+		# (not pushed to the disk at once on a headset or a phone: there each
+		# push is a call into the shared storage, in the middle of the song.
+		# It goes out with the next line; the file above says the game was
+		# still running)
+		trail("playing %s at %s ms" % [selected_song.id if selected_song else "?", int(sp.ms) if sp != null and is_instance_valid(sp) and "ms" in sp else -1], not (OS.has_feature("Android") or OS.has_feature("iOS")))
 
 # Safe from any thread.
 # flush: handed to the system at once, so the line is there after a crash
@@ -2189,6 +2214,9 @@ func quit_game():
 const SESSION_TEXTURE_METAS = ["score_history_avatars", "ss_menu_discord_avatar"]
 
 func _exit_tree():
+	if _alive_thread != null:
+		_alive_thread.wait_to_finish()
+		_alive_thread = null
 	for m in SESSION_TEXTURE_METAS:
 		if Engine.has_meta(m):
 			Engine.remove_meta(m)

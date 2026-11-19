@@ -106,4 +106,4 @@ func _process(delta):
 		int(Performance.get_monitor(Performance.OBJECT_COUNT)),
 		http,
 		int(Performance.get_monitor(Performance.TIME_FPS)),
-	])
+	], false) # (not pushed to the disk now: that would be another wait right after a slow frame; it goes out with the next line)

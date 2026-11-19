@@ -12,3 +12,4 @@ in scripts/Savia.gd and empties this list.
 - VR (Meta Quest): Settings > VR > Graphics > "Set up for the best frame rate": one press for foveated rendering High, glow off, the simple background, and render resolution back to 100% if it was higher
 - Every pass now saves your display settings to the server (even with spectators off), so replays of your passes on the website play with your settings
 - Meta Quest and phones: the background check of a picked map's song (new in the last update) is off there for now. Two Quest reports ended seconds after a map was picked in the menu, which is when it ran
+- Meta Quest and phones: fixed a stutter every ten seconds during songs that came with the last update. The game notes every ten seconds that it is still running (for crash reports), and wrote that note to the device's storage in the middle of the song; it's written on the side now. The note about a slow frame doesn't go to the storage right after the slow frame either
