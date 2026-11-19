@@ -1782,6 +1782,39 @@ func _notification(what):
 		_set_session_state("running")
 		trail("app focused")
 
+# --- VR headset (OpenXR): the headset's own menu over the game --------------------
+# A Meta Quest doesn't put the game in the background when its menu opens (no
+# "app paused"), and "Quit" there ends the game without telling it: every such
+# quit looked like a crash, with a report ending in the menu and "nothing was
+# happening". The OpenXR plugin says when the game loses and gets back the
+# headset's focus (signals on ARVRServer): while it isn't in focus an ending is
+# the headset's doing, like a phone app closed from the app switcher.
+# (A controller button reaching the game also means it is in focus again, in
+# case the plugin's signal is missed: see _input.)
+var _vr_unfocused := false
+
+func _vr_watch_session():
+	for pair in [["openxr_visible_state", "_vr_lost_focus"], ["openxr_focused_state", "_vr_got_focus"], ["openxr_session_ending", "_vr_session_ending"]]:
+		if ARVRServer.has_signal(pair[0]) and not ARVRServer.is_connected(pair[0], self, pair[1]):
+			ARVRServer.connect(pair[0], self, pair[1])
+
+func _vr_lost_focus():
+	if _vr_unfocused:
+		return
+	_vr_unfocused = true
+	trail("VR: the headset's menu is over the game (not in focus)")
+	_set_session_state("paused")
+
+func _vr_got_focus(why: String = ""):
+	if not _vr_unfocused:
+		return
+	_vr_unfocused = false
+	_set_session_state("running")
+	trail("VR: in focus again" + (" (%s)" % why if why != "" else ""))
+
+func _vr_session_ending():
+	trail("VR: the headset is ending the session")
+
 # --- Crash trail ----------------------------------------------------------------
 # A short record of what the game is doing (screens, songs starting and ending,
 # a heartbeat while playing), written to user://logs/trail.txt and flushed every
@@ -2949,6 +2982,7 @@ func start_vr(at_boot: bool = false):
 	_vr_started_ms = OS.get_ticks_msec()
 	apply_render_res() # (VR has its own picture: the window is drawn as it is)
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
+	_vr_watch_session()
 	_desk_vsync = OS.vsync_enabled
 	_desk_fps = Engine.target_fps
 	apply_vr_pacing()
@@ -3156,6 +3190,8 @@ func alt_held(event = null) -> bool:
 	return _alt_down
 
 func _input(event):
+	if _vr_unfocused and event is InputEventJoypadButton and event.pressed:
+		_vr_got_focus("a controller button")
 	if event is InputEventKey and event.scancode == KEY_ALT and not event.echo:
 		_alt_down = event.pressed
 	if alt_held(event):
