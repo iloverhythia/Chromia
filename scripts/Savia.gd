@@ -1,5 +1,7 @@
 extends Node
 
+const AndroidFiles = preload("res://scripts/AndroidFiles.gd")
+
 onready var rootg = get_tree().root
 
 # (no analytics: the server's admin panel Stats page counts what it sees itself)
@@ -7224,7 +7226,7 @@ func do_init(_ud = null):
 		# (not with VR running since the start, Meta Quest: init.gd asked just
 		# before, and asking again opens and closes Android's permission screen
 		# over the headset, which takes the game out of focus)
-		if not (vr and Engine.has_meta("permissions_asked")):
+		if not (vr and Engine.has_meta("permissions_asked")) and AndroidFiles.ask_at_start_ok():
 			OS.request_permissions()
 	var user_dir = Globals.p("user://")
 	if user_dir == "RETRY":

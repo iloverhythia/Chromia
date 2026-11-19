@@ -1,5 +1,7 @@
 extends Node
 
+const AndroidFiles = preload("res://scripts/AndroidFiles.gd")
+
 var thread: Thread = Thread.new()
 var target: String = Rhythia.menu_target
 var leaving: bool = false
@@ -62,7 +64,7 @@ func _ready():
 	# the game out of focus for a moment, and at times left the headset black.
 	if not Engine.has_meta("permissions_asked"):
 		Engine.set_meta("permissions_asked", true)
-		if not Rhythia.vr:
+		if not Rhythia.vr and AndroidFiles.ask_at_start_ok():
 			OS.request_permissions()
 	# (not in VR: changing the window while the headset runs left it black)
 	if ProjectSettings.get_setting("application/config/auto_maximize") and Rhythia.auto_maximize and not Rhythia.vr: OS.window_maximized = true
