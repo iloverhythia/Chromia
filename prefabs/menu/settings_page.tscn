@@ -6593,6 +6593,7 @@ script = ExtResource( 54 )
 target = "random_colorset"
 
 [node name="Avatar" type="Control" parent="TabContainer/Replays & Misc/Experimental/Group/H"]
+visible = false
 margin_top = 173.0
 margin_right = 955.0
 margin_bottom = 205.0

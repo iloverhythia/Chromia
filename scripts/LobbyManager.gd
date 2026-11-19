@@ -34,11 +34,12 @@ signal motd_changed() # Map of the Day: motd_song_id, motd_name, motd_completed,
 signal admin_motd_result(ok, reason)
 # the Spectate tab
 signal online_players_received(list, you)
-signal cards_received(cards, chosen) # (your profile > Cards: scripts/ui/CardsMenu.gd)
-signal frames_received(frames, chosen) # (your profile > Frames: scripts/ui/FramesMenu.gd)
+signal cards_received(cards, chosen) # (Inventory & Misc > Cards: scripts/ui/CardsMenu.gd)
+signal frames_received(frames, chosen) # (Inventory & Misc > Frames: scripts/ui/FramesMenu.gd)
 signal frame_message(text, refresh)
 signal my_frame_changed(frame) # (the frame you picked: {id, name, style, color, color2} or null)
 signal card_message(text, refresh)
+signal code_result(ok, text, cards) # (Inventory & Misc > Codes: scripts/ui/menu/InventoryPage.gd)
 signal spectate_denied(reason)
 signal watch_ended(text)
 signal presence_support_changed(supported)
@@ -338,7 +339,7 @@ func send_global_chat_message(text: String):
 		return
 	_ensure_connected_then_send({"type": "global_chat_message", "text": text.substr(0, 300), "client_id": Rhythia.cid, "name": player_name})
 
-# --- cards (your profile > Cards, scripts/ui/CardsMenu.gd) --------------------------
+# --- cards (Inventory & Misc > Cards, scripts/ui/CardsMenu.gd) --------------------------
 func get_cards():
 	_ensure_connected_then_send({"type": "get_cards", "client_id": Rhythia.cid})
 
@@ -348,7 +349,7 @@ func set_card(id: String):
 func redeem_card_code(code: String):
 	_ensure_connected_then_send({"type": "redeem_card_code", "code": code.substr(0, 64), "client_id": Rhythia.cid})
 
-# --- frames (your profile > Frames, scripts/ui/FramesMenu.gd): the frame round your picture
+# --- frames (Inventory & Misc > Frames, scripts/ui/FramesMenu.gd): the frame round your picture
 func get_frames():
 	_ensure_connected_then_send({"type": "get_frames", "client_id": Rhythia.cid})
 
@@ -2019,15 +2020,36 @@ func _handle_message(msg: Dictionary):
 		"card_denied":
 			emit_signal("card_message", Globals.s(msg.get("reason", "You can't use that card.")), false)
 		"card_code":
+			# A secret code's answer (Inventory & Misc > Codes). What it unlocked
+			# gets a notice, once: a card the player had already (the same code
+			# typed again) is only said in the page. An older server doesn't say
+			# which are new (is_new): everything counts as new then.
+			var code_cards: Array = msg.get("cards", []) if msg.get("cards") is Array else []
 			if bool(msg.get("ok", false)):
-				var got := []
-				for c in msg.get("cards", []):
-					if c is Dictionary:
-						got.append(Globals.s(c.get("name", "")))
-				Globals.notify(Globals.NOTIFY_SUCCEED, "Unlocked: %s" % PoolStringArray(got).join(", "), "Cards")
-				emit_signal("card_message", "Unlocked: %s!" % PoolStringArray(got).join(", "), true)
+				var fresh := []
+				var had := []
+				for c in code_cards:
+					if not (c is Dictionary):
+						continue
+					var cname: String = Globals.s(c.get("name", "Card"))
+					if bool(c.get("is_new", true)):
+						fresh.append(cname)
+						var with_frame: bool = c.get("frame") is Dictionary
+						Globals.notify(Globals.NOTIFY_SUCCEED, ("The %s card and its frame are yours. Pick them in Inventory & Misc." if with_frame else "The %s card is yours. Pick it in Inventory & Misc > Cards.") % cname, "Unlocked!", 8)
+					else:
+						had.append(cname)
+				var said := []
+				if not fresh.empty():
+					said.append("Unlocked: %s!" % PoolStringArray(fresh).join(", "))
+				if not had.empty():
+					said.append("You already have: %s." % PoolStringArray(had).join(", "))
+				var code_text: String = PoolStringArray(said).join(" ") if not said.empty() else "That code is right, but there is nothing new in it for you."
+				emit_signal("card_message", code_text, not fresh.empty())
+				emit_signal("code_result", true, code_text, code_cards)
 			else:
-				emit_signal("card_message", Globals.s(msg.get("reason", "That code doesn't unlock anything.")), false)
+				var why: String = Globals.s(msg.get("reason", "That code doesn't unlock anything."))
+				emit_signal("card_message", why, false)
+				emit_signal("code_result", false, why, [])
 		"frames":
 			var fl = msg.get("frames", [])
 			emit_signal("frames_received", fl if fl is Array else [], Globals.s(msg.get("chosen", "default")))
