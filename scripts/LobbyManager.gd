@@ -2332,6 +2332,14 @@ func _presence_tick(delta: float):
 		return # an older server: connects only when needed, as before
 	if _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_CONNECTING:
 		return
+	# Not in the middle of a song you play by yourself: starting a connection
+	# takes the game's own thread for a moment (7 to 16 ms on a computer, more
+	# on a headset or a phone), a stutter every time it's tried, and with the
+	# server out of reach it was tried again and again through the song. It
+	# is tried when the song is over. (A lobby's round or watching someone
+	# needs the connection now: tried as before.)
+	if Rhythia.in_map and not lobby_active and not watch_mode:
+		return
 	_presence_retry_t -= delta
 	if _presence_retry_t <= 0.0:
 		# reconnect: soon at first, then less often while the server is down

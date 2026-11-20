@@ -80,8 +80,20 @@ func _load_saved_list():
 	if r.error == OK:
 		songs = _clean(r.result)
 
+# Nothing of this starts or is finished off while a song is being played: a
+# request made on the game's own thread, a downloaded song's check (its whole
+# file is read and hashed) and the notes in the log are each a moment the song
+# doesn't get, a small stutter. It waits for the song to be over.
+func _wait_out_song():
+	yield(get_tree(), "idle_frame")
+	while Rhythia.in_map and is_inside_tree():
+		yield(get_tree().create_timer(1.0), "timeout")
+
 func _fetch_list():
+	if Rhythia.in_map:
+		yield(_wait_out_song(), "completed")
 	var http := HTTPRequest.new()
+	http.use_threads = true # (the connection is made off the game's own thread)
 	http.timeout = 20
 	add_child(http)
 	http.connect("request_completed", self, "_on_list", [http])
@@ -161,6 +173,8 @@ func _next():
 
 func _on_song(result, code, _h, _b, http: HTTPRequest, s: Dictionary, part: String):
 	http.queue_free()
+	if Rhythia.in_map:
+		yield(_wait_out_song(), "completed") # (_busy stays on: the next download waits too)
 	_busy = false
 	var d := Directory.new()
 	var ok: bool = result == HTTPRequest.RESULT_SUCCESS and code == 200 and _size(part) == int(s.size) and File.new().get_sha256(part) == String(s.sha256)
