@@ -7164,6 +7164,14 @@ func do_init(_ud = null):
 	check_player_xp()
 	installed_packs = []
 	yield(get_tree().create_timer(0.05), "timeout")
+	# Meta Quest (VR from the start): the Loading panel is in the headset and
+	# moving for a moment before the loading itself begins. The first steps
+	# below stall the picture for a while each, and they used to start in the
+	# same instant as VR, before the panel had been seen moving at all.
+	if vr and vr_boot_hold and not first_init_done:
+		var panel_until := OS.get_ticks_msec() + 350
+		while OS.get_ticks_msec() < panel_until:
+			yield(get_tree(), "idle_frame")
 	var lp: bool = false
 	var file: File = File.new()
 	var dir: Directory = Directory.new()
