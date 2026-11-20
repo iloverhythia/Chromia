@@ -546,6 +546,7 @@ warning_test={
 
 [input_devices]
 
+buffering/agile_event_flushing=true
 pointing/ios/touch_delay=0.0
 
 [locale]

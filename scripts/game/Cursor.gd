@@ -255,7 +255,11 @@ func check_debug_mouse_toggle():
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 			mt = 0
 
+# (Android phones: see NoteManager.gd _late_touch)
+var _late_touch: bool = OS.has_feature("Android") and Rhythia.device("mobile") and not Rhythia.vr and not Rhythia.replaying
 func _process(delta):
+	if _late_touch:
+		Input.flush_buffered_events() # the touches that came in while this frame was being worked out
 	# touch prediction: re-place the cursor every drawn frame so it keeps gliding
 	# between touch samples and settles on the real spot when your finger stops
 	# (get_absolute_position() leads while moving and snaps back once it pauses).

@@ -957,6 +957,14 @@ const cursor_offset = Vector3(1, -1, 0)
 onready var cam: Camera = get_node("../..").get_node("Camera")
 var hlpower = (0.1 * Rhythia.get("parallax"))
 var _no_delay: bool = Rhythia.no_delay_active()
+# Android phones: touches come in on another thread and wait in a list. The
+# engine used to empty it once a frame, AFTER drawing, so a touch that arrived
+# while a frame waited for the screen was first used a whole frame later
+# (project.godot now has it emptied before each frame's scripts instead:
+# input_devices/buffering/agile_event_flushing). The ones that arrive while
+# this frame's scripts run are taken in here and in Cursor._process, just
+# before the cursor is placed and drawn.
+var _late_touch: bool = OS.has_feature("Android") and Rhythia.device("mobile") and not Rhythia.vr and not Rhythia.replaying
 onready var Grid = get_node("../HUD")
 
 func do_half_lock():
@@ -1235,7 +1243,7 @@ func _set_rec_interval(delta: float):
 func _process(delta: float):
 	# Experimental No Delay: mouse movement that came in while this frame was
 	# being started is taken in now, before the camera and hits use the cursor
-	if _no_delay:
+	if _no_delay or _late_touch:
 		Input.flush_buffered_events()
 	var u = OS.get_ticks_usec()
 	delta = float(u - last_usec) / 1000000.0
