@@ -98,7 +98,7 @@ func press(bi: int, q: bool = false):
 	# The Menu Customizer's look was changed since the menu was built, and this
 	# page was made with the old one (the Profile and Online pages are built
 	# once): the menu is loaded again and opens on it.
-	if not q and Engine.has_meta("menu_style_dirty") and pages[bi].name in ["Profile", "Online", "Stats"] and not Rhythia.in_map:
+	if not q and Engine.has_meta("menu_style_dirty") and pages[bi].name in ["Profile", "Online", "Stats", "Inventory"] and not Rhythia.in_map:
 		Engine.remove_meta("menu_style_dirty")
 		Rhythia.set_meta("reopen_page", String(pages[bi].name))
 		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
@@ -166,6 +166,7 @@ func quit():
 
 func _on_vr_status_checked():
 	$L/StartVR.visible = Rhythia.vr_available and not Rhythia.vr
+	_fit_buttons()
 
 # Pages made here rather than in menu2.tscn: a copy of the Online button plus a
 # page under Main. Map Browser (download maps from rhythia.com), Map Editor
@@ -262,6 +263,9 @@ func _add_extra_pages():
 	# meshes, profiles and cursors); still named MapBrowser for the skins
 	var mb = _add_page("MapBrowser", "res://scripts/ui/menu/ContentBrowser.gd", "res://assets/images/ui/mapbrowser.png", "Content Browser", null)
 	var ed = _add_page("MapEditor", "res://scripts/editor/EditorPage.gd", "res://assets/images/ui/mapeditor.png", "Map Editor", mb)
+	# what you have and what you look like: Cards, Frames, Codes, the Avatar
+	# Creator, as tabs (they were on the profile page and in Settings)
+	_add_page("Inventory", "res://scripts/ui/menu/InventoryPage.gd", "res://assets/images/ui/inventory.png", "Inventory & Misc", ed if ed != null else mb)
 	# everyone online and what they play, and the global chat: the eye button
 	_add_spectate()
 	# (The editor used to be left out on phones and in VR: it needed a keyboard.
@@ -276,8 +280,33 @@ func _add_extra_pages():
 		if not has_local:
 			Globals.call_deferred("notify", Globals.NOTIFY_INFO, "You don't have any maps yet. Pick an online map in the list to download it, or open the Content Browser (download icon on the left).", "Welcome to Chromia")
 
+# The buttons are 58 high, and under the last one sits the little Chromia logo
+# of the version text. With Inventory & Misc there are twelve: at 58 the Quit
+# button lay under the logo. When they don't all fit above it they get a
+# little shorter (never less than their 38 px icon needs).
+const LOGO_ROOM := 80.0 # (the logo, and the 30 px it moves up while the warning bar shows)
+func _fit_buttons():
+	var shown := []
+	for b in $L.get_children():
+		if b is Button and b.visible:
+			shown.append(b)
+	if shown.empty() or rect_size.y <= 0:
+		return
+	var h: float = clamp(floor((rect_size.y - LOGO_ROOM) / shown.size()), 44.0, 58.0)
+	for b in $L.get_children():
+		if not (b is Button):
+			continue
+		if b.rect_min_size.y != h:
+			b.rect_min_size.y = h
+		var tex = b.get_node_or_null("Tex")
+		if tex is Control and tex.margin_top != floor((h - 38.0) / 2.0):
+			tex.margin_top = floor((h - 38.0) / 2.0)
+			tex.margin_bottom = tex.margin_top + 38.0
+
 func _ready():
 	_add_extra_pages()
+	connect("resized", self, "_fit_buttons")
+	call_deferred("_fit_buttons")
 	_add_invite_dot()
 	Rhythia.trail("menu open")
 	# (once the pages have made what they make a moment later)

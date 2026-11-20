@@ -18,6 +18,11 @@ extends Reference
 
 signal ready(song)
 
+# (read in with this script, on the main thread: a script loaded from a
+# worker thread while the main thread loads a scene or scripts of its own, as
+# when a song starts, brings the game down)
+const DxtDecode = preload("res://scripts/content/DxtDecode.gd")
+
 const DIR := "user://caches/covers_sq160"
 const OLD_DIR := "user://caches/covers_sq" # (256 px, before)
 const SIZE := 160
@@ -126,7 +131,7 @@ static func _square(img: Image) -> Image:
 	if img.is_compressed():
 		var raw: Image = img.duplicate()
 		if img.decompress() != OK or img.is_compressed():
-			img = load("res://scripts/content/DxtDecode.gd").decode(raw)
+			img = DxtDecode.decode(raw)
 			if img == null:
 				return null
 	img.convert(Image.FORMAT_RGB8)

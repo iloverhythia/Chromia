@@ -123,25 +123,8 @@ func _ready():
 	head.add_child(names)
 	name_label = _label("Your Profile", 34)
 	names.add_child(name_label)
-	# Cards: your card's colours in the Spectate grid (scripts/ui/CardsMenu.gd);
-	# Frames: the frame round your picture (scripts/ui/FramesMenu.gd)
-	var pick_row := HBoxContainer.new()
-	pick_row.add_constant_override("separation", 8)
-	names.add_child(pick_row)
-	var cards_btn := Button.new()
-	cards_btn.text = "Cards"
-	cards_btn.theme = _theme
-	cards_btn.rect_min_size = Vector2(90, 30)
-	cards_btn.hint_tooltip = "Pick the card your player card shows in the Spectate grid"
-	cards_btn.connect("pressed", self, "_open_cards")
-	pick_row.add_child(cards_btn)
-	var frames_btn := Button.new()
-	frames_btn.text = "Frames"
-	frames_btn.theme = _theme
-	frames_btn.rect_min_size = Vector2(90, 30)
-	frames_btn.hint_tooltip = "Pick the frame round your profile picture"
-	frames_btn.connect("pressed", self, "_open_frames")
-	pick_row.add_child(frames_btn)
+	# (Cards and Frames were buttons here: they are tabs of Inventory & Misc now,
+	# scripts/ui/menu/InventoryPage.gd)
 	tag_label = _label("", 16)
 	tag_label.visible = false
 	names.add_child(tag_label)
@@ -543,12 +526,7 @@ func _on_sign_out():
 	yield(Rhythia, "discord_login_changed")
 	load_profile()
 
-func _open_frames():
-	load("res://scripts/ui/FramesMenu.gd").open_on(self)
-
 func _on_my_frame(f):
 	if _frame_view != null:
 		_frame_view.set_frame(f)
 
-func _open_cards():
-	load("res://scripts/ui/CardsMenu.gd").open_on(self)

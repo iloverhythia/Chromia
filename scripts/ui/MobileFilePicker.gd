@@ -7,6 +7,8 @@ extends Control
 # FileSelector.gd opens it and gets the result back through its usual
 # files_sel / save_sel / folder_sel / _cancel.
 
+const AndroidFiles = preload("res://scripts/AndroidFiles.gd")
+
 const LILAC := Color(0.764706, 0.65098, 0.8)
 const PINK := Color(1.0, 0.757, 0.961)
 const TEXT := Color(0.94, 0.95, 1.0)
@@ -42,6 +44,11 @@ var back_btn: Button
 var path_label: Label
 var files_app_btn: Button
 var places_btn: Button
+# Android: "Allow file access", shown while the game may not see every file
+# on the phone (see scripts/AndroidFiles.gd)
+var access_btn: Button
+var needs_access := false
+var _access_asked := false
 var sort_btn: Button
 var sort_menu: VBoxContainer
 var list # FileList
@@ -74,6 +81,8 @@ func _ready():
 	font_bold.use_filter = true
 	_build()
 	get_viewport().connect("size_changed", self, "_layout")
+	if AndroidFiles.has_all_files_build():
+		get_tree().connect("on_request_permissions_result", self, "_on_permission_result")
 	_layout()
 
 # --- building ----------------------------------------------------------------
@@ -111,6 +120,10 @@ func _build():
 	files_app_btn = _button("Phone files", "_on_files_app")
 	files_app_btn.visible = OS.has_feature("iOS")
 	top_bar.add_child(files_app_btn)
+	access_btn = _button("Allow file access", "_on_allow_access")
+	access_btn.modulate = PINK
+	access_btn.visible = false
+	top_bar.add_child(access_btn)
 	var sf := File.new()
 	if sf.open(SORT_FILE, File.READ) == OK:
 		var saved := sf.get_as_text().strip_edges()
@@ -197,7 +210,7 @@ func _layout():
 	back_btn.rect_size = Vector2(200 * u, bar_h)
 	x = 200 * u + gap
 	var rx := right - left
-	for b in [files_app_btn, places_btn, sort_btn]:
+	for b in [files_app_btn, places_btn, sort_btn, access_btn]:
 		if b.visible:
 			var w: float = max(200 * u, font_bold.get_string_size(b.text).x + 60 * u)
 			rx -= w
@@ -288,8 +301,51 @@ func open(p_kind: String, p_filters: PoolStringArray, p_multi: bool, start_dir: 
 	places_menu.visible = false
 	sort_menu.visible = false
 	visible = true
+	needs_access = AndroidFiles.needs_access()
+	access_btn.visible = needs_access
 	_go(start_dir)
 	_layout()
+
+# --- Android: seeing the phone's files -----------------------------------------
+
+# Is this folder outside the game's own one (where Android hides files from
+# the game until the player allows it)?
+func outside_own_folder() -> bool:
+	for own in [OS.get_user_data_dir(), _places()[0][1]]:
+		var r := String(own).trim_suffix("/")
+		if r != "" and (cur_dir == r or cur_dir.begins_with(r + "/")):
+			return false
+	return true
+
+func _on_allow_access():
+	_access_asked = true
+	AndroidFiles.ask()
+	Globals.notify(Globals.NOTIFY_INFO, "Turn on \"Allow access to manage all files\" for Chromia, then come back to the game.", "Files", 8)
+
+func _on_permission_result(_permission, _granted):
+	_recheck_access()
+
+# Back from Android's settings screen (or its permission question): show the
+# files that can be seen now.
+func _notification(what):
+	if what == MainLoop.NOTIFICATION_APP_RESUMED or what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
+		if is_inside_tree() and visible and needs_access:
+			_recheck_access()
+			# (the answer can arrive a moment after the game is shown again)
+			get_tree().create_timer(0.8, false).connect("timeout", self, "_recheck_access")
+
+func _recheck_access():
+	if not is_inside_tree() or not visible or not needs_access:
+		return
+	needs_access = AndroidFiles.needs_access()
+	if needs_access:
+		return
+	access_btn.visible = false
+	_go(cur_dir)
+	_layout()
+	if _access_asked:
+		_access_asked = false
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Chromia can see your phone's files now. If a folder still looks empty, close the game and open it again.", "Files", 6)
 
 func _root_for(dir: String) -> String:
 	var best := ""
@@ -464,6 +520,9 @@ func _refresh_labels():
 				var what := filter_name if filter_name != "" and not show_all else "files"
 				info_label.text = ("Tap files to select them (%s)" if multiselect else "Tap a file to open it (%s)") % what
 				info_label.add_color_override("font_color", DIM)
+				if needs_access and outside_own_folder():
+					info_label.text = "Files missing? Tap Allow file access (top)"
+					info_label.add_color_override("font_color", PINK)
 			ok_btn.disabled = selected.empty()
 		"save":
 			ok_btn.disabled = name_edit.text.strip_edges() == ""
@@ -809,6 +868,8 @@ class FileList extends Control:
 				msg = "No %s here. Open a folder, or tap Show all files" % (picker.filter_name if picker.filter_name != "" else "matching files")
 			elif picker.kind == "folder":
 				msg = "No folders inside. Tap Use folder to pick this one"
+			if picker.needs_access and picker.kind != "folder" and picker.outside_own_folder():
+				msg = "Android hides the files here from Chromia. Tap Allow file access (top) to see them"
 			var sz := fs.get_string_size(msg)
 			draw_string(fs, Vector2((w - sz.x) / 2, rect_size.y / 2), msg, picker.DIM)
 			return

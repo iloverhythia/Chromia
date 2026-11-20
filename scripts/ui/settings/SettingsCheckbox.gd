@@ -114,7 +114,7 @@ func _add_frame_smoothing():
 	cb.name = "FrameSmoothing"
 	cb.target = "frame_smoothing"
 	cb.text = "Frame Smoothing"
-	cb.hint_tooltip = "Makes the game look steadier, mostly on phones and headsets. Notes move in even steps matched to the screen's frames instead of following the small differences in when each frame is worked out. And in VR, when a song keeps dropping frames at a high refresh rate (120 or 90 Hz), the next songs run one rate lower, which looks smoother than a high rate that stutters; the higher rate is tried again after a few clean songs. Visual only: hits, misses and the cursor are exactly as before."
+	cb.hint_tooltip = "Makes the game look steadier, mostly on phones and headsets. Notes move in even steps matched to the screen's frames instead of following the small differences in when each frame is worked out. In VR it can also lower the refresh rate by itself when songs keep dropping frames: that is its own switch now, in Settings > VR > Graphics, and off unless you turn it on. Visual only: hits, misses and the cursor are exactly as before."
 	parent.add_child(cb)
 	var at: Node = parent.get_node_or_null("NewSettingsUI")
 	if at == null:

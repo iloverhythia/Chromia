@@ -1,6 +1,11 @@
 extends Resource
 class_name Song
 
+# The covers' DXT reader. (Read in with this script, on the main thread: a script loaded from a
+# worker thread while the main thread loads a scene or scripts of its own, as
+# when a song starts, brings the game down)
+const DxtDecodeScript = preload("res://scripts/content/DxtDecode.gd")
+
 signal downloaded
 
 var id: String
@@ -225,7 +230,7 @@ static func _make_thumb_image(img: Image) -> Image:
 		var raw: Image = img.duplicate()
 		if img.decompress() != OK or img.is_compressed():
 			# (the Quest and phones can't unpack DXT covers some older maps have)
-			img = load("res://scripts/content/DxtDecode.gd").decode(raw)
+			img = DxtDecodeScript.decode(raw)
 			if img == null:
 				print("[covers] a cover in format %d couldn't be read" % raw.get_format())
 				return null
@@ -1464,6 +1469,7 @@ func change_difficulty(to: int):
 		difficulty = to
 		file.store_8(difficulty + 1)
 		file.close()
+		Rhythia.update_map_cache_entry(self) # (else the old difficulty comes back next launch)
 		return OK
 
 	elif songType == Globals.MAP_SSPM2:
@@ -1489,6 +1495,7 @@ func change_difficulty(to: int):
 		difficulty = to
 		file.store_8(difficulty + 1)
 		file.close()
+		Rhythia.update_map_cache_entry(self) # (else the old difficulty comes back next launch)
 		return OK
 
 	else:

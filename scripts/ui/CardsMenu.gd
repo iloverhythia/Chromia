@@ -1,140 +1,71 @@
 extends PanelContainer
 
-# Your profile > Cards: the card your player card shows in the Spectate grid
-# (its background and border) and as the border of your website profile.
-# Everyone has Default; locked cards show greyed out with no hint of how to get
-# them. A secret code (from somewhere...) can unlock a card. The server keeps
-# which cards you have (LobbyManager get_cards / set_card / redeem_card_code).
+# Inventory & Misc > Cards (scripts/ui/menu/InventoryPage.gd): the card your
+# player card shows in the Spectate grid (its background and border) and as
+# the border of your website profile. Everyone has Default; the cards you
+# don't have aren't shown. The server keeps which cards you have
+# (LobbyManager get_cards / set_card); secret codes are typed on the Codes tab.
+# (This was a window opened from the profile page, with the code box in it.)
 
 const OnlineStyle = preload("res://scripts/ui/menu/OnlineStyle.gd")
+const TILE_W := 160.0
 
 var S
 var lm
 var _grid: GridContainer
 var _scroll: ScrollContainer = null
 var _msg: Label
-var _code: LineEdit
 var _chosen := "default"
-
-static func open_on(parent: Node):
-	# (every one that is open, each with its layer and the dimmed screen behind it)
-	for old in parent.get_tree().get_nodes_in_group("cards_menu"):
-		if not old.is_queued_for_deletion():
-			old.close()
-	var layer := CanvasLayer.new()
-	layer.layer = 110
-	layer.name = "CardsMenuLayer"
-	# On the screen the button is on: the window, or in VR the menu screen in
-	# front of you. (On the window's own layer it opened where nobody in a
-	# headset could see or close it, and every press stacked another one.)
-	parent.get_viewport().add_child(layer)
-	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
-	dim.anchor_right = 1
-	dim.anchor_bottom = 1
-	layer.add_child(dim)
-	var m = load("res://scripts/ui/CardsMenu.gd").new()
-	m.name = "CardsMenu"
-	m.add_to_group("cards_menu")
-	layer.add_child(m)
-	dim.connect("gui_input", m, "_on_dim")
-	return m
 
 func _init():
 	S = OnlineStyle.new()
-	add_stylebox_override("panel", OnlineStyle.flat(S.WINDOW_BG, 6, Color(1, 1, 1, 0.1), 1, 22, 18))
-	rect_min_size = Vector2(560, 0)
+	add_stylebox_override("panel", OnlineStyle.flat(S.SECTION_BG, 4, Color(1, 1, 1, 0.05), 1, 18, 16))
+	size_flags_horizontal = SIZE_EXPAND_FILL
+	size_flags_vertical = SIZE_EXPAND_FILL
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 10)
 	add_child(v)
-	var head := HBoxContainer.new()
-	v.add_child(head)
-	var t: Label = S.heading("Cards")
-	t.size_flags_horizontal = SIZE_EXPAND_FILL
-	head.add_child(t)
-	var x := Button.new()
-	x.text = "Close"
-	S.button(x)
-	x.connect("pressed", self, "close")
-	head.add_child(x)
+	v.add_child(S.heading("Cards"))
 	v.add_child(S.label("The colors of your card in the Spectate grid, and the border of your website profile. Some cards are unlocked by what you do; how is a secret.", S.f_small, S.DIM, true))
-	v.add_child(S.rule())
 	_grid = GridContainer.new()
 	_grid.columns = 3
 	_grid.add_constant_override("hseparation", 10)
 	_grid.add_constant_override("vseparation", 10)
-	# (in a list that scrolls once there are more tiles than fit on the screen: _place)
-	_scroll = ScrollContainer.new()
+	_scroll = S.scroll(ScrollContainer.new())
 	_scroll.scroll_horizontal_enabled = false
+	_scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	v.add_child(_scroll)
 	_scroll.add_child(_grid)
 	_msg = S.label("Loading your cards...", S.f_small, S.DIM)
 	v.add_child(_msg)
-	v.add_child(S.rule())
-	var row := HBoxContainer.new()
-	row.add_constant_override("separation", 8)
-	v.add_child(row)
-	_code = LineEdit.new()
-	_code.placeholder_text = "Secret code"
-	_code.size_flags_horizontal = SIZE_EXPAND_FILL
-	S.field(_code)
-	_code.connect("text_entered", self, "_redeem")
-	row.add_child(_code)
-	var go := Button.new()
-	go.text = "Use code"
-	S.button(go, true)
-	go.connect("pressed", self, "_redeem")
-	row.add_child(go)
 
 func _ready():
 	lm = get_node_or_null("/root/LobbyManager")
 	if lm != null:
 		lm.connect("cards_received", self, "_on_cards")
 		lm.connect("card_message", self, "_on_message")
+	_scroll.connect("resized", self, "_fit")
+	connect("visibility_changed", self, "_on_shown")
+	_on_shown()
+
+# asked for when the tab is first looked at, and again each time it's opened
+# (a card unlocked meanwhile, by a code or by playing, is there then)
+func _on_shown():
+	if is_visible_in_tree():
+		refresh()
+
+func refresh():
+	if lm != null:
 		lm.get_cards()
-	get_viewport().connect("size_changed", self, "_place")
-	call_deferred("_place_soon")
 
-# The window is as big as what's in it, never taller than the screen (the
-# tiles scroll then), in the middle. Its size is worked out afresh each time:
-# it used to be set to "at least what's needed" while the old tiles of the
-# list were still there next to the new ones, so after picking one it was
-# twice as tall and stayed that way, down past the bottom of the screen.
-func _place():
-	if not is_inside_tree() or _scroll == null:
+# as many tiles side by side as fit
+func _fit():
+	if _scroll == null:
 		return
-	var vp := get_viewport_rect().size
-	var tiles: Vector2 = _grid.get_combined_minimum_size()
-	_scroll.rect_min_size = Vector2(tiles.x, 0)
-	var rest: float = get_combined_minimum_size().y # (everything but the tiles)
-	var room: float = max(120.0, vp.y - 40.0 - rest)
-	var bar: float = 14.0 if tiles.y > room else 0.0
-	_scroll.rect_min_size = Vector2(tiles.x + bar, min(tiles.y, room))
-	rect_size = get_combined_minimum_size()
-	rect_position = ((vp - rect_size) / 2.0).floor()
-
-# (now, and once more when the new tiles and the wrapped text have their sizes)
-func _place_soon():
-	_place()
-	yield(get_tree(), "idle_frame")
-	_place()
-
-func _on_dim(ev):
-	if ev is InputEventMouseButton and ev.pressed:
-		close()
-
-func _input(ev):
-	if ev is InputEventKey and ev.pressed and ev.scancode == KEY_ESCAPE:
-		close()
-		get_tree().set_input_as_handled()
-
-func close():
-	remove_from_group("cards_menu")
-	var layer = get_parent()
-	if layer is CanvasLayer:
-		layer.queue_free()
-	else:
-		queue_free()
+	var sep: float = _grid.get_constant("hseparation")
+	var cols := int(max(1.0, floor((_scroll.rect_size.x - 14.0 + sep) / (TILE_W + sep))))
+	if _grid.columns != cols:
+		_grid.columns = cols
 
 func _on_cards(cards: Array, chosen: String):
 	_chosen = chosen
@@ -160,7 +91,7 @@ func _on_cards(cards: Array, chosen: String):
 		_msg.text = "%d locked (only admins see these)." % locked
 	else:
 		_msg.text = "These are the cards you have. There are more to find: keep playing (and looking)."
-	call_deferred("_place_soon")
+	_fit()
 
 func _card(c: Dictionary) -> Control:
 	var id := String(c.get("id", ""))
@@ -168,7 +99,7 @@ func _card(c: Dictionary) -> Control:
 	var bg := Color(String(c.get("bg", "#13111a"))) if String(c.get("bg", "")).is_valid_html_color() else S.CARD_BG
 	var border := Color(String(c.get("border", "#2b2734"))) if String(c.get("border", "")).is_valid_html_color() else Color(1, 1, 1, 0.1)
 	var b := Button.new()
-	b.rect_min_size = Vector2(160, 92)
+	b.rect_min_size = Vector2(TILE_W, 92)
 	b.focus_mode = FOCUS_NONE
 	b.toggle_mode = false
 	var picked := id == _chosen
@@ -239,15 +170,7 @@ func _pick(id: String):
 		_msg.text = "Saving..."
 		lm.set_card(id)
 
-func _redeem(_t = null):
-	var code := _code.text.strip_edges()
-	if code == "" or lm == null:
-		return
-	_msg.text = "Checking the code..."
-	lm.redeem_card_code(code)
-	_code.text = ""
-
-func _on_message(text: String, refresh: bool):
+func _on_message(text: String, again: bool):
 	_msg.text = text
-	if refresh and lm != null:
+	if again and lm != null and is_visible_in_tree():
 		lm.get_cards()

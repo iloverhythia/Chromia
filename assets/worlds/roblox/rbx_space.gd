@@ -94,6 +94,7 @@ func _build():
 		_cam.far = max(_cam.far, CAMERA_FAR * STUD * 1.5)
 	space_init()
 	space_load()
+	_hide_edge_sheets()
 	_ready_done = true
 
 func _exit_tree():
@@ -108,6 +109,49 @@ func _tick(dt):
 	_detect_beat(dt)
 	space_update(dt)
 	_update_trails(dt)
+
+# ------------------------------------------------------------------ edge-on sheets
+# Some spaces have a huge sheet as thin as paper lying exactly at the camera's
+# height (Vaporwave has two, 2048 by 300 studs). In Roblox the camera never
+# leaves that height, so only the sheet's edge could ever be seen: a hairline
+# at most. Chromia's camera moves (Spin, parallax, a headset). From a little
+# above, the sheet was a white floor right across the screen that cut the grid
+# and the HUD in half; from a little below, a grey ceiling over the whole sky.
+# A sheet whose plane goes through the spot where the camera rests is not drawn.
+const SHEET_THIN := 0.5 # studs: at most this thick
+const SHEET_BIG := 150.0 # and at least this long both other ways
+const SHEET_NEAR := 0.4 # its plane within this of where the camera rests
+
+func _hide_edge_sheets():
+	if rbx_root == null:
+		return
+	# (where Chromia's camera rests, in the space's own measure)
+	var rest: Vector3 = rbx_root.transform.affine_inverse().xform(Vector3(0, 0, 3.75))
+	var todo := [rbx_root]
+	while not todo.empty():
+		var n = todo.pop_back()
+		for c in n.get_children():
+			todo.append(c)
+		if not (n is MultiMeshInstance) or n.multimesh == null or n.multimesh.mesh == null:
+			continue
+		var mm: MultiMesh = n.multimesh
+		var size: Vector3 = mm.mesh.get_aabb().size
+		# (the instance's place in the space's own measure)
+		var up := Transform()
+		var q = n
+		while q != null and q != rbx_root:
+			up = q.transform * up
+			q = q.get_parent()
+		for k in mm.instance_count:
+			var t: Transform = up * mm.get_instance_transform(k)
+			var ext := [t.basis.x.length() * size.x, t.basis.y.length() * size.y, t.basis.z.length() * size.z]
+			var axes := [t.basis.x, t.basis.y, t.basis.z]
+			for a in 3:
+				if ext[a] > 0.0 and ext[a] <= SHEET_THIN and ext[(a + 1) % 3] >= SHEET_BIG and ext[(a + 2) % 3] >= SHEET_BIG:
+					if abs((rest - t.origin).dot(axes[a].normalized())) <= SHEET_NEAR:
+						# (no size: nothing of it is drawn)
+						mm.set_instance_transform(k, Transform(Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO), mm.get_instance_transform(k).origin))
+					break
 
 # ------------------------------------------------------------------ trails
 var _trails = []

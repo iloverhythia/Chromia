@@ -13,11 +13,24 @@ extends Node
 # MB: not on the menu's own time), one map at a time; a map selected meanwhile
 # is looked at next.
 
+# (read in with this script, on the main thread: a script loaded from a
+# worker thread while the main thread loads a scene or scripts of its own, as
+# when a song starts, brings the game down)
+const AudioConvert = preload("res://scripts/content/AudioConvert.gd")
+
 var _thread: Thread = null
 var _next = null # the song to look at after the one being read
 
 static func selected(song):
 	if song == null or OS.has_feature("JavaScript") or not OS.can_use_threads():
+		return
+	# Not on headsets and phones. Two Quest 3 reports from the first build
+	# with this (nov18-2026-a) end seconds after a map was picked in the menu,
+	# which is when this thread runs. Its script load on the thread is gone
+	# (see above), and that is the likely cause, but it couldn't be made to
+	# crash here to prove it: until reports say it's safe, these devices do
+	# without it and convert such a song when Play is pressed, as before.
+	if OS.has_feature("Android") or OS.has_feature("iOS"):
 		return
 	if bool(song.get("is_online")) or bool(song.get("is_builtin")):
 		return
@@ -39,8 +52,7 @@ func _look(song):
 
 func _read(song):
 	var buf = song.get_music_buffer()
-	var AC = load("res://scripts/content/AudioConvert.gd")
-	var need: bool = buf is PoolByteArray and buf.size() <= AC.MAX_BYTES and AC.needed(buf)
+	var need: bool = buf is PoolByteArray and buf.size() <= AudioConvert.MAX_BYTES and AudioConvert.needed(buf)
 	call_deferred("_read_done", song, buf if need else null)
 
 func _read_done(song, buf):
@@ -49,7 +61,7 @@ func _read_done(song, buf):
 		_thread = null
 	if buf != null and Rhythia.selected_song == song:
 		Rhythia.trail("song of %s is being converted ahead of playing it" % String(song.id))
-		load("res://scripts/content/AudioConvert.gd").start(buf)
+		AudioConvert.start(buf)
 	if _next != null:
 		var s = _next
 		_next = null

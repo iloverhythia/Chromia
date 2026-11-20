@@ -34,11 +34,12 @@ signal motd_changed() # Map of the Day: motd_song_id, motd_name, motd_completed,
 signal admin_motd_result(ok, reason)
 # the Spectate tab
 signal online_players_received(list, you)
-signal cards_received(cards, chosen) # (your profile > Cards: scripts/ui/CardsMenu.gd)
-signal frames_received(frames, chosen) # (your profile > Frames: scripts/ui/FramesMenu.gd)
+signal cards_received(cards, chosen) # (Inventory & Misc > Cards: scripts/ui/CardsMenu.gd)
+signal frames_received(frames, chosen) # (Inventory & Misc > Frames: scripts/ui/FramesMenu.gd)
 signal frame_message(text, refresh)
 signal my_frame_changed(frame) # (the frame you picked: {id, name, style, color, color2} or null)
 signal card_message(text, refresh)
+signal code_result(ok, text, cards) # (Inventory & Misc > Codes: scripts/ui/menu/InventoryPage.gd)
 signal spectate_denied(reason)
 signal watch_ended(text)
 signal presence_support_changed(supported)
@@ -48,6 +49,10 @@ signal collab_event(msg)
 # banned from chat (the server says so on connect and when it changes): chat boxes go grey (ChatBan.gd)
 signal chat_ban_changed(banned)
 var chat_banned := false
+# when a chat ban with an end runs out (OS.get_ticks_msec(); 0: no end, or not
+# banned): the server says how long is left, the chat boxes show it
+var chat_ban_end_ticks := 0
+var _chat_ban_refresh: Timer = null
 signal unpublished_ranked_maps_received(song_ids)
 
 var _live_state_cache: Dictionary = {}
@@ -158,6 +163,13 @@ func _ready():
 	_client.connect("data_received", self, "_on_data")
 	Rhythia.connect("mods_changed", self, "_on_local_mods_changed")
 	set_process(true)
+	# a chat ban's time left, shown in the chat boxes: brought up to date every 20 s
+	_chat_ban_refresh = Timer.new()
+	_chat_ban_refresh.wait_time = 20.0
+	_chat_ban_refresh.pause_mode = Node.PAUSE_MODE_PROCESS
+	add_child(_chat_ban_refresh)
+	_chat_ban_refresh.connect("timeout", self, "_on_chat_ban_refresh")
+	_chat_ban_refresh.start()
 	# the connection keeps answering the server's pings while the game is
 	# paused (a playtest's pause menu, a song loading): the server dropped a
 	# connection that went quiet for 30-60 s, which ended mapping together
@@ -338,7 +350,7 @@ func send_global_chat_message(text: String):
 		return
 	_ensure_connected_then_send({"type": "global_chat_message", "text": text.substr(0, 300), "client_id": Rhythia.cid, "name": player_name})
 
-# --- cards (your profile > Cards, scripts/ui/CardsMenu.gd) --------------------------
+# --- cards (Inventory & Misc > Cards, scripts/ui/CardsMenu.gd) --------------------------
 func get_cards():
 	_ensure_connected_then_send({"type": "get_cards", "client_id": Rhythia.cid})
 
@@ -348,7 +360,7 @@ func set_card(id: String):
 func redeem_card_code(code: String):
 	_ensure_connected_then_send({"type": "redeem_card_code", "code": code.substr(0, 64), "client_id": Rhythia.cid})
 
-# --- frames (your profile > Frames, scripts/ui/FramesMenu.gd): the frame round your picture
+# --- frames (Inventory & Misc > Frames, scripts/ui/FramesMenu.gd): the frame round your picture
 func get_frames():
 	_ensure_connected_then_send({"type": "get_frames", "client_id": Rhythia.cid})
 
@@ -890,9 +902,46 @@ func staff_delete_chat(mid: String):
 	if mid != "" and _connected():
 		_send({"type": "staff_chat_delete", "id": mid})
 
-func staff_chat_ban(mid: String):
+# minutes: how long (0: until lifted in the admin panel)
+func staff_chat_ban(mid: String, minutes: int = 0):
 	if mid != "" and _connected():
-		_send({"type": "staff_chat_ban", "id": mid})
+		var m := {"type": "staff_chat_ban", "id": mid}
+		if minutes > 0:
+			m["minutes"] = minutes
+		_send(m)
+
+# banned from chat or not, and how long is left (ms; null: no end)
+func _set_chat_ban(banned: bool, left_ms):
+	var end_ticks := 0
+	if banned and left_ms != null and float(left_ms) > 0.0:
+		end_ticks = OS.get_ticks_msec() + int(float(left_ms))
+	if banned == chat_banned and abs(end_ticks - chat_ban_end_ticks) < 2000:
+		return
+	chat_banned = banned
+	chat_ban_end_ticks = end_ticks
+	emit_signal("chat_ban_changed", chat_banned)
+
+# "2h 13m", "3d 4h", "45s": how long a chat ban has left ("" when it has no end)
+func chat_ban_left_text() -> String:
+	if not chat_banned or chat_ban_end_ticks <= 0:
+		return ""
+	var s: int = int(max(1, ceil(float(chat_ban_end_ticks - OS.get_ticks_msec()) / 1000.0)))
+	var d: int = s / 86400
+	var h: int = (s % 86400) / 3600
+	var m: int = (s % 3600) / 60
+	if d > 0:
+		return ("%dd %dh" % [d, h]) if h > 0 else ("%dd" % d)
+	if h > 0:
+		return ("%dh %dm" % [h, m]) if m > 0 else ("%dh" % h)
+	if m > 0:
+		return "%dm" % m
+	return "%ds" % s
+
+# the chat boxes' time left brought up to date (the server lifts the ban itself
+# when it's up, and says so)
+func _on_chat_ban_refresh():
+	if chat_banned and chat_ban_end_ticks > 0:
+		emit_signal("chat_ban_changed", chat_banned)
 
 func _on_chat_deleted(mid: String):
 	if mid == "":
@@ -1736,13 +1785,10 @@ func _handle_message(msg: Dictionary):
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
-			if msg.has("chat_banned") and bool(msg.get("chat_banned")) != chat_banned:
-				chat_banned = bool(msg.get("chat_banned"))
-				emit_signal("chat_ban_changed", chat_banned)
+			if msg.has("chat_banned"):
+				_set_chat_ban(bool(msg.get("chat_banned")), msg.get("chat_ban_left_ms"))
 		"chat_ban":
-			if bool(msg.get("banned", false)) != chat_banned:
-				chat_banned = bool(msg.get("banned", false))
-				emit_signal("chat_ban_changed", chat_banned)
+			_set_chat_ban(bool(msg.get("banned", false)), msg.get("left_ms"))
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
 			local_peer_id = int(msg.get("peer_id", -1))
@@ -2019,15 +2065,36 @@ func _handle_message(msg: Dictionary):
 		"card_denied":
 			emit_signal("card_message", Globals.s(msg.get("reason", "You can't use that card.")), false)
 		"card_code":
+			# A secret code's answer (Inventory & Misc > Codes). What it unlocked
+			# gets a notice, once: a card the player had already (the same code
+			# typed again) is only said in the page. An older server doesn't say
+			# which are new (is_new): everything counts as new then.
+			var code_cards: Array = msg.get("cards", []) if msg.get("cards") is Array else []
 			if bool(msg.get("ok", false)):
-				var got := []
-				for c in msg.get("cards", []):
-					if c is Dictionary:
-						got.append(Globals.s(c.get("name", "")))
-				Globals.notify(Globals.NOTIFY_SUCCEED, "Unlocked: %s" % PoolStringArray(got).join(", "), "Cards")
-				emit_signal("card_message", "Unlocked: %s!" % PoolStringArray(got).join(", "), true)
+				var fresh := []
+				var had := []
+				for c in code_cards:
+					if not (c is Dictionary):
+						continue
+					var cname: String = Globals.s(c.get("name", "Card"))
+					if bool(c.get("is_new", true)):
+						fresh.append(cname)
+						var with_frame: bool = c.get("frame") is Dictionary
+						Globals.notify(Globals.NOTIFY_SUCCEED, ("The %s card and its frame are yours. Pick them in Inventory & Misc." if with_frame else "The %s card is yours. Pick it in Inventory & Misc > Cards.") % cname, "Unlocked!", 8)
+					else:
+						had.append(cname)
+				var said := []
+				if not fresh.empty():
+					said.append("Unlocked: %s!" % PoolStringArray(fresh).join(", "))
+				if not had.empty():
+					said.append("You already have: %s." % PoolStringArray(had).join(", "))
+				var code_text: String = PoolStringArray(said).join(" ") if not said.empty() else "That code is right, but there is nothing new in it for you."
+				emit_signal("card_message", code_text, not fresh.empty())
+				emit_signal("code_result", true, code_text, code_cards)
 			else:
-				emit_signal("card_message", Globals.s(msg.get("reason", "That code doesn't unlock anything.")), false)
+				var why: String = Globals.s(msg.get("reason", "That code doesn't unlock anything."))
+				emit_signal("card_message", why, false)
+				emit_signal("code_result", false, why, [])
 		"frames":
 			var fl = msg.get("frames", [])
 			emit_signal("frames_received", fl if fl is Array else [], Globals.s(msg.get("chosen", "default")))
