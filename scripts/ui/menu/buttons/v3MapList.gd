@@ -458,7 +458,9 @@ var _search_timer: SceneTreeTimer = null
 
 func _queue_search():
 	if not ready: return
-	_search_timer = get_tree().create_timer(SEARCH_DELAY)
+	# (VR: typed a key at a time with the pointer, and the rebuild costs a few
+	# headset frames: once when the typing stops, not after every key)
+	_search_timer = get_tree().create_timer(0.5 if Rhythia.vr else SEARCH_DELAY)
 	_search_timer.connect("timeout", self, "_run_queued_search", [_search_timer])
 
 func _run_queued_search(t):
