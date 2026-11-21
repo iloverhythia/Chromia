@@ -608,6 +608,17 @@ func get_pb(pb_str: String):
 	if not pbs_loaded: load_pbs()
 	return pb_data.get(pb_str, {})
 
+# Have you passed this map, with any mods or speed? (The map list's
+# "completed" / "uncompleted" filters. The bests are read the first time it's
+# asked, from this map's file if there is one.)
+func is_completed() -> bool:
+	if not pbs_loaded: load_pbs()
+	for k in pb_data:
+		var pb = pb_data[k]
+		if pb is Dictionary and bool(pb.get("has_passed", false)):
+			return true
+	return false
+
 func is_pb_better(ob: Dictionary, pb: Dictionary):
 
 	ob.has_passed = ob.get("has_passed", false)
