@@ -835,7 +835,7 @@ func _make_board_row(e: Dictionary, show_fc: bool, me: int) -> Control:
 	panel.set_meta("sbh", sbh)
 	panel.connect("mouse_entered", self, "_row_hover", [panel, true])
 	panel.connect("mouse_exited", self, "_row_hover", [panel, false])
-	panel.connect("gui_input", self, "_board_row_input", [number])
+	panel.connect("gui_input", self, "_board_row_input", [e])
 	panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	var h := HBoxContainer.new()
@@ -928,12 +928,76 @@ func _make_board_row(e: Dictionary, show_fc: bool, me: int) -> Control:
 	var al := _label("%.2f%%" % (acc * 100.0), _f_acc, C_ACCENT)
 	al.align = Label.ALIGN_CENTER
 	right.add_child(al)
-	panel.hint_tooltip = "#%d %s\n%d SP, %.2f%%, %s\nClick to open their profile" % [rank, nm, int(e.get("sp_weighted", e.get("sp", 0))), acc * 100.0, extra.join(", ")]
+	panel.hint_tooltip = "#%d %s\n%d SP, %.2f%%, %s\n%s" % [rank, nm, int(e.get("sp_weighted", e.get("sp", 0))), acc * 100.0, extra.join(", "),
+		"Click to watch the replay; right-click for their profile" if bool(e.get("has_replay", false)) else "No replay was kept for this pass; right-click for their profile"]
 	return panel
 
-func _board_row_input(ev, number: int):
-	if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
+# A click on a row plays that pass's replay here in the game (it used to open
+# their profile on the website; that is the right mouse button now). The
+# replay is the one the server keeps with the pass, the same file the
+# website's replay page plays.
+func _board_row_input(ev, e: Dictionary):
+	if not (ev is InputEventMouseButton):
+		return
+	var number := int(e.get("number", -1))
+	if ev.button_index == BUTTON_RIGHT:
+		if not ev.pressed and number > 0:
+			OS.shell_open(SITE + "/profile?id=%d" % number)
+	elif ev.button_index == BUTTON_LEFT:
 		if ev.pressed:
 			_press_pos = ev.global_position
-		elif ev.global_position.distance_to(_press_pos) < 12 and number > 0:
-			OS.shell_open(SITE + "/profile?id=%d" % number)
+		elif ev.global_position.distance_to(_press_pos) < 12: # (not a scroll drag)
+			_watch_board(e)
+
+const BOARD_REPLAY := "user://caches/leaderboard_replay.sspre"
+var _replay_req: HTTPRequest = null
+func _watch_board(e: Dictionary):
+	var song = Rhythia.selected_song
+	var number := int(e.get("number", -1))
+	if song == null or number <= 0:
+		return
+	var who := Globals.s(e.get("name", ""))
+	if who == "":
+		who = "Player #%d" % number
+	if not bool(e.get("has_replay", false)):
+		Globals.notify(Globals.NOTIFY_WARN, "The server has no replay for %s's pass." % who, "No Replay")
+		return
+	if _replay_req != null and is_instance_valid(_replay_req):
+		return # (one is on its way)
+	var id := String(song.id)
+	_replay_req = HTTPRequest.new()
+	_replay_req.timeout = 30
+	_replay_req.body_size_limit = 32 * 1024 * 1024
+	add_child(_replay_req)
+	_replay_req.connect("request_completed", self, "_on_board_replay", [_replay_req, id, who])
+	var url := SITE + "/savia-public/api/player/%d/replay/%s/%d" % [number, id.http_escape(), int(e.get("index", 0))]
+	if _replay_req.request(url) != OK:
+		_replay_req.queue_free()
+		_replay_req = null
+		Globals.notify(Globals.NOTIFY_WARN, "Couldn't ask the server for %s's replay." % who, "Replay")
+		return
+	Globals.notify(Globals.NOTIFY_INFO, "Getting %s's replay..." % who, "Replay", 3)
+
+func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String, who: String):
+	r.queue_free()
+	if r == _replay_req:
+		_replay_req = null
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200 or body.size() < 16:
+		Globals.notify(Globals.NOTIFY_WARN, ("The server has no replay for %s's pass." % who) if code == 404 else ("Couldn't get %s's replay (are you online?)." % who), "Replay")
+		return
+	# (another map was picked, or the menu was left, while it came)
+	var song = Rhythia.selected_song
+	if not is_inside_tree() or song == null or String(song.id) != id or Rhythia.in_map:
+		return
+	var path: String = Globals.p(BOARD_REPLAY)
+	Directory.new().make_dir_recursive(path.get_base_dir())
+	var f := File.new()
+	if f.open(path, File.WRITE) != OK:
+		Globals.notify(Globals.NOTIFY_WARN, "Couldn't save the replay to play it.", "Replay")
+		return
+	f.store_buffer(body)
+	f.close()
+	var run = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/Run")
+	if run and run.has_method("files_dropped"):
+		Rhythia.trail("leaderboard replay: %s on %s" % [who, id])
+		run.files_dropped(PoolStringArray([path]), 0)
