@@ -1,5 +1,5 @@
 # Chromia
 Official Chromia Discord server
-https://discord.gg/jQusHEDwcA
+https://discord.gg/chromiagame
 > "Chro-Chromia"
 
