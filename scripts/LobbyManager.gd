@@ -884,8 +884,101 @@ func _chat_show(m: Dictionary):
 			global_chat_history.pop_front()
 		emit_signal("global_chat_message_received", m.who, m.name, m.text, m.ts)
 		# someone wrote @you: a notification, wherever you are (even in a map)
-		if not Rhythia.mute_global_chat and m.who != Rhythia.cid and preload("res://scripts/ui/ChatMention.gd").mentions_me(m.orig, self):
+		if not Rhythia.mute_global_chat and m.who != Rhythia.cid and not is_blocked_chat(last_chat_id) and preload("res://scripts/ui/ChatMention.gd").mentions_me(m.orig, self):
 			Globals.notify(Globals.NOTIFY_INFO, m.text, "%s mentioned you" % m.name)
+
+# --- friends and blocking (savia_web social.js) ---------------------------------
+# Your friends, friend requests and who you blocked, by player number. The
+# server sends social_state when you sign in and whenever they change.
+# A blocked player's chat lines are folded away in every chat box
+# (BlockedChat.gd): "1 blocked message  Show". Right-click a name in chat
+# (ChatReactions.gd) to add a friend or block; the Friends window
+# (FriendsWindow.gd) has the lists.
+signal social_changed
+signal blocked_changed # (only when who you blocked changed: the chats fold or unfold)
+var friends: Array = [] # [{number, name, avatar_url, online}]
+var friend_requests_in: Array = []
+var friend_requests_out: Array = []
+var blocked_players: Array = []
+var _blocked_set := {} # number -> true
+var chat_author := {} # chat line id -> the writer's player number
+var shown_blocked := {} # chat line ids you chose to see (Show)
+
+func _note_chat_author(mid: String, number):
+	if mid == "" or number == null:
+		return
+	chat_author[mid] = int(number)
+	while chat_author.size() > 1000:
+		chat_author.erase(chat_author.keys()[0])
+
+func chat_number(mid: String) -> int:
+	return int(chat_author.get(mid, -1))
+
+func is_blocked_number(number: int) -> bool:
+	return number > 0 and _blocked_set.has(number)
+
+# a chat line by someone you blocked (and not one you chose to see)
+func is_blocked_chat(mid: String) -> bool:
+	return mid != "" and is_blocked_number(chat_number(mid))
+
+# "self", "friends", "incoming", "outgoing", "blocked" or "none"
+func relation(number: int) -> String:
+	if number <= 0:
+		return "none"
+	if number == my_player_number:
+		return "self"
+	if _blocked_set.has(number):
+		return "blocked"
+	for pair in [[friends, "friends"], [friend_requests_in, "incoming"], [friend_requests_out, "outgoing"]]:
+		for p in pair[0]:
+			if p is Dictionary and int(p.get("number", -1)) == number:
+				return pair[1]
+	return "none"
+
+# action: "request", "accept", "decline", "cancel", "remove", "block", "unblock"
+func social_action(action: String, number: int):
+	if number <= 0 or not _connected():
+		Globals.notify(Globals.NOTIFY_WARN, "Connect to the server first.", "Friends")
+		return
+	var types := {"request": "friend_request", "accept": "friend_accept", "decline": "friend_decline", "cancel": "friend_cancel", "remove": "friend_remove", "block": "block", "unblock": "unblock"}
+	if types.has(action):
+		_send({"type": types[action], "number": number})
+
+func refresh_social():
+	if _connected():
+		_send({"type": "social_get"})
+
+func _on_social_state(msg: Dictionary):
+
+	friends = _people(msg.get("friends"))
+	friend_requests_in = _people(msg.get("incoming"))
+	friend_requests_out = _people(msg.get("outgoing"))
+	blocked_players = _people(msg.get("blocked"))
+	var was: Array = _blocked_set.keys()
+	_blocked_set = {}
+	for p in blocked_players:
+		_blocked_set[int(p.get("number", -1))] = true
+	was.sort()
+	var now: Array = _blocked_set.keys()
+	now.sort()
+	if was != now:
+		emit_signal("blocked_changed")
+	var news = msg.get("news")
+	if news is Dictionary:
+		var who := Globals.s(news.get("name", "Someone"))
+		if Globals.s(news.get("kind", "")) == "friend_request":
+			Globals.notify(Globals.NOTIFY_INFO, "%s sent you a friend request. Online > Friends to accept it." % who, "Friend request", 8)
+		elif Globals.s(news.get("kind", "")) == "friend_accepted":
+			Globals.notify(Globals.NOTIFY_SUCCEED, "You and %s are friends now." % who, "Friends")
+	emit_signal("social_changed")
+
+func _people(v) -> Array:
+	var out := []
+	if v is Array:
+		for p in v:
+			if p is Dictionary and p.get("number") != null:
+				out.append({number = int(p.number), name = Globals.s(p.get("name", "")), avatar_url = Globals.s(p.get("avatar_url", "")) if p.get("avatar_url") != null else "", online = bool(p.get("online", false))})
+	return out
 
 # --- chat reactions (ChatReactions.gd draws them) ------------------------------
 # Each chat line has an id from the server ("" from an older server); a
@@ -1804,6 +1897,8 @@ func _handle_message(msg: Dictionary):
 			if msg.get("player_number") != null:
 				my_player_number = int(msg.get("player_number")) # (the Profile page falls back to it)
 			_apply_server_name(msg)
+			if Globals.s(msg.get("type", "")) == "auth_ok":
+				_send({"type": "social_get"}) # (friends and blocked: social_state)
 			if msg.has("chat_banned"):
 				_set_chat_ban(bool(msg.get("chat_banned")), msg.get("chat_ban_left_ms"))
 		"chat_ban":
@@ -2052,11 +2147,20 @@ func _handle_message(msg: Dictionary):
 				end_watch("The lobby closed.")
 				return
 			close_lobby()
+		"social_state":
+			_on_social_state(msg)
+		"social_result":
+			if not bool(msg.get("ok", false)) and Globals.s(msg.get("error", "")) != "":
+				Globals.notify(Globals.NOTIFY_WARN, Globals.s(msg.get("error", "")), "Friends")
+			elif Globals.s(msg.get("message", "")) != "":
+				Globals.notify(Globals.NOTIFY_SUCCEED, Globals.s(msg.get("message", "")), "Friends")
 		"chat_message":
 			var lm_peer_id = int(msg.get("peer_id", -1))
+			_note_chat_author(Globals.s(msg.get("id", "")), msg.get("player_number"))
 			_chat_in({kind = "lobby", who = lm_peer_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", ""))}, lm_peer_id != local_peer_id)
 		"global_chat_message":
 			var gm_client_id = Globals.s(msg.get("client_id", ""))
+			_note_chat_author(Globals.s(msg.get("id", "")), msg.get("player_number"))
 			_chat_in({kind = "global", who = gm_client_id, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0)), mid = Globals.s(msg.get("id", "")), rngdle = bool(msg.get("rngdle", false))}, gm_client_id != Rhythia.cid)
 		"translated":
 			_chat_translated(msg)

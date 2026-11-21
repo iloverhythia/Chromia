@@ -79,8 +79,10 @@ static func _plus(rtl: RichTextLabel, mid: String):
 	rtl.pop()
 	rtl.pop()
 
-# Staff (Owner / Admin tag) right-click a name in chat: delete that message
-# for everyone, or ban its writer from chat (the server checks it's staff).
+# Right-click a name in chat: add them as a friend, or block them (friends
+# and blocking: LobbyManager social_action). Staff (Owner / Admin tag) also
+# get: delete that message for everyone, or ban its writer from chat (the
+# server checks it's staff).
 # Chat boxes put the name between name_start and name_end.
 static func name_start(rtl: RichTextLabel, mid: String, name: String, lm) -> bool:
 	if mid == "" or lm == null or not lm.has_method("staff_delete_chat"):
@@ -131,22 +133,52 @@ var _menu: PopupMenu
 func _is_staff() -> bool:
 	return is_instance_valid(_lm) and bool(_lm.get("i_am_staff"))
 
+# the writer of a chat line, by player number (-1: not known, or yourself)
+func _writer_number(mid: String) -> int:
+	if not is_instance_valid(_lm) or not _lm.has_method("chat_number"):
+		return -1
+	var n: int = _lm.chat_number(mid)
+	return n if n > 0 and _lm.relation(n) != "self" else -1
+
 func _on_input(ev, ctl: Control):
-	if _hover_who == "" or not (ev is InputEventMouseButton) or not ev.pressed or ev.button_index != BUTTON_RIGHT or not _is_staff():
+	if _hover_who == "" or not (ev is InputEventMouseButton) or not ev.pressed or ev.button_index != BUTTON_RIGHT:
 		return
-	ctl.accept_event()
 	var at := _hover_who.find(":")
 	var mid := _hover_who.substr(0, at)
 	var who := _hover_who.substr(at + 1)
+	var number := _writer_number(mid)
+	if number <= 0 and not _is_staff():
+		return
+	ctl.accept_event()
 	if _menu == null or not is_instance_valid(_menu):
 		_menu = PopupMenu.new()
 		ctl.add_child(_menu) # (on its owner's layer: above the Spectate window)
 		_menu.connect("id_pressed", self, "_on_mod_pick")
 	_menu.clear()
-	_menu.add_item("Delete message", 0)
-	_menu.add_item("Chat ban %s" % who, 1)
+	if number > 0:
+		match _lm.relation(number):
+			"friends":
+				_menu.add_item("Remove friend", 13)
+			"outgoing":
+				_menu.add_item("Cancel friend request", 11)
+			"incoming":
+				_menu.add_item("Accept friend request", 12)
+			"blocked":
+				pass
+			_:
+				_menu.add_item("Add friend", 10)
+		if _lm.relation(number) == "blocked":
+			_menu.add_item("Unblock %s" % who, 15)
+		else:
+			_menu.add_item("Block %s" % who, 14)
+	if _is_staff():
+		if _menu.get_item_count() > 0:
+			_menu.add_separator()
+		_menu.add_item("Delete message", 0)
+		_menu.add_item("Chat ban %s" % who, 1)
 	_menu.set_meta("mid", mid)
 	_menu.set_meta("who", who)
+	_menu.set_meta("number", number)
 	var vp := ctl.get_viewport()
 	var pos: Vector2 = vp.get_mouse_position()
 	_menu.rect_size = Vector2()
@@ -159,6 +191,17 @@ func _on_mod_pick(id: int):
 	if not is_instance_valid(_lm):
 		return
 	var mid := String(_menu.get_meta("mid"))
+	var number := int(_menu.get_meta("number"))
+	if id >= 10 and id <= 15 and number > 0:
+		if id == 14:
+			Globals.confirm_prompt.open("Block %s? Their chat messages get folded away for you (click Show to see one), they can't send you friend requests or lobby invites, and any friendship ends. They aren't told." % String(_menu.get_meta("who")), "Block", [{text = "Cancel"}, {text = "Block"}])
+			var ok = yield(Globals.confirm_prompt, "option_selected")
+			Globals.confirm_prompt.close()
+			if int(ok) != 1 or not is_instance_valid(_lm):
+				return
+		var action: String = {10: "request", 11: "cancel", 12: "accept", 13: "remove", 14: "block", 15: "unblock"}[id]
+		_lm.social_action(action, number)
+		return
 	if id == 0:
 		_lm.staff_delete_chat(mid)
 	elif id == 1:
@@ -174,7 +217,11 @@ func _on_hover(meta, on: bool):
 	if m.begins_with(META_W):
 		_hover_who = m.substr(META_W.length()) if on else ""
 		if _is_staff():
-			_rtl.hint_tooltip = "Right-click: delete / chat ban" if on else ""
+			_rtl.hint_tooltip = "Right-click: friend / block, delete / chat ban" if on else ""
+		elif on and _writer_number(_hover_who.substr(0, _hover_who.find(":"))) > 0:
+			_rtl.hint_tooltip = "Right-click: add friend / block"
+		else:
+			_rtl.hint_tooltip = ""
 		return
 	if m.begins_with(META_R) or m.begins_with(META_P):
 		_rtl.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if on else Control.CURSOR_ARROW

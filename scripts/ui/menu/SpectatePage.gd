@@ -340,6 +340,8 @@ func _ready():
 			_lm.connect("chat_reactions_changed", self, "_on_chat_reactions")
 		if _lm.has_signal("chat_message_deleted"):
 			_lm.connect("chat_message_deleted", self, "_on_chat_deleted")
+		if _lm.has_signal("blocked_changed"):
+			_lm.connect("blocked_changed", self, "_on_chat_deleted", [""]) # (drawn again: folded or unfolded)
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -390,6 +392,8 @@ func _build_notice():
 func _notify_chat(client_id: String, name: String, text: String):
 	if not Rhythia.spectate_chat_notify or (client_id != "" and client_id == Rhythia.cid):
 		return
+	if _lm != null and _lm.has_method("is_blocked_chat") and _lm.is_blocked_chat(String(_lm.get("last_chat_id"))):
+		return # (someone you blocked)
 	_unread += 1
 	badge.text = str(_unread) if _unread < 100 else "99+"
 	_place_notice()
@@ -1383,8 +1387,34 @@ func _fill_chat():
 		chat.pop()
 		_chat_lines = -1 # (the hint goes when the first message comes)
 		return
+	# (a run of lines by people you blocked: one "N blocked messages  Show"
+	# line, and the lines themselves under it once shown: BlockedChat.gd)
+	var run := []
 	for e in _lm.global_chat_history:
-		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), String(e.get("mid", "")))
+		var emid := String(e.get("mid", ""))
+		if _lm.has_method("is_blocked_chat") and _lm.is_blocked_chat(emid):
+			run.append(e)
+			continue
+		_add_blocked_run(run)
+		run = []
+		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), emid)
+	_add_blocked_run(run)
+
+func _add_blocked_run(run: Array):
+	if run.empty():
+		return
+	var BC = preload("res://scripts/ui/BlockedChat.gd")
+	var mids := []
+	for e in run:
+		mids.append(String(e.get("mid", "")))
+	if _chat_lines > 0:
+		chat.newline()
+	BC.rtl_fold(chat, mids, _lm, self, "_redraw_for_reactions")
+	_chat_sizes.append(1)
+	_chat_lines += 1
+	if BC.rtl_open(_lm, mids):
+		for e in run:
+			_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), String(e.get("mid", "")))
 
 func _on_chat_ban(_banned):
 	if chat_input != null:
@@ -1399,7 +1429,14 @@ func _on_chat_message(client_id: String, name: String, text: String, ts: float):
 	if _chat_lines == -1:
 		chat.clear()
 		_chat_lines = 0
-	_add_chat_line(client_id, name, text, ts, String(_lm.get("last_chat_id")) if _lm != null and _lm.get("last_chat_id") != null else "")
+	var mid: String = String(_lm.get("last_chat_id")) if _lm != null and _lm.get("last_chat_id") != null else ""
+	if _lm != null and _lm.has_method("is_blocked_chat") and _lm.is_blocked_chat(mid):
+		# (someone you blocked: drawn again, so it joins the fold before it)
+		if not _react_redraw:
+			_react_redraw = true
+			call_deferred("_redraw_for_reactions")
+		return
+	_add_chat_line(client_id, name, text, ts, mid)
 
 # someone reacted: the chat is drawn again (once a frame at most)
 var _react_redraw := false
