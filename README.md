@@ -1,3 +1,11 @@
+# Chromia
+Official Chromia Discord server
+https://discord.gg/chromiagame
+Official Chromia website
+https://chromia.lol/
+> "Chro-Chromia"
+
+
 # Installing Chromia
 
 Chromia runs on Windows, Linux, macOS, Android, iPhone and iPad, Meta Quest headsets, and in a web browser. It is free on every one of them.
