@@ -109,4 +109,4 @@ The browser version is the quickest way to try the game. The installed versions 
 
 ## Problems?
 
-Ask in the [Chromia Discord server](https://discord.gg/). If the game closes by itself, it offers to send a crash report the next time you open it; sending it helps get the problem fixed.
+Ask in the [Chromia Discord server](https://discord.gg/chromiagame). If the game closes by itself, it offers to send a crash report the next time you open it; sending it helps get the problem fixed.
