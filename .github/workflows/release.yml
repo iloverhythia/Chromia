@@ -334,6 +334,8 @@ jobs:
           export JAVA_HOME="${JAVA_HOME_11_X64}" PATH="${JAVA_HOME_11_X64}/bin:$PATH" ANDROID_SDK_ROOT="$sdk"
           "$GODOT" --no-window --path . --export "Quest" "$q/out/chromia-quest.apk"
           test -f "$q/out/chromia-quest.apk"
+          # the system splash made it into the app (prepare_quest.sh)
+          unzip -l "$q/out/chromia-quest.apk" | grep -q "assets/vr_splash.png"
           "$GODOT" --no-window --path . --export-pack "Quest" "$q/out/chromia-quest.pck"
           test -f "$q/out/chromia-quest.pck"
           cp "$q/out/chromia-quest.apk" "$q/out/chromia-quest.pck" "$GITHUB_WORKSPACE/"

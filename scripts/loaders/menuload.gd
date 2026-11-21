@@ -51,6 +51,8 @@ func _ready():
 
 
 
+	if Rhythia.vr:
+		_nested = RQueue.queue_nested(target) # (read in small steps, as init.gd does)
 	var res = RQueue.queue_resource(target)
 	if res != OK:
 		Rhythia.errorstr = "queue_resource returned %s" % res
@@ -63,6 +65,7 @@ func _ready():
 
 const SONG_SCENE := "res://scenes/song.tscn"
 var _song_too := false
+var _nested := [] # (RQueue.queue_nested)
 
 var result
 var left: bool = false
@@ -85,6 +88,8 @@ func _process(delta):
 				_song = null
 				_song_too = false
 			result = RQueue.get_resource(target)
+			RQueue.forget(_nested)
+			_nested = []
 			Rhythia.keep_deps(target)
 			leaving = true
 			black_fade_target = true

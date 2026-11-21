@@ -1753,6 +1753,7 @@ func _sort_players_for_first(a, b) -> bool:
 # the game connects and again when it changes. It's the name in lobbies, chat
 # and the menu; with none set, your Discord name comes back.
 func _apply_server_name(msg: Dictionary):
+	_apply_discord_name(Globals.s(msg.get("discord_name", "")).strip_edges())
 	var custom := Globals.s(msg.get("custom_name", "")).strip_edges()
 	var before := Globals.s(Rhythia.website_name)
 	if custom == before:
@@ -1768,6 +1769,24 @@ func _apply_server_name(msg: Dictionary):
 		player_name = nm if nm != "" else Globals.s(du.get("username", "Player"))
 		_save_player_name()
 	Rhythia.emit_signal("discord_login_changed") # (the menu shows names again)
+
+# Your Discord name as the server has it now (it asks Discord): the copy saved
+# at Discord sign-in stayed old after a name change on Discord, and so did
+# your name in the menu.
+func _apply_discord_name(dn: String):
+	if dn == "" or typeof(Rhythia.discord_user) != TYPE_DICTIONARY or not Rhythia.discord_user.has("id"):
+		return
+	var old_dn := Globals.s(Rhythia.discord_user.get("display_name", ""))
+	if old_dn == "":
+		old_dn = Globals.s(Rhythia.discord_user.get("username", ""))
+	if old_dn == dn:
+		return
+	Rhythia.discord_user["display_name"] = dn
+	Rhythia._save_discord_profile()
+	if Globals.s(Rhythia.website_name) == "" and (player_name == old_dn or player_name == "Player"):
+		player_name = dn
+		_save_player_name()
+	Rhythia.emit_signal("discord_login_changed")
 
 func _handle_message(msg: Dictionary):
 	if Globals.s(msg.get("type", "")).begins_with("collab_"):
@@ -2331,6 +2350,14 @@ func _presence_tick(delta: float):
 	if presence_supported == 0:
 		return # an older server: connects only when needed, as before
 	if _client.get_connection_status() == NetworkedMultiplayerPeer.CONNECTION_CONNECTING:
+		return
+	# Not in the middle of a song you play by yourself: starting a connection
+	# takes the game's own thread for a moment (7 to 16 ms on a computer, more
+	# on a headset or a phone), a stutter every time it's tried, and with the
+	# server out of reach it was tried again and again through the song. It
+	# is tried when the song is over. (A lobby's round or watching someone
+	# needs the connection now: tried as before.)
+	if Rhythia.in_map and not lobby_active and not watch_mode:
 		return
 	_presence_retry_t -= delta
 	if _presence_retry_t <= 0.0:

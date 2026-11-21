@@ -329,7 +329,7 @@ config/save_dir.Android="user://"
 config/show_trail_debug=false
 config/use_custom_user_dir=true
 config/use_custom_user_dir.Android=false
-config/version="nov19-2026-a"
+config/version="nov21-2026-a"
 config/windows_native_icon="res://icon.ico"
 networking/enabled=true
 networking/github_repo="iloverhythia/Chromia"
@@ -546,6 +546,7 @@ warning_test={
 
 [input_devices]
 
+buffering/agile_event_flushing=true
 pointing/ios/touch_delay=0.0
 
 [locale]

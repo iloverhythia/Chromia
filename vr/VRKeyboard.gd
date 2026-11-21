@@ -7,6 +7,12 @@ extends Control
 # Enter to confirm...). It sits at the bottom of the screen, or at the top when
 # the text box is down there, until you move it: drag the bar along its top
 # with the pointer and it stays there (Reset in the bar puts it back).
+#
+# The keys are drawn by one control (Keys, below): every key's background, then
+# every label. They used to be fifty Buttons, each drawn by itself, which made
+# the menu a hundred draw calls heavier whenever the keyboard was out: on a
+# Meta Quest the frame rate sagged with it (the store review's
+# VRC.Quest.Performance.1). Now the keyboard costs a handful.
 
 const ROWS := [
 	["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"],
@@ -26,9 +32,43 @@ const BAR := 40.0 # the grab bar along the top
 const POS_FILE := "user://vr_keyboard.cfg"
 
 var panel: Panel
-var _keys := [] # [button, base character]
+var _keys := [] # Key
+var _keys_ctl: Control
 var _shift := false
-var _shift_btn: Button
+var _shift_key: Key
+
+# One key: where it is on the panel, what it shows and what it does.
+class Key extends Reference:
+	var rect := Rect2()
+	var ch := "" # a character key's base character ("" for the others)
+	var text := ""
+	var method := ""
+	var arg = null
+	var flash := false
+
+# Draws all the keys and takes a mouse click on one (the VR hands press keys
+# through key_at / press_key, MenuPointer.gd).
+class Keys extends Control:
+	var kb
+	const BG := Color(0.764706, 0.65098, 0.8)
+	const BG_LOW := Color(0.6, 0.5, 0.65)
+	const TXT := Color(0.06, 0.04, 0.08)
+	func _draw():
+		# every background first, then every label: two batches for the lot
+		for k in kb._keys:
+			var tint: Color = kb.tint_of(k)
+			draw_rect(k.rect, BG_LOW * tint)
+			draw_rect(Rect2(k.rect.position, k.rect.size - Vector2(0, 3)), BG * tint)
+		var f: Font = kb._font
+		for k in kb._keys:
+			var sz: Vector2 = f.get_string_size(k.text)
+			draw_string(f, (k.rect.position + (k.rect.size - sz) / 2.0 + Vector2(0, f.get_ascent() - 1)).floor(), k.text, TXT)
+	func _gui_input(ev):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT:
+			var k = kb.key_at(ev.global_position)
+			if k != null:
+				kb.press_key(k)
+				accept_event()
 var _target: Control = null
 var _font: DynamicFont
 var _dragging := false
@@ -56,53 +96,53 @@ func _ready():
 	panel.rect_size = Vector2(w, h)
 	_add_bar(w)
 	_load_pos()
+	_keys_ctl = Keys.new()
+	_keys_ctl.name = "Keys"
+	_keys_ctl.kb = self
+	_keys_ctl.rect_size = panel.rect_size
+	_keys_ctl.focus_mode = FOCUS_NONE # pressing a key must not take the focus from the text box
+	_keys_ctl.mouse_filter = MOUSE_FILTER_PASS # (the bar and Reset, over it, keep their clicks)
+	panel.add_child(_keys_ctl)
+	panel.move_child(_keys_ctl, 0)
 	for r in range(ROWS.size()):
 		for c in range(ROWS[r].size()):
 			var ch: String = ROWS[r][c]
-			var b := _key(ch, Vector2(PAD + c * (KEY_W + GAP), BAR + PAD + r * (KEY_H + GAP)), Vector2(KEY_W, KEY_H))
-			b.connect("pressed", self, "_on_char", [ch])
-			_keys.append([b, ch])
+			var k := _key(ch, Vector2(PAD + c * (KEY_W + GAP), BAR + PAD + r * (KEY_H + GAP)), Vector2(KEY_W, KEY_H), "_on_char", ch)
+			k.ch = ch
 	# bottom row: shift, space, backspace, enter, done
 	var y: float = BAR + PAD + 4 * (KEY_H + GAP)
 	var x: float = PAD
-	_shift_btn = _key("Shift", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H))
-	_shift_btn.connect("pressed", self, "_on_shift")
+	_shift_key = _key("Shift", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H), "_on_shift")
 	x += KEY_W * 1.5 + GAP
 	var space_w: float = w - PAD * 2 - (KEY_W * 1.5 + KEY_W * 1.5 + KEY_W * 1.5 + KEY_W * 1.5) - GAP * 4
-	var sp := _key("Space", Vector2(x, y), Vector2(space_w, KEY_H))
-	sp.connect("pressed", self, "_on_char", [" "])
+	_key("Space", Vector2(x, y), Vector2(space_w, KEY_H), "_on_char", " ")
 	x += space_w + GAP
-	var bs := _key("Delete", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H))
-	bs.connect("pressed", self, "_on_special", [KEY_BACKSPACE])
+	_key("Delete", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H), "_on_special", KEY_BACKSPACE)
 	x += KEY_W * 1.5 + GAP
-	var en := _key("Enter", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H))
-	en.connect("pressed", self, "_on_special", [KEY_ENTER])
+	_key("Enter", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H), "_on_special", KEY_ENTER)
 	x += KEY_W * 1.5 + GAP
-	var done := _key("Done", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H))
-	done.connect("pressed", self, "_on_done")
+	_key("Done", Vector2(x, y), Vector2(KEY_W * 1.5, KEY_H), "_on_done")
 	panel.visible = false
 	_refresh_labels()
 
-func _key(text: String, pos: Vector2, size: Vector2) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.theme = load("res://uitheme.tres")
-	b.add_font_override("font", _font)
-	b.focus_mode = FOCUS_NONE # pressing a key must not take the focus from the text box
-	b.rect_position = pos
-	b.rect_size = size
-	b.rect_min_size = size
-	panel.add_child(b)
-	return b
+func _key(text: String, pos: Vector2, size: Vector2, method: String, arg = null) -> Key:
+	var k := Key.new()
+	k.text = text
+	k.rect = Rect2(pos, size)
+	k.method = method
+	k.arg = arg
+	_keys.append(k)
+	return k
 
 # Typing with the other hand (MenuPointer.gd): the key under a point of the
 # screen (layout pixels), or null
 func key_at(p: Vector2):
 	if not panel.visible:
 		return null
-	for b in panel.get_children():
-		if b is Button and b.visible and b.get_global_rect().has_point(p):
-			return b
+	var local: Vector2 = p - _keys_ctl.rect_global_position
+	for k in _keys:
+		if k.rect.has_point(local):
+			return k
 	return null
 
 # the key each hand points at (MenuPointer.gd: both hands type), tinted; a key
@@ -116,27 +156,31 @@ func light_hand(hand: int, b):
 	_tint(old)
 	_tint(b)
 
-func _tint(b):
-	if b == null or not is_instance_valid(b):
-		return
-	if b.has_meta("flash"):
-		return
+func _tint(_b):
+	_keys_ctl.update()
+
+# a key's colour: lighter under a hand's pointer, green for a moment when pressed
+func tint_of(k) -> Color:
+	if k.flash:
+		return Color(0.75, 1, 0.85)
 	var n := 0
 	for h in _lit:
-		if h == b:
+		if h == k:
 			n += 1
-	b.self_modulate = Color(1, 1, 1) if n == 0 else (Color(1, 0.8, 0.97) if n == 1 else Color(1, 0.65, 0.93))
+	return Color(1, 1, 1) if n == 0 else (Color(1, 0.8, 0.97) if n == 1 else Color(1, 0.65, 0.93))
 
-func press_key(b):
-	if b == null or not is_instance_valid(b):
+func press_key(k):
+	if not (k is Key):
 		return
-	b.emit_signal("pressed")
-	b.set_meta("flash", true)
-	b.self_modulate = Color(0.75, 1, 0.85)
+	if k.arg == null:
+		call(k.method)
+	else:
+		call(k.method, k.arg)
+	k.flash = true
+	_keys_ctl.update()
 	yield(get_tree().create_timer(0.09), "timeout")
-	if is_instance_valid(b):
-		b.remove_meta("flash")
-		_tint(b)
+	k.flash = false
+	_keys_ctl.update()
 
 func _is_text_box(c) -> bool:
 	if c is LineEdit:
@@ -154,7 +198,7 @@ func _process(_d):
 	elif panel.visible:
 		panel.visible = false
 		_target = null
-	if panel.visible:
+	if panel.visible and get_position_in_parent() != get_parent().get_child_count() - 1:
 		raise() # over boxes opened after it
 
 func _show_for(c: Control):
@@ -172,9 +216,10 @@ func _show_for(c: Control):
 
 func _refresh_labels():
 	for k in _keys:
-		var ch: String = k[1]
-		k[0].text = (SHIFTED.get(ch, ch.to_upper()) if _shift else ch)
-	_shift_btn.text = "SHIFT" if _shift else "Shift"
+		if k.ch != "":
+			k.text = (SHIFTED.get(k.ch, k.ch.to_upper()) if _shift else k.ch)
+	_shift_key.text = "SHIFT" if _shift else "Shift"
+	_keys_ctl.update()
 
 func _on_shift():
 	_shift = not _shift

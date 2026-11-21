@@ -59,6 +59,36 @@ func queue_resource(path, p_in_front = false, quiet = false):
 		return OK
 
 
+# VR (where loading is on the main thread): the scenes inside `path`, and the
+# ones inside those, innermost first, each queued by itself ahead of `path`.
+# A scene is read one file per step, but a scene inside it counted as a single
+# file: the settings page inside the menu was one long step, a freeze in the
+# middle of the loading screen. Queued by itself it is read in steps too, and
+# the outer scene then finds it already there.
+# -> what was queued: give it to forget() once `path` has been taken.
+func queue_nested(path: String) -> Array:
+	var found := []
+	_nested_of(path, {}, found)
+	var queued := []
+	for p in found:
+		if not ResourceLoader.has_cached(p) and queue_resource(p, false, true) == OK:
+			queued.append(p)
+	return queued
+
+func _nested_of(path: String, seen: Dictionary, out: Array):
+	seen[path] = true
+	for d in ResourceLoader.get_dependencies(path):
+		var dp: String = String(d).split("::")[0]
+		if seen.has(dp) or not dp.begins_with("res://"):
+			continue
+		if dp.get_extension().to_lower() in ["tscn", "scn"]:
+			_nested_of(dp, seen, out)
+			out.append(dp)
+
+func forget(paths: Array):
+	for p in paths:
+		cancel_resource(p)
+
 func cancel_resource(path):
 	_lock("cancel_resource")
 	if path in pending:
@@ -112,7 +142,16 @@ func get_resource(path):
 				queue.remove(pos)
 				queue.insert(0, res)
 
-			res = _wait_for_resource(res, path)
+			if _main_thread():
+				# (nobody else loads it then: finished here, as loading on the
+				# main thread did before it was spread over frames)
+				_unlock("get_resource_now")
+				while pending.get(path) is ResourceInteractiveLoader:
+					thread_process(false)
+				_lock("get_resource_now")
+				res = pending.get(path)
+			else:
+				res = _wait_for_resource(res, path)
 			pending.erase(path)
 			_unlock("return")
 			return res
@@ -126,7 +165,9 @@ func get_resource(path):
 		return ResourceLoader.load(path)
 
 
-func thread_process(wait_for_signal: bool = true):
+# budget_usec > 0: stop after that long (the rest goes on next frame)
+func thread_process(wait_for_signal: bool = true, budget_usec: int = 0):
+	var began := OS.get_ticks_usec()
 	if wait_for_signal:
 		_wait("thread_process")
 		if _main_thread():
@@ -151,6 +192,8 @@ func thread_process(wait_for_signal: bool = true):
 
 
 			queue.erase(res)
+		if budget_usec > 0 and OS.get_ticks_usec() - began >= budget_usec:
+			break
 	_unlock("process")
 
 
@@ -181,9 +224,18 @@ func start():
 func _main_thread() -> bool:
 	return not thread_started or (Rhythia != null and Rhythia.vr)
 
+# Loading on the main thread used to do the whole queue in one frame: the menu
+# and the song scene each froze the picture for as long as they took to read
+# (most of a second on a Quest 3, longer on a Quest 2), loading panel and all.
+# In a headset a frozen picture is what Meta's store review calls unresponsive
+# (VRC.Quest.Performance.3). Now a little is read every frame, so the loading
+# screen keeps moving: a headset frame's worth in VR, more on a phone (whose
+# loading screen is fine at 30 pictures a second, and it costs less time).
+const BUDGET_VR_USEC := 9000
+const BUDGET_PHONE_USEC := 24000
 func _process(_delta):
 	if _main_thread():
-		thread_process(false)
+		thread_process(false, BUDGET_VR_USEC if (Rhythia != null and Rhythia.vr) else BUDGET_PHONE_USEC)
 
 
 func _exit_tree():

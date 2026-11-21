@@ -58,6 +58,10 @@ p = "android/build/AndroidManifest.xml"
 s = open(p).read()
 add = """
     <uses-native-library android:name="libopenxr_forwardloader.oculus.com" android:required="false" />
+    <!-- the headset's own splash (assets/vr_splash.png, below): shown by the
+         system, in front of you and following your head, from the moment the
+         app is opened until the game hands over its first picture -->
+    <meta-data android:name="com.oculus.ossplash" android:value="true" />
 """
 queries = """
     <queries>
@@ -75,6 +79,12 @@ s = s[:i] + add + s[i:]
 s = s.replace('android:name="com.oculus.supportedDevices"\n            android:value="all"', 'android:name="com.oculus.supportedDevices"\n            android:value="quest2|questpro|quest3|quest3s"')
 open(p, "w").write(s)
 PY
+# The system splash picture. Meta's store review wants something head-tracked
+# in the headset within 4 seconds of opening the app (VRC.Quest.Performance.3);
+# the game's own Loading panel can only come once the engine and VR are up.
+# In a folder of its own: Godot empties android/build/assets at every export.
+mkdir -p android/build/vr_assets
+cp .github/quest/vr_splash.png android/build/vr_assets/vr_splash.png
 # no release lint (slow, and it downloads extra tools)
 cat >> android/build/build.gradle <<'GRADLE'
 
@@ -82,6 +92,11 @@ android {
     lintOptions {
         checkReleaseBuilds false
         abortOnError false
+    }
+    sourceSets {
+        main {
+            assets.srcDirs += ['vr_assets']
+        }
     }
 }
 GRADLE

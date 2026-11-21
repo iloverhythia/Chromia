@@ -38,6 +38,10 @@ func _fx_copy(tpl: Spatial, pool: Array) -> Spatial:
 	while not pool.empty():
 		var c = pool.pop_back()
 		if is_instance_valid(c):
+			if c.has_meta("warm"):
+				# (made ahead and played once, tiny and far away: _fill_fx_pools)
+				c.remove_meta("warm")
+				c.scale = tpl.scale
 			return c
 	var d = tpl.duplicate()
 	if "_pool" in d:
@@ -957,6 +961,14 @@ const cursor_offset = Vector3(1, -1, 0)
 onready var cam: Camera = get_node("../..").get_node("Camera")
 var hlpower = (0.1 * Rhythia.get("parallax"))
 var _no_delay: bool = Rhythia.no_delay_active()
+# Android phones: touches come in on another thread and wait in a list. The
+# engine used to empty it once a frame, AFTER drawing, so a touch that arrived
+# while a frame waited for the screen was first used a whole frame later
+# (project.godot now has it emptied before each frame's scripts instead:
+# input_devices/buffering/agile_event_flushing). The ones that arrive while
+# this frame's scripts run are taken in here and in Cursor._process, just
+# before the cursor is placed and drawn.
+var _late_touch: bool = OS.has_feature("Android") and Rhythia.device("mobile") and not Rhythia.vr and not Rhythia.replaying
 onready var Grid = get_node("../HUD")
 
 func do_half_lock():
@@ -1237,7 +1249,7 @@ func _process(delta: float):
 
 	# Experimental No Delay: mouse movement that came in while this frame was
 	# being started is taken in now, before the camera and hits use the cursor
-	if _no_delay:
+	if _no_delay or _late_touch:
 		Input.flush_buffered_events()
 	var u = OS.get_ticks_usec()
 	delta = float(u - last_usec) / 1000000.0
@@ -1624,20 +1636,45 @@ func _warm_note_effects():
 	# copies made now, so the first hits don't copy the effect (VR most)
 	call_deferred("_fill_fx_pools")
 
-const FX_PREFILL := 8
+# Copies of the hit / miss effect (and the score popup) made at the start of
+# the song, each played once where nobody sees it: tiny, far behind the grid.
+# A copy costs most the first time it is used: it joins the scene and its
+# particles are set up and handed to the graphics card. That used to happen in
+# the middle of the song, whenever more effects were playing at once than ever
+# before in it (two or three notes hit in one frame): one long frame each time,
+# a small stutter, which a headset shows most. (Eight copies were made ahead,
+# but not put in the scene, so even those cost their first use.)
+# Three a frame while the song counts in; each goes to its pool when it has
+# played, so the pools are full of ready copies by the first notes.
+const FX_PREFILL_HIT := 24
+const FX_PREFILL_MISS := 10
+const FX_PREFILL_POPUP := 12
 func _fill_fx_pools():
-	for pair in [[hitEffect, _hit_fx_pool], [missEffect, _miss_fx_pool]]:
-		var tpl = pair[0]
-		var pool: Array = pair[1]
-		if tpl == null or not is_instance_valid(tpl):
-			continue
-		for _i in range(FX_PREFILL - pool.size()):
+	var at := Vector3(0, 0, -60)
+	var jobs := [[hitEffect, _hit_fx_pool, get_parent(), hit_id, false, FX_PREFILL_HIT], [missEffect, _miss_fx_pool, self, miss_id, true, FX_PREFILL_MISS]]
+	if Rhythia.score_popup:
+		jobs.append([scoreEffect, _score_fx_pool, get_parent(), 0, false, FX_PREFILL_POPUP])
+	var made := 0
+	for job in jobs:
+		var pool: Array = job[1]
+		for _i in range(int(job[5])):
+			var tpl = job[0]
+			if not is_inside_tree() or tpl == null or not is_instance_valid(tpl) or not is_instance_valid(job[2]):
+				return
 			var d = tpl.duplicate()
 			if "_pool" in d:
 				d._pool = pool
 			if "_live" in d:
 				d._live = _fx_live
-			pool.append(d)
+			d.set_meta("warm", true)
+			d.scale = Vector3(0.02, 0.02, 0.02)
+			if tpl == scoreEffect:
+				d.spawn(job[2], at, Color(1, 1, 1, 0), 0)
+			else:
+				d.spawn(job[2], at, Color(1, 1, 1), job[3], job[4])
+			made += 1
+			if made % 3 == 0:
+				yield(get_tree(), "idle_frame")
 
 func _exit_tree():
 	SteadyRate.song_notes(_fs_count, _fs_in_step, _fs_rough_real, _fs_rough_drawn)
