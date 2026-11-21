@@ -1753,6 +1753,7 @@ func _sort_players_for_first(a, b) -> bool:
 # the game connects and again when it changes. It's the name in lobbies, chat
 # and the menu; with none set, your Discord name comes back.
 func _apply_server_name(msg: Dictionary):
+	_apply_discord_name(Globals.s(msg.get("discord_name", "")).strip_edges())
 	var custom := Globals.s(msg.get("custom_name", "")).strip_edges()
 	var before := Globals.s(Rhythia.website_name)
 	if custom == before:
@@ -1768,6 +1769,24 @@ func _apply_server_name(msg: Dictionary):
 		player_name = nm if nm != "" else Globals.s(du.get("username", "Player"))
 		_save_player_name()
 	Rhythia.emit_signal("discord_login_changed") # (the menu shows names again)
+
+# Your Discord name as the server has it now (it asks Discord): the copy saved
+# at Discord sign-in stayed old after a name change on Discord, and so did
+# your name in the menu.
+func _apply_discord_name(dn: String):
+	if dn == "" or typeof(Rhythia.discord_user) != TYPE_DICTIONARY or not Rhythia.discord_user.has("id"):
+		return
+	var old_dn := Globals.s(Rhythia.discord_user.get("display_name", ""))
+	if old_dn == "":
+		old_dn = Globals.s(Rhythia.discord_user.get("username", ""))
+	if old_dn == dn:
+		return
+	Rhythia.discord_user["display_name"] = dn
+	Rhythia._save_discord_profile()
+	if Globals.s(Rhythia.website_name) == "" and (player_name == old_dn or player_name == "Player"):
+		player_name = dn
+		_save_player_name()
+	Rhythia.emit_signal("discord_login_changed")
 
 func _handle_message(msg: Dictionary):
 	if Globals.s(msg.get("type", "")).begins_with("collab_"):
