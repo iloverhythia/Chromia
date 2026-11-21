@@ -10,3 +10,4 @@ in scripts/Savia.gd and empties this list.
 - Fixed small stutters in the middle of songs, most noticeable in VR: hit and miss effects (and score popups) are now all made ready while the song counts in, instead of being set up mid-song whenever several notes were hit at once
 - No more stutters from the game trying to reconnect to the server during a song you play alone (it reconnects when the song is over), or from menu music being downloaded and checked in the background while you play
 - Names no longer stay old after someone changes their Discord name: the Spectate tab, lobbies, chat and your own name in the menu show the new one
+- Watching a replay no longer "fails" partway through a map that was really passed (very rarely, the replay's health ran out where the run's didn't); a run that really failed still fails where it did

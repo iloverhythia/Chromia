@@ -816,8 +816,28 @@ func miss(col):
 			if not song_has_failed:
 				song_has_failed = true
 				Rhythia.fail_asp.play()
+		elif _replay_went_on():
+			pass # (watching a replay whose run didn't fail here: it plays on)
 		else:
 			end(Globals.END_FAIL)
+
+# Watching a replay, health ran out, but the run it was recorded from went on:
+# the replay has hits and misses for notes after this moment. (Very rarely the
+# playback's health came out lower than the run's, and the replay "failed"
+# halfway through a map that was passed.) A run that really failed here has
+# nothing recorded after it, and the replay still fails where it did.
+var _replay_last_note_ms = null
+func _replay_went_on() -> bool:
+	if not Rhythia.replaying or Rhythia.replay == null or Rhythia.replay.autoplayer or Rhythia.replay.sv == 1:
+		return false
+	if _replay_last_note_ms == null:
+		_replay_last_note_ms = -1.0
+		var spawn_notes = $Spawn.notes
+		for nid in Rhythia.replay.note_results.keys():
+			var i: int = int(nid)
+			if i >= 0 and i < spawn_notes.size():
+				_replay_last_note_ms = max(float(_replay_last_note_ms), float(spawn_notes[i][1]))
+	return float(_replay_last_note_ms) > float($Spawn.ms)
 
 
 func _exit_tree():
