@@ -91,6 +91,7 @@ func _build_lobby_ui():
 	lobby_canvas.add_child(lobby_toggle_button)
 
 	lobby_panel = PanelContainer.new()
+	lobby_panel.add_to_group("wheel_blocker") # (scrolling its chat doesn't scroll the maps: Savia.wheel_blocked)
 	lobby_panel.rect_size = Vector2(340, 600)
 	lobby_panel.rect_min_size = Vector2(340, 600)
 	lobby_panel.theme = ui_theme

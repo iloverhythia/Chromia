@@ -332,7 +332,7 @@ func _input(ev):
 	var inside := get_global_rect().has_point(Rhythia.menu_mouse(self))
 	if ev is InputEventMouseButton:
 		if ev.button_index == BUTTON_WHEEL_UP or ev.button_index == BUTTON_WHEEL_DOWN:
-			if ev.pressed and inside and not Rhythia.alt_held(ev):
+			if ev.pressed and inside and not Rhythia.alt_held(ev) and not Rhythia.wheel_blocked(self):
 				_vel = 0
 				scroll_rows((-1.0 if ev.button_index == BUTTON_WHEEL_UP else 1.0) * 1.0)
 			return

@@ -30,6 +30,7 @@ static func open_on(parent: Node, tab: String = ""):
 	# (on the screen the button is on: in VR the menu screen)
 	parent.get_viewport().add_child(layer)
 	var dim := ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.anchor_right = 1
 	dim.anchor_bottom = 1

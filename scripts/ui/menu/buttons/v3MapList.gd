@@ -777,7 +777,7 @@ func tween_length():
 func _input(ev: InputEvent):
 	if grid == null and is_visible_in_tree() and ev is InputEventMouseButton and ev.is_pressed():
 		if (ev.button_index == BUTTON_WHEEL_UP or ev.button_index == BUTTON_WHEEL_DOWN) \
-			and (Rhythia.alt_held(ev) or not get_global_rect().has_point(Rhythia.menu_mouse(self))):
+			and (Rhythia.alt_held(ev) or not get_global_rect().has_point(Rhythia.menu_mouse(self)) or Rhythia.wheel_blocked(self)):
 			return
 		if ev.button_index == BUTTON_WHEEL_UP:
 			scrolling_to = false

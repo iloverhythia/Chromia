@@ -72,6 +72,7 @@ func _build():
 
 	# a see-through layer behind the page: a click outside closes it
 	dim = ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.name = "FiltersDim"
 	dim.color = Color(0, 0, 0, 0.25)
 	dim.set_as_toplevel(true)

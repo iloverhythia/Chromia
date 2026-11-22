@@ -3056,6 +3056,16 @@ func menu_mouse(ci: CanvasItem) -> Vector2:
 		return vr_menu.last_screen_pos
 	return ci.get_global_mouse_position()
 
+# The mouse wheel is over a window drawn on top of the menu (the Spectate
+# window and its chat, the Online panel, Friends, filters...: the Controls in
+# the "wheel_blocker" group), so the map list under it leaves the wheel alone.
+# (The map lists read the wheel in _input, which every event reaches.)
+func wheel_blocked(ci: CanvasItem) -> bool:
+	for n in get_tree().get_nodes_in_group("wheel_blocker"):
+		if n is Control and n.is_visible_in_tree() and n.get_viewport() == ci.get_viewport() and n.get_global_rect().has_point(menu_mouse(n)):
+			return true
+	return false
+
 func setup_controller_bindings():
 	apply_vr_binds()
 

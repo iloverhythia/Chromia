@@ -262,6 +262,8 @@ func pg(dir:int):
 
 func _input(ev:InputEvent):
 	if is_visible_in_tree() and ev is InputEventMouseButton and ev.is_pressed():
+		if (ev.button_index == BUTTON_WHEEL_UP or ev.button_index == BUTTON_WHEEL_DOWN) and Rhythia.wheel_blocked(self):
+			return
 		if ev.button_index == BUTTON_WHEEL_UP:
 			pg(-1)
 		elif ev.button_index == BUTTON_WHEEL_DOWN:

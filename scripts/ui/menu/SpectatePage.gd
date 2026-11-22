@@ -447,6 +447,7 @@ func _build_window():
 	add_child(overlay)
 	# the menu dims behind it; clicking there closes it
 	var dim := ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.anchor_right = 1.0
 	dim.anchor_bottom = 1.0
 	dim.color = Color(0, 0, 0, 0.55)
