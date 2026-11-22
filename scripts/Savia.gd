@@ -2695,13 +2695,55 @@ var vr_play_lock_pitch: float = 0.0
 # VR graphics (vr/VRPlayer.gd apply_xr_settings): Meta Quest foveated rendering
 # 0 off .. 3 high, display refresh rate (0 = the headset's own), render
 # resolution (applies when VR starts) and glow (-1 = off on Quest, on on PC)
-var vr_foveation: int = 1 # (was 2: the edges of the view looked pixelated)
+var vr_foveation: int = -1 # -1: Auto, by the render resolution (vr_foveation_now); 0 off .. 3 high
 var vr_refresh: float = 0.0
 # Settings > VR > Graphics > Unlock refresh rate: always the highest rate the
 # headset offers, put back if the headset drops it (VRPlayer.apply_xr_settings)
 var vr_refresh_unlock: bool = false
 var vr_render_scale: float = 1.0
 var vr_glow: int = -1
+# Graphics that give way as the render resolution goes up. Every pixel above
+# 100% is paid for again by anti-aliasing (each one drawn and stored twice,
+# then blended down) and at the edges of the view; a picture drawn bigger than
+# the lenses show is smoothed by that already, and its edges stay as detailed
+# with more foveation as they were at 100% with less. So with both on Auto,
+# 150% costs the headset a good deal less than 2.25 times what 100% does.
+var vr_msaa: int = -1 # anti-aliasing in VR: -1 Auto (off at a high render resolution), 0 off, 1 on
+var vr_scale_active: float = 1.0 # the render resolution VR started with (the setting applies at the next start)
+const VR_MSAA_OFF_FROM := 1.2 # (render resolution: above it Auto turns anti-aliasing off, foveation to Medium)
+const VR_FOV_HIGH_FROM := 1.55 # (above it Auto foveation is High)
+const VR_BIG_EYE_PIXELS := 6500000.0 # (PC VR, where the headset's software sets the resolution: an eye image this big counts as high)
+
+# is the picture VR draws well above the headset's own resolution?
+func vr_res_high() -> bool:
+	if OS.has_feature("quest") or fake_vr:
+		return vr_scale_active > VR_MSAA_OFF_FROM
+	if vr_interface != null:
+		var size: Vector2 = vr_interface.get_render_targetsize()
+		return size.x * size.y > VR_BIG_EYE_PIXELS
+	return false
+
+# the foveated rendering level in use (0 off .. 3 high)
+func vr_foveation_now() -> int:
+	if vr_foveation >= 0:
+		return int(clamp(vr_foveation, 0, 3))
+	if vr_scale_active > VR_FOV_HIGH_FROM:
+		return 3
+	return 2 if vr_scale_active > VR_MSAA_OFF_FROM else 1
+
+func vr_msaa_on() -> bool:
+	return vr_msaa == 1 or (vr_msaa < 0 and not vr_res_high())
+
+func apply_vr_msaa():
+	if not vr:
+		return
+	var vp := get_viewport()
+	var want: int = int(ProjectSettings.get_setting("rendering/quality/filters/msaa")) if vr_msaa_on() else Viewport.MSAA_DISABLED
+	if want != Viewport.MSAA_DISABLED and vr_msaa == 1:
+		want = int(max(want, Viewport.MSAA_2X))
+	if vp.msaa != want:
+		vp.msaa = want
+		trail("VR anti-aliasing %s (render resolution %d%%)" % ["on" if want != Viewport.MSAA_DISABLED else "off", int(round(vr_scale_active * 100.0))])
 var vr_simple_bg: bool = false # VR songs on the plain VOID background
 # the pointer beam (vr/Pointer.gd): thickness (x the default), colour, rainbow
 var vr_beam_width: float = 1.0
@@ -2947,6 +2989,7 @@ func _vr_settings_ready():
 		return
 	apply_vr_binds()
 	apply_vr_pacing()
+	apply_vr_msaa()
 	if is_instance_valid(vr_player):
 		vr_player.update_primary_ray()
 		vr_player.apply_hand()
@@ -2992,12 +3035,14 @@ func start_vr(at_boot: bool = false):
 				vr_xr_config = load(cfg_path0).new()
 				if vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
 					vr_xr_config.set_render_target_size_multiplier(clamp(vr_render_scale, 0.5, VR_SCALE_MAX))
+					vr_scale_active = clamp(vr_render_scale, 0.5, VR_SCALE_MAX)
 		var vr_up: bool = vr_interface != null and vr_interface.initialize()
 		if not vr_up and vr_interface != null and vr_render_scale > 1.5 and vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
 			# (a picture this big may be more than the headset takes: once more at 100%)
 			_vr_scale_fell_back = vr_render_scale
 			vr_render_scale = 1.0
 			vr_xr_config.set_render_target_size_multiplier(1.0)
+			vr_scale_active = 1.0
 			vr_up = vr_interface.initialize()
 		if not vr_up:
 			print("Failed to initialize VR!")
@@ -3015,6 +3060,9 @@ func start_vr(at_boot: bool = false):
 	vr = true
 	_vr_started_ms = OS.get_ticks_msec()
 	apply_render_res() # (VR has its own picture: the window is drawn as it is)
+	if fake_vr:
+		vr_scale_active = clamp(vr_render_scale, 0.5, VR_SCALE_MAX)
+	apply_vr_msaa()
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
 	_vr_watch_session()
 	_desk_vsync = OS.vsync_enabled
@@ -5346,11 +5394,18 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("vr_play_lock_pitch"):
 			vr_play_lock_pitch = clamp(float(data.vr_play_lock_pitch), -1.2, 1.2)
 		if data.has("vr_foveation"):
-			vr_foveation = int(clamp(int(data.vr_foveation), 0, 3))
+			vr_foveation = int(clamp(int(data.vr_foveation), -1, 3))
 			# the old default (2, medium) made the edges of the view look
 			# pixelated: low instead, once (a level picked after this stays)
 			if vr_foveation == 2 and not data.has("vr_foveation_v2"):
 				vr_foveation = 1
+			# Low was the default before there was Auto, and Auto is Low at
+			# 100%: Low becomes Auto, once (so it follows a higher render
+			# resolution; a level picked after this stays)
+			if vr_foveation == 1 and not data.has("vr_foveation_auto"):
+				vr_foveation = -1
+		if data.has("vr_msaa"):
+			vr_msaa = int(clamp(int(data.vr_msaa), -1, 1))
 		if data.has("vr_refresh_unlock"):
 			vr_refresh_unlock = bool(data.vr_refresh_unlock)
 		if data.has("vr_refresh"):
@@ -6113,6 +6168,8 @@ func _write_settings_file(saveFile: String):
 			vr_play_lock_pitch = vr_play_lock_pitch,
 			vr_foveation = vr_foveation,
 			vr_foveation_v2 = true,
+			vr_foveation_auto = true,
+			vr_msaa = vr_msaa,
 			vr_refresh = vr_refresh,
 			vr_refresh_unlock = vr_refresh_unlock,
 			vr_render_scale = vr_render_scale,
