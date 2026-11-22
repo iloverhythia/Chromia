@@ -1226,8 +1226,10 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	lobby_start_button.disabled = not lobby_active or not is_host or not lobby_manager.all_players_ready()
 	lobby_start_button.text = "Start Game" if (not lobby_active or lobby_manager.all_players_ready()) else "Waiting for maps..."
 	lobby_leave_button.disabled = not lobby_active
-	lobby_host_button.disabled = lobby_active
-	lobby_join_button.disabled = lobby_active
+	lobby_host_button.disabled = lobby_active or Rhythia.offline_mode
+	lobby_join_button.disabled = lobby_active or Rhythia.offline_mode
+	if _offline_box != null and is_instance_valid(_offline_box):
+		_offline_box.visible = Rhythia.offline_mode
 
 	lobby_setup_box.visible = not lobby_active
 	lobby_active_box.visible = lobby_active
@@ -1480,7 +1482,7 @@ func _send_global_chat_from_input():
 	global_chat_input.grab_focus()
 
 func _on_global_chat_message_received(client_id: String, name: String, text: String, _ts: float):
-	if global_chat_log_box == null or Rhythia.mute_global_chat:
+	if global_chat_log_box == null or Rhythia.chat_hidden():
 		return
 	var is_you = client_id != "" and client_id == Rhythia.cid
 	var line = Label.new()
@@ -1789,6 +1791,19 @@ func _build_online_setup(S):
 		box.remove_child(c)
 	box.add_child(S.heading("Play together"))
 	box.add_child(S.label("Host a lobby and send your friends its code, or join theirs. Everyone plays the same map at the same time.", S.f_small, S.DIM, true))
+	# Offline Mode (Settings > Online): what's off, and a way back
+	_offline_box = HBoxContainer.new()
+	_offline_box.add_constant_override("separation", 10)
+	var off_text: Label = S.label("Offline Mode is on: no chat, lobbies or watching, nobody sees you online, and your scores aren't sent.", S.f_small, S.TEXT, true)
+	off_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_offline_box.add_child(off_text)
+	var go_online := Button.new()
+	go_online.text = "Go online"
+	S.button(go_online, true, true)
+	go_online.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	go_online.connect("pressed", self, "_on_go_online_pressed")
+	_offline_box.add_child(go_online)
+	box.add_child(_offline_box)
 	# invites people sent you (LobbyManager.invites): Join / Decline
 	_invites_box = VBoxContainer.new()
 	_invites_box.add_constant_override("separation", 6)
@@ -1847,6 +1862,17 @@ func _open_lobby_map_picker():
 	load("res://scripts/ui/LobbyMapPicker.gd").open_on(self)
 
 var _invites_box: VBoxContainer = null
+var _offline_box: HBoxContainer = null
+
+func _on_go_online_pressed():
+	Rhythia.set("offline_mode", false)
+	Rhythia.save_settings()
+
+# Offline Mode turned on or off: the chats hide or come back, Host / Join too
+func _on_offline_mode_changed():
+	_apply_chat_mute_visibility()
+	_on_blocked_changed()
+
 func _fill_invites():
 	if _invites_box == null or not is_instance_valid(_invites_box):
 		return
@@ -2083,7 +2109,7 @@ func _toggle_lobby_panel():
 
 func _apply_chat_mute_visibility():
 	if global_chat_box != null:
-		global_chat_box.visible = not Rhythia.mute_global_chat
+		global_chat_box.visible = not Rhythia.chat_hidden()
 	_update_lobby_ui()
 
 func _on_close_lobby_ui_pressed():
@@ -2522,6 +2548,7 @@ func _ready():
 	Rhythia.connect("sp_changed", self, "_on_sp_changed")
 	Rhythia.connect("leaderboard_received", self, "_on_leaderboard_received")
 	Rhythia.connect("leaderboard_sp_received", self, "_on_leaderboard_sp_received")
+	Rhythia.connect("offline_mode_changed", self, "_on_offline_mode_changed")
 	if lobby_manager != null:
 		lobby_manager.connect("ranker_status_received", self, "_on_ranker_status_received")
 		_ask_ranker_status()

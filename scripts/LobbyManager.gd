@@ -162,6 +162,7 @@ func _ready():
 	_client.connect("connection_error", self, "_on_conn_error")
 	_client.connect("data_received", self, "_on_data")
 	Rhythia.connect("mods_changed", self, "_on_local_mods_changed")
+	Rhythia.connect("offline_mode_changed", self, "_on_offline_mode_changed")
 	set_process(true)
 	# a chat ban's time left, shown in the chat boxes: brought up to date every 20 s
 	_chat_ban_refresh = Timer.new()
@@ -297,7 +298,33 @@ func _show_announcement_banner(text: String, from_name: String):
 	_announcement_fade_timer = ANNOUNCEMENT_DISPLAY_SEC
 
 
+# Offline Mode (Savia.gd offline_mode): no lobbies, chat, invites or watching
+const OFFLINE_TEXT := "Offline Mode is on. Turn it off in Settings > Online to play with others."
+func _offline_says(title: String) -> bool:
+	if not Rhythia.offline_mode:
+		return false
+	Globals.notify(Globals.NOTIFY_WARN, OFFLINE_TEXT, title)
+	return true
+
+# Turned on: out of your lobby and whatever you're watching, and the server
+# hears it now (you go offline for everyone). Off: the same, the other way.
+func _on_offline_mode_changed():
+	if Rhythia.offline_mode:
+		follow_number = -1 # (no following either)
+		if watch_mode:
+			end_watch("Offline Mode is on.")
+		if lobby_active:
+			close_lobby() # (tells the server you left)
+		invites.clear()
+		emit_signal("invites_changed")
+	_send_presence(true)
+	emit_signal("blocked_changed") # (the chat boxes draw again: hidden, or back with what came in)
+	emit_signal("social_changed")
+
 func create_lobby(name: String = "Host", is_public: bool = true) -> bool:
+	if Rhythia.offline_mode:
+		emit_signal("lobby_error", OFFLINE_TEXT)
+		return false
 	close_lobby()
 	player_name = name
 	_pending_name = name
@@ -306,6 +333,9 @@ func create_lobby(name: String = "Host", is_public: bool = true) -> bool:
 	return _connect_or_send_intent()
 
 func join_lobby(code: String, name: String) -> bool:
+	if Rhythia.offline_mode:
+		emit_signal("lobby_error", OFFLINE_TEXT)
+		return false
 	close_lobby()
 	player_name = name
 	_pending_name = name
@@ -335,18 +365,20 @@ func unsubscribe_public_lobbies():
 
 func send_chat_message(text: String):
 	text = text.strip_edges()
-	if text == "" or not lobby_active:
+	if text == "" or not lobby_active or Rhythia.offline_mode:
 		return
 	_send({"type": "chat_message", "text": text.substr(0, 300)})
 
 # the map editor's collab: to the server (collab_invite / collab_reply / collab_send / collab_leave)
 func collab_send(payload: Dictionary):
+	if String(payload.get("type", "")) == "collab_invite" and _offline_says("Collab"):
+		return
 	payload["client_id"] = Rhythia.cid
 	_ensure_connected_then_send(payload)
 
 func send_global_chat_message(text: String):
 	text = text.strip_edges()
-	if text == "":
+	if text == "" or _offline_says("Chat"):
 		return
 	_ensure_connected_then_send({"type": "global_chat_message", "text": text.substr(0, 300), "client_id": Rhythia.cid, "name": player_name})
 
@@ -379,13 +411,15 @@ const INVITE_KEEP_MS := 5 * 60 * 1000
 var invites := [] # {code, from_name, lobby_size, song_name, at}
 
 func invite_player(number: int):
+	if _offline_says("Lobby invite"):
+		return
 	if not lobby_active or watch_mode:
 		Globals.notify(Globals.NOTIFY_WARN, "Make or join a lobby first (Online).", "Lobby invite")
 		return
 	_ensure_connected_then_send({"type": "invite_to_lobby", "number": number, "client_id": Rhythia.cid})
 
 func _on_lobby_invite(msg: Dictionary):
-	if Rhythia.get("allow_lobby_invites") == false:
+	if Rhythia.get("allow_lobby_invites") == false or Rhythia.offline_mode:
 		return
 	var code := Globals.s(msg.get("code", ""))
 	if code == "" or (lobby_active and lobby_code == code):
@@ -884,7 +918,7 @@ func _chat_show(m: Dictionary):
 			global_chat_history.pop_front()
 		emit_signal("global_chat_message_received", m.who, m.name, m.text, m.ts)
 		# someone wrote @you: a notification, wherever you are (even in a map)
-		if not Rhythia.mute_global_chat and m.who != Rhythia.cid and not is_blocked_chat(last_chat_id) and preload("res://scripts/ui/ChatMention.gd").mentions_me(m.orig, self):
+		if not Rhythia.chat_hidden() and m.who != Rhythia.cid and not is_blocked_chat(last_chat_id) and preload("res://scripts/ui/ChatMention.gd").mentions_me(m.orig, self):
 			Globals.notify(Globals.NOTIFY_INFO, m.text, "%s mentioned you" % m.name)
 
 # --- friends and blocking (savia_web social.js) ---------------------------------
@@ -964,7 +998,7 @@ func _on_social_state(msg: Dictionary):
 	if was != now:
 		emit_signal("blocked_changed")
 	var news = msg.get("news")
-	if news is Dictionary:
+	if news is Dictionary and not Rhythia.offline_mode: # (Offline Mode: they wait in Online > Friends)
 		var who := Globals.s(news.get("name", "Someone"))
 		if Globals.s(news.get("kind", "")) == "friend_request":
 			Globals.notify(Globals.NOTIFY_INFO, "%s sent you a friend request. Online > Friends to accept it." % who, "Friend request", 8)
@@ -2503,8 +2537,10 @@ func _presence_now() -> Dictionary:
 	var p := {
 		"type": "presence", "client_id": Rhythia.cid, "name": _presence_name(),
 		"status": "playing" if playing else "menu",
-		"allow_spectate": bool(Rhythia.allow_spectators),
-		"allow_invites": bool(Rhythia.get("allow_lobby_invites") != false), # (Settings > Online)
+		"allow_spectate": bool(Rhythia.allow_spectators) and not Rhythia.offline_mode,
+		"allow_invites": bool(Rhythia.get("allow_lobby_invites") != false) and not Rhythia.offline_mode, # (Settings > Online)
+		# Offline Mode: counted (players on, map plays) but shown to nobody
+		"offline": bool(Rhythia.offline_mode),
 		# Settings > Online > Share My Maps With Spectators: the server sends
 		# nobody watching you your map (not even a copy it already has)
 		"share_maps": bool(Rhythia.get("share_maps_with_spectators")),
@@ -2621,6 +2657,9 @@ func unsubscribe_online():
 		_send({"type": "unsubscribe_online"})
 
 func spectate_player(number: int) -> bool:
+	if Rhythia.offline_mode:
+		emit_signal("spectate_denied", OFFLINE_TEXT)
+		return false
 	if lobby_active and not watch_mode:
 		emit_signal("spectate_denied", "Leave your lobby first.")
 		return false

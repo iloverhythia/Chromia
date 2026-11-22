@@ -1371,7 +1371,8 @@ func _fill_chat():
 	chat.clear()
 	_chat_lines = 0
 	_chat_sizes = []
-	var muted: bool = Rhythia.mute_global_chat
+	var muted: bool = Rhythia.chat_hidden()
+	chat_muted.text = "Offline Mode is on: no chat (Settings > Online)." if Rhythia.offline_mode else "Global chat is muted (Settings > Online)."
 	chat_muted.visible = muted
 	chat.visible = not muted
 	var banned: bool = _lm != null and bool(_lm.get("chat_banned"))
@@ -1421,7 +1422,7 @@ func _on_chat_ban(_banned):
 		_fill_chat()
 
 func _on_chat_message(client_id: String, name: String, text: String, ts: float):
-	if Rhythia.mute_global_chat:
+	if Rhythia.chat_hidden():
 		return
 	if not _open:
 		_notify_chat(client_id, name, text)
@@ -1513,7 +1514,7 @@ func _on_chat_entered(_t: String):
 	_send_chat()
 
 func _send_chat():
-	if _lm == null or Rhythia.mute_global_chat:
+	if _lm == null or Rhythia.chat_hidden():
 		return
 	var text := chat_input.text.strip_edges()
 	if text == "":

@@ -300,6 +300,7 @@ func xp_boost_on() -> bool:
 	return xp_boost and String(discord_user.get("id", "")) == XP_BOOST_DISCORD_ID
 var discord_login_error: String = ""
 signal discord_login_changed()
+signal offline_mode_changed() # (Settings > Online > Offline Mode)
 # the name set on the website ("" when none): shown over the Discord name
 # (LobbyManager._apply_server_name sets it from the server)
 var website_name: String = ""
@@ -346,7 +347,7 @@ const PASS_SETTINGS_URL = "https://chromia.lol/savia-pass-settings"
 # passes (the website's Watch replay, a video someone else makes) is shown
 # your way. Sent whether or not spectators are allowed.
 func send_pass_settings():
-	if cid == "":
+	if cid == "" or offline_mode:
 		return
 	var spec = load("res://scripts/SpectateSettings.gd")
 	var lm = get_node_or_null("/root/LobbyManager")
@@ -365,7 +366,7 @@ func _on_pass_settings_sent(_result, _code, _headers, _body, req: HTTPRequest):
 	req.queue_free()
 
 func upload_replay_for_pass(song_id: String, replay_id: String):
-	if cid == "" or song_id == "" or replay_id == "":
+	if cid == "" or song_id == "" or replay_id == "" or offline_mode:
 		return
 	var replay_path = Globals.p("user://replays/%s.sspre" % replay_id)
 	var file = File.new()
@@ -659,8 +660,14 @@ func pass_url(url: String) -> String:
 	var path_at := url.find("/", 8)
 	return "https://" + "chromia" + "." + "lol" + (url.substr(path_at) if path_at > 0 else "")
 
+var _offline_pass_told := false
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
+		return
+	if offline_mode: # (Offline Mode: scores stay on your computer)
+		if not _offline_pass_told:
+			_offline_pass_told = true
+			Globals.notify(Globals.NOTIFY_INFO, "Offline Mode is on, so your scores aren't sent (no XP, SP or leaderboard). Turn it off in Settings > Online.", "Score not submitted", 8)
 		return
 	var content_hash = selected_song.compute_chart_hash() if selected_song != null else ""
 	var replay_id_snapshot = replay.id if replay != null else ""
@@ -3638,6 +3645,23 @@ func restore_lobby_lead_in():
 		lead_in_ms = _lobby_lead_in_backup
 		_lobby_lead_in_backup = -1
 var mute_global_chat: bool = false
+# Settings > Online > Offline Mode: you play on your own. The game still
+# connects (the server counts players and map plays, and you get maps, updates
+# and announcements), but you show as offline: nobody sees you in Spectate or
+# as online on your profile and to friends, nobody can watch, invite or collab
+# with you, and no chat shows (global, lobby, @mentions, friend requests).
+# Your scores aren't sent (no XP, SP or leaderboard places; local RP and your
+# own history still count). No lobbies or watching others while it's on.
+# (LobbyManager.gd, menu2.gd, SpectatePage.gd; the server's presence.js)
+var offline_mode: bool = false setget _set_offline_mode
+func _set_offline_mode(v: bool):
+	if v == offline_mode:
+		return
+	offline_mode = v
+	emit_signal("offline_mode_changed")
+# chat isn't shown: muted, or Offline Mode
+func chat_hidden() -> bool:
+	return mute_global_chat or offline_mode
 # Settings > Online: others can watch you from their Spectate tab (the server
 # refuses anyone when this is off; LobbyManager sends it with your presence)
 var allow_spectators: bool = true
@@ -4881,6 +4905,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mute_global_chat = data.mute_global_chat
 		if data.has("allow_lobby_invites"):
 			allow_lobby_invites = bool(data.allow_lobby_invites)
+		if data.has("offline_mode"):
+			offline_mode = bool(data.offline_mode)
 		if data.has("passes_to_main"):
 			passes_to_main = bool(data.passes_to_main)
 		if data.has("allow_spectators"):
@@ -5966,6 +5992,7 @@ func _write_settings_file(saveFile: String):
 			is_staff = is_staff,
 			lb_device = lb_device,
 			allow_lobby_invites = allow_lobby_invites,
+			offline_mode = offline_mode,
 			passes_to_main = passes_to_main,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
