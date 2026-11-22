@@ -37,12 +37,14 @@ const RANK_COLORS = [Color(1, 0.82, 0.36), Color(0.82, 0.86, 0.94), Color(0.9, 0
 var end_info: Control
 var mode: int = MODE_BEST
 var hide_failed: bool = false
+var newest_first: bool = false # (History: your latest plays at the top, not your best)
 
 var _rows: VBoxContainer
 var _rows_wrap: MarginContainer
 var _scroll: ScrollContainer
 var _empty: Label
 var _hide_box: CheckBox
+var _newest_box: CheckBox
 var _head: HBoxContainer
 var _switches: Array = [] # [[best_btn, hist_btn], ...]
 
@@ -109,6 +111,14 @@ func _ready():
 	_hide_box.hint_tooltip = "Only show passed attempts"
 	_hide_box.connect("toggled", self, "_on_hide_failed")
 	head.add_child(_hide_box)
+	_newest_box = CheckBox.new()
+	_newest_box.text = "Newest first"
+	_newest_box.pressed = newest_first
+	_newest_box.focus_mode = FOCUS_NONE
+	_newest_box.add_font_override("font", _f_tab)
+	_newest_box.hint_tooltip = "Your latest plays at the top (instead of your best)"
+	_newest_box.connect("toggled", self, "_on_newest_first")
+	head.add_child(_newest_box)
 	# the leaderboard's device dropdown (LbModes.gd), only on the Leaderboard tab
 	_dev_box = load("res://scripts/ui/LbModes.gd").make(self, "_on_board_device", _f_tab)
 	_dev_box.visible = mode == MODE_BOARD
@@ -220,6 +230,8 @@ func _set_mode(m: int, save: bool = true):
 	_show_mods(mode == MODE_BEST)
 	if is_instance_valid(_hide_box):
 		_hide_box.visible = mode == MODE_HISTORY
+	if is_instance_valid(_newest_box):
+		_newest_box.visible = mode == MODE_HISTORY
 	if is_instance_valid(_dev_box):
 		_dev_box.visible = mode == MODE_BOARD
 		load("res://scripts/ui/LbModes.gd").sync(_dev_box)
@@ -259,6 +271,15 @@ func _on_hide_failed(on: bool):
 	_save_prefs()
 	_rebuild()
 
+func _on_newest_first(on: bool):
+	newest_first = on
+	_save_prefs()
+	_rebuild()
+
+# (Newest first: entries are [entry, best rank], the latest first)
+func _by_time(a, b) -> bool:
+	return int(a[0].get("t", 0)) > int(b[0].get("t", 0))
+
 func _refresh():
 	var song = Rhythia.selected_song
 	var id := String(song.id) if song != null else ""
@@ -290,6 +311,8 @@ func _rebuild():
 		if hide_failed and Globals.s(e.get("r", "")) != ScoreHistory.RESULT_PASS:
 			continue
 		_pending.append([e, rank])
+	if newest_first:
+		_pending.sort_custom(self, "_by_time") # (each keeps its place among your best: its number)
 	var shown := _pending.size()
 	_empty.visible = shown == 0
 	if shown == 0:
@@ -500,6 +523,9 @@ func _make_row(e: Dictionary, rank: int, show_fc: bool) -> Control:
 	l3.clip_text = true
 	v.add_child(l3)
 
+	# Save video: a video of this attempt on the website (VideoExport.gd)
+	_video_button(h, "Save video of this attempt (opens your browser)", "_save_video", e)
+
 	# right: the grade above the accuracy
 	var right := VBoxContainer.new()
 	right.mouse_filter = MOUSE_FILTER_IGNORE
@@ -681,12 +707,48 @@ func _watch(e: Dictionary):
 	if run and run.has_method("files_dropped"):
 		run.files_dropped(PoolStringArray([path]), 0)
 
+# a small camera button in a row (not in the web version: it makes the video in a browser tab)
+func _video_button(h: HBoxContainer, tip: String, method: String, e: Dictionary):
+	if OS.has_feature("JavaScript"):
+		return
+	var vb := Button.new()
+	vb.flat = true
+	vb.focus_mode = FOCUS_NONE
+	vb.rect_min_size = Vector2(34, 34)
+	vb.size_flags_vertical = SIZE_SHRINK_CENTER
+	vb.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	vb.hint_tooltip = tip
+	var vi = Control.new()
+	vi.set_script(load("res://scripts/ui/VideoIcon.gd"))
+	vi.color = Color(C_TEXT.r, C_TEXT.g, C_TEXT.b, 0.75)
+	vi.set_anchors_and_margins_preset(PRESET_WIDE)
+	vb.add_child(vi)
+	vb.connect("pressed", self, method, [e])
+	h.add_child(vb)
+
+# someone's pass on the leaderboard: its replay comes from the server first
+func _save_board_video(e: Dictionary):
+	_watch_board(e, true)
+
+func _save_video(e: Dictionary):
+	var song = Rhythia.selected_song
+	if song == null:
+		return
+	var path := ScoreHistory.replay_path_for(String(song.id), e)
+	if path == "":
+		Globals.notify(Globals.NOTIFY_WARN, "There's no replay saved for this attempt (Settings > Record Replays was off, or the replay was deleted).", "No Replay")
+		return
+	var result := Globals.s(e.get("r", ""))
+	var what := "%s · %s" % ["Passed" if result == ScoreHistory.RESULT_PASS else "Part of the map", _date_str(int(e.get("t", 0)))]
+	load("res://scripts/VideoExport.gd").start(get_tree(), path, song, what)
+
 func _load_prefs():
 	var cfg := ConfigFile.new()
 	if cfg.load(PREFS_PATH) == OK:
 		var m := int(cfg.get_value("ui", "mode", MODE_BEST))
 		mode = m if m in [MODE_BEST, MODE_HISTORY, MODE_BOARD] else MODE_BEST
 		hide_failed = bool(cfg.get_value("ui", "hide_failed", false))
+		newest_first = bool(cfg.get_value("ui", "newest_first", false))
 
 func _save_prefs():
 	var dir := Directory.new()
@@ -695,6 +757,7 @@ func _save_prefs():
 	var cfg := ConfigFile.new()
 	cfg.set_value("ui", "mode", mode)
 	cfg.set_value("ui", "hide_failed", hide_failed)
+	cfg.set_value("ui", "newest_first", newest_first)
 	cfg.save(PREFS_PATH)
 
 func _exit_tree():
@@ -916,6 +979,9 @@ func _make_board_row(e: Dictionary, show_fc: bool, me: int) -> Control:
 	l3.clip_text = true
 	v.add_child(l3)
 
+	if bool(e.get("has_replay", false)):
+		_video_button(h, "Save video of this pass (with your settings; opens your browser)", "_save_board_video", e)
+
 	var right := VBoxContainer.new()
 	right.mouse_filter = MOUSE_FILTER_IGNORE
 	right.add_constant_override("separation", -4)
@@ -950,8 +1016,9 @@ func _board_row_input(ev, e: Dictionary):
 			_watch_board(e)
 
 const BOARD_REPLAY := "user://caches/leaderboard_replay.sspre"
+const BOARD_VIDEO_REPLAY := "user://caches/leaderboard_video.sspre" # (its own file: watching another one doesn't swap it while it's sent)
 var _replay_req: HTTPRequest = null
-func _watch_board(e: Dictionary):
+func _watch_board(e: Dictionary, video: bool = false):
 	var song = Rhythia.selected_song
 	var number := int(e.get("number", -1))
 	if song == null or number <= 0:
@@ -969,7 +1036,7 @@ func _watch_board(e: Dictionary):
 	_replay_req.timeout = 30
 	_replay_req.body_size_limit = 32 * 1024 * 1024
 	add_child(_replay_req)
-	_replay_req.connect("request_completed", self, "_on_board_replay", [_replay_req, id, who])
+	_replay_req.connect("request_completed", self, "_on_board_replay", [_replay_req, id, who, video])
 	var url := SITE + "/savia-public/api/player/%d/replay/%s/%d" % [number, id.http_escape(), int(e.get("index", 0))]
 	if _replay_req.request(url) != OK:
 		_replay_req.queue_free()
@@ -978,7 +1045,7 @@ func _watch_board(e: Dictionary):
 		return
 	Globals.notify(Globals.NOTIFY_INFO, "Getting %s's replay..." % who, "Replay", 3)
 
-func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String, who: String):
+func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String, who: String, video: bool = false):
 	r.queue_free()
 	if r == _replay_req:
 		_replay_req = null
@@ -989,7 +1056,7 @@ func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: 
 	var song = Rhythia.selected_song
 	if not is_inside_tree() or song == null or String(song.id) != id or Rhythia.in_map:
 		return
-	var path: String = Globals.p(BOARD_REPLAY)
+	var path: String = Globals.p(BOARD_VIDEO_REPLAY if video else BOARD_REPLAY)
 	Directory.new().make_dir_recursive(path.get_base_dir())
 	var f := File.new()
 	if f.open(path, File.WRITE) != OK:
@@ -997,6 +1064,9 @@ func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: 
 		return
 	f.store_buffer(body)
 	f.close()
+	if video:
+		load("res://scripts/VideoExport.gd").start(get_tree(), path, song, "%s's pass" % who)
+		return
 	var run = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/Run")
 	if run and run.has_method("files_dropped"):
 		Rhythia.trail("leaderboard replay: %s on %s" % [who, id])
