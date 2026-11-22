@@ -2027,14 +2027,11 @@ margin_right = 1214.0
 margin_bottom = 56.0
 custom_constants/margin_top = 24
 
-[node name="ColorSet" type="GridContainer" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2"]
+[node name="ColorSet" type="Control" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2"]
 margin_top = 60.0
 margin_right = 1214.0
 margin_bottom = 60.0
 rect_pivot_offset = Vector2( -180, -271 )
-custom_constants/vseparation = 42
-custom_constants/hseparation = 4
-columns = 8
 script = ExtResource( 29 )
 
 [node name="Color" type="Panel" parent="TabContainer/Colorsets/Colorsets/Group/H/ColorSet2/ColorSet"]

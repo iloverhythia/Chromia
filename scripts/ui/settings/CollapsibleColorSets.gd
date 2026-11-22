@@ -17,6 +17,8 @@ func _save_collapsed(value: bool):
 func _apply_collapsed():
 	$MarginContainer.visible = not collapsed
 	$ColorSet.visible = not collapsed
+	if has_node("FavOnly"): # (the "Only show favorites" switch: ColorSet.gd adds it)
+		$FavOnly.visible = not collapsed
 	$Label.text = ("▸ Note Colors (click to expand)" if collapsed else "▾ Note Colors (click to collapse)")
 
 func _on_label_gui_input(event):
