@@ -243,7 +243,8 @@ func _add_outlines(n: Node):
 		_add_outlines(c)
 
 func _outline_one(n: Node):
-	if (n is Label or n is Button or n is RichTextLabel) and not _changed.has(n):
+	# ("no_outline": a label that is meant to stay faint, like the place on a Spectate card)
+	if (n is Label or n is Button or n is RichTextLabel) and not _changed.has(n) and not n.has_meta("no_outline"):
 		var prop: String = "custom_fonts/normal_font" if n is RichTextLabel else "custom_fonts/font"
 		var color_name: String = "default_color" if n is RichTextLabel else "font_color"
 		var f = n.get_font("normal_font" if n is RichTextLabel else "font")
