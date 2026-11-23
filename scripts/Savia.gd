@@ -632,7 +632,9 @@ func sp_for_accuracy(accuracy: float) -> int:
 			info.same = true
 		else:
 			lock_song_notes(selected_song)
+			doing("comparing the notes of %s with the ranked version" % String(selected_song.id))
 			info.same = String(info.hash) == selected_song.compute_chart_hash()
+			doing("")
 			unlock_song_notes(selected_song)
 	if not bool(info.same):
 		return -1
@@ -1620,16 +1622,30 @@ var star_mutex := Mutex.new() # (old global lock, no longer used for note reads)
 # 750k-note map). Now a song start only waits if the rater is on that same map.
 var _notes_busy := {}
 var _notes_busy_mutex := Mutex.new()
+# A lock that was never given back (its holder stopped on an error half-way)
+# used to be waited for without end: on the main thread that is a frozen game.
+# After NOTES_LOCK_WAIT_MS it is taken over.
+const NOTES_LOCK_WAIT_MS := 15000
 func lock_song_notes(song):
 	if song == null:
 		return
+	var t0 := OS.get_ticks_msec()
+	var told := false
 	while true:
 		_notes_busy_mutex.lock()
-		if not _notes_busy.has(song):
+		if not _notes_busy.has(song) or OS.get_ticks_msec() - t0 > NOTES_LOCK_WAIT_MS:
+			var stale: bool = _notes_busy.has(song)
 			_notes_busy[song] = true
 			_notes_busy_mutex.unlock()
+			if stale:
+				trail("notes of %s: waited %d s for whoever was reading them, going on without" % [String(song.id), NOTES_LOCK_WAIT_MS / 1000])
+			if told:
+				doing("")
 			return
 		_notes_busy_mutex.unlock()
+		if not told:
+			told = true
+			doing("waiting for the notes of %s (another job is reading them)" % String(song.id))
 		OS.delay_msec(2)
 func unlock_song_notes(song):
 	if song == null:
@@ -1730,7 +1746,9 @@ func _star_req_worker(song):
 
 func _star_req_done(song):
 	if _star_req_thread != null and _star_req_thread.is_active():
+		doing("waiting for the picked map's star rating job to end")
 		_star_req_thread.wait_to_finish()
+		doing("")
 	_star_req_thread = null
 	Directory.new().remove(Globals.p(STAR_CLICK_FILE))
 	if _quitting:
@@ -1782,9 +1800,13 @@ func _notification(what):
 		# from there without telling us, which isn't a crash
 		trail("app paused (in background)")
 		_set_session_state("paused")
+		if _freeze_watch != null:
+			_freeze_watch.hold(true)
 	elif what == MainLoop.NOTIFICATION_APP_RESUMED:
 		_set_session_state("running")
 		trail("app resumed")
+		if _freeze_watch != null:
+			_freeze_watch.hold(false)
 		# back from logging in to Discord in the browser: check right away
 		if _discord_login_timer != null and not _discord_login_timer.is_stopped():
 			call_deferred("_poll_discord_login")
@@ -1793,9 +1815,13 @@ func _notification(what):
 		# from there without going to the background first: not a crash
 		trail("app lost focus")
 		_set_session_state("paused")
+		if _freeze_watch != null:
+			_freeze_watch.hold(true)
 	elif dev == "mobile" and what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
 		_set_session_state("running")
 		trail("app focused")
+		if _freeze_watch != null:
+			_freeze_watch.hold(false)
 
 # --- VR headset (OpenXR): the headset's own menu over the game --------------------
 # A Meta Quest doesn't put the game in the background when its menu opens (no
@@ -2023,6 +2049,10 @@ func _trail_start():
 		_trail_file = null
 	trail("started %s on %s %s" % [ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name()])
 	_write_alive()
+	if _trail_file != null and not load("res://scripts/WebReplay.gd").wanted():
+		_freeze_watch = load("res://scripts/FreezeWatch.gd").new()
+		_freeze_watch.name = "FreezeWatch"
+		add_child(_freeze_watch)
 	_heartbeat = Timer.new()
 	_heartbeat.wait_time = 10
 	_heartbeat.pause_mode = PAUSE_MODE_PROCESS
@@ -2087,12 +2117,37 @@ func _on_trail_frame_drawn():
 	_trail_frames_left -= 1
 	trail("frame drawn")
 
+# A game that freezes: FreezeWatch.gd writes what it was in the middle of.
+# doing("reading X") before a step on the main thread that reads files, waits
+# for another thread or takes a lock; doing("") after it.
+var _freeze_watch: Node = null
+func doing(what: String = ""):
+	if _freeze_watch != null:
+		_freeze_watch.doing(what)
+
+# (for a freeze's line in the trail; read from FreezeWatch's thread)
+func background_jobs() -> String:
+	var jobs := []
+	if _thumb_running:
+		jobs.append("cover thumbnails")
+	if _star_thread != null and not _star_done:
+		jobs.append("star ratings (%d done)" % _star_progress)
+	if _star_req_thread != null:
+		jobs.append("star rating of the picked map")
+	if not _sspm_import_done and _sspm_import_progress > 0:
+		jobs.append("map import")
+	if not _notes_busy.empty():
+		jobs.append("notes being read (%d)" % _notes_busy.size())
+	return "none" if jobs.empty() else PoolStringArray(jobs).join(", ")
+
 # Marks this session as closed normally (once): only a session that never got
 # here shows a crash report at the next start.
 var _session_closed := false
 func _trail_close(how: String):
 	if _session_closed:
 		return
+	if _freeze_watch != null:
+		_freeze_watch.stop()
 	trail(how)
 	_session_closed = true # (nothing more goes to the trail file after this)
 	_set_session_state("closed")
@@ -2476,8 +2531,10 @@ func _emit_thumbs_ready():
 
 func _thumb_builder_finished(built: int):
 	if _thumb_thread and _thumb_thread.is_active():
+		doing("waiting for the cover thumbnail job to end")
 		_thumb_thread.wait_to_finish()
 		_thumb_thread = null
+		doing("")
 	print("[covers] built %d new cover thumbnails" % built)
 	# Requests that arrived while the builder was finishing.
 	if not _thumb_priority.empty():

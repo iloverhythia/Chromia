@@ -135,10 +135,14 @@ func _do_upd(t, s):
 	if s != song:
 		if was_playing or $Song.playing or (Rhythia.auto_preview_song and !has_auto_previewed):
 			if Rhythia.auto_preview_song: has_auto_previewed = true
+			Rhythia.doing("stopping the music for the preview of %s" % String(Rhythia.selected_song.id))
 			$Song.stop()
 			menu_pause()
 			$Song.volume_db = -55
-			$Song.stream = Rhythia.selected_song.stream()
+			var st = Rhythia.selected_song.stream()
+			Rhythia.doing("handing the preview of %s to the sound system" % String(Rhythia.selected_song.id))
+			$Song.stream = st
+			Rhythia.doing("")
 			if $Song.stream == Globals.error_sound:
 				has_auto_previewed = false
 				menu_resume()
@@ -148,7 +152,9 @@ func _do_upd(t, s):
 			$Song.pitch_scale = Globals.speed_multi[Rhythia.mod_speed_level]
 #			print(Rhythia.mod_speed_level)
 			if $Song.stream:
+				Rhythia.doing("starting the preview of %s" % String(Rhythia.selected_song.id))
 				$Song.play($Song.stream.get_length()/3)
+				Rhythia.doing("")
 				text = "Stop Playing"
 			else:
 				text = "Play Music"

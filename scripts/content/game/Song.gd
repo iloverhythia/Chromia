@@ -399,7 +399,9 @@ func _get_cover():
 	_decoded_cover_image = null
 	_cover_mutex.unlock()
 	if img == null:
+		Rhythia.doing("reading the cover of %s" % String(id))
 		img = _decode_cover_pixels()
+		Rhythia.doing("")
 	if img == null:
 		return cover
 	var imgtex: ImageTexture = ImageTexture.new()
@@ -724,9 +726,13 @@ func get_music_buffer():
 
 func stream() -> AudioStream:
 	if sspm_song_stored or not musicFile.begins_with("res://"):
+		Rhythia.doing("reading the song of %s" % String(id))
 		var buf = get_music_buffer()
+		Rhythia.doing("")
 		if buf:
+			Rhythia.doing("getting the song of %s ready to play" % String(id))
 			var s = Globals.audioLoader.load_buffer(buf)
+			Rhythia.doing("")
 			if s is AudioStreamOGGVorbis or s is AudioStreamMP3: s.loop = false
 			if s: return s
 			else: return Globals.error_sound

@@ -57,8 +57,10 @@ func _read(song):
 
 func _read_done(song, buf):
 	if _thread != null:
+		Rhythia.doing("waiting for the song check of %s to end" % String(song.id))
 		_thread.wait_to_finish()
 		_thread = null
+		Rhythia.doing("")
 	if buf != null and Rhythia.selected_song == song:
 		Rhythia.trail("song of %s is being converted ahead of playing it" % String(song.id))
 		AudioConvert.start(buf)

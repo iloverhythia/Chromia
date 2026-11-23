@@ -210,7 +210,8 @@ static func _blit_frame(canvas: PoolByteArray, indices: PoolIntArray, colors: Ar
 			canvas[i + 3] = 255
 	return canvas
 
-static func decode(bytes: PoolByteArray) -> Dictionary:
+# max_frames: stop after that many (a still picture of it needs only the first)
+static func decode(bytes: PoolByteArray, max_frames: int = MAX_FRAMES) -> Dictionary:
 	if not can_decode(bytes):
 		return {}
 	var r := Reader.new(bytes)
@@ -307,7 +308,7 @@ static func decode(bytes: PoolByteArray) -> Dictionary:
 			pending_disposal = 0
 			pending_delay = 0.1
 
-			if frames.size() >= MAX_FRAMES:
+			if frames.size() >= max_frames:
 				break
 			if screen_w * screen_h * (frames.size() + 1) > MAX_TOTAL_PIXELS:
 				break
@@ -318,8 +319,10 @@ static func decode(bytes: PoolByteArray) -> Dictionary:
 		return {}
 	return {"frames": frames, "delays": delays, "width": screen_w, "height": screen_h}
 
+# (only its first frame is read: reading all of them, to keep one, held the
+# menu up for seconds when a map with an animated cover was picked)
 static func decode_first_frame_image(bytes: PoolByteArray) -> Image:
-	var result = decode(bytes)
+	var result = decode(bytes, 1)
 	if result.empty():
 		return null
 	var img := Image.new()
