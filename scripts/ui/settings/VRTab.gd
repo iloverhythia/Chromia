@@ -208,6 +208,12 @@ func _ready():
 	_label("A higher render resolution is that many more pixels to draw (150% is 2.25 times as many), so it always costs frames. On Auto, the two things that cost the same again for every extra pixel give way above 120%: anti-aliasing goes off (a picture drawn bigger than the lenses show is smoothed already) and foveated rendering goes up a step, two above 155% (the edges stay as detailed as they were at 100%). The middle of your view gets all of the extra sharpness.", f_body, DIM, true)
 	_glow_pick = _option_row("Glow", [["Auto (off on Quest)", -1], ["Off", 0], ["On", 1]], "_on_glow")
 	_simple_box = _check("Simple background in songs (fastest: the plain VOID background in VR, whatever background is picked)", "vr_simple_bg")
+	# Passthrough (Savia.gd apply_vr_passthrough): the headsets that can
+	if OS.has_feature("quest") or Rhythia.vr_passthrough_can():
+		_pt_box = _check("Passthrough: play in your real room (the headset's cameras are the background, in the menu and in songs; the game's own backgrounds aren't drawn)", "vr_passthrough")
+		if not Rhythia.vr_passthrough_can():
+			_pt_box.disabled = true
+			_pt_box.text = "Passthrough: this headset or this version of the app can't (it needs a Meta Quest with passthrough, and the app's newest version installed from its file, not only an in-app update)"
 	box.add_child(HSeparator.new())
 	_label("Controller grip", f_title, ACCENT)
 	_label("Changes the angle and position of the pointer on your hand, so it points where feels natural to you. Watch the beam move while you change it. This is for the right hand; the left hand gets the mirror image.", f_body, DIM, true)
@@ -343,6 +349,7 @@ var _glow_pick: OptionButton
 var _msaa_pick: OptionButton
 var _hide_beam_box: CheckBox = null
 var _simple_box: CheckBox
+var _pt_box: CheckBox
 var _beam_color: ColorPickerButton
 var _rainbow_box: CheckBox
 var _lock_box: CheckBox
@@ -412,6 +419,8 @@ func _on_check(on: bool, setting: String):
 	if _loading:
 		return
 	Rhythia.set(setting, on)
+	if setting == "vr_passthrough":
+		Rhythia.apply_vr_passthrough()
 	_save_soon()
 
 func _option_row(title: String, items: Array, method: String) -> OptionButton:
@@ -746,6 +755,8 @@ func _load_values():
 	_select_meta(_msaa_pick, Rhythia.vr_msaa)
 	if _simple_box:
 		_simple_box.pressed = bool(Rhythia.vr_simple_bg)
+	if _pt_box:
+		_pt_box.pressed = bool(Rhythia.vr_passthrough)
 	if _beam_color:
 		_beam_color.color = Rhythia.vr_beam_color
 	if _rainbow_box:

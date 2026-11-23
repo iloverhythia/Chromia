@@ -2808,6 +2808,55 @@ func apply_vr_msaa():
 		vp.msaa = want
 		trail("VR anti-aliasing %s (render resolution %d%%)" % ["on" if want != Viewport.MSAA_DISABLED else "off", int(round(vr_scale_active * 100.0))])
 var vr_simple_bg: bool = false # VR songs on the plain VOID background
+
+# --- Passthrough (Meta Quest; Settings > VR > Graphics) -----------------------------
+# Your real room is the background, in the menu and in songs: the headset's
+# cameras show through wherever the game draws nothing. The game's own
+# surroundings (the song's background, the menu's environment) are left out;
+# the menu screen, the grid, notes, cursor, HUD and your hands are drawn over
+# the room as solid as ever.
+#
+# How: the OpenXR plugin starts the headset's passthrough layer under the
+# game's picture (XR_FB_passthrough), the main viewport is given a see-through
+# background, and every environment's background becomes "clear" (VRPlayer.gd
+# does that and hides the song's background; vrmenu.gd leaves its room out).
+# The Quest app asks for the feature in its manifest (export_presets.cfg,
+# xr_features/passthrough: optional). Nothing here on PC VR.
+# (Glow and the other screen effects don't run on a see-through picture: the
+# engine skips them.)
+var vr_passthrough: bool = false # the setting
+var vr_passthrough_active: bool = false # it is on right now
+signal vr_passthrough_changed
+var _vr_pt_retry := false
+
+func vr_passthrough_can() -> bool:
+	return vr and vr_xr_config != null and vr_xr_config.has_method("is_passthrough_supported") and bool(vr_xr_config.is_passthrough_supported())
+
+func apply_vr_passthrough():
+	if not vr:
+		return
+	var want: bool = vr_passthrough and vr_passthrough_can()
+	var vp: Viewport = get_tree().root
+	if want and not vr_passthrough_active:
+		vp.transparent_bg = true # (before it starts: the plugin looks for it)
+		if not bool(vr_xr_config.start_passthrough()):
+			vp.transparent_bg = false
+			want = false
+			trail("VR passthrough: the headset didn't start it%s" % ("" if _vr_pt_retry else ", trying once more in a moment"))
+			if not _vr_pt_retry:
+				# (right after VR starts the headset may not be ready for it yet)
+				_vr_pt_retry = true
+				get_tree().create_timer(2.0).connect("timeout", self, "apply_vr_passthrough")
+			else:
+				Globals.notify(Globals.NOTIFY_WARN, "The headset didn't start passthrough. Check that the app may use it (the headset's settings), then switch it on again in Settings > VR.", "VR")
+	elif not want and vr_passthrough_active:
+		vr_xr_config.stop_passthrough()
+		vp.transparent_bg = false
+	if want == vr_passthrough_active:
+		return
+	vr_passthrough_active = want
+	trail("VR passthrough %s" % ("on" if want else "off"))
+	emit_signal("vr_passthrough_changed")
 # the pointer beam (vr/Pointer.gd): thickness (x the default), colour, rainbow
 var vr_beam_width: float = 1.0
 var vr_beam_color: Color = Color(0, 1, 1, 0.63)
@@ -3122,6 +3171,8 @@ func start_vr(at_boot: bool = false):
 		setup_controller_bindings()
 	vr = true
 	_vr_started_ms = OS.get_ticks_msec()
+	if vr_passthrough:
+		call_deferred("apply_vr_passthrough") # (Settings > VR: your room as the background)
 	apply_render_res() # (VR has its own picture: the window is drawn as it is)
 	if fake_vr:
 		vr_scale_active = clamp(vr_render_scale, 0.5, VR_SCALE_MAX)
@@ -5522,6 +5573,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_glow = int(clamp(int(data.vr_glow), -1, 1))
 		if data.has("vr_simple_bg"):
 			vr_simple_bg = bool(data.vr_simple_bg)
+		if data.has("vr_passthrough"):
+			vr_passthrough = bool(data.vr_passthrough)
 		if data.has("vr_beam_width"):
 			vr_beam_width = clamp(float(data.vr_beam_width), 0.2, 4.0)
 		if data.has("vr_beam_color") and data.vr_beam_color is String:
@@ -6285,6 +6338,7 @@ func _write_settings_file(saveFile: String):
 			vr_render_scale = vr_render_scale,
 			vr_glow = vr_glow,
 			vr_simple_bg = vr_simple_bg,
+			vr_passthrough = vr_passthrough,
 			vr_beam_width = vr_beam_width,
 			vr_beam_color = vr_beam_color.to_html(true),
 			vr_beam_rainbow = vr_beam_rainbow,

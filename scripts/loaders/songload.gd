@@ -9,7 +9,9 @@ var target2: String = _world_path()
 # background (the fastest) whatever background is picked
 static func _world_path() -> String:
 	var p: String = load("res://scripts/game/SoundSpaceMode.gd").space_path(Rhythia.selected_space.path)
-	if Rhythia.vr and Rhythia.vr_simple_bg and p == Rhythia.selected_space.path:
+	# (passthrough: the song's background isn't shown at all, so the plain one,
+	# the quickest to load, stands in for it)
+	if Rhythia.vr and (Rhythia.vr_simple_bg or Rhythia.vr_passthrough_active) and p == Rhythia.selected_space.path:
 		return "res://assets/worlds/void/void.tscn"
 	return p
 
