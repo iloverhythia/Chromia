@@ -1507,15 +1507,16 @@ func _process(delta: float):
 				rec_t = 0
 				should_write_pos = true
 				Rhythia.replay.store_cursor_pos(rms, _n_cursor.rpos.x, _n_cursor.rpos.y)
-			# VR: head and hands too (about 20 a second), for the website's
-			# first-person replay view; only when the server takes them
-			# (server_hello "replay_vr": older servers refuse the replay)
+			# VR: head and hands too (about 33 a second): watched on a computer or
+			# the website, the replay shows the hands, the beam and what the
+			# headset saw. Always, connected or not. (It used to wait for the
+			# server to say it takes them: a play made offline, or while the
+			# connection was down, had none, and played back like a flat one.
+			# Every server takes them now.)
 			if Rhythia.vr and Rhythia.replay.wants_vr_sample(rms):
-				var lm = get_node_or_null("/root/LobbyManager")
-				if lm != null and bool(lm.get("replay_vr_supported")):
-					var pose = _vr_pose_for_spectators()
-					if pose is Array:
-						Rhythia.replay.store_vr(rms, pose)
+				var pose = _vr_pose_for_spectators()
+				if pose is Array:
+					Rhythia.replay.store_vr(rms, pose)
 
 		if Rhythia.rainbow_grid:
 			$Outer.get("material/0").albedo_color = Color.from_hsv(Rhythia.rainbow_t * 0.1, 0.65, 1)
