@@ -3909,6 +3909,14 @@ var new_settings_ui: bool = true setget _set_new_settings_ui
 # side instead of across the top (scripts/ui/settings/SettingsHeader.gd).
 # Changing it loads the menu again, like New Settings UI.
 var settings_side_tabs: bool = false setget _set_settings_side_tabs
+# The new Settings page (SettingsNewUI.gd): categories hidden from its list
+# (right-click one; "Hidden" at the bottom of the list shows them again), by
+# the page's node name ("Gameplay", "Replays & Misc"...)
+var settings_hidden_tabs: Array = []
+# Collapsible Groups (Replays & Misc > Experimental): click a group's title to
+# fold it shut; which are shut ("Page/Group") is remembered
+var settings_collapsible: bool = false
+var settings_collapsed: Array = []
 # Experimental: notes move in even steps matched to the screen's refresh rate
 # (visual only: NoteManager._update_draw_clock). On from the start on phones
 # and standalone headsets, where every frame is shown one refresh apart.
@@ -5109,6 +5117,12 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			new_settings_ui = bool(data.new_settings_ui)
 		if data.has("settings_side_tabs"):
 			settings_side_tabs = bool(data.settings_side_tabs)
+		if data.has("settings_hidden_tabs") and data.settings_hidden_tabs is Array:
+			settings_hidden_tabs = data.settings_hidden_tabs
+		if data.has("settings_collapsible"):
+			settings_collapsible = bool(data.settings_collapsible)
+		if data.has("settings_collapsed") and data.settings_collapsed is Array:
+			settings_collapsed = data.settings_collapsed
 		if data.has("map_grid"):
 			map_grid = bool(data.map_grid)
 		if data.has("is_staff"):
@@ -6061,6 +6075,9 @@ func _write_settings_file(saveFile: String):
 			show_map_rp = show_map_rp,
 			new_settings_ui = new_settings_ui,
 			settings_side_tabs = settings_side_tabs,
+			settings_hidden_tabs = settings_hidden_tabs,
+			settings_collapsible = settings_collapsible,
+			settings_collapsed = settings_collapsed,
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
 			fs_auto_rate = fs_auto_rate,

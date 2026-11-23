@@ -27,6 +27,7 @@ func _ready():
 		call_deferred("_add_show_map_rp")
 		call_deferred("_add_new_settings_ui")
 		call_deferred("_add_settings_side_tabs")
+		call_deferred("_add_settings_collapsible")
 		call_deferred("_add_frame_smoothing")
 		call_deferred("_add_stream_mode")
 	if target == "map_grid":
@@ -165,6 +166,22 @@ func _add_new_settings_ui():
 	var at: Node = parent.get_node_or_null("ShowMapRP")
 	if at == null:
 		at = parent.get_node_or_null("MapGrid")
+	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
+
+# "Collapsible Groups" for the new Settings page (SettingsNewUI.gd)
+func _add_settings_collapsible():
+	var parent = get_parent()
+	if parent == null or parent.has_node("SettingsCollapsible"):
+		return
+	if not Rhythia.new_settings_ui or Rhythia.sound_space_mode:
+		return # (the old page's groups have no titles to click)
+	var cb = duplicate()
+	cb.name = "SettingsCollapsible"
+	cb.target = "settings_collapsible"
+	cb.text = "Collapsible Groups"
+	cb.hint_tooltip = "Click a group's title in Settings (Modifiers, Camera...) to fold it shut, and again to open it. Which ones are shut is remembered. Off: every group is open."
+	parent.add_child(cb)
+	var at: Node = parent.get_node_or_null("NewSettingsUI")
 	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)
 
 # "Side Tabs" for the old Settings page (SettingsHeader.gd): only shown there
