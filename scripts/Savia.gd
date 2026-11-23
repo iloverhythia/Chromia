@@ -3620,6 +3620,10 @@ var invert_mouse: bool = false setget set_invert_mouse
 var disable_pausing: bool = false
 var speed_hitwindow: bool = true
 var restart_on_death: bool = false
+# Settings > Gameplay: a break that can be skipped (the timer's "TO SKIP") is
+# skipped by itself after a moment, as if the key was pressed (NoteManager.gd).
+# Not in a lobby (the host's skip moves everyone) or while watching someone.
+var auto_skip: bool = false
 var death_slowdown_enabled: bool = false
 const DEATH_SLOWDOWN_DURATION_SEC: float = 1.5
 
@@ -5031,6 +5035,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			speed_hitwindow = data.speed_hitwindow
 		if data.has("restart_on_death"):
 			restart_on_death = data.restart_on_death
+		if data.has("auto_skip"):
+			auto_skip = bool(data.auto_skip)
 		if data.has("death_slowdown_enabled"):
 			death_slowdown_enabled = data.death_slowdown_enabled
 		if data.has("cursor_spin"):
@@ -6088,6 +6094,7 @@ func _write_settings_file(saveFile: String):
 			hitwindow_ms = float(get_meta("mp_hitwindow_own")) if has_meta("mp_hitwindow_own") else hitwindow_ms, # (multiplayer's 55 ms isn't saved over yours)
 			speed_hitwindow = speed_hitwindow,
 			restart_on_death = restart_on_death,
+			auto_skip = auto_skip,
 			death_slowdown_enabled = death_slowdown_enabled,
 			cursor_spin = cursor_spin,
 			note_size = note_size,

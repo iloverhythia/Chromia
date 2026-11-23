@@ -1259,6 +1259,9 @@ func _set_rec_interval(delta: float):
 
 	last_cursor_position = newpos
 
+const AUTO_SKIP_AFTER := 0.6 # seconds
+var _auto_skip_t := 0.0
+
 func _process(delta: float):
 	# Experimental No Delay: mouse movement that came in while this frame was
 	# being started is taken in now, before the camera and hits use the cursor
@@ -1313,6 +1316,15 @@ func _process(delta: float):
 			set_viewer_paused(not viewer_paused)
 
 		if not Rhythia.replaying:
+			# Auto Skip (Settings > Gameplay): the skip happens by itself once
+			# the break has been skippable for AUTO_SKIP_AFTER (so the last
+			# note's hit is seen, not cut off). Playing alone only.
+			var auto_skip := false
+			if Rhythia.auto_skip and can_skip and pause_state == 0 and not (lobby_manager != null and (lobby_manager.lobby_active or lobby_manager.watch_mode)):
+				_auto_skip_t += delta
+				auto_skip = _auto_skip_t >= AUTO_SKIP_AFTER
+			else:
+				_auto_skip_t = 0.0
 			if Input.is_action_just_released("pause"):
 				if pause_state > 0:
 					pause_state = -1
@@ -1321,8 +1333,9 @@ func _process(delta: float):
 						Rhythia.replay.store_sig(rms, Globals.RS_CANCEL_UNPAUSE)
 					emit_signal("ms_change", ms)
 					_n_music.stop()
-			elif Input.is_action_just_pressed("pause"):
+			elif Input.is_action_just_pressed("pause") or auto_skip:
 				if pause_state == 0 and can_skip:
+					_auto_skip_t = 0.0
 					var in_lobby = lobby_manager != null and lobby_manager.lobby_active
 					if in_lobby and not lobby_manager.is_host:
 						pass
