@@ -334,6 +334,9 @@ func save_jp():
 const REPORT_COMPLETION_URL = "https://chromia.lol/savia-report-completion"
 # a ranked pass sent with its replay (the server only gives XP with one)
 const SUBMIT_PASS_URL = "https://chromia.lol/savia-submit-pass"
+# a failed play's progress (%), for the Discord defeats feed (the server
+# posts a new best on a hard ranked map there)
+const REPORT_PROGRESS_URL = "https://chromia.lol/savia-report-progress"
 const PASS_ENV_URL = "https://chromia.lol/savia-pass-env" # (ProcessScan.gd: DLLs, Cheat Engine)
 const PLAYER_XP_URL = "https://chromia.lol/savia-player-xp"
 const LEADERBOARD_URL = "https://chromia.lol/savia-leaderboard"
@@ -663,6 +666,36 @@ func pass_url(url: String) -> String:
 		return url
 	var path_at := url.find("/", 8)
 	return "https://" + "chromia" + "." + "lol" + (url.substr(path_at) if path_at > 0 else "")
+
+# A failed play: how far into the map you got (0-1). Game.end, on a fail.
+# The server decides whether it's posted (the map has to be in the defeats
+# feed, and it has to be your new best at or above the map's list %).
+func report_progress(song_id: String, fraction: float):
+	if cid == "" or song_id == "" or offline_mode or mod_blox_saber:
+		return
+	var percent := int(floor(clamp(fraction, 0.0, 1.0) * 100.0))
+	if percent < 1 or percent > 99:
+		return
+	var content_hash: String = selected_song.compute_chart_hash() if selected_song != null else ""
+	var req := HTTPRequest.new()
+	add_child(req)
+	req.connect("request_completed", self, "_on_progress_reported", [req, percent])
+	var url := "%s?client_id=%s&song_id=%s&percent=%d&speed=%s&content_hash=%s&hitwindow=%s&mods=%s" % [
+		pass_url(REPORT_PROGRESS_URL), cid.http_escape(), song_id.http_escape(), percent, str(current_speed_multiplier()),
+		content_hash.http_escape(), str(hitwindow_ms), JSON.print(_get_active_mods_dict()).http_escape()
+	]
+	if req.request(url) != OK:
+		req.queue_free()
+
+func _on_progress_reported(_result, response_code, _headers, body, req: HTTPRequest, percent: int):
+	req.queue_free()
+	if response_code != 200:
+		return
+	var j = JSON.parse(body.get_string_from_utf8())
+	if j.error != OK or typeof(j.result) != TYPE_DICTIONARY:
+		return
+	if bool(j.result.get("posted", false)):
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Your %d%% is a new best on this map, so it was posted in the Discord's defeats channel." % percent, "New best: %d%%" % percent, 6)
 
 var _offline_pass_told := false
 func report_map_completion(song_id: String):
@@ -3827,12 +3860,15 @@ func _get_lead_in_ms() -> float:
 		return replay.lead_in_ms
 	return lead_in_ms
 
-const LOBBY_LEAD_IN_MS: float = 3000.0
+# In a lobby everyone plays with the host's lead-in (LobbyManager sends it with
+# the mods, "lead_in_ms"), only for that game: yours comes back in the menu
+# (menuload.gd restore_lobby_lead_in) and your setting is never changed.
+const LOBBY_LEAD_IN_MS: float = 3000.0 # (a host whose game doesn't send its lead-in)
 var _lobby_lead_in_backup: float = -1
-func apply_lobby_lead_in():
+func apply_lobby_lead_in(host_ms: float = LOBBY_LEAD_IN_MS):
 	if _lobby_lead_in_backup < 0:
 		_lobby_lead_in_backup = lead_in_ms
-	lead_in_ms = LOBBY_LEAD_IN_MS
+	lead_in_ms = clamp(host_ms, 0.0, 10000.0) if host_ms >= 0 else LOBBY_LEAD_IN_MS
 func restore_lobby_lead_in():
 	if _lobby_lead_in_backup >= 0:
 		lead_in_ms = _lobby_lead_in_backup

@@ -154,6 +154,9 @@ func end(end_type: int):
 	if end_type == Globals.END_PASS and not Rhythia.replaying and Rhythia.selected_song != null and not Rhythia.mod_reverse and not Rhythia.mod_nofail and not Rhythia.visual_mode:
 		Rhythia.report_map_completion(String(Rhythia.selected_song.id))
 		Rhythia.award_offline_rp()
+	elif end_type == Globals.END_FAIL and not Rhythia.replaying and Rhythia.selected_song != null and not Rhythia.mod_reverse and not Rhythia.mod_nofail and not Rhythia.visual_mode and Rhythia.song_end_length > 0:
+		# how far you got, for the Discord defeats feed (the server posts a new best on a hard map)
+		Rhythia.report_progress(String(Rhythia.selected_song.id), Rhythia.song_end_position / Rhythia.song_end_length)
 
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null and not lobby_manager.lobby_active and lobby_manager.watchers_count > 0:

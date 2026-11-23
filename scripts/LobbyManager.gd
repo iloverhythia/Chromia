@@ -619,6 +619,7 @@ func update_player_stats(score: int, hits: int, misses: int, total_notes: int):
 func start_game():
 	print("[furria] start_game() called, lobby_active=", lobby_active, " is_host=", is_host)
 	if lobby_active and is_host:
+		push_current_mods() # (the lead-in you have now: it isn't a mod, so changing it sent nothing)
 		_send({"type": "start_game"})
 		print("[furria] start_game message sent")
 
@@ -752,6 +753,9 @@ func _send(payload: Dictionary) -> int:
 
 func _collect_current_mods() -> Dictionary:
 	return {
+		# (the host's own lead-in: everyone plays the game with it, Savia.apply_lobby_lead_in;
+		# never applied as a setting. Your own, also while one game's is applied)
+		"lead_in_ms": Rhythia._lobby_lead_in_backup if Rhythia._lobby_lead_in_backup >= 0 else Rhythia.lead_in_ms,
 		"nofail": Rhythia.mod_nofail,
 		"speed_level": Rhythia.mod_speed_level,
 		"speed_custom": Globals.speed_multi[Globals.SPEED_CUSTOM] if Rhythia.mod_speed_level == Globals.SPEED_CUSTOM else 1.0,
@@ -2199,7 +2203,9 @@ func _handle_message(msg: Dictionary):
 				_apply_mods_locally(lobby_state.get("mods", {}))
 				_apply_watch_spin(lobby_state.get("mods", {}))
 			enforce_mp_hitwindow() # (55 or 58 ms in multiplayer)
-			Rhythia.apply_lobby_lead_in()
+			# the host's lead-in, for this game only (the host: their own)
+			var host_lead: float = float(lobby_state.get("mods", {}).get("lead_in_ms", Rhythia.LOBBY_LEAD_IN_MS))
+			Rhythia.apply_lobby_lead_in(Rhythia.lead_in_ms if is_host else host_lead)
 			print("[furria] Rhythia.mod_speed_level after apply: ", Rhythia.mod_speed_level)
 			var t = get_tree().create_timer(0.4)
 			t.connect("timeout", self, "_scene_transition_now")
