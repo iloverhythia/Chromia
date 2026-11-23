@@ -50,6 +50,15 @@ func _add_lobby_invites():
 	cb.hint_tooltip = "On: people can invite you into their multiplayer lobby (you choose to join or not). Off: nobody can invite you"
 	parent.add_child(cb)
 	parent.move_child(cb, get_index() + 1)
+	# Offline Mode (Savia.gd offline_mode), above Allow Spectators
+	if not parent.has_node("OfflineMode"):
+		var om = duplicate()
+		om.name = "OfflineMode"
+		om.target = "offline_mode"
+		om.text = "Offline Mode"
+		om.hint_tooltip = "On: you play on your own. No chat, lobbies, invites or watching others, nobody sees you online or can watch you, and your scores aren't sent (no XP, SP or leaderboard). Maps, updates and your own history still work."
+		parent.add_child(om)
+		parent.move_child(om, get_index())
 	# (test builds only) where your passes go
 	if Online.build_channel() == "test" and not parent.has_node("PassesToMain"):
 		var pm = duplicate()

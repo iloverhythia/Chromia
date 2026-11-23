@@ -72,6 +72,7 @@ func _build():
 
 	# a see-through layer behind the page: a click outside closes it
 	dim = ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.name = "FiltersDim"
 	dim.color = Color(0, 0, 0, 0.25)
 	dim.set_as_toplevel(true)
@@ -164,11 +165,30 @@ func _build():
 			unr.pressed = false
 	if unr.pressed:
 		call_deferred("_on_unranked", true, unr)
-	# (Reset filters: both boxes unticked. One connection for the two: a
+	# only the maps you have passed, or only the ones you haven't (one or the other)
+	var done: CheckBox = tmpl.duplicate(0)
+	done.name = "CompletedOnly"
+	done.text = "completed"
+	done.group = null
+	done.pressed = int(Rhythia.get("last_search_completed")) == 1
+	done.hint_tooltip = "only show maps you have passed (with any mods or speed)"
+	box.add_child(done)
+	var undone: CheckBox = tmpl.duplicate(0)
+	undone.name = "UncompletedOnly"
+	undone.text = "uncompleted"
+	undone.group = null
+	undone.pressed = int(Rhythia.get("last_search_completed")) == 2
+	undone.hint_tooltip = "only show maps you haven't passed yet"
+	box.add_child(undone)
+	done.connect("toggled", self, "_on_completed", [1, done, undone])
+	undone.connect("toggled", self, "_on_completed", [2, undone, done])
+	if int(Rhythia.get("last_search_completed")) != 0:
+		call_deferred("_apply_completed")
+	# (Reset filters: the boxes unticked. One connection for all of them: a
 	# second one to the same method is refused, which left "unranked" ticked
 	# after a reset and put an error in the log every time the menu opened)
 	if ml != null and ml.has_signal("reset_filters"):
-		ml.connect("reset_filters", self, "_boxes_reset", [[emb, unr]])
+		ml.connect("reset_filters", self, "_boxes_reset", [[emb, unr, done, undone]])
 	box.add_child(_heading("Sort by", title, true))
 	var cur := _current_key()
 	for s in SORTS:
@@ -247,6 +267,21 @@ func _on_unranked(on: bool, unr: CheckBox):
 				list.update_search_xponly(false)
 	if list != null and list.has_method("update_search_unranked"):
 		list.update_search_unranked(on)
+
+# completed / uncompleted: ticking one unticks the other
+func _on_completed(on: bool, mode: int, _box_ticked: CheckBox, other: CheckBox):
+	if on:
+		if is_instance_valid(other) and other.pressed:
+			other.set_pressed_no_signal(false)
+		Rhythia.last_search_completed = mode
+	elif int(Rhythia.last_search_completed) == mode:
+		Rhythia.last_search_completed = 0
+	_apply_completed()
+
+func _apply_completed():
+	var list = load("res://scripts/ui/menu/MapListOf.gd").find(filters)
+	if list != null and list.has_method("update_search_completed"):
+		list.update_search_completed(int(Rhythia.last_search_completed))
 
 func _on_ranked_toggled(on: bool, unr: CheckBox):
 	if on and is_instance_valid(unr) and unr.pressed:

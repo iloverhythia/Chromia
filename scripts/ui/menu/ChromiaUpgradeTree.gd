@@ -1779,6 +1779,7 @@ func _make_panel(title: String, desc: String) -> Array:
 	root.mouse_filter = MOUSE_FILTER_STOP
 	add_child(root)
 	var dim := ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.color = Color(0, 0, 0, 0.72)
 	dim.anchor_right = 1.0
 	dim.anchor_bottom = 1.0

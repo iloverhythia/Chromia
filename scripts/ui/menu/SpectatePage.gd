@@ -54,7 +54,7 @@ var search: LineEdit
 var fav_filter: Button
 var info: Label
 var scroll: ScrollContainer
-var grid: GridContainer
+var grid: Control # (the cards are placed in it by hand: _show_visible)
 var chat_panel: PanelContainer
 var chat: RichTextLabel
 var chat_input: LineEdit
@@ -65,6 +65,18 @@ var _lm = null
 var _open := false
 var _k := 1.0 # size scale for this screen
 var _cards := {} # player number -> {card, refs...}
+# Only the cards on screen (and a row above and below) exist and are kept up to
+# date: with a few hundred people online, everyone else is a line in _order
+# and nothing more until they are scrolled to. The cards are all one size, so
+# each one's place follows from its number in the order (no container).
+var _order := [] # everyone shown, in order: {p, card (null until on screen), ...}
+var _seen := [] # the ones on screen
+var _cols := 1
+var _more := false # cards on screen still to be made (a few a frame)
+var _gen := 0 # (which list a card was last in)
+const GAP := 10.0 # between cards
+const BUILD_USEC := 4000 # making cards stops for this frame after this long
+var _styles := {} # the cards' panel looks, shared between cards that look the same
 var _list: Array = []
 var _you: int = -1
 var _img_cache := {} # url -> texture
@@ -340,6 +352,8 @@ func _ready():
 			_lm.connect("chat_reactions_changed", self, "_on_chat_reactions")
 		if _lm.has_signal("chat_message_deleted"):
 			_lm.connect("chat_message_deleted", self, "_on_chat_deleted")
+		if _lm.has_signal("blocked_changed"):
+			_lm.connect("blocked_changed", self, "_on_chat_deleted", [""]) # (drawn again: folded or unfolded)
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -390,6 +404,8 @@ func _build_notice():
 func _notify_chat(client_id: String, name: String, text: String):
 	if not Rhythia.spectate_chat_notify or (client_id != "" and client_id == Rhythia.cid):
 		return
+	if _lm != null and _lm.has_method("is_blocked_chat") and _lm.is_blocked_chat(String(_lm.get("last_chat_id"))):
+		return # (someone you blocked)
 	_unread += 1
 	badge.text = str(_unread) if _unread < 100 else "99+"
 	_place_notice()
@@ -443,6 +459,7 @@ func _build_window():
 	add_child(overlay)
 	# the menu dims behind it; clicking there closes it
 	var dim := ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.anchor_right = 1.0
 	dim.anchor_bottom = 1.0
 	dim.color = Color(0, 0, 0, 0.55)
@@ -547,11 +564,12 @@ func _build_window():
 	scroll.size_flags_vertical = SIZE_EXPAND_FILL
 	scroll.scroll_horizontal_enabled = false
 	pv.add_child(scroll)
-	grid = GridContainer.new()
-	grid.add_constant_override("hseparation", 10)
-	grid.add_constant_override("vseparation", 10)
+	grid = Control.new()
+	grid.mouse_filter = MOUSE_FILTER_PASS
+	grid.size_flags_horizontal = SIZE_EXPAND_FILL
 	scroll.add_child(grid)
 	scroll.connect("resized", self, "_relayout")
+	scroll.get_v_scrollbar().connect("value_changed", self, "_on_scrolled")
 	_style_scroll(scroll.get_v_scrollbar())
 
 	# the global chat, a column on the right
@@ -662,9 +680,15 @@ func _process(delta):
 		_prog_tick += delta
 		if _prog_tick >= 0.5:
 			_prog_tick = 0.0
-			for n in _cards:
-				if _cards[n].get("prog") is Dictionary:
-					_draw_prog(_cards[n])
+			for c in _seen:
+				if c.get("prog") is Dictionary:
+					_draw_prog(c)
+		if _more:
+			_show_visible()
+		if _late_list != null and OS.get_ticks_msec() - _list_at >= CROWD_GAP_MS:
+			var late = _late_list
+			_late_list = null
+			_on_list(late[0], late[1])
 	if _pending_number != -1:
 		_pending_t -= delta
 		if _pending_t <= 0.0 or (_lm != null and _lm.watch_mode):
@@ -813,24 +837,34 @@ func _update_info():
 		text = "Connecting to the server..."
 	elif _list.empty():
 		text = "Nobody else is online right now."
-	elif fav_filter.pressed and grid.get_child_count() == 0:
+	elif fav_filter.pressed and _order.empty():
 		text = "None of your favorites are online. Heart someone on their card to add them."
 	elif not Rhythia.allow_spectators:
 		text = "Spectators are off for you (Settings > Online), so nobody can watch you."
 	info.text = text
 	info.visible = text != ""
 
+# With a crowd online, a headset or a phone takes a new list every other
+# second (the server sends one a second): going through a few hundred people
+# is a few milliseconds there, and the cards' progress lines move on by the
+# clock in between anyway.
+const CROWD := 100
+const CROWD_GAP_MS := 2000
+var _list_at := 0
+var _late_list = null # [list, you]: one that came too soon after the last
+
 func _on_list(lst: Array, you: int):
 	if _animating:
 		_held_list = [lst, you] # (after the opening motion)
 		return
+	var now := OS.get_ticks_msec()
+	if lst.size() > CROWD and (Rhythia.vr or Rhythia.device("mobile")) and now - _list_at < CROWD_GAP_MS:
+		_late_list = [lst, you]
+		return
+	_late_list = null
+	_list_at = now
 	_list = lst
 	_you = you
-	var playing := 0
-	for p in lst:
-		if p is Dictionary and String(p.get("status", "")) == "playing":
-			playing += 1
-	header.text = "%d online   ·   %d playing" % [lst.size(), playing]
 	_rebuild()
 	_update_info()
 
@@ -856,13 +890,23 @@ func _on_fav_filter(on: bool):
 func _is_fav(n: int) -> bool:
 	return Rhythia.spectate_favorites.has(n)
 
-func _matches(p: Dictionary) -> bool:
-	if fav_filter.pressed and not _is_fav(int(p.get("number", -1))):
+func _matches(p: Dictionary, q: String, favs: bool) -> bool:
+	if favs and not _is_fav(int(p.get("number", -1))):
 		return false
-	var q := search.text.strip_edges().to_lower()
 	if q == "":
 		return true
 	return String(p.get("name", "")).to_lower().find(q) != -1 or String(p.get("song_name", "")).to_lower().find(q) != -1
+
+# (their place and name in small letters are worked out once for each, not at every comparison)
+func _by_key(a: Dictionary, b: Dictionary) -> bool:
+	if a.rk != b.rk:
+		return a.rk < b.rk
+	return a.low_name < b.low_name
+
+func _by_key3(a: Array, b: Array) -> bool:
+	if a[0] != b[0]:
+		return a[0] < b[0]
+	return a[1] < b[1]
 
 # square cards of one size (not stretched to the width)
 const CARD_SIDE := 160.0
@@ -873,52 +917,189 @@ func _relayout():
 		return
 	var w: float = scroll.rect_size.x - 12
 	var side := floor(CARD_SIDE * _k)
-	grid.columns = int(clamp(floor((w + 10) / (side + 10)), 1, 10))
-	var refit: bool = side != _cw
-	_cw = side
-	var tall := floor((CARD_SIDE + CARD_EXTRA) * _k)
-	for c in grid.get_children():
-		c.rect_min_size = Vector2(side, tall)
-		c.rect_size = Vector2(side, tall)
-	if refit:
+	_cols = int(clamp(floor((w + GAP) / (side + GAP)), 1, 10))
+	if side != _cw:
+		_cw = side
+		_styles.clear()
 		for n in _cards:
-			_card_style(_cards[n])
+			var c: Dictionary = _cards[n]
+			c.filled = null # (their text is fitted to the new width when next on screen)
+			c.sb = null
+	_show_visible()
 
+func _on_scrolled(_v = null):
+	_show_visible()
+
+const NO_RANK := 1 << 30
 func _rebuild():
 	if grid == null:
 		return
-	var keep := {}
-	var order := []
 	# in leaderboard order (SP rank; unranked players after, by name).
 	# (Favourites don't jump to the front: cards moved under the pointer when hearted.)
-	var shown := []
+	# One pass over everyone online, as little as possible for each: this runs
+	# once a second with the whole list.
+	var q := search.text.strip_edges().to_lower()
+	var favs: bool = fav_filter.pressed
+	var all: bool = q == "" and not favs
+	_gen += 1
+	var fresh := [] # the ones who weren't in the list before
+	var n_shown := 0
+	var playing := 0
 	for p in _list:
-		if p is Dictionary and _matches(p):
-			shown.append(p)
-	shown.sort_custom(self, "_by_rank")
-	for p in shown:
+		if not (p is Dictionary):
+			continue
+		if p.get("status") == "playing":
+			playing += 1
+		if not all and not _matches(p, q, favs):
+			continue
 		var n := int(p.get("number", -1))
-		keep[n] = true
 		var c = _cards.get(n)
 		if c == null:
-			c = _make_card()
+			c = _new_card()
 			_cards[n] = c
-			grid.add_child(c.card)
-		_fill_card(c, p)
-		order.append(c.card)
-	for n in _cards.keys():
-		if not keep.has(n):
-			_cards[n].card.queue_free()
-			_cards.erase(n)
-	for i in range(order.size()):
-		grid.move_child(order[i], i)
-	_relayout()
+			fresh.append(c)
+		c.p = p
+		c.number = n
+		c.gen = _gen
+		# (what they are sorted by: their place, then their name)
+		var r = p.get("rank")
+		c.rk = int(r) if (typeof(r) == TYPE_INT or typeof(r) == TYPE_REAL) and r >= 1 else NO_RANK
+		var nm = p.get("name", "")
+		if nm != c.raw_name:
+			c.raw_name = nm
+			c.low_name = String(nm).to_lower()
+		n_shown += 1
+	var head := "%d online   ·   %d playing" % [_list.size(), playing]
+	if header.text != head:
+		header.text = head
+	# whoever left (or is filtered out now) goes; the others keep their order
+	var order := _order
+	if order.size() + fresh.size() != n_shown:
+		order = []
+		for c in _order:
+			if c.gen == _gen:
+				order.append(c)
+			else:
+				if c.card != null:
+					c.card.queue_free()
+					c.card = null
+				c.shown = false
+				_cards.erase(c.number)
+	# does that order still hold (most seconds it does)? Then the newcomers are
+	# put in their places; else everyone is sorted again
+	var holds := true
+	for i in range(1, order.size()):
+		var a: Dictionary = order[i - 1]
+		var b: Dictionary = order[i]
+		if a.rk > b.rk or (a.rk == b.rk and a.low_name > b.low_name):
+			holds = false
+			break
+	if holds and fresh.size() <= 12:
+		for c in fresh:
+			var lo := 0
+			var hi := order.size()
+			while lo < hi:
+				var mid := (lo + hi) / 2
+				if _by_key(order[mid], c):
+					lo = mid + 1
+				else:
+					hi = mid
+			order.insert(lo, c)
+	else:
+		# (as [place, name, card]: quicker to compare than the cards themselves)
+		var keys := []
+		for c in _cards.values():
+			keys.append([c.rk, c.low_name, c])
+		keys.sort_custom(self, "_by_key3")
+		order = []
+		for k in keys:
+			order.append(k[2])
+	_order = order
+	_show_visible()
+
+# The cards on screen (and a row above and below) are made if they weren't yet
+# (a few a frame), put in their place and brought up to date; the ones that
+# left the screen are hidden.
+func _show_visible():
+	if grid == null:
+		return
+	var side := floor(CARD_SIDE * _k)
+	var tall := floor((CARD_SIDE + CARD_EXTRA) * _k)
+	var step := tall + GAP
+	var rows := int(ceil(_order.size() / float(_cols)))
+	var want := Vector2(_cols * (side + GAP) - GAP, max(0.0, rows * step - GAP))
+	if grid.rect_min_size != want:
+		grid.rect_min_size = want
+	var top := float(scroll.scroll_vertical)
+	var first := int(max(0.0, floor(top / step) - 1.0)) * _cols
+	var last := int(min(_order.size(), (int(floor((top + scroll.rect_size.y) / step)) + 2) * _cols))
+	var made := 0
+	var t0 := OS.get_ticks_usec()
+	_more = false
+	var seen := []
+	for i in range(first, last):
+		var c: Dictionary = _order[i]
+		if c.card == null:
+			# (one at least, then as many as fit in a few milliseconds: fewer a frame on a slow device)
+			if made > 0 and OS.get_ticks_usec() - t0 > BUILD_USEC:
+				_more = true
+				continue
+			_make_card(c)
+			made += 1
+		var at := Vector2((i % _cols) * (side + GAP), (i / _cols) * step)
+		if c.card.rect_position != at:
+			c.card.rect_position = at
+		if c.card.rect_size != Vector2(side, tall):
+			c.card.rect_size = Vector2(side, tall)
+		if not c.shown:
+			c.shown = true
+			c.card.visible = true
+			c.filled = null
+			c.sig = 0
+		if c.filled != c.p:
+			c.filled = c.p
+			_fill_card(c, c.p)
+		c.on = true
+		seen.append(c)
+	for c in _seen:
+		if not c.on and c.shown:
+			c.shown = false
+			if c.card != null:
+				c.card.visible = false
+	for c in seen:
+		c.on = false
+	_seen = seen
+
+# a card's panel look: one object for all the cards that look the same
+func _panel_style(bg: Color, border: Color, bw: int) -> StyleBoxFlat:
+	var key := "%s|%s|%d" % [bg.to_html(), border.to_html(), bw]
+	var sb = _styles.get(key)
+	if sb == null:
+		if _styles.size() > 400:
+			_styles.clear()
+		sb = _pad(_flat(bg, 3, border, bw), 8 * _k, 8 * _k)
+		_styles[key] = sb
+	return sb
+
+# someone in the list: no card yet (it is made when they are on screen: _make_card)
+static func _new_card() -> Dictionary:
+	return {"card": null, "built": false, "shown": false, "on": false, "gen": 0, "rk": 0, "raw_name": null, "low_name": "", "p": null, "filled": null, "sig": 0, "sb": null, "fx": "", "img_url": "", "frame_sig": "", "prog": null, "url": "", "number": -1,
+		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false, "name_full": "", "status_full": ""}
+
+func _make_card(c: Dictionary):
+	var card := PanelContainer.new()
+	card.mouse_filter = MOUSE_FILTER_STOP
+	card.connect("gui_input", self, "_on_card_input", [c])
+	card.connect("mouse_entered", self, "_on_card_hover", [c, true])
+	card.connect("mouse_exited", self, "_on_card_hover", [c, false])
+	c.card = card
+	grid.add_child(card)
+	_build_card(c)
 
 # a square card: the role tag and device in the top corners, the picture,
 # name, what they're doing and their leaderboard place, the heart bottom right
-func _make_card() -> Dictionary:
-	var card := PanelContainer.new()
-	card.mouse_filter = MOUSE_FILTER_STOP
+func _build_card(c: Dictionary):
+	var card: PanelContainer = c.card
 	var box := Control.new()
 	box.mouse_filter = MOUSE_FILTER_IGNORE
 	card.add_child(box)
@@ -1015,6 +1196,7 @@ func _make_card() -> Dictionary:
 	bar_fill.visible = false
 	bar.add_child(bar_fill)
 	var rank_l = _label("", font_rank, FAINT)
+	rank_l.set_meta("no_outline", true) # (faint, with no outline round it: WaveMenuBG.gd)
 	rank_l.align = Label.ALIGN_CENTER
 	v.add_child(rank_l)
 
@@ -1083,14 +1265,11 @@ func _make_card() -> Dictionary:
 	alt.visible = false
 	box.add_child(alt)
 
-	var c := {"bgimg": bgimg, "cfx": cfx, "fx": "", "img_url": "", "fv": fv, "frame_sig": "", "dots": dots, "alt": alt, "card": card, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
-		"status": status_l, "prog_l": prog_l, "bar": bar, "bar_fill": bar_fill, "prog": null, "heart": heart, "rank": rank_l, "device": device, "watching": watching, "url": "", "number": -1,
-		"can": false, "anyway": false, "nm": "", "rank_text": "", "hover": false, "is_you": false,
-		"name_full": "", "status_full": ""}
-	card.connect("gui_input", self, "_on_card_input", [c])
-	card.connect("mouse_entered", self, "_on_card_hover", [c, true])
-	card.connect("mouse_exited", self, "_on_card_hover", [c, false])
-	return c
+	var refs := {"box": box, "bgimg": bgimg, "cfx": cfx, "fv": fv, "dots": dots, "alt": alt, "circle": circle, "initial": initial, "pic": pic, "name": name_l, "tag": tag,
+		"status": status_l, "prog_l": prog_l, "bar": bar, "bar_fill": bar_fill, "heart": heart, "rank": rank_l, "device": device, "watching": watching}
+	for k in refs:
+		c[k] = refs[k]
+	c.built = true
 
 # a card's picture (FrameImages.gd keeps it; it may still be coming)
 func _card_img(c: Dictionary):
@@ -1103,10 +1282,23 @@ func _card_img(c: Dictionary):
 
 func _on_art_loaded(url: String):
 	for c in _cards.values():
-		if c.img_url == url:
+		if c.built and c.img_url == url:
 			_card_img(c)
 
+# (a label's text or colour is only set when it changes: setting it again
+# costs a redraw and a new layout of the card, every second for every card)
+static func _text(l: Label, t: String):
+	if l.text != t:
+		l.text = t
+
+static func _colour(c: Dictionary, key: String, l: Control, col: Color):
+	if c.get(key) != col:
+		c[key] = col
+		l.add_color_override("font_color", col)
+
 func _card_style(c: Dictionary):
+	if not c.built:
+		return
 	var lit: bool = c.hover and c.can
 	# (their card from profile > Cards: its background and border)
 	var cbg = c.get("card_bg")
@@ -1115,27 +1307,40 @@ func _card_style(c: Dictionary):
 	var idle_border: Color = cbd if cbd is Color else Color(1, 1, 1, 0.04)
 	var border := ACCENT if c.is_you else (LILAC if lit else idle_border)
 	var wide: bool = c.is_you or lit or cbd is Color
-	var sb := _pad(_flat(base.lightened(0.06) if lit else base, 3, border, 2 if wide else 1), 8 * _k, 8 * _k)
-	c.card.add_stylebox_override("panel", sb)
+	var sb := _panel_style(base.lightened(0.06) if lit else base, border, 2 if wide else 1)
+	if c.sb != sb:
+		c.sb = sb
+		c.card.add_stylebox_override("panel", sb)
 	c.card.mouse_default_cursor_shape = CURSOR_POINTING_HAND if c.can else CURSOR_ARROW
 	var fav := _is_fav(int(c.number))
-	c.heart.texture = _heart_on if fav else _heart_off
+	var heart_tex := _heart_on if fav else _heart_off
+	if c.heart.texture != heart_tex:
+		c.heart.texture = heart_tex
 	# the heart shows on a favourite, or while you point at the card
 	c.heart.visible = not c.is_you and (fav or c.hover)
-	c.dots.add_color_override("font_color", TEXT if c.hover else FAINT)
+	_colour(c, "dots_col", c.dots, TEXT if c.hover else FAINT)
 	var tw := _cw - 22.0 * _k
-	c.name.text = _fit(c.name_full, font_name, tw)
-	c.status.text = _fit(c.status_full, font_small, tw)
-	c.rank.rect_min_size.y = font_rank.get_height() # (no jump when it says Spectate)
+	var fit_key := "%s|%s|%d" % [c.name_full, c.status_full, int(tw)]
+	if c.get("fit_key") != fit_key:
+		c["fit_key"] = fit_key
+		c.name.text = _fit(c.name_full, font_name, tw)
+		c.status.text = _fit(c.status_full, font_small, tw)
+	var rank_h := font_rank.get_height() # (no jump when it says Spectate)
+	if c.rank.rect_min_size.y != rank_h:
+		c.rank.rect_min_size.y = rank_h
 	var joining := _pending_number == int(c.number)
+	var rank_font: DynamicFont
 	if joining or lit:
-		c.rank.text = "Joining..." if joining else ("Spectate anyway" if c.anyway else "Spectate")
-		c.rank.add_font_override("font", font_bold)
-		c.rank.add_color_override("font_color", ACCENT)
+		_text(c.rank, "Joining..." if joining else ("Spectate anyway" if c.anyway else "Spectate"))
+		rank_font = font_bold
+		_colour(c, "rank_col", c.rank, ACCENT)
 	else:
-		c.rank.text = c.rank_text if c.rank_text != "" else "Unranked"
-		c.rank.add_font_override("font", font_rank if c.rank_text != "" else font_small)
-		c.rank.add_color_override("font_color", FAINT)
+		_text(c.rank, c.rank_text if c.rank_text != "" else "Unranked")
+		rank_font = font_rank if c.rank_text != "" else font_small
+		_colour(c, "rank_col", c.rank, FAINT)
+	if c.get("rank_font") != rank_font:
+		c["rank_font"] = rank_font
+		c.rank.add_font_override("font", rank_font)
 
 # a card's progress line and bar, moved on by the clock between lists
 static func _mmss(s: float) -> String:
@@ -1162,19 +1367,25 @@ static func _prog_text(d: Dictionary, long: bool) -> String:
 	return ("%s  ·  %s in  ·  %s left" if long else "%s · %s · -%s") % [sp, into, left]
 
 func _draw_prog(c: Dictionary):
+	if not c.built:
+		return
 	var d = c.get("prog")
 	if not (d is Dictionary):
-		c.prog_l.text = " "
-		c.bar.color = Color(1, 1, 1, 0)
+		_text(c.prog_l, " ")
+		if c.bar.color.a != 0.0:
+			c.bar.color = Color(1, 1, 1, 0)
 		c.bar_fill.visible = false
 		return
 	var tw := _cw - 22.0 * _k
 	var t := _prog_text(d, true)
 	if font_tiny.get_string_size(t).x > tw:
 		t = _prog_text(d, false)
-	c.prog_l.text = _fit(t, font_tiny, tw)
-	c.prog_l.add_color_override("font_color", DIM if d.paused else PLAYING)
-	c.bar.color = Color(1, 1, 1, 0.08)
+	if c.get("prog_t") != t:
+		c["prog_t"] = t
+		c.prog_l.text = _fit(t, font_tiny, tw)
+	_colour(c, "prog_col", c.prog_l, DIM if d.paused else PLAYING)
+	if c.bar.color.a == 0.0:
+		c.bar.color = Color(1, 1, 1, 0.08)
 	c.bar_fill.visible = d.dur > 0
 	if d.dur > 0:
 		c.bar_fill.anchor_right = clamp(_prog_now(d) / d.dur, 0.0, 1.0)
@@ -1192,7 +1403,28 @@ func _card_alt() -> bool:
 		Engine.set_meta("card_alt", randi() % 10 == 0)
 	return bool(Engine.get_meta("card_alt"))
 
+# what of a player's line the card shows, as one number: the card is only
+# filled in again when it changes (not for how far into the map they are,
+# which moves every second and has its own line)
+func _sig(p: Dictionary) -> int:
+	var q := p.duplicate()
+	for k in ["pos_ms", "since_s", "len_ms", "speed", "paused"]:
+		q.erase(k)
+	return hash([q, _you, _cw, _lm != null and _lm.i_am_staff, Rhythia.allow_spectators, _pending_number == int(p.get("number", -1))])
+
 func _fill_card(c: Dictionary, p: Dictionary):
+	var status := String(p.get("status", ""))
+	var playing := status == "playing"
+	# how far into the map (newer servers: speed, pos_ms, len_ms, paused)
+	c.prog = null
+	if playing and p.has("pos_ms") and p.get("pos_ms") != null and float(p.get("speed", 0)) > 0:
+		c.prog = {"pos": float(p.pos_ms), "dur": float(p.get("len_ms")) if p.get("len_ms") != null else 0.0,
+			"speed": float(p.speed), "paused": bool(p.get("paused", false)), "t": OS.get_ticks_msec()}
+	var sig := _sig(p)
+	if sig == c.sig:
+		_draw_prog(c)
+		return
+	c.sig = sig
 	var cd = p.get("card")
 	c["card_bg"] = Color(String(cd.get("bg", ""))) if cd is Dictionary and String(cd.get("bg", "")).is_valid_html_color() else null
 	c["card_border"] = Color(String(cd.get("border", ""))) if cd is Dictionary and String(cd.get("border", "")).is_valid_html_color() else null
@@ -1233,8 +1465,10 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	c.rank_text = ("#%d" % int(rank)) if (typeof(rank) == TYPE_INT or typeof(rank) == TYPE_REAL) and int(rank) > 0 else ""
 	# picture: their Discord avatar, else a coloured circle with the first letter
 	var av_size: float = c.circle.get_parent().rect_min_size.x
-	c.circle.add_stylebox_override("panel", _flat(_name_color(nm), int(av_size / 2)))
-	c.initial.text = nm.substr(0, 1).to_upper()
+	if c.get("circle_nm") != nm:
+		c["circle_nm"] = nm
+		c.circle.add_stylebox_override("panel", _flat(_name_color(nm), int(av_size / 2)))
+		c.initial.text = nm.substr(0, 1).to_upper()
 	var url := AnimPic.pic_url(p) # (a moving GIF when they have one)
 	if url != c.url:
 		c.url = url
@@ -1242,8 +1476,6 @@ func _fill_card(c: Dictionary, p: Dictionary):
 		if url.begins_with("https://"):
 			_load_avatar(url, c.pic)
 	# what they're doing
-	var status := String(p.get("status", ""))
-	var playing := status == "playing"
 	var song := String(p.get("song_name", ""))
 	if playing:
 		c.status_full = "Playing " + (song if song != "" else "a map") + ("  ·  Spin" if bool(p.get("spin", false)) else "")
@@ -1254,11 +1486,6 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	else:
 		c.status_full = "Idle" if status == "menu" or status == "" else status.capitalize()
 		c.status.add_color_override("font_color", DIM)
-	# how far into the map (newer servers: speed, pos_ms, len_ms, paused)
-	c.prog = null
-	if playing and p.has("pos_ms") and p.get("pos_ms") != null and float(p.get("speed", 0)) > 0:
-		c.prog = {"pos": float(p.pos_ms), "dur": float(p.get("len_ms")) if p.get("len_ms") != null else 0.0,
-			"speed": float(p.speed), "paused": bool(p.get("paused", false)), "t": OS.get_ticks_msec()}
 	_draw_prog(c)
 	var n_watch := int(p.get("watchers", 0))
 	c.watching.visible = n_watch > 0
@@ -1267,7 +1494,20 @@ func _fill_card(c: Dictionary, p: Dictionary):
 	c.dots.margin_bottom = -15 * _k if n_watch > 0 else 0.0
 	c.dots.margin_top = c.dots.margin_bottom - 16 * _k
 	c.device.text = DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")
-	# the rest in a tooltip
+	# watching: someone playing who allows it (the server checks again); staff
+	# can watch someone with spectators off too ("Spectate anyway")
+	c.anyway = not bool(p.get("can_spectate", false)) and _lm != null and _lm.i_am_staff and bool(p.get("can_spectate_staff", false))
+	c.can = (bool(p.get("can_spectate", false)) or c.anyway) and not c.is_you
+	c.card.hint_tooltip = _card_tip(c, p)
+	_card_style(c)
+
+# the rest of what is known of them, for the tooltip (made again when the
+# pointer comes to the card: it says how long they have been playing)
+func _card_tip(c: Dictionary, p: Dictionary) -> String:
+	var nm: String = c.nm
+	var status := String(p.get("status", ""))
+	var playing := status == "playing"
+	var song := String(p.get("song_name", ""))
 	var tip := [nm]
 	tip.append("%s  ·  %s" % [c.rank_text if c.rank_text != "" else "Unranked", DEVICE_NAMES.get(String(p.get("device", "pc")), "PC")])
 	if c.prog is Dictionary:
@@ -1292,20 +1532,21 @@ func _fill_card(c: Dictionary, p: Dictionary):
 		tip.append("Spectators off")
 	if c.is_you and not Rhythia.allow_spectators:
 		tip.append("Your spectators are off (Settings > Online)")
-	# watching: someone playing who allows it (the server checks again); staff
-	# can watch someone with spectators off too ("Spectate anyway")
-	c.anyway = not bool(p.get("can_spectate", false)) and _lm != null and _lm.i_am_staff and bool(p.get("can_spectate_staff", false))
-	c.can = (bool(p.get("can_spectate", false)) or c.anyway) and not c.is_you
 	if c.can:
 		tip.append("Click to spectate")
-	c.card.hint_tooltip = PoolStringArray(tip).join("\n")
-	_card_style(c)
+	return PoolStringArray(tip).join("\n")
 
 func _on_card_hover(c: Dictionary, on: bool):
 	c.hover = on
+	if not c.built:
+		return
+	if on and c.p is Dictionary:
+		c.card.hint_tooltip = _card_tip(c, c.p)
 	_card_style(c)
 
 func _on_card_input(ev, c: Dictionary):
+	if not c.built:
+		return
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_RIGHT:
 		_card_menu(c, ev.global_position)
 		c.card.accept_event()
@@ -1341,8 +1582,8 @@ func _on_heart(c: Dictionary):
 		_update_info()
 
 func _refresh_buttons():
-	for n in _cards.keys():
-		_card_style(_cards[n])
+	for c in _seen:
+		_card_style(c)
 
 func _spectate(c: Dictionary):
 	if _lm == null or _pending_number != -1:
@@ -1367,7 +1608,8 @@ func _fill_chat():
 	chat.clear()
 	_chat_lines = 0
 	_chat_sizes = []
-	var muted: bool = Rhythia.mute_global_chat
+	var muted: bool = Rhythia.chat_hidden()
+	chat_muted.text = "Offline Mode is on: no chat (Settings > Online)." if Rhythia.offline_mode else "Global chat is muted (Settings > Online)."
 	chat_muted.visible = muted
 	chat.visible = not muted
 	var banned: bool = _lm != null and bool(_lm.get("chat_banned"))
@@ -1383,15 +1625,41 @@ func _fill_chat():
 		chat.pop()
 		_chat_lines = -1 # (the hint goes when the first message comes)
 		return
+	# (a run of lines by people you blocked: one "N blocked messages  Show"
+	# line, and the lines themselves under it once shown: BlockedChat.gd)
+	var run := []
 	for e in _lm.global_chat_history:
-		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), String(e.get("mid", "")))
+		var emid := String(e.get("mid", ""))
+		if _lm.has_method("is_blocked_chat") and _lm.is_blocked_chat(emid):
+			run.append(e)
+			continue
+		_add_blocked_run(run)
+		run = []
+		_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), emid)
+	_add_blocked_run(run)
+
+func _add_blocked_run(run: Array):
+	if run.empty():
+		return
+	var BC = preload("res://scripts/ui/BlockedChat.gd")
+	var mids := []
+	for e in run:
+		mids.append(String(e.get("mid", "")))
+	if _chat_lines > 0:
+		chat.newline()
+	BC.rtl_fold(chat, mids, _lm, self, "_redraw_for_reactions")
+	_chat_sizes.append(1)
+	_chat_lines += 1
+	if BC.rtl_open(_lm, mids):
+		for e in run:
+			_add_chat_line(String(e.get("client_id", "")), String(e.get("name", "")), String(e.get("text", "")), float(e.get("ts", 0)), String(e.get("mid", "")))
 
 func _on_chat_ban(_banned):
 	if chat_input != null:
 		_fill_chat()
 
 func _on_chat_message(client_id: String, name: String, text: String, ts: float):
-	if Rhythia.mute_global_chat:
+	if Rhythia.chat_hidden():
 		return
 	if not _open:
 		_notify_chat(client_id, name, text)
@@ -1399,7 +1667,14 @@ func _on_chat_message(client_id: String, name: String, text: String, ts: float):
 	if _chat_lines == -1:
 		chat.clear()
 		_chat_lines = 0
-	_add_chat_line(client_id, name, text, ts, String(_lm.get("last_chat_id")) if _lm != null and _lm.get("last_chat_id") != null else "")
+	var mid: String = String(_lm.get("last_chat_id")) if _lm != null and _lm.get("last_chat_id") != null else ""
+	if _lm != null and _lm.has_method("is_blocked_chat") and _lm.is_blocked_chat(mid):
+		# (someone you blocked: drawn again, so it joins the fold before it)
+		if not _react_redraw:
+			_react_redraw = true
+			call_deferred("_redraw_for_reactions")
+		return
+	_add_chat_line(client_id, name, text, ts, mid)
 
 # someone reacted: the chat is drawn again (once a frame at most)
 var _react_redraw := false
@@ -1476,7 +1751,7 @@ func _on_chat_entered(_t: String):
 	_send_chat()
 
 func _send_chat():
-	if _lm == null or Rhythia.mute_global_chat:
+	if _lm == null or Rhythia.chat_hidden():
 		return
 	var text := chat_input.text.strip_edges()
 	if text == "":

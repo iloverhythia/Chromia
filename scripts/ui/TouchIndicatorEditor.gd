@@ -42,6 +42,7 @@ func _ready():
 
 func _build():
 	var dim := ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.color = Color(0, 0, 0, 0.62)
 	dim.anchor_right = 1.0
 	dim.anchor_bottom = 1.0

@@ -91,6 +91,7 @@ func _build_lobby_ui():
 	lobby_canvas.add_child(lobby_toggle_button)
 
 	lobby_panel = PanelContainer.new()
+	lobby_panel.add_to_group("wheel_blocker") # (scrolling its chat doesn't scroll the maps: Savia.wheel_blocked)
 	lobby_panel.rect_size = Vector2(340, 600)
 	lobby_panel.rect_min_size = Vector2(340, 600)
 	lobby_panel.theme = ui_theme
@@ -352,10 +353,11 @@ func _replay_chat_history():
 	for entry in lobby_manager.lobby_chat_history:
 		lobby_manager.last_chat_id = String(entry.get("mid", "")) # (each line keeps its own id for reactions)
 		_on_chat_message_received(entry.peer_id, entry.name, entry.text, entry.ts)
+	for entry in lobby_manager.global_chat_history:
+		lobby_manager.last_chat_id = String(entry.get("mid", ""))
+		_on_global_chat_message_received(entry.client_id, entry.name, entry.text, entry.ts)
 	if lobby_manager.get("last_chat_id") != null:
 		lobby_manager.last_chat_id = newest
-	for entry in lobby_manager.global_chat_history:
-		_on_global_chat_message_received(entry.client_id, entry.name, entry.text, entry.ts)
 	yield(get_tree(), "idle_frame")
 	yield(get_tree(), "idle_frame")
 	if lobby_chat_scroll != null:
@@ -1225,8 +1227,10 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 	lobby_start_button.disabled = not lobby_active or not is_host or not lobby_manager.all_players_ready()
 	lobby_start_button.text = "Start Game" if (not lobby_active or lobby_manager.all_players_ready()) else "Waiting for maps..."
 	lobby_leave_button.disabled = not lobby_active
-	lobby_host_button.disabled = lobby_active
-	lobby_join_button.disabled = lobby_active
+	lobby_host_button.disabled = lobby_active or Rhythia.offline_mode
+	lobby_join_button.disabled = lobby_active or Rhythia.offline_mode
+	if _offline_box != null and is_instance_valid(_offline_box):
+		_offline_box.visible = Rhythia.offline_mode
 
 	lobby_setup_box.visible = not lobby_active
 	lobby_active_box.visible = lobby_active
@@ -1403,9 +1407,9 @@ func _on_chat_message_received(peer_id: int, name: String, text: String, _ts: fl
 		line.add_font_override("normal_font", lf)
 	line.set_meta("chat", [name, text, String(lobby_manager.get("last_chat_id")) if lobby_manager != null and lobby_manager.get("last_chat_id") != null else ""])
 	_draw_lobby_line(line)
-	lobby_chat_log_box.add_child(line)
-	while lobby_chat_log_box.get_child_count() > LOBBY_CHAT_MAX_LINES:
-		lobby_chat_log_box.get_child(0).queue_free()
+	# (someone you blocked: folded away, "1 blocked message  Show")
+	preload("res://scripts/ui/BlockedChat.gd").place(lobby_chat_log_box, line, String(line.get_meta("chat")[2]), lobby_manager)
+	preload("res://scripts/ui/BlockedChat.gd").trim(lobby_chat_log_box, LOBBY_CHAT_MAX_LINES)
 	if lobby_chat_scroll != null:
 		yield(get_tree(), "idle_frame")
 		lobby_chat_scroll.scroll_vertical = int(lobby_chat_scroll.get_v_scrollbar().max_value)
@@ -1449,6 +1453,17 @@ func _clear_lobby_chat():
 	for child in lobby_chat_log_box.get_children():
 		child.queue_free()
 
+# you blocked or unblocked someone: both chats drawn again from their history
+# (their lines folded away, or back)
+func _on_blocked_changed():
+	for box in [lobby_chat_log_box, global_chat_log_box]:
+		if box == null or not is_instance_valid(box):
+			continue
+		for child in box.get_children():
+			box.remove_child(child)
+			child.queue_free()
+	_replay_chat_history()
+
 func _on_global_chat_send_pressed():
 	_send_global_chat_from_input()
 
@@ -1468,7 +1483,7 @@ func _send_global_chat_from_input():
 	global_chat_input.grab_focus()
 
 func _on_global_chat_message_received(client_id: String, name: String, text: String, _ts: float):
-	if global_chat_log_box == null or Rhythia.mute_global_chat:
+	if global_chat_log_box == null or Rhythia.chat_hidden():
 		return
 	var is_you = client_id != "" and client_id == Rhythia.cid
 	var line = Label.new()
@@ -1480,12 +1495,12 @@ func _on_global_chat_message_received(client_id: String, name: String, text: Str
 		line.add_color_override("font_color", Color(0.65, 0.85, 1.0))
 	elif preload("res://scripts/ui/ChatMention.gd").mentions_me(text, _get_lobby_manager()):
 		line.add_color_override("font_color", Color(1.0, 0.55, 0.75)) # (you're mentioned)
-	global_chat_log_box.add_child(line)
 	var glm = _get_lobby_manager()
+	var gmid: String = String(glm.get("last_chat_id")) if glm != null and glm.get("last_chat_id") != null else ""
+	preload("res://scripts/ui/BlockedChat.gd").place(global_chat_log_box, line, gmid, glm) # (blocked: folded away)
 	if glm != null:
-		preload("res://scripts/ui/ChatReactions.gd").moderate_label(line, String(glm.get("last_chat_id")) if glm.get("last_chat_id") != null else "", name, glm) # (staff: right-click)
-	while global_chat_log_box.get_child_count() > GLOBAL_CHAT_MAX_LINES:
-		global_chat_log_box.get_child(0).queue_free()
+		preload("res://scripts/ui/ChatReactions.gd").moderate_label(line, gmid, name, glm) # (right-click: friend / block; staff: delete / ban)
+	preload("res://scripts/ui/BlockedChat.gd").trim(global_chat_log_box, GLOBAL_CHAT_MAX_LINES)
 	if global_chat_scroll != null:
 		yield(get_tree(), "idle_frame")
 		global_chat_scroll.scroll_vertical = int(global_chat_scroll.get_v_scrollbar().max_value)
@@ -1706,6 +1721,14 @@ func _layout_online_columns():
 	lobby_status_label.rect_min_size = Vector2()
 	lobby_status_label.clip_text = false
 	head.add_child(S.spacer())
+	# Friends (FriendsWindow.gd): friends, friend requests, who you blocked
+	_friends_button = S.make_button("Friends", self, "_open_friends", [], false, true)
+	_friends_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head.add_child(_friends_button)
+	var flm = _get_lobby_manager()
+	if flm != null and flm.has_signal("social_changed") and not flm.is_connected("social_changed", self, "_update_friends_button"):
+		flm.connect("social_changed", self, "_update_friends_button")
+	_update_friends_button()
 	header.queue_free()
 	_move_to(lobby_error_label, root)
 	lobby_error_label.add_font_override("font", S.f_bold)
@@ -1741,6 +1764,20 @@ func _layout_online_columns():
 		online_page.connect("visibility_changed", self, "_on_online_page_shown")
 
 var _ost = null
+var _friends_button: Button = null
+func _open_friends():
+	var lm = _get_lobby_manager()
+	var tab: String = "requests" if lm != null and not lm.friend_requests_in.empty() else ""
+	preload("res://scripts/ui/FriendsWindow.gd").open_on(_friends_button if _friends_button != null else self, tab)
+
+# "Friends (2)": two friend requests waiting
+func _update_friends_button():
+	if _friends_button == null or not is_instance_valid(_friends_button):
+		return
+	var lm = _get_lobby_manager()
+	var n: int = lm.friend_requests_in.size() if lm != null and lm.get("friend_requests_in") != null else 0
+	_friends_button.text = "Friends (%d)" % n if n > 0 else "Friends"
+
 func _online_style():
 	if _ost == null:
 		_ost = load("res://scripts/ui/menu/OnlineStyle.gd").new()
@@ -1755,6 +1792,19 @@ func _build_online_setup(S):
 		box.remove_child(c)
 	box.add_child(S.heading("Play together"))
 	box.add_child(S.label("Host a lobby and send your friends its code, or join theirs. Everyone plays the same map at the same time.", S.f_small, S.DIM, true))
+	# Offline Mode (Settings > Online): what's off, and a way back
+	_offline_box = HBoxContainer.new()
+	_offline_box.add_constant_override("separation", 10)
+	var off_text: Label = S.label("Offline Mode is on: no chat, lobbies or watching, nobody sees you online, and your scores aren't sent.", S.f_small, S.TEXT, true)
+	off_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_offline_box.add_child(off_text)
+	var go_online := Button.new()
+	go_online.text = "Go online"
+	S.button(go_online, true, true)
+	go_online.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	go_online.connect("pressed", self, "_on_go_online_pressed")
+	_offline_box.add_child(go_online)
+	box.add_child(_offline_box)
 	# invites people sent you (LobbyManager.invites): Join / Decline
 	_invites_box = VBoxContainer.new()
 	_invites_box.add_constant_override("separation", 6)
@@ -1813,6 +1863,17 @@ func _open_lobby_map_picker():
 	load("res://scripts/ui/LobbyMapPicker.gd").open_on(self)
 
 var _invites_box: VBoxContainer = null
+var _offline_box: HBoxContainer = null
+
+func _on_go_online_pressed():
+	Rhythia.set("offline_mode", false)
+	Rhythia.save_settings()
+
+# Offline Mode turned on or off: the chats hide or come back, Host / Join too
+func _on_offline_mode_changed():
+	_apply_chat_mute_visibility()
+	_on_blocked_changed()
+
 func _fill_invites():
 	if _invites_box == null or not is_instance_valid(_invites_box):
 		return
@@ -2049,7 +2110,7 @@ func _toggle_lobby_panel():
 
 func _apply_chat_mute_visibility():
 	if global_chat_box != null:
-		global_chat_box.visible = not Rhythia.mute_global_chat
+		global_chat_box.visible = not Rhythia.chat_hidden()
 	_update_lobby_ui()
 
 func _on_close_lobby_ui_pressed():
@@ -2488,6 +2549,7 @@ func _ready():
 	Rhythia.connect("sp_changed", self, "_on_sp_changed")
 	Rhythia.connect("leaderboard_received", self, "_on_leaderboard_received")
 	Rhythia.connect("leaderboard_sp_received", self, "_on_leaderboard_sp_received")
+	Rhythia.connect("offline_mode_changed", self, "_on_offline_mode_changed")
 	if lobby_manager != null:
 		lobby_manager.connect("ranker_status_received", self, "_on_ranker_status_received")
 		_ask_ranker_status()
@@ -2507,6 +2569,8 @@ func _ready():
 		if lobby_manager.has_signal("chat_message_deleted") and not lobby_manager.is_connected("chat_message_deleted", self, "_on_chat_deleted"):
 			lobby_manager.connect("chat_message_deleted", self, "_on_chat_deleted")
 		lobby_manager.connect("global_chat_message_received", self, "_on_global_chat_message_received")
+		if lobby_manager.has_signal("blocked_changed") and not lobby_manager.is_connected("blocked_changed", self, "_on_blocked_changed"):
+			lobby_manager.connect("blocked_changed", self, "_on_blocked_changed")
 		# (staff permissions come after signing in: the MOTD button then)
 		if lobby_manager.has_signal("perms_changed") and not lobby_manager.is_connected("perms_changed", self, "_on_perms_changed"):
 			lobby_manager.connect("perms_changed", self, "_on_perms_changed")

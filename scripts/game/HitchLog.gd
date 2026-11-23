@@ -41,7 +41,7 @@ func _exit_tree():
 		var cfg = Rhythia.get("vr_xr_config")
 		if cfg != null and cfg.has_method("get_refresh_rate"):
 			hz = float(cfg.get_refresh_rate())
-		what.append("VR %s Hz%s, render scale %s, foveation %s" % [str(hz) if hz > 0 else "?", " (unlocked)" if Rhythia.vr_refresh_unlock else "", str(Rhythia.vr_render_scale), str(Rhythia.vr_foveation)])
+		what.append("VR %s Hz%s, render scale %s, foveation %s" % [str(hz) if hz > 0 else "?", " (unlocked)" if Rhythia.vr_refresh_unlock else "", str(Rhythia.vr_render_scale), str(Rhythia.vr_foveation_now())])
 	if Rhythia.cursor_trail:
 		what.append("%s trail, detail %s, time %s" % ["smart" if Rhythia.smart_trail else "classic", str(Rhythia.trail_detail), str(Rhythia.trail_time)])
 	else:

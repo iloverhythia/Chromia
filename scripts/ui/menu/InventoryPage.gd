@@ -209,6 +209,12 @@ func _redeem(_t = null):
 	var code := _code.text.strip_edges()
 	if code == "":
 		return
+	var Ascend = load("res://scripts/ui/menu/Ascend.gd")
+	if Ascend.is_word(code):
+		_code.text = ""
+		_code.release_focus()
+		Ascend.open_on(self)
+		return
 	if lm == null:
 		_code_msg.text = "Codes need the server, and the game isn't connected to it."
 		return

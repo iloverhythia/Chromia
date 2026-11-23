@@ -2184,6 +2184,7 @@ func _ready():
 			c.expand = true
 			c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_setup_hud_viewports()
+	add_child(load("res://scripts/game/HudGlyphs.gd").new()) # (the numbers' characters made before the first note)
 	Game.connect("miss", self, "on_miss")
 	if Rhythia.colorset_hud:
 		Game.connect("hit", self, "_on_hit_for_colorset_hud")

@@ -16,6 +16,12 @@ extends Reference
 #              up both sides of the ring, little hearts drifting up round it
 #   Prestige 1 / 10 / 100 / 1,000 / 10,000   bronze, silver, gold, diamond and
 #              the rainbow, with one to five gems, points from gold on
+#   Prestige 5 / 50 / 500 / 5,000   the steps between: copper with rivets and
+#              a turquoise gem, rose gold with a ring of petals, emerald with
+#              laurels, amethyst with a crown of crystals
+#   Prestige 67   "six seven": a 6 and a 7 weighed up and down either side,
+#              little sixes and sevens going round, two eyes on top that look
+#              from one to the other
 # and the looks an admin can give a card they make, in the card's colours:
 # ring (polished metal), glow (neon tube), sparkle (twinkling stars), flame.
 # Default is no frame. FrameView.gd draws one over a picture; the Spectate
@@ -84,6 +90,11 @@ static func draw(ci: CanvasItem, c: Vector2, r: float, fr: Dictionary, t: float 
 		"prestige100": _prestige(ci, c, r, t, 2)
 		"prestige1000": _prestige(ci, c, r, t, 3)
 		"prestige10000": _prestige(ci, c, r, t, 4)
+		"prestige5": _prestige_mid(ci, c, r, t, 0)
+		"prestige50": _prestige_mid(ci, c, r, t, 1)
+		"prestige500": _prestige_mid(ci, c, r, t, 2)
+		"prestige5000": _prestige_mid(ci, c, r, t, 3)
+		"prestige67": _sixseven(ci, c, r, t)
 		_: _ring_style(ci, c, r, fr, t)
 
 # ------------------------------------------------------------------ helpers
@@ -684,6 +695,136 @@ static func _prestige(ci: CanvasItem, c: Vector2, r: float, t: float, tier: int)
 		var sc := _conic(m, spin * 3.0)
 		ci.draw_circle(sp, r * 0.2 * k2, _with_a(sc, 0.3))
 		_gpoly(ci, _star5(sp, r * 0.17 * k2), Color(1, 1, 1, 1), sc, sc.darkened(0.5), 1.0)
+
+# ------------------------------------------------------------------ prestige, the steps between
+# 5, 50, 500 and 5,000: copper, rose gold, emerald, amethyst. Each has what its
+# neighbours have (one to four gems, points from emerald on) and one thing of
+# its own: rivets, petals, laurels, a crown of crystals.
+const MID_METAL := [
+	[Color("#ffc9a3"), Color("#d9793d"), Color("#8f3f17"), Color("#f0a06b"), Color("#b8562a"), Color("#ffd9bd")],
+	[Color("#ffe3e0"), Color("#f4a6a0"), Color("#b76e79"), Color("#ffd1cc"), Color("#d98a8e"), Color("#fff0ee")],
+	[Color("#eaffd9"), Color("#5fe08a"), Color("#1f8a52"), Color("#b6f5c8"), Color("#34b56f"), Color("#f5ffe9")],
+	[Color("#f3e6ff"), Color("#b57bff"), Color("#5b2bb0"), Color("#dcc2ff"), Color("#8a4de0"), Color("#ffffff")],
+]
+const MID_GEM := [Color("#3fe0c5"), Color("#ff6fa8"), Color("#ffd23f"), Color("#ff7ad9")]
+const MID_POINTS := [0, 0, 14, 20]
+const MID_LEN := [0.0, 0.0, 0.095, 0.125]
+const SHARDS := [0.15, 0.23, 0.33, 0.23, 0.15]
+
+static func _prestige_mid(ci: CanvasItem, c: Vector2, r: float, t: float, k: int):
+	var m: Array = MID_METAL[k]
+	var g: float = k + 0.5 # (how rich: between the steps on either side of it)
+	var spin: float = t * 0.04
+	_glow(ci, c, r * 1.08, r * (0.18 + g * 0.06), m, 0.25 + g * 0.08, spin)
+	# rose gold: a ring of petals round the outside
+	if k == 1:
+		for i in 18:
+			var a: float = i * TAU / 18.0
+			var p := _pt(c, r * 1.17, a)
+			ci.draw_circle(p, r * 0.062, _with_a(m[2].darkened(0.25), 0.95))
+			ci.draw_circle(p, r * 0.047, _conic(m, a / TAU + spin).lightened(0.12))
+	# points round the outside (emerald and amethyst; the amethyst's uneven, like crystal)
+	var np: int = MID_POINTS[k]
+	for i in np:
+		var a: float = i * TAU / np
+		var lng: float = [1.0, 0.5, 0.75, 0.5][i % 4] if k == 3 else (1.0 if i % 2 == 0 else 0.6)
+		var col := _conic(m, a / TAU + spin)
+		ci.draw_polygon(PoolVector2Array([_pt(c, r * 1.15, a - 0.07), _pt(c, r * (1.17 + float(MID_LEN[k]) * lng), a), _pt(c, r * 1.15, a + 0.07)]),
+			PoolColorArray([col.darkened(0.15), col.lightened(0.5), col.darkened(0.15)]))
+	_band(ci, c, r * 0.99, r * 1.12, m, spin, [-0.3, 0.2, 0.3])
+	_band(ci, c, r * 1.135, r * 1.165, [m[1].lightened(0.35), m[1], m[1].lightened(0.55)], -spin, [0.2, 0.4, -0.1])
+	_band(ci, c, r * 0.975, r * 1.0, [m[2].darkened(0.3)], 0.0, [0.0, 0.2, 0.0], 0.85)
+	# copper: rivets round the band (not where the gem sits)
+	if k == 0:
+		for i in 12:
+			var a: float = i * TAU / 12.0 + PI / 12.0
+			if abs(fposmod(a - PI / 2.0 + PI, TAU) - PI) < 0.4:
+				continue
+			var p := _pt(c, r * 1.055, a)
+			ci.draw_circle(p, r * 0.032, m[2].darkened(0.4))
+			ci.draw_circle(p, r * 0.024, m[4])
+			ci.draw_circle(p - Vector2(r * 0.008, r * 0.008), r * 0.011, m[0])
+	# emerald: laurels up both sides
+	if k == 2:
+		for side in [-1.0, 1.0]:
+			for j in 5:
+				var a: float = PI / 2.0 + side * (0.62 + j * 0.3)
+				var p: Vector2 = _pt(c, r * 1.17, a)
+				var out: Vector2 = (p - c).normalized()
+				var along: Vector2 = Vector2(-out.y, out.x) * side # (up the ring, away from the bottom)
+				var dir: Vector2 = (out * 0.5 + along).normalized()
+				var w: Vector2 = Vector2(-dir.y, dir.x) * r * 0.045
+				var tip: Vector2 = p + dir * r * 0.2
+				ci.draw_polygon(PoolVector2Array([p, p + dir * r * 0.08 + w, tip, p + dir * r * 0.08 - w]),
+					PoolColorArray([m[2].darkened(0.2), m[1], m[0], m[2]]))
+	# amethyst: twinkles, and a crown of crystals on top
+	if k == 3:
+		for s in SPARKS:
+			var tw: float = max(0.0, sin(t * 2.2 + float(s[1])))
+			_twinkle(ci, _pt(c, r * (1.3 + 0.05 * sin(float(s[1]) * 3.0)), deg2rad(float(s[0]))), r * 0.13 * float(s[2]), _conic(m, float(s[0]) / 360.0 + spin), tw)
+		for i in SHARDS.size():
+			var a: float = -PI / 2.0 + (i - 2) * 0.21
+			var glint: float = 0.5 + 0.5 * sin(t * 1.8 + i * 1.3)
+			ci.draw_polygon(PoolVector2Array([_pt(c, r * 1.13, a - 0.085), _pt(c, r * (1.14 + float(SHARDS[i])), a), _pt(c, r * 1.13, a + 0.085)]),
+				PoolColorArray([m[2], m[0].linear_interpolate(Color(1, 1, 1), glint * 0.6), m[4]]))
+			ci.draw_polygon(PoolVector2Array([_pt(c, r * 1.13, a - 0.085), _pt(c, r * (1.14 + float(SHARDS[i])), a), _pt(c, r * 1.13, a - 0.01)]),
+				PoolColorArray([_with_a(m[0], 0.0), _with_a(m[0], 0.55), _with_a(m[0], 0.15)]))
+	# gems along the bottom: 1, 2, 3, 4
+	var n := k + 1
+	for i in n:
+		var a: float = PI / 2.0 + (i - (n - 1) / 2.0) * 0.3
+		var mid: bool = abs(i - (n - 1) / 2.0) < 0.6
+		var gp := _pt(c, r * 1.065, a)
+		var gs: float = r * (0.115 if mid else 0.085)
+		ci.draw_circle(gp, gs * 1.25, _with_a(m[2].darkened(0.5), 0.95))
+		_gem(ci, gp, gs, MID_GEM[k])
+
+# ------------------------------------------------------------------ prestige 67
+# "Six seven": a 6 on the left and a 7 on the right, one going up as the other
+# goes down (the way it is said, with both hands), little sixes and sevens
+# going round, and two eyes on top that look from the one to the other.
+const SIXSEVEN := [Color("#7cff4f"), Color("#b45cff"), Color("#ffd23f"), Color("#ff5ac8")]
+const SIX := [Vector2(0.42, -0.9), Vector2(0.05, -0.97), Vector2(-0.33, -0.62), Vector2(-0.5, -0.05), Vector2(-0.5, 0.45), Vector2(-0.3, 0.85), Vector2(0.0, 1.0),
+	Vector2(0.3, 0.85), Vector2(0.5, 0.45), Vector2(0.33, 0.1), Vector2(0.0, -0.03), Vector2(-0.3, 0.1), Vector2(-0.48, 0.4)]
+const SEVEN := [Vector2(-0.5, -0.95), Vector2(0.5, -0.95), Vector2(-0.08, 1.0)]
+
+# a 6 or a 7 as a thick stroke with a dark edge (p: its middle, s: half its height)
+static func _digit(ci: CanvasItem, shape: Array, p: Vector2, s: float, rot: float, col: Color):
+	var pts := []
+	for v in shape:
+		pts.append(p + (v * s).rotated(rot))
+	_line(ci, pts, Color(0.07, 0.04, 0.12, col.a), s * 0.66)
+	_line(ci, pts, col, s * 0.36)
+
+static func _sixseven(ci: CanvasItem, c: Vector2, r: float, t: float):
+	var m: Array = SIXSEVEN
+	var spin: float = t * 0.1
+	var dark := Color(0.07, 0.04, 0.12)
+	_glow(ci, c, r * 1.08, r * 0.3, m, 0.4, spin)
+	_band(ci, c, r * 0.99, r * 1.12, m, spin, [-0.25, 0.25, 0.3])
+	_band(ci, c, r * 1.135, r * 1.165, [m[0].lightened(0.45), m[2].lightened(0.3), m[3].lightened(0.4)], -spin, [0.2, 0.4, -0.1])
+	_band(ci, c, r * 0.975, r * 1.0, [Color("#1a1030")], 0.0, [0.0, 0.2, 0.0], 0.85)
+	# little sixes and sevens going round
+	for i in 6:
+		var a: float = i * TAU / 6.0 + t * 0.35
+		var k: float = 0.55 + 0.45 * sin(t * 2.0 + i)
+		_digit(ci, SIX if i % 2 == 0 else SEVEN, _pt(c, r * 1.33, a), r * 0.065, sin(t * 3.0 + i) * 0.3, _with_a(m[i % m.size()], k))
+	# the two being weighed: the 6 on the left, the 7 on the right
+	var bob: float = sin(t * 6.0)
+	var lp := _pt(c, r * 1.12, PI * 0.83) + Vector2(0, -bob * r * 0.1)
+	var rp := _pt(c, r * 1.12, PI * 0.17) + Vector2(0, bob * r * 0.1)
+	ci.draw_circle(lp, r * 0.2, dark)
+	ci.draw_circle(lp, r * 0.175, m[1])
+	ci.draw_circle(rp, r * 0.2, dark)
+	ci.draw_circle(rp, r * 0.175, m[3])
+	_digit(ci, SIX, lp, r * 0.115, -0.12 - bob * 0.14, Color(1, 1, 1))
+	_digit(ci, SEVEN, rp, r * 0.115, 0.12 - bob * 0.14, Color(1, 1, 1))
+	# two eyes on top, looking from the one to the other
+	for side in [-1.0, 1.0]:
+		var e: Vector2 = _pt(c, r * 1.1, -PI / 2.0 + side * 0.21)
+		ci.draw_circle(e, r * 0.09, dark)
+		ci.draw_circle(e, r * 0.074, Color(1, 1, 1))
+		ci.draw_circle(e + Vector2(bob * r * 0.032, r * 0.012), r * 0.036, dark)
 
 # ------------------------------------------------------------------ Supporter
 

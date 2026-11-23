@@ -455,7 +455,7 @@ func apply_xr_settings():
 	# the plugin's set_foveation_level(level, dynamic) takes both: called
 	# with one, native code reads a missing argument and the app crashed
 	if cfg.has_method("set_foveation_level"):
-		var lvl: int = int(clamp(Rhythia.vr_foveation, 0, 3))
+		var lvl: int = Rhythia.vr_foveation_now() # (Auto: by the render resolution)
 		cfg.set_foveation_level(lvl, lvl > 0)
 	if _base_hz <= 0.0 and cfg.has_method("get_refresh_rate"):
 		# (the headset's own rate, before anything is asked of it)
@@ -463,7 +463,7 @@ func apply_xr_settings():
 		Engine.set_meta("vr_base_hz", _base_hz)
 	var unlocked := _unlocked_rate()
 	apply_refresh()
-	Rhythia.trail("VR graphics: foveation %d, refresh %s" % [Rhythia.vr_foveation, ("unlocked %s" % str(unlocked)) if unlocked > 0 else (str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default")])
+	Rhythia.trail("VR graphics: foveation %d%s, refresh %s" % [Rhythia.vr_foveation_now(), " (auto)" if Rhythia.vr_foveation < 0 else "", ("unlocked %s" % str(unlocked)) if unlocked > 0 else (str(Rhythia.vr_refresh) if Rhythia.vr_refresh > 0 else "default")])
 
 # The refresh rate: the one the settings ask for (Unlock refresh rate, or a
 # rate picked in Settings > VR), no higher than the one Frame Smoothing holds

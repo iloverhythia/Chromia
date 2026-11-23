@@ -23,6 +23,9 @@ var show_online_maps: bool = true
 var xp_only_maps: bool = false
 var embossed_only: bool = false # Filters > Show > embossed: only Embossed's maps (same sort)
 var unranked_only: bool = false # Filters > Show > unranked: only maps that aren't ranked
+# Filters > Show > completed / uncompleted: 0 every map, 1 only the maps you
+# have passed, 2 only the ones you haven't
+var completed_filter: int = 0
 var ranked_song_ids: Dictionary = {}
 var flip_display: bool = false
 var flip_name: bool = false
@@ -103,6 +106,10 @@ func search_matches(s: Song):
 		(_at == "" or s.creator.to_lower().find(_at) != -1) and
 		(not xp_only_maps or ranked_song_ids.has(_canon(s.id))) and
 		(not unranked_only or not ranked_song_ids.has(_canon(s.id))) and
+		# (the map you're on stays in the list: passing a map with "uncompleted"
+		# on would take it out from under you, and a selected map that isn't in
+		# the list makes every filter reset)
+		(completed_filter == 0 or (Rhythia.selected_song != null and s.id == Rhythia.selected_song.id) or s.is_completed() == (completed_filter == 1)) and
 		(not embossed_only or String(s.creator).to_lower().find("embossed") != -1) and
 		(folder_filter == null or folder_filter.has(s.id))
 	)
@@ -499,6 +506,10 @@ func update_search_embossed(show: bool):
 	embossed_only = show
 	if ready: reload_to_current_page()
 
+func update_search_completed(mode: int):
+	completed_filter = int(clamp(mode, 0, 2))
+	if ready: reload_to_current_page()
+
 # (the ranked list comes from the server: until it's here every map counts as
 # unranked, and the list is made again when it arrives)
 func update_search_unranked(show: bool):
@@ -598,6 +609,8 @@ func reset_filters():
 	update_search_xponly(false)
 	update_search_embossed(false)
 	update_search_unranked(false)
+	Rhythia.last_search_completed = 0
+	update_search_completed(0)
 	folders.set_active(-1)
 
 # Groups maps by difficulty. The groups are rebuilt from scratch so maps that
@@ -764,7 +777,7 @@ func tween_length():
 func _input(ev: InputEvent):
 	if grid == null and is_visible_in_tree() and ev is InputEventMouseButton and ev.is_pressed():
 		if (ev.button_index == BUTTON_WHEEL_UP or ev.button_index == BUTTON_WHEEL_DOWN) \
-			and (Rhythia.alt_held(ev) or not get_global_rect().has_point(Rhythia.menu_mouse(self))):
+			and (Rhythia.alt_held(ev) or not get_global_rect().has_point(Rhythia.menu_mouse(self)) or Rhythia.wheel_blocked(self)):
 			return
 		if ev.button_index == BUTTON_WHEEL_UP:
 			scrolling_to = false

@@ -49,6 +49,7 @@ static func open_on(parent: Node):
 	# headset sees it: in VR "Pick map" seemed to do nothing.)
 	parent.get_viewport().add_child(layer)
 	var dim := ColorRect.new()
+	dim.add_to_group("wheel_blocker") # (the map list behind it does not scroll: Savia.wheel_blocked)
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.anchor_right = 1
 	dim.anchor_bottom = 1

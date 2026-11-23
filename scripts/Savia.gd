@@ -300,6 +300,7 @@ func xp_boost_on() -> bool:
 	return xp_boost and String(discord_user.get("id", "")) == XP_BOOST_DISCORD_ID
 var discord_login_error: String = ""
 signal discord_login_changed()
+signal offline_mode_changed() # (Settings > Online > Offline Mode)
 # the name set on the website ("" when none): shown over the Discord name
 # (LobbyManager._apply_server_name sets it from the server)
 var website_name: String = ""
@@ -346,7 +347,7 @@ const PASS_SETTINGS_URL = "https://chromia.lol/savia-pass-settings"
 # passes (the website's Watch replay, a video someone else makes) is shown
 # your way. Sent whether or not spectators are allowed.
 func send_pass_settings():
-	if cid == "":
+	if cid == "" or offline_mode:
 		return
 	var spec = load("res://scripts/SpectateSettings.gd")
 	var lm = get_node_or_null("/root/LobbyManager")
@@ -365,7 +366,7 @@ func _on_pass_settings_sent(_result, _code, _headers, _body, req: HTTPRequest):
 	req.queue_free()
 
 func upload_replay_for_pass(song_id: String, replay_id: String):
-	if cid == "" or song_id == "" or replay_id == "":
+	if cid == "" or song_id == "" or replay_id == "" or offline_mode:
 		return
 	var replay_path = Globals.p("user://replays/%s.sspre" % replay_id)
 	var file = File.new()
@@ -659,8 +660,14 @@ func pass_url(url: String) -> String:
 	var path_at := url.find("/", 8)
 	return "https://" + "chromia" + "." + "lol" + (url.substr(path_at) if path_at > 0 else "")
 
+var _offline_pass_told := false
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
+		return
+	if offline_mode: # (Offline Mode: scores stay on your computer)
+		if not _offline_pass_told:
+			_offline_pass_told = true
+			Globals.notify(Globals.NOTIFY_INFO, "Offline Mode is on, so your scores aren't sent (no XP, SP or leaderboard). Turn it off in Settings > Online.", "Score not submitted", 8)
 		return
 	var content_hash = selected_song.compute_chart_hash() if selected_song != null else ""
 	var replay_id_snapshot = replay.id if replay != null else ""
@@ -1110,11 +1117,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a", "nov13-2026-b", "nov15-2026-a", "nov15-2026-b", "nov16-2026-a", "nov18-2026-a", "nov19-2026-a", "nov21-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a", "nov13-2026-b", "nov15-2026-a", "nov15-2026-b", "nov16-2026-a", "nov18-2026-a", "nov19-2026-a", "nov21-2026-a", "nov22-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov22-2026-a": "- Map list: two new filters on the Filters page, \"completed\" (only maps you have passed, with any mods or speed) and \"uncompleted\" (only maps you haven't passed yet). The map you are on stays in the list, so passing a map with \"uncompleted\" on doesn't reset your filters\n- Map leaderboard (in the game): clicking a score now plays that pass's replay in the game instead of opening the website. Right-click a score to open the player's profile\n- Friends and blocking: right-click a name in any chat to add a friend or block them, and Online > Friends has your friends (who's online, Invite), friend requests and who you blocked. Blocked players' chat messages fold into \"1 blocked message  Show\" (click Show to see them), and their friend requests and lobby invites don't reach you. The website's profiles have the same buttons and lists\n- Save video for any run, not just the last one: every attempt in a map's History tab has a camera button, and History has a \"Newest first\" switch so your recent plays are at the top. (Holding restart after a fail used to make Save video show the second-long restart instead of the run you wanted.) Leaderboard passes with a replay have the camera button too\n- Offline Mode (Settings > Online): play on your own. You show as offline to everyone (not in Spectate, offline to friends and on your profile), nobody can watch, invite or collab with you, no chat shows (global, lobby, @mentions, friend request pop-ups) and you can't host, join or watch. Your scores aren't sent (no XP, SP or leaderboard places), but local RP and your History still count. Maps, updates and announcements still work. The Online page has a Go online button to turn it off\n- Scrolling in a chat (the Spectate window's chat, the Online panel) or any window over the menu (Friends, Invite players, Filters...) no longer scrolls your map list behind it\n- The Spectate window stays smooth with a lot of people online (it used to redo every player's card every second, on screen or not): much less lag on every device, VR and phones most of all\n- VR: turning the render resolution up costs less frame rate. Two new Auto choices in Settings > VR > Graphics follow it: above 120% anti-aliasing turns off (a picture drawn that big is smooth already) and foveated rendering goes up a step (two above 155%). Foveated rendering set to Low becomes Auto, which is the same thing at 100%; pick a level or Anti-aliasing On to have it your way\n- The first note of a map no longer hitches (VR and phones most of all): the HUD's big numbers were being made the moment they first appeared, about ten of them at once on the first hit and the rest over the next hits. They are made while the song counts in now, and kept between maps\n- The colorset picker (Settings > Colorsets) no longer lags with a lot of colorsets, in VR most of all: only the rows on screen are drawn, as one picture instead of a dozen pieces per colorset, and nothing is made for it when the menu loads. New: \"Only show favorites\" above the colorsets (star a colorset to make it one)\n- New prestige frames and cards for Prestige 5, 50, 500 and 5,000 (copper with rivets, rose gold with petals, emerald with laurels, amethyst with a crown of crystals), and one for Prestige 67: \"Six Seven\"\n- VR replays always keep your head and hand movement now, so watching one on a computer (or the website) shows the hands, the beam and what the headset saw. Until now that was only saved while the game was connected to the server: a VR play made offline, or while the connection was down, played back like a flat one. The hands also move more smoothly (they are saved more often)",
 	"nov21-2026-a": "- Android phones and tablets: less delay between your finger and the game, in songs and in the menus. The engine was handing touches to the game one frame late (after drawing instead of before); now they are used in the frame they arrive in\n- VR (Meta Quest): the on-screen keyboard is much lighter to draw (one picture instead of fifty separate buttons), so the frame rate no longer sags while it is out. In VR the map search now updates once you stop typing instead of after every key\n- VR (Meta Quest): a Chromia splash shows in the headset the moment the game is opened, the Loading panel is up and moving before the loading starts, and it keeps moving while the menu loads (the picture used to freeze for most of the loading)\n- Phones: loading screens keep moving while a song or the menu loads instead of freezing until it is done\n- Fixed small stutters in the middle of songs, most noticeable in VR: hit and miss effects (and score popups) are now all made ready while the song counts in, instead of being set up mid-song whenever several notes were hit at once\n- No more stutters from the game trying to reconnect to the server during a song you play alone (it reconnects when the song is over), or from menu music being downloaded and checked in the background while you play\n- Names no longer stay old after someone changes their Discord name: the Spectate tab, lobbies, chat and your own name in the menu show the new one\n- Watching a replay no longer \"fails\" partway through a map that was really passed (very rarely, the replay's health ran out where the run's didn't); a run that really failed still fails where it did",
 	"nov19-2026-a": "- Vaporwave (Roblox) background: fixed the lower half of the screen turning solid white (cutting the grid and HUD in half) whenever the camera rose a little, as it does in Spin and with parallax, and the sky turning flat grey when it dipped. The background has two huge paper-thin sheets lying exactly at eye level that were only ever meant to be seen edge-on\n- Fixed a way the game could close by itself when a song started right after you picked a map (within about half a second): picking a map started a background check of its song that read in a script at the same moment the song's loading did\n- A quick second click on a map in the list starts it the same way the Play button does (it had its own way in). The same click arriving twice no longer counts as a second click\n- VR (Meta Quest): the game no longer lowers your refresh rate by itself. With Frame Smoothing on it used to drop a headset from 120 Hz to 90 or 72 after a song with late frames and keep it there for many songs; a rate held that way is let go of. If you want it, it's a switch now: Settings > VR > Graphics > \"Lower the refresh rate by itself when songs keep dropping frames\"\n- VR (Meta Quest): Refresh rate has a 240 Hz entry. It asks the headset for 240 Hz even though the headset doesn't list it, and tells you whether the headset took it or which rate it is really at\n- VR (Meta Quest): a headset that keeps refusing the refresh rate asked for (another app holding it, for one) is no longer asked again every five seconds, which could cost a hitch each time; after three refusals it's left alone for a minute\n- VR (Meta Quest): Settings > VR > Graphics > \"Set up for the best frame rate\": one press for foveated rendering High, glow off, the simple background, and render resolution back to 100% if it was higher\n- Every pass now saves your display settings to the server (even with spectators off), so replays of your passes on the website play with your settings\n- Meta Quest and phones: the background check of a picked map's song (new in the last update) is off there for now. Two Quest reports ended seconds after a map was picked in the menu, which is when it ran\n- Meta Quest and phones: fixed a stutter every ten seconds during songs that came with the last update. The game notes every ten seconds that it is still running (for crash reports), and wrote that note to the device's storage in the middle of the song; it's written on the side now. The note about a slow frame doesn't go to the storage right after the slow frame either\n- Android phones: the file browser can see your files again (songs, maps, pictures in Downloads and other folders). On Android 11 and later it showed folders but no files. Tap the new \"Allow file access\" button in the file browser, turn on \"Allow access to manage all files\" for Chromia, and come back. You need to install this version's chromia-android.apk for it.\n- VR (Meta Quest): closing the game from the headset's own menu is no longer taken for a crash (no crash notice at the next start, no report sent). The game now notes when the headset's menu opens over it and when it gets the focus back.\n- NEW: Inventory & Misc, a new button on the sidebar (the backpack). It is laid out like Settings, with a tab each for Cards, Frames, Codes and the Avatar Creator\n- Cards and Frames moved there from the profile page (they were buttons that opened windows), and they now use the whole page\n- Secret codes have their own Codes tab (the box was in the Cards window). Unlocking something with a code shows an \"Unlocked!\" notification and lists what you got; a code for something you already have just says so\n- The Avatar Creator moved there from Settings > Replays & Misc > Experimental, and opens inside the page instead of on a screen of its own\n- Changing a map's difficulty (map screen > Change Difficulty) now sticks: it went back to the old one the next time you opened the game\n- Chat bans can have a length now (an hour, a day...): while banned, the chat box says how long is left, and you can talk again as soon as it's up. Staff picking Chat ban from the right-click menu choose 1 hour, 1 day or until lifted",
 	"nov18-2026-a": "- New Absolute Mode (Settings, under Absolute Mode): the cursor is put exactly where your finger or mouse is on every sample, with nothing smoothed. On a touch screen it leads by the Prediction amount at once and is back on your finger the moment you stop. Snappier and less even than Absolute Mode alone\n- VR: the menu no longer crawls. When the headset didn't reach its refresh rate (120 Hz set, 60 to 72 frames a second made), the menu screen was only redrawn 15 to 18 times a second and stayed that way. It is now redrawn at least 36 times a second while you use it, whatever the headset manages\n- VR multiplayer: the scoreboard beside the left panel is turned towards you. It was angled away, so you saw it nearly edge-on and the scores were hard to read\n- PC: fixed a small stutter once a second during maps. Every second the game checked which HUD panels have a moving background by asking the graphics thread for a shader's code, and the whole game waited for the answer. It is asked once now\n- A slow frame during a map no longer makes the next frame slow too (the note about it for the log waited for the graphics thread and the disk)\n- VR and phones: the cursor trail no longer gives up when the frame rate drops. Each frame's new trail was only drawn a frame later; at a low frame rate with a short Trail Time it had already faded by then, so the trail came apart from the cursor or vanished\n- Cards and Frames: the window no longer grows down past the bottom of the screen after you pick one, and with many cards or frames the list scrolls instead of running off the screen\n- The lobby invite notice during a song is its normal small size (it came out as tall as the screen)\n- Videos: the Chromia mark is in the bottom left corner instead of the middle of the left edge\n- PC: new \"Limit FPS in Menus\" (Settings > Video & Audio > Graphics, on from the start). In the menus the game draws as often as your screen shows (144 times a second at most) and 30 times a second while its window isn't in front, instead of as often as the graphics card can: a few percent of a fast card instead of nearly all of it. Maps aren't touched: your Max FPS, or no limit\n- Max FPS typed while Streaming Mode holds the frame limit is taken now (it was ignored until Streaming Mode was turned off)\n- Settings > Crash Reports: \"Copy this session's log\", for a problem that is not a crash (a map where the cursor or the HUD does not work on your computer). The log now also says what a song is started with (screen, mouse, controllers, HUD) and whether the mouse moved the cursor in its first seconds\n- Settings Generator: the Pin button no longer shows on its findings, suggestions and play lists (text to read, not settings). \"Track my plays\" and its three buttons can still be pinned\n- Picture frames can move: a frame made from a GIF plays in the game (profile, Spectate, Online players, Frames menu) and on the website. It shows as a still picture for the moment it takes to load\n- Crash reports say how the game ended: how long it kept running after the last thing it did, how soon it was opened again, and on Windows what Windows itself recorded (where the crash was, or that the game was closed from outside, like a PC shut down with the game open)\n- Map list: \"Reset filters\" unticks the \"unranked\" box too\n- iPhone: a new way of reaching 120 Hz on 120 Hz iPhones, where the game used to end up at 80 or a delayed 60. It needs the latest chromia-ios.ipa installed once (an in-app update can't add it). The first time it works, the game asks whether the picture looks right and goes back by itself if you don't answer\n- Map downloads: a download that stops coming in now ends by itself after 25 seconds and says so. It used to leave \"Downloading map...\" up for good, which looked like a freeze\n- Map downloads no longer fail with \"Failed to connect\" when google.com can't be reached (the game asked it first, as a connection check). A failed download is also reported once, not twice\n- Watching someone or taking a lobby's mods: the map screen is built again once instead of 20 to 50 times in a row (a hitch each time)\n- Supporters have their own card (opal hearts drifting up, lights running round its edge) and frame (an opal ring with a gem heart that beats, its pulse running up both sides, little hearts floating round it), in profile > Cards and Frames\n- VR: Render resolution (Settings > VR > Graphics) now goes up to 200% (it stopped at 140%). Above 140% is sharper but much heavier. If a setting above 150% doesn't get the headset to the menu, the next start runs at 100% and puts the setting back to 150%\n- Flashlight: the lit circle is now the same size on your screen whatever FOV you use (it used to shrink and grow with the FOV). At a high FOV, where the grid is small on screen, it still never lights more of the grid than before\n- Flashlight: holding the give up key (R) no longer lifts the darkness, so it can't be tapped to peek at the notes. While paused the darkness still lifts so you can read the pause screen, but the notes are hidden\n- New modifier: True Flashlight. Flashlight whose circle closes in every 100 combo (1.2 times narrower each time, up to 500 combo); a miss opens it again\n- VR multiplayer: \"Pick map\" in a lobby opens on the menu screen in front of you. It opened on the computer's flat window, so in a headset nothing seemed to happen\n- VR multiplayer (Meta Quest): during a match the game no longer builds a second scoreboard that a headset never shows, and the one in the headset is redrawn half as often\n- Settings > Crash Reports: \"Send this session's log\" sends what the game did this session to the developers (and copies it), for problems that aren't crashes. Handy in a headset or on a phone, where pasting a log is awkward\n- Reverse: the song is turned around in a second or two instead of 8 and more (a 4 minute song took about 3 seconds here; it's instant the next time, and the last 6 songs are kept instead of 4)\n- Maps whose song is .m4a, FLAC, AAC or Opus: the song starts being made playable when you select the map, not when you press Play, so the first play no longer waits on the loading screen for it. When another player has already played that song, your game only downloads it instead of sending the song up first\n- Map Editor on phones and tablets: it's in the menu now, with a layout for fingers. A much bigger grid, a taller track and timeline, the panel buttons in a column on each side, and each panel opening as a large drawer over the grid (tap its button again to close it). A tap puts the note where your finger lands\n- Map Editor in VR: it's in the menu now. Point and click as with a mouse; the thumbstick scrolls the song, and text boxes bring up the VR keyboard\n- Map Editor without a keyboard (phones and VR): a row of buttons for the shortcuts (undo, redo, copy, cut, paste, delete, select all, deselect, save), for stepping through the song, zoom and the beat divisor, and CTRL / SHIFT buttons that stay on until you press them again. RANGE makes a drag along the track select the notes it passes (what the right mouse button does)\n- Replays: three new switches on the replay bar. Cursor Path draws the line the cursor took (a little behind and ahead of it), Note Hitboxes draws the square each note is hit in (green once it was hit, red when it was missed), Frame Markers puts a dot on every cursor position the replay recorded. They stay as you left them\n- Replays: the replay bar has the look of the new menus and takes the colours of your Menu Customizer look. It shows the time, and has a Hide button (F1 still hides everything for recording)\n- Cards: every badge card moves now, like the Supporter card. Admin has gold sparks and a gold sheen, Developer falling bits and a scan line, DJ sound bars, Ranker rising stars, Contributor turning plus signs, Tester bubbles that pop, Moderator spreading rings, and the five Prestige cards a metal shine that grows with each step, up to the rainbow at 10,000\n- VR Hand Creator: My hands. Save the hand you're building under a name, and load it again later from \"Start from\" (after the hands that come with the game) to change it and save it again\n- Content Browser: a VR Hands tab (in VR; the game's admins see it on every device). Share the hand you built, and download other players' hands: a downloaded hand goes into My hands and onto your hands, and the hand you had is kept in My hands\n- Menu Customizer: a Layout section. Put the map screen's three parts (song panel, map list, filters) in any order from left to right, and move the sidebar's buttons up and down into the order you like. \"The game's own layout\" puts it all back, and a skin carries your layout along with your colours\n- Rhythia skins (.rhs): dropping one on the game now asks \"Full\" or \"Settings only\". Full makes a song look as it does in Rhythia: its HUD (the combo ring with your combo in it, accuracy, points and misses where Rhythia has them, the song's name, time and bars, the faint combo in the grid) with Rhythia's fonts, sizes and brightness, the border, cursor and trail pictures, the plain background, the grid at Rhythia's size on screen, and see-through notes as faint as Rhythia shows them. Settings only\n- Rhythia skins (.rhs) now import on every device (it only worked on Windows), and the imported note mesh stays selected after a restart\n- Rhythia skins (.rhs): the import also brings death slowdown, the spin camera, cursor rotation, the replay overlay, the hit and miss effect (as Chromia's nearest), the trail's own colour and \"disable GUI\", says how many of Rhythia's settings have no match in Chromia, and opens the menu again afterwards so the imported values show in Settings\n- Rhythia skins (.rhs): every setting the two games share now comes over and stays. Before, parallax, grid parallax, approach rate, spawn distance, FOV, note size and see-through, the cursor's size and the note mesh could go back to your old values right after the import (the Settings boxes put them back), and on a fresh install the note mesh failed to import and the colorset was lost after a restart. Also imported now: the trail's spacing, and with Full the HUD's colours (text, panel, combo ring,\n- Fixed a way the game could close by itself a moment after the menu opened (coming back from a song, mostly): the menu's music was being chosen on a second thread while the menu was still being put together",
@@ -2615,6 +2623,7 @@ var last_search_incl_broken: bool = false
 var last_search_incl_online: bool = true
 var last_search_xp_only: bool = false
 var last_search_unranked_only: bool = false # Filters > Show > unranked
+var last_search_completed: int = 0 # Filters > Show > completed (1) / uncompleted (2)
 var last_search_flip_sort: bool = false
 var last_search_flip_name_sort: bool = false
 var last_page_num: int = 0
@@ -2687,13 +2696,55 @@ var vr_play_lock_pitch: float = 0.0
 # VR graphics (vr/VRPlayer.gd apply_xr_settings): Meta Quest foveated rendering
 # 0 off .. 3 high, display refresh rate (0 = the headset's own), render
 # resolution (applies when VR starts) and glow (-1 = off on Quest, on on PC)
-var vr_foveation: int = 1 # (was 2: the edges of the view looked pixelated)
+var vr_foveation: int = -1 # -1: Auto, by the render resolution (vr_foveation_now); 0 off .. 3 high
 var vr_refresh: float = 0.0
 # Settings > VR > Graphics > Unlock refresh rate: always the highest rate the
 # headset offers, put back if the headset drops it (VRPlayer.apply_xr_settings)
 var vr_refresh_unlock: bool = false
 var vr_render_scale: float = 1.0
 var vr_glow: int = -1
+# Graphics that give way as the render resolution goes up. Every pixel above
+# 100% is paid for again by anti-aliasing (each one drawn and stored twice,
+# then blended down) and at the edges of the view; a picture drawn bigger than
+# the lenses show is smoothed by that already, and its edges stay as detailed
+# with more foveation as they were at 100% with less. So with both on Auto,
+# 150% costs the headset a good deal less than 2.25 times what 100% does.
+var vr_msaa: int = -1 # anti-aliasing in VR: -1 Auto (off at a high render resolution), 0 off, 1 on
+var vr_scale_active: float = 1.0 # the render resolution VR started with (the setting applies at the next start)
+const VR_MSAA_OFF_FROM := 1.2 # (render resolution: above it Auto turns anti-aliasing off, foveation to Medium)
+const VR_FOV_HIGH_FROM := 1.55 # (above it Auto foveation is High)
+const VR_BIG_EYE_PIXELS := 6500000.0 # (PC VR, where the headset's software sets the resolution: an eye image this big counts as high)
+
+# is the picture VR draws well above the headset's own resolution?
+func vr_res_high() -> bool:
+	if OS.has_feature("quest") or fake_vr:
+		return vr_scale_active > VR_MSAA_OFF_FROM
+	if vr_interface != null:
+		var size: Vector2 = vr_interface.get_render_targetsize()
+		return size.x * size.y > VR_BIG_EYE_PIXELS
+	return false
+
+# the foveated rendering level in use (0 off .. 3 high)
+func vr_foveation_now() -> int:
+	if vr_foveation >= 0:
+		return int(clamp(vr_foveation, 0, 3))
+	if vr_scale_active > VR_FOV_HIGH_FROM:
+		return 3
+	return 2 if vr_scale_active > VR_MSAA_OFF_FROM else 1
+
+func vr_msaa_on() -> bool:
+	return vr_msaa == 1 or (vr_msaa < 0 and not vr_res_high())
+
+func apply_vr_msaa():
+	if not vr:
+		return
+	var vp := get_viewport()
+	var want: int = int(ProjectSettings.get_setting("rendering/quality/filters/msaa")) if vr_msaa_on() else Viewport.MSAA_DISABLED
+	if want != Viewport.MSAA_DISABLED and vr_msaa == 1:
+		want = int(max(want, Viewport.MSAA_2X))
+	if vp.msaa != want:
+		vp.msaa = want
+		trail("VR anti-aliasing %s (render resolution %d%%)" % ["on" if want != Viewport.MSAA_DISABLED else "off", int(round(vr_scale_active * 100.0))])
 var vr_simple_bg: bool = false # VR songs on the plain VOID background
 # the pointer beam (vr/Pointer.gd): thickness (x the default), colour, rainbow
 var vr_beam_width: float = 1.0
@@ -2939,6 +2990,7 @@ func _vr_settings_ready():
 		return
 	apply_vr_binds()
 	apply_vr_pacing()
+	apply_vr_msaa()
 	if is_instance_valid(vr_player):
 		vr_player.update_primary_ray()
 		vr_player.apply_hand()
@@ -2984,12 +3036,14 @@ func start_vr(at_boot: bool = false):
 				vr_xr_config = load(cfg_path0).new()
 				if vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
 					vr_xr_config.set_render_target_size_multiplier(clamp(vr_render_scale, 0.5, VR_SCALE_MAX))
+					vr_scale_active = clamp(vr_render_scale, 0.5, VR_SCALE_MAX)
 		var vr_up: bool = vr_interface != null and vr_interface.initialize()
 		if not vr_up and vr_interface != null and vr_render_scale > 1.5 and vr_xr_config and vr_xr_config.has_method("set_render_target_size_multiplier"):
 			# (a picture this big may be more than the headset takes: once more at 100%)
 			_vr_scale_fell_back = vr_render_scale
 			vr_render_scale = 1.0
 			vr_xr_config.set_render_target_size_multiplier(1.0)
+			vr_scale_active = 1.0
 			vr_up = vr_interface.initialize()
 		if not vr_up:
 			print("Failed to initialize VR!")
@@ -3007,6 +3061,9 @@ func start_vr(at_boot: bool = false):
 	vr = true
 	_vr_started_ms = OS.get_ticks_msec()
 	apply_render_res() # (VR has its own picture: the window is drawn as it is)
+	if fake_vr:
+		vr_scale_active = clamp(vr_render_scale, 0.5, VR_SCALE_MAX)
+	apply_vr_msaa()
 	trail("VR started (%s)" % ("fake" if fake_vr else vr_interface.get_name() if vr_interface else "?"))
 	_vr_watch_session()
 	_desk_vsync = OS.vsync_enabled
@@ -3047,6 +3104,16 @@ func menu_mouse(ci: CanvasItem) -> Vector2:
 	if vr and is_instance_valid(vr_menu) and ci.get_viewport() != get_tree().root:
 		return vr_menu.last_screen_pos
 	return ci.get_global_mouse_position()
+
+# The mouse wheel is over a window drawn on top of the menu (the Spectate
+# window and its chat, the Online panel, Friends, filters...: the Controls in
+# the "wheel_blocker" group), so the map list under it leaves the wheel alone.
+# (The map lists read the wheel in _input, which every event reaches.)
+func wheel_blocked(ci: CanvasItem) -> bool:
+	for n in get_tree().get_nodes_in_group("wheel_blocker"):
+		if n is Control and n.is_visible_in_tree() and n.get_viewport() == ci.get_viewport() and n.get_global_rect().has_point(menu_mouse(n)):
+			return true
+	return false
 
 func setup_controller_bindings():
 	apply_vr_binds()
@@ -3637,6 +3704,23 @@ func restore_lobby_lead_in():
 		lead_in_ms = _lobby_lead_in_backup
 		_lobby_lead_in_backup = -1
 var mute_global_chat: bool = false
+# Settings > Online > Offline Mode: you play on your own. The game still
+# connects (the server counts players and map plays, and you get maps, updates
+# and announcements), but you show as offline: nobody sees you in Spectate or
+# as online on your profile and to friends, nobody can watch, invite or collab
+# with you, and no chat shows (global, lobby, @mentions, friend requests).
+# Your scores aren't sent (no XP, SP or leaderboard places; local RP and your
+# own history still count). No lobbies or watching others while it's on.
+# (LobbyManager.gd, menu2.gd, SpectatePage.gd; the server's presence.js)
+var offline_mode: bool = false setget _set_offline_mode
+func _set_offline_mode(v: bool):
+	if v == offline_mode:
+		return
+	offline_mode = v
+	emit_signal("offline_mode_changed")
+# chat isn't shown: muted, or Offline Mode
+func chat_hidden() -> bool:
+	return mute_global_chat or offline_mode
 # Settings > Online: others can watch you from their Spectate tab (the server
 # refuses anyone when this is off; LobbyManager sends it with your presence)
 var allow_spectators: bool = true
@@ -4880,6 +4964,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			mute_global_chat = data.mute_global_chat
 		if data.has("allow_lobby_invites"):
 			allow_lobby_invites = bool(data.allow_lobby_invites)
+		if data.has("offline_mode"):
+			offline_mode = bool(data.offline_mode)
 		if data.has("passes_to_main"):
 			passes_to_main = bool(data.passes_to_main)
 		if data.has("allow_spectators"):
@@ -5309,11 +5395,18 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("vr_play_lock_pitch"):
 			vr_play_lock_pitch = clamp(float(data.vr_play_lock_pitch), -1.2, 1.2)
 		if data.has("vr_foveation"):
-			vr_foveation = int(clamp(int(data.vr_foveation), 0, 3))
+			vr_foveation = int(clamp(int(data.vr_foveation), -1, 3))
 			# the old default (2, medium) made the edges of the view look
 			# pixelated: low instead, once (a level picked after this stays)
 			if vr_foveation == 2 and not data.has("vr_foveation_v2"):
 				vr_foveation = 1
+			# Low was the default before there was Auto, and Auto is Low at
+			# 100%: Low becomes Auto, once (so it follows a higher render
+			# resolution; a level picked after this stays)
+			if vr_foveation == 1 and not data.has("vr_foveation_auto"):
+				vr_foveation = -1
+		if data.has("vr_msaa"):
+			vr_msaa = int(clamp(int(data.vr_msaa), -1, 1))
 		if data.has("vr_refresh_unlock"):
 			vr_refresh_unlock = bool(data.vr_refresh_unlock)
 		if data.has("vr_refresh"):
@@ -5346,6 +5439,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			last_search_xp_only = data.last_search_xp_only
 		if data.has("last_search_unranked_only"):
 			last_search_unranked_only = bool(data.last_search_unranked_only)
+		if data.has("last_search_completed"):
+			last_search_completed = int(clamp(int(data.last_search_completed), 0, 2))
 
 		lcol(data, "grade_s_color")
 		lcol(data, "panel_bg")
@@ -5963,6 +6058,7 @@ func _write_settings_file(saveFile: String):
 			is_staff = is_staff,
 			lb_device = lb_device,
 			allow_lobby_invites = allow_lobby_invites,
+			offline_mode = offline_mode,
 			passes_to_main = passes_to_main,
 			realistic_autoplay = realistic_autoplay,
 			friend_position = friend_position,
@@ -6073,6 +6169,8 @@ func _write_settings_file(saveFile: String):
 			vr_play_lock_pitch = vr_play_lock_pitch,
 			vr_foveation = vr_foveation,
 			vr_foveation_v2 = true,
+			vr_foveation_auto = true,
+			vr_msaa = vr_msaa,
 			vr_refresh = vr_refresh,
 			vr_refresh_unlock = vr_refresh_unlock,
 			vr_render_scale = vr_render_scale,
@@ -6088,6 +6186,7 @@ func _write_settings_file(saveFile: String):
 			last_search_incl_broken = last_search_incl_broken,
 			last_search_xp_only = last_search_xp_only,
 			last_search_unranked_only = last_search_unranked_only,
+			last_search_completed = last_search_completed,
 
 			master_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Master")), -80, 1000000)),
 			music_volume = ser_float(clamp(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), -80, 1000000)),

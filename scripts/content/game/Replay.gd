@@ -652,7 +652,7 @@ func _write_touches():
 # in mm, rotations * 32767). Read back (_read_vr) for the replay player's
 # first-person view of a VR play (HUD.gd replay_vr_on).
 const VR_SIG := PoolByteArray([67, 86, 82, 80]) # "CVRP"
-const VR_SAMPLE_MS := 50
+const VR_SAMPLE_MS := 30 # (it was 50: the hands moved in steps on a fast map)
 var vr_samples: Array = []
 var _vr_last_ms := -100000
 
@@ -677,15 +677,14 @@ var vr_hand_files := ["", ""] # [right sha256, left sha256] for custom
 
 func _write_vr_hand():
 	var lm = Engine.get_main_loop().root.get_node_or_null("LobbyManager") if Engine.get_main_loop() is SceneTree else null
-	if lm == null or not bool(lm.get("replay_vr_hand_supported")):
-		return
+	# (written connected or not, like the head and hands themselves: _write_vr)
 	var kind := String(Rhythia.vr_hand)
 	var shas := ["", ""]
 	if kind == "custom":
 		var spec = load("res://scripts/SpectateSettings.gd")
 		for hf in spec.own_hand_files():
 			shas[0 if hf[0] == "vr_hand_file" else 1] = String(spec.sha_of(hf[1]))
-		if lm.has_method("upload_spectate_assets"):
+		if lm != null and lm.has_method("upload_spectate_assets"):
 			lm.upload_spectate_assets() # (sent once; also when nobody may spectate)
 	file.store_buffer(VR_HAND_SIG)
 	file.store_16(1)

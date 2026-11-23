@@ -94,5 +94,7 @@ func roll(digits: String = ""):
 	_open = layer
 
 func _post(lm, digits: String):
+	if Rhythia.offline_mode: # (it goes in global chat)
+		return
 	if lm != null and lm.has_method("_ensure_connected_then_send"):
 		lm._ensure_connected_then_send({"type": "rngdle", "digits": digits, "name": String(lm.player_name), "client_id": Rhythia.cid})

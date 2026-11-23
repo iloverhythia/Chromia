@@ -172,7 +172,7 @@ func _ready():
 	_label("Graphics", f_title, ACCENT)
 	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts; above 140% is sharper but much heavier (200% draws four times the pixels), so lower it again if songs stutter. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
 	if OS.has_feature("quest"):
-		_fov_pick = _option_row("Foveated rendering", [["Off", 0], ["Low", 1], ["Medium", 2], ["High", 3]], "_on_foveation")
+		_fov_pick = _option_row("Foveated rendering", [["Auto (more as the render resolution goes up)", -1], ["Off", 0], ["Low", 1], ["Medium", 2], ["High", 3]], "_on_foveation")
 		var rates: Array = load("res://vr/VRPlayer.gd").refresh_rates()
 		var items := [["Headset default", 0.0]]
 		var has_240 := false
@@ -204,6 +204,8 @@ func _ready():
 		_button(box, "Set up for the best frame rate", "_best_frame_rate")
 	else:
 		_label("Refresh rate: on PC VR it's set in SteamVR (or the Oculus app); the game never holds the frame rate back in VR.", f_body, DIM, true)
+	_msaa_pick = _option_row("Anti-aliasing", [["Auto (off at a high render resolution)", -1], ["Off", 0], ["On", 1]], "_on_msaa")
+	_label("A higher render resolution is that many more pixels to draw (150% is 2.25 times as many), so it always costs frames. On Auto, the two things that cost the same again for every extra pixel give way above 120%: anti-aliasing goes off (a picture drawn bigger than the lenses show is smoothed already) and foveated rendering goes up a step, two above 155% (the edges stay as detailed as they were at 100%). The middle of your view gets all of the extra sharpness.", f_body, DIM, true)
 	_glow_pick = _option_row("Glow", [["Auto (off on Quest)", -1], ["Off", 0], ["On", 1]], "_on_glow")
 	_simple_box = _check("Simple background in songs (fastest: the plain VOID background in VR, whatever background is picked)", "vr_simple_bg")
 	box.add_child(HSeparator.new())
@@ -338,6 +340,7 @@ var _rate_pick: OptionButton
 var _unlock_box: CheckBox = null
 var _auto_rate_box: CheckBox = null
 var _glow_pick: OptionButton
+var _msaa_pick: OptionButton
 var _hide_beam_box: CheckBox = null
 var _simple_box: CheckBox
 var _beam_color: ColorPickerButton
@@ -577,6 +580,13 @@ func _on_hand(i: int):
 			Globals.notify(Globals.NOTIFY_ERROR, "No vr_hand.obj in the user folder (or it couldn't be read).", "VR hands")
 	_save_soon()
 
+func _on_msaa(i: int):
+	if _loading:
+		return
+	Rhythia.vr_msaa = int(_msaa_pick.get_item_metadata(i))
+	Rhythia.apply_vr_msaa()
+	_save_soon()
+
 func _on_foveation(i: int):
 	if _loading:
 		return
@@ -733,6 +743,7 @@ func _load_values():
 	if _auto_rate_box:
 		_auto_rate_box.pressed = bool(Rhythia.fs_auto_rate)
 	_select_meta(_glow_pick, Rhythia.vr_glow)
+	_select_meta(_msaa_pick, Rhythia.vr_msaa)
 	if _simple_box:
 		_simple_box.pressed = bool(Rhythia.vr_simple_bg)
 	if _beam_color:
