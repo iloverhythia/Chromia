@@ -11,3 +11,4 @@ in scripts/Savia.gd and empties this list.
 - Picking a map with an animated (GIF) cover no longer holds the menu up for seconds: only the cover's first picture is read for the still one, not the whole animation.
 - When the game freezes (the window stops answering), the next crash report now says what it was stuck on: the step it was in the middle of, the background jobs running, and whether the sound system or the graphics driver had stopped answering. Before, a freeze left nothing to go on.
 - The game can no longer wait forever for a map's notes when another job that was reading them stopped half-way.
+- The Spectate eye button can be dragged anywhere on the screen (mouse, finger or VR pointer) and stays where you leave it. A plain click still opens Spectate; right-click the eye to put it back in its corner.

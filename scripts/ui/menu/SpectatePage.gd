@@ -288,10 +288,18 @@ static func _eye_texture_make(px: int, ring: Color) -> ImageTexture:
 	img.unlock()
 	return _to_tex(img)
 
-# The eye button: the drawn texture, brighter while pointed at
+# The eye button: the drawn texture, brighter while pointed at. Held and
+# moved, it goes where it's dragged (mouse, finger or VR pointer); a click
+# that doesn't move opens the window; a right click puts it back in its corner.
 class EyeButton extends TextureRect:
 	signal pressed
+	signal dragged(to) # being moved: where its top left corner should be (on the screen)
+	signal dropped
+	signal put_back
 	var down := false
+	var dragging := false
+	var _grab := Vector2()
+	var _from := Vector2()
 	var tex_normal: Texture
 	var tex_hover: Texture
 
@@ -304,22 +312,45 @@ class EyeButton extends TextureRect:
 		connect("mouse_exited", self, "_set_hover", [false])
 
 	func _set_hover(on: bool):
+		if dragging:
+			return # (the pointer got ahead of the button for a moment)
 		texture = tex_hover if on else tex_normal
-		if not on:
-			down = false
+		if not on and not down:
 			rect_scale = Vector2(1, 1)
 
 	func _gui_input(ev):
-		if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
+		if ev is InputEventMouseButton and ev.button_index == BUTTON_RIGHT:
+			if ev.pressed and not down:
+				emit_signal("put_back")
+			accept_event()
+		elif ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
 			rect_pivot_offset = rect_size / 2.0
 			if ev.pressed:
 				down = true
+				dragging = false
+				_grab = ev.position
+				_from = ev.global_position
 				rect_scale = Vector2(0.94, 0.94)
 			elif down:
 				down = false
 				rect_scale = Vector2(1, 1)
-				if Rect2(Vector2(), rect_size).has_point(ev.position):
+				if dragging:
+					dragging = false
+					emit_signal("dropped")
+					if not Rect2(Vector2(), rect_size).has_point(ev.position):
+						texture = tex_normal
+				elif Rect2(Vector2(), rect_size).has_point(ev.position):
 					emit_signal("pressed")
+				else:
+					texture = tex_normal
+			accept_event()
+		elif ev is InputEventMouseMotion and down:
+			# (a click's small wobble isn't a move: a fifth of the button first)
+			if not dragging and ev.global_position.distance_to(_from) > max(8.0, rect_size.x * 0.2):
+				dragging = true
+				rect_scale = Vector2(1, 1)
+			if dragging:
+				emit_signal("dragged", ev.global_position - _grab)
 			accept_event()
 
 # ------------------------------------------------------------------ build
@@ -362,8 +393,61 @@ func _ready():
 func _build_eye():
 	eye = EyeButton.new()
 	eye.name = "SpectateButton"
+	eye.hint_tooltip = "Spectate and chat\nDrag it to move it, right-click to put it back in its corner"
 	eye.connect("pressed", self, "open")
+	eye.connect("dragged", self, "_on_eye_dragged")
+	eye.connect("dropped", self, "_on_eye_dropped")
+	eye.connect("put_back", self, "_on_eye_put_back")
 	add_child(eye)
+	_eye_at = _load_eye_place()
+
+# --- the eye goes where it's dragged ------------------------------------------------
+# Kept as its centre's share of the screen (0..1 each way), so it stays in the
+# same spot of a bigger or smaller window; null = its corner (bottom right).
+const EYE_CFG := "user://settings.cfg"
+var _eye_at = null
+
+func _load_eye_place():
+	var config := ConfigFile.new()
+	if config.load(EYE_CFG) != OK:
+		return null
+	var v = config.get_value("ui", "spectate_eye", null)
+	return v if v is Vector2 else null
+
+func _save_eye_place():
+	var config := ConfigFile.new()
+	config.load(EYE_CFG)
+	if _eye_at == null:
+		if config.has_section_key("ui", "spectate_eye"):
+			config.erase_section_key("ui", "spectate_eye")
+	else:
+		config.set_value("ui", "spectate_eye", _eye_at)
+	config.save(EYE_CFG)
+
+# (always whole on the screen)
+func _eye_clamped(pos: Vector2) -> Vector2:
+	var vp := get_viewport_rect().size
+	var edge := 4.0 * _k
+	return Vector2(clamp(pos.x, edge, max(edge, vp.x - eye.rect_size.x - edge)), clamp(pos.y, edge, max(edge, vp.y - eye.rect_size.y - edge))).floor()
+
+func _on_eye_dragged(to: Vector2):
+	eye.rect_position = _eye_clamped(to - rect_global_position)
+	notice.visible = false
+	_place_notice()
+
+func _on_eye_dropped():
+	var vp := get_viewport_rect().size
+	if vp.x <= 0 or vp.y <= 0:
+		return
+	_eye_at = (eye.rect_position + eye.rect_size / 2.0) / vp
+	_save_eye_place()
+
+func _on_eye_put_back():
+	if _eye_at == null:
+		return
+	_eye_at = null
+	_save_eye_place()
+	_resize()
 
 # ------------------------------------------------------------------ chat notification
 # A new global chat message while the window is closed: a small bubble left
@@ -440,7 +524,11 @@ func _place_notice():
 		return
 	var sz := notice.get_combined_minimum_size()
 	notice.rect_size = sz
-	notice.rect_position = Vector2(eye.rect_position.x - sz.x - 10 * _k, eye.rect_position.y + (eye.rect_size.y - sz.y) / 2.0).floor()
+	var nx: float = eye.rect_position.x - sz.x - 10 * _k
+	if nx < 4.0:
+		nx = eye.rect_position.x + eye.rect_size.x + 10 * _k # (the eye is at the left edge: the message goes on its right)
+	var ny: float = clamp(eye.rect_position.y + (eye.rect_size.y - sz.y) / 2.0, 0.0, max(0.0, get_viewport_rect().size.y - sz.y))
+	notice.rect_position = Vector2(nx, ny).floor()
 	var bs := badge.get_combined_minimum_size()
 	bs.x = max(bs.x, bs.y)
 	badge.rect_size = bs
@@ -643,6 +731,8 @@ func _resize():
 	if Rhythia.vr:
 		# (the VR screen's resize handle is in that corner: the eye goes beside it)
 		eye.rect_position.x -= load("res://vr/MenuResize.gd").ICON + 12.0
+	if _eye_at is Vector2:
+		eye.rect_position = _eye_clamped(_eye_at * vp - eye.rect_size / 2.0)
 	var tpx := int(ceil(d * 2.0))
 	if tpx != _eye_px:
 		_eye_px = tpx
