@@ -700,6 +700,8 @@ func _send_lobby_intent():
 # connection dropping. Counts only, no names.)
 func _on_connected(_proto = ""):
 	Rhythia.trail("server: connected")
+	_hello_seen = false
+	_signed_in = false
 	_send_lobby_intent()
 	_send({"type": "hello"})
 	if Rhythia.cid != "":
@@ -1019,7 +1021,7 @@ func _on_social_state(msg: Dictionary):
 	if news is Dictionary and not Rhythia.offline_mode: # (Offline Mode: they wait in Online > Friends)
 		var who := Globals.s(news.get("name", "Someone"))
 		if Globals.s(news.get("kind", "")) == "friend_request":
-			Globals.notify(Globals.NOTIFY_INFO, "%s sent you a friend request. Online > Friends to accept it." % who, "Friend request", 8)
+			Globals.notify(Globals.NOTIFY_INFO, "%s sent you a friend request. Accept it in the chat's DMs tab (the eye button) or in Online > Friends." % who, "Friend request", 8)
 		elif Globals.s(news.get("kind", "")) == "friend_accepted":
 			Globals.notify(Globals.NOTIFY_SUCCEED, "You and %s are friends now." % who, "Friends")
 	emit_signal("social_changed")
@@ -1031,6 +1033,172 @@ func _people(v) -> Array:
 			if p is Dictionary and p.get("number") != null:
 				out.append({number = int(p.number), name = Globals.s(p.get("name", "")), avatar_url = Globals.s(p.get("avatar_url", "")) if p.get("avatar_url") != null else "", online = bool(p.get("online", false))})
 	return out
+
+# --- direct messages, announcements so far (savia_web dms.js) -------------------
+# Friends can message each other: the chat's DMs tab (SpectatePage.gd) and the
+# Friends window's Message button. The server keeps a conversation's last
+# messages, so they're there after a restart and reach someone who was away.
+# Announcements: the server's last ones, for the chat's Announcements tab.
+signal dm_message(number)        # a new message in the conversation with that player
+signal dm_list_changed           # the conversations, their previews or unread counts
+signal dm_history_loaded(number)
+signal players_found(q, players) # (adding a friend by name: [{number, name, avatar_url, relation}])
+signal announcements_changed
+var dms_supported := false
+var find_supported := false
+var dm_conversations: Array = [] # newest first: {number, name, avatar_url, online, friends, last_text, last_from, last_ts, unread}
+var dm_threads := {}             # number -> [{id, from, name, text, ts}] (once asked for)
+var dm_unread_total := 0
+var dm_open_with := 0            # the conversation on screen (its messages count as read)
+var dm_list_open := false        # the DMs tab is on screen: a new message shows there, no notification
+var announcements: Array = []    # oldest first: {text, from_name, ts}
+const DM_THREAD_MAX := 300
+# The conversations and the announcements are asked for once the server has
+# said what it can do (server_hello) AND you're signed in (auth_ok), whichever
+# comes last: the server drops these when they come before the sign-in.
+var _hello_seen := false
+var _signed_in := false
+var _news_supported := false
+func _dm_start():
+	if not (_hello_seen and _signed_in):
+		return
+	dm_threads = {} # (a new connection: read again when a conversation is opened)
+	request_dm_list()
+	if _news_supported:
+		_send({"type": "announcements_get"})
+
+func send_dm(number: int, text: String):
+	text = text.strip_edges()
+	if number <= 0 or text == "":
+		return
+	if not _connected() or not dms_supported:
+		Globals.notify(Globals.NOTIFY_WARN, "Connect to the server first." if not _connected() else "This server doesn't have direct messages yet.", "Direct message")
+		return
+	_send({"type": "dm_send", "number": number, "text": text.substr(0, 300)})
+
+func request_dm_list():
+	if _connected() and dms_supported:
+		_send({"type": "dm_list"})
+
+func request_dm_history(number: int):
+	if number > 0 and _connected() and dms_supported:
+		_send({"type": "dm_history", "number": number})
+
+func mark_dm_read(number: int):
+	for c in dm_conversations:
+		if int(c.number) == number and int(c.unread) > 0:
+			dm_unread_total = int(max(0, dm_unread_total - int(c.unread)))
+			c.unread = 0
+			if _connected() and dms_supported:
+				_send({"type": "dm_read", "number": number})
+			emit_signal("dm_list_changed")
+			return
+
+func find_players(q: String):
+	q = q.strip_edges()
+	if q != "" and _connected() and find_supported:
+		_send({"type": "player_find", "q": q.substr(0, 64)})
+
+func dm_conversation(number: int):
+	for c in dm_conversations:
+		if int(c.number) == number:
+			return c
+	return null
+
+# a friend's (or anyone you have a conversation with) name, "" not known
+func dm_name(number: int) -> String:
+	var c = dm_conversation(number)
+	if c != null and String(c.name) != "":
+		return String(c.name)
+	for p in friends:
+		if int(p.number) == number:
+			return String(p.name)
+	return ""
+
+func _dm_person(number: int) -> Dictionary:
+	for p in friends:
+		if int(p.number) == number:
+			return p
+	return {}
+
+func _on_dm_message(msg: Dictionary):
+	var with := int(msg.get("with", 0))
+	var from := int(msg.get("from", 0))
+	if with <= 0:
+		return
+	var m := {id = Globals.s(msg.get("id", "")), from = from, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0))}
+	if dm_threads.has(with):
+		var th: Array = dm_threads[with]
+		for old in th:
+			if String(old.id) != "" and String(old.id) == String(m.id):
+				return # (seen already: a second copy of the game signed in)
+		th.append(m)
+		while th.size() > DM_THREAD_MAX:
+			th.pop_front()
+	var mine: bool = from == my_player_number
+	var seen: bool = mine or dm_open_with == with
+	var c = dm_conversation(with)
+	if c == null:
+		var p := _dm_person(with)
+		c = {number = with, name = String(p.get("name", m.name if not mine else "")), avatar_url = String(p.get("avatar_url", "")), online = bool(p.get("online", true)), friends = true, last_text = "", last_from = 0, last_ts = 0.0, unread = 0}
+	else:
+		dm_conversations.erase(c)
+	c.last_text = m.text
+	c.last_from = from
+	c.last_ts = m.ts
+	if not mine and String(m.name) != "":
+		c.name = m.name
+	if not seen:
+		c.unread = int(c.unread) + 1
+		dm_unread_total += 1
+	dm_conversations.push_front(c)
+	if dm_open_with == with and not mine and _connected():
+		_send({"type": "dm_read", "number": with})
+	emit_signal("dm_message", with)
+	emit_signal("dm_list_changed")
+	# (not in the middle of a map, and not while it's on screen)
+	if not seen and not dm_list_open and not Rhythia.in_map and not Rhythia.chat_hidden():
+		Globals.notify(Globals.NOTIFY_INFO, m.text, "Message from %s" % (m.name if m.name != "" else "player #%d" % from), 6)
+
+func _on_dm_list(msg: Dictionary):
+	var out := []
+	var v = msg.get("conversations")
+	if v is Array:
+		for c in v:
+			if c is Dictionary and c.get("number") != null:
+				out.append({number = int(c.number), name = Globals.s(c.get("name", "")), avatar_url = Globals.s(c.get("avatar_url", "")) if c.get("avatar_url") != null else "",
+					online = bool(c.get("online", false)), friends = bool(c.get("friends", true)), last_text = Globals.s(c.get("last_text", "")),
+					last_from = int(c.get("last_from", 0)), last_ts = float(c.get("last_ts", 0)), unread = int(c.get("unread", 0))})
+	dm_conversations = out
+	dm_unread_total = 0
+	for c in out:
+		if int(c.number) == dm_open_with:
+			c.unread = 0
+		dm_unread_total += int(c.unread)
+	emit_signal("dm_list_changed")
+
+func _on_dm_history(msg: Dictionary):
+	var number := int(msg.get("number", 0))
+	if number <= 0:
+		return
+	var th := []
+	var v = msg.get("messages")
+	if v is Array:
+		for m in v:
+			if m is Dictionary:
+				th.append({id = Globals.s(m.get("id", "")), from = int(m.get("from", 0)), name = "", text = Globals.s(m.get("text", "")), ts = float(m.get("ts", 0))})
+	dm_threads[number] = th
+	emit_signal("dm_history_loaded", number)
+
+func _on_announcements(msg: Dictionary):
+	var out := []
+	var v = msg.get("list")
+	if v is Array:
+		for a in v:
+			if a is Dictionary and Globals.s(a.get("text", "")) != "":
+				out.append({text = Globals.s(a.get("text", "")), from_name = Globals.s(a.get("from_name", "")), ts = float(a.get("ts", 0))})
+	announcements = out
+	emit_signal("announcements_changed")
 
 # --- chat reactions (ChatReactions.gd draws them) ------------------------------
 # Each chat line has an id from the server ("" from an older server); a
@@ -1951,6 +2119,8 @@ func _handle_message(msg: Dictionary):
 			_apply_server_name(msg)
 			if Globals.s(msg.get("type", "")) == "auth_ok":
 				_send({"type": "social_get"}) # (friends and blocked: social_state)
+				_signed_in = true
+				_dm_start()
 			if msg.has("chat_banned"):
 				_set_chat_ban(bool(msg.get("chat_banned")), msg.get("chat_ban_left_ms"))
 		"chat_ban":
@@ -2125,6 +2295,11 @@ func _handle_message(msg: Dictionary):
 			replay_vr_supported = feats is Array and feats.has("replay_vr")
 			replay_vr_hand_supported = feats is Array and feats.has("replay_vr_hand")
 			translate_supported = feats is Array and feats.has("translate")
+			dms_supported = feats is Array and feats.has("dms")
+			find_supported = feats is Array and feats.has("player_find")
+			_news_supported = feats is Array and feats.has("announcements")
+			_hello_seen = true
+			_dm_start()
 			# reconnected in the middle of a song (a network blip, a server
 			# restart): the server lost your settings with the old connection,
 			# so whoever starts watching would see it their own way
@@ -2201,6 +2376,27 @@ func _handle_message(msg: Dictionary):
 			close_lobby()
 		"social_state":
 			_on_social_state(msg)
+		"dm_message":
+			_on_dm_message(msg)
+		"dm_list":
+			_on_dm_list(msg)
+		"dm_history":
+			_on_dm_history(msg)
+		"dm_unread":
+			# (read on another copy of the game)
+			var dm_c = dm_conversation(int(msg.get("number", 0)))
+			if dm_c != null:
+				dm_c.unread = int(msg.get("unread", 0))
+			dm_unread_total = int(msg.get("total", 0))
+			emit_signal("dm_list_changed")
+		"dm_result":
+			if not bool(msg.get("ok", false)) and Globals.s(msg.get("error", "")) != "":
+				Globals.notify(Globals.NOTIFY_WARN, Globals.s(msg.get("error", "")), "Direct message")
+		"player_found":
+			var pf = msg.get("players")
+			emit_signal("players_found", Globals.s(msg.get("q", "")), pf if pf is Array else [])
+		"announcements":
+			_on_announcements(msg)
 		"social_result":
 			if not bool(msg.get("ok", false)) and Globals.s(msg.get("error", "")) != "":
 				Globals.notify(Globals.NOTIFY_WARN, Globals.s(msg.get("error", "")), "Friends")
@@ -2226,6 +2422,11 @@ func _handle_message(msg: Dictionary):
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))
 			emit_signal("announcement_received", announce_text, announce_from, float(msg.get("ts", 0)))
+			if announce_text != "":
+				announcements.append({text = announce_text, from_name = announce_from, ts = float(msg.get("ts", 0))})
+				while announcements.size() > 50:
+					announcements.pop_front()
+				emit_signal("announcements_changed")
 			if Rhythia.in_map:
 				_pending_announcement = {"text": announce_text, "from_name": announce_from}
 			else:

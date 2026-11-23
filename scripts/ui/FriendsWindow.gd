@@ -1,11 +1,12 @@
 extends PanelContainer
 
 # Online > Friends: its own window (like Invite players). Three tabs:
-#   Friends   your friends (online ones first): Invite (when you're in a
-#             lobby) and Remove
+#   Friends   your friends (online ones first): Message (the chat's DMs tab,
+#             SpectatePage.gd), Invite (when you're in a lobby) and Remove
 #   Requests  friend requests to you (Accept / Decline) and yours (Cancel)
 #   Blocked   who you blocked (Unblock), and Block by player number
-# and "Add a friend" by player number (on Blocked: block one). Block is in
+# and "Add a friend" by name or player number (a name: the players found are
+# listed, with Add friend; on Blocked: block one by number). Block is in
 # the Spectate list's player menu too, and on a friend request. Right-click a name in any chat to add
 # a friend or block someone too (ChatReactions.gd). The lists are the
 # server's (LobbyManager social_state, savia_web social.js); the website's
@@ -20,6 +21,8 @@ var _tabs := {}
 var _list: VBoxContainer
 var _number: LineEdit
 var _go: Button
+var _found_q := "" # a name that was looked up, and who came back
+var _found := []
 
 static func open_on(parent: Node, tab: String = ""):
 	var tree = parent.get_tree()
@@ -80,7 +83,7 @@ func _init():
 	add.add_constant_override("separation", 6)
 	v.add_child(add)
 	_number = LineEdit.new()
-	_number.placeholder_text = "Add a friend by player number"
+	_number.placeholder_text = "Add a friend: name or player number"
 	_number.size_flags_horizontal = SIZE_EXPAND_FILL
 	S.field(_number)
 	_number.connect("text_entered", self, "_add_by_number")
@@ -105,6 +108,8 @@ func _ready():
 	lm = get_node_or_null("/root/LobbyManager")
 	if lm != null:
 		lm.connect("social_changed", self, "_refill")
+		if lm.has_signal("players_found"):
+			lm.connect("players_found", self, "_on_found")
 		lm.refresh_social() # (who's online now)
 	get_viewport().connect("size_changed", self, "_place")
 	call_deferred("_place")
@@ -137,7 +142,16 @@ func _pick_tab(k: String):
 
 func _add_by_number(_t = ""):
 	var s := _number.text.strip_edges().trim_prefix("#")
+	if s == "":
+		return
 	if not s.is_valid_integer() or int(s) <= 0:
+		# a name: the players found are listed (Friends and Requests tabs)
+		if _tab != "blocked" and lm != null and bool(lm.get("find_supported")):
+			_found_q = s
+			_found = []
+			lm.find_players(s)
+			_refill()
+			return
 		Globals.notify(Globals.NOTIFY_WARN, "Type their player number (it's on their profile).", "Friends")
 		return
 	if lm != null:
@@ -147,10 +161,15 @@ func _add_by_number(_t = ""):
 			lm.social_action("request", int(s))
 	_number.text = ""
 
+func _on_found(q: String, found: Array):
+	if q == _found_q:
+		_found = found
+		_refill()
+
 func _refill(_x = null):
 	for k in _tabs:
 		_tabs[k].pressed = k == _tab
-	_number.placeholder_text = "Block someone by player number" if _tab == "blocked" else "Add a friend by player number"
+	_number.placeholder_text = "Block someone by player number" if _tab == "blocked" else "Add a friend: name or player number"
 	_go.text = "Block" if _tab == "blocked" else "Send request"
 	var n_in: int = lm.friend_requests_in.size() if lm != null else 0
 	_tabs["requests"].text = "Requests (%d)" % n_in if n_in > 0 else "Requests"
@@ -160,17 +179,34 @@ func _refill(_x = null):
 	if lm == null:
 		return
 	var shown := 0
+	if _found_q != "" and _tab != "blocked":
+		_note("Players named \"%s\":" % _found_q)
+		for p in _found:
+			if not (p is Dictionary) or p.get("number") == null:
+				continue
+			var who := {number = int(p.number), name = String(p.get("name", "")), avatar_url = String(p.get("avatar_url", "")) if p.get("avatar_url") != null else ""}
+			match String(lm.relation(int(p.number))):
+				"friends": _row(who, "Already your friend", [])
+				"outgoing": _row(who, "Request sent", [["Cancel", "cancel", false]])
+				"incoming": _row(who, "Wants to be friends", [["Accept", "accept", true]])
+				"blocked": _row(who, "Blocked", [["Unblock", "unblock", false]])
+				_: _row(who, "#%d" % int(p.number), [["Add friend", "request", true]])
+		if _found.empty():
+			_note("Nobody found yet by that name. Their player number works too.")
+		_list.add_child(HSeparator.new())
 	if _tab == "friends":
 		var in_lobby: bool = bool(lm.get("lobby_active"))
 		for p in lm.friends:
 			var btns := []
+			if bool(lm.get("dms_supported")) and not get_tree().get_nodes_in_group("spectate_page").empty():
+				btns.append(["Message", "message", true])
 			if in_lobby and p.online:
 				btns.append(["Invite", "invite", true])
 			btns.append(["Remove", "remove", false])
 			_row(p, "Online" if p.online else "#%d" % p.number, btns)
 			shown += 1
 		if shown == 0:
-			_note("No friends yet. Right-click someone's name in chat, or type their player number above.")
+			_note("No friends yet. Type a name or player number above, or right-click someone's name in chat.")
 	elif _tab == "requests":
 		for p in lm.friend_requests_in:
 			_row(p, "Wants to be friends", [["Accept", "accept", true], ["Decline", "decline", false], ["Block", "block", false]])
@@ -231,6 +267,14 @@ func _act(action: String, number: int, bt: Button):
 		return
 	if action == "block":
 		lm.confirm_block(number)
+		return
+	if action == "message":
+		# the chat's DMs tab, on that conversation (SpectatePage.gd)
+		for page in get_tree().get_nodes_in_group("spectate_page"):
+			if page.is_inside_tree() and page.has_method("open_dm"):
+				page.call_deferred("open_dm", number)
+				break
+		close()
 		return
 	bt.disabled = true
 	lm.social_action(action, number)

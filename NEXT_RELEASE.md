@@ -12,3 +12,6 @@ in scripts/Savia.gd and empties this list.
 - When the game freezes (the window stops answering), the next crash report now says what it was stuck on: the step it was in the middle of, the background jobs running, and whether the sound system or the graphics driver had stopped answering. Before, a freeze left nothing to go on.
 - The game can no longer wait forever for a map's notes when another job that was reading them stopped half-way.
 - The Spectate eye button can be dragged anywhere on the screen (mouse, finger or VR pointer) and stays where you leave it. A plain click still opens Spectate; right-click the eye to put it back in its corner.
+- Direct messages: friends can message each other in the game. The chat (the eye button) now has three tabs: Global, DMs and Announcements. DMs lists your friends and conversations with unread counts; messages sent while someone is offline are waiting for them, and a new one shows by the eye button.
+- Add a friend without leaving the chat: type a player's name or #number in the DMs tab, and accept or decline friend requests right there. The Friends window (Online > Friends) finds players by name too and has a Message button.
+- Announcements tab: the team's latest announcements stay there to read, also the ones sent while you were away or in a map.
