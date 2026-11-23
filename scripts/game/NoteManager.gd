@@ -1126,6 +1126,11 @@ var rec_t: float = 0
 var rms: float = 0
 var rec_interval: float = 12
 var pause_state: float = 0
+# how long unpausing takes (hold pause; the song goes back this much and plays
+# up to where you paused): 0.75 s, or 0.25 s with Blox Saber (replays the same:
+# the mod is in the replay)
+func _unpause_s() -> float:
+	return 0.25 if Rhythia.mod_blox_saber else 0.75
 var pause_cooldown: float = 0
 var pause_ms: float = 0
 var replay_unpause: bool = false
@@ -1341,7 +1346,7 @@ func _process(delta: float):
 					var in_lobby = lobby_manager != null and lobby_manager.lobby_active
 					if in_lobby:
 						pass
-					elif pause_state == 0 and (ms > (1000 * speed_multi) and ms < get_parent().last_ms) and (pause_cooldown == 0 or Rhythia.mod_blox_saber) and not Rhythia.disable_pausing:
+					elif pause_state == 0 and ((ms > (1000 * speed_multi) or (Rhythia.mod_blox_saber and ms > 0)) and ms < get_parent().last_ms) and (pause_cooldown == 0 or Rhythia.mod_blox_saber) and not Rhythia.disable_pausing:
 						print("PAUSED AT MS %.0f" % ms)
 						if Rhythia.record_replays:
 							Rhythia.replay.store_pause(rms)
@@ -1357,7 +1362,7 @@ func _process(delta: float):
 						if Rhythia.record_replays:
 							Rhythia.replay.store_sig(rms, Globals.RS_START_UNPAUSE)
 						pause_state = 1
-						ms = pause_ms - (pause_state * (750 * speed_multi))
+						ms = pause_ms - (pause_state * (_unpause_s() * 1000 * speed_multi))
 						emit_signal("ms_change", ms)
 						_n_music.volume_db = -30
 						# with the audio offset, like every other play() here (it was left out,
@@ -1365,8 +1370,8 @@ func _process(delta: float):
 						_n_music.play(max(ms + Rhythia.music_offset, 0) / 1000)
 			if Input.is_action_pressed("pause") and pause_state > 0:
 				var prev_state = pause_state
-				pause_state = max(pause_state - (delta / 0.75), 0)
-				_n_music.volume_db = min(_n_music.volume_db + (delta * 30), 0)
+				pause_state = max(pause_state - (delta / _unpause_s()), 0)
+				_n_music.volume_db = min(_n_music.volume_db + (delta * 30 * 0.75 / _unpause_s()), 0)
 				if pause_state == 0:
 
 					if (prev_state != pause_state) and Rhythia.record_replays:
@@ -1448,13 +1453,13 @@ func _process(delta: float):
 
 
 				pause_state = 1
-				ms = pause_ms - (pause_state * (750 * speed_multi)) + unpause_lag * speed_multi
+				ms = pause_ms - (pause_state * (_unpause_s() * 1000 * speed_multi)) + unpause_lag * speed_multi
 				emit_signal("ms_change", ms)
 				_n_music.volume_db = -30
 				_n_music.play((ms + Rhythia.music_offset) / 1000)
 			if replay_unpause and pause_state >= 0:
-				pause_state = max(pause_state - (delta / 0.75), 0)
-				_n_music.volume_db = min(_n_music.volume_db + (delta * 30), 0)
+				pause_state = max(pause_state - (delta / _unpause_s()), 0)
+				_n_music.volume_db = min(_n_music.volume_db + (delta * 30 * 0.75 / _unpause_s()), 0)
 				if should_end_unpause:
 
 					_n_music.volume_db = Rhythia.music_volume_db
