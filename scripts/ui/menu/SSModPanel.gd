@@ -45,6 +45,7 @@ const TILES := [
 	["Invert Mouse", "InvertMouse", "invert", Color(0.7, 0.5, 1.0)],
 	["360", "360", "spin", Color(0.3, 0.85, 0.75)],
 	["360 Shuffle", "Shuffle360", "spin", Color(0.95, 0.55, 0.85)],
+	["Blox Saber", "BloxSaberMod", "bolt", Color(0.35, 0.7, 1.0)],
 	["Flashlight", "FlashlightMod", "light", Color(0.95, 0.9, 0.45)],
 	["True Flashlight", "TrueFlashlightMod", "light", Color(1.0, 0.6, 0.35)],
 ]

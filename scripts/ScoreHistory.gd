@@ -191,6 +191,7 @@ static func current_mod_tags() -> Array:
 	if R.mod_flashlight: m.append("FL")
 	if R.get("mod_true_flashlight") == true: m.append("TFL")
 	if R.get("mod_reverse") == true: m.append("RV")
+	if R.get("mod_blox_saber") == true: m.append("BS")
 	if R.mod_360: m.append("360S" if R.get("mod_360_shuffle") == true else "360")
 	if R.mod_strobe: m.append("ST")
 	if R.invert_mouse: m.append("IM")

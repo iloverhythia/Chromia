@@ -2386,6 +2386,7 @@ func _ready():
 		if tfl != null:
 			tfl.modulate = Color(1.0, 0.62, 0.4) # (the Flashlight icon, in orange)
 	if Rhythia.mod_reverse: _mod_icon("reverse")
+	if Rhythia.mod_blox_saber: mods.append("Blox Saber")
 	if Rhythia.invert_mouse: mods.append(tr("Mouse Inverted"))
 	if Rhythia.hitwindow_ms == 58 and Rhythia.note_hitbox_size == 1.14:
 		ms += tr(" Vulnus Judgement ")

@@ -1341,7 +1341,7 @@ func _process(delta: float):
 					var in_lobby = lobby_manager != null and lobby_manager.lobby_active
 					if in_lobby:
 						pass
-					elif pause_state == 0 and (ms > (1000 * speed_multi) and ms < get_parent().last_ms) and pause_cooldown == 0 and not Rhythia.disable_pausing:
+					elif pause_state == 0 and (ms > (1000 * speed_multi) and ms < get_parent().last_ms) and (pause_cooldown == 0 or Rhythia.mod_blox_saber) and not Rhythia.disable_pausing:
 						print("PAUSED AT MS %.0f" % ms)
 						if Rhythia.record_replays:
 							Rhythia.replay.store_pause(rms)

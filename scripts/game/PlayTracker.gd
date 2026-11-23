@@ -66,7 +66,7 @@ const SETTINGS := [
 const MODS := [
 	"mod_ghost", "mod_nearsighted", "mod_flashlight", "mod_true_flashlight", "mod_reverse", "mod_strobe", "mod_chaos",
 	"mod_earthquake", "mod_360", "mod_360_shuffle", "mod_mirror_x", "mod_mirror_y", "mod_hardrock", "mod_harderrock",
-	"mod_hard_mode", "mod_nofail", "mod_sudden_death", "invert_mouse",
+	"mod_hard_mode", "mod_blox_saber", "mod_nofail", "mod_sudden_death", "invert_mouse",
 ]
 
 var nm # the NoteManager (Game/Spawn)

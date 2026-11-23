@@ -495,6 +495,7 @@ func _get_active_mods_dict() -> Dictionary:
 		"flashlight": flashlight_on(), # (True Flashlight counts as Flashlight wherever it isn't known)
 		"true_flashlight": mod_true_flashlight,
 		"reverse": mod_reverse,
+		"blox_saber": mod_blox_saber, # (never sent as a pass: report_map_completion; the server refuses it too)
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
 		"retain_pitch": retain_song_pitch,
@@ -644,7 +645,7 @@ func sp_for_accuracy(accuracy: float) -> int:
 	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
 
 func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
-	if mod_nofail or visual_mode or mod_extra_energy or mod_reverse or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
+	if mod_nofail or visual_mode or mod_extra_energy or mod_reverse or mod_blox_saber or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
 	if replay != null and replay.autoplayer:
 		return false
@@ -664,6 +665,9 @@ func pass_url(url: String) -> String:
 var _offline_pass_told := false
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
+		return
+	if mod_blox_saber: # (Blox Saber: pausing without the wait, so never sent)
+		Globals.notify(Globals.NOTIFY_INFO, "Blox Saber is on, so this score isn't sent (no XP, SP or leaderboard).", "Score not submitted", 6)
 		return
 	if offline_mode: # (Offline Mode: scores stay on your computer)
 		if not _offline_pass_told:
@@ -3449,6 +3453,7 @@ func update_rpc_song():
 	if mod_ghost: mods.append("Ghost")
 	if mod_nearsighted: mods.append("Nearsight")
 	if mod_hardrock: mods.append("Hard Rock")
+	if mod_blox_saber: mods.append("Blox Saber")
 	if mod_harderrock: mods.append("Harder Rock")
 	if mod_hard_mode: mods.append("Hard Mode")
 	if mod_flashlight: mods.append("Flashlight")
@@ -3537,6 +3542,10 @@ func flashlight_on() -> bool:
 	return mod_flashlight or mod_true_flashlight
 # Reverse: the map played backwards, the song too (scripts/game/ReverseSong.gd); never ranked
 var mod_reverse: bool = false setget set_mod_reverse
+# Blox Saber: pause as often as you like (no second of wait after unpausing:
+# NoteManager pause_cooldown). Scores aren't sent (report_map_completion) and
+# give no RP (offline_rp_rules_ok); local bests are kept apart ("m_blox").
+var mod_blox_saber: bool = false setget set_mod_blox_saber
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
 var reverse_length_ms: float = 0.0
 var reverse_song_id: String = ""
@@ -3638,6 +3647,8 @@ func set_mod_true_flashlight(v: bool):
 	mod_true_flashlight = v
 	if v: mod_flashlight = false
 	emit_signal("mods_changed")
+func set_mod_blox_saber(v: bool):
+	mod_blox_saber = v; emit_signal("mods_changed")
 func set_mod_reverse(v: bool):
 	mod_reverse = v; emit_signal("mods_changed")
 
@@ -4625,6 +4636,7 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_flashlight: pts.append("m_flashlight")
 	if mod_true_flashlight: pts.append("m_trueflashlight")
 	if mod_reverse: pts.append("m_reverse")
+	if mod_blox_saber: pts.append("m_blox")
 	if mod_nofail: pts.append("m_nofail")
 
 	pts.sort()
@@ -4659,6 +4671,7 @@ func parse_pb_str(txt: String):
 	data.mod_flashlight = false
 	data.mod_true_flashlight = false
 	data.mod_reverse = false
+	data.mod_blox_saber = false
 	data.mod_nofail = false
 	data.mod_strobe = false
 	data.mod_360 = false
@@ -4705,6 +4718,7 @@ func parse_pb_str(txt: String):
 				"m_flashlight": data.mod_flashlight = true
 				"m_trueflashlight": data.mod_true_flashlight = true
 				"m_reverse": data.mod_reverse = true
+				"m_blox": data.mod_blox_saber = true
 				"m_nofail": data.mod_nofail = true
 	return data
 var prev_state: Dictionary = {}

@@ -766,6 +766,7 @@ func _collect_current_mods() -> Dictionary:
 		"flashlight": Rhythia.mod_flashlight,
 		"true_flashlight": Rhythia.mod_true_flashlight,
 		"reverse": Rhythia.mod_reverse,
+		"blox_saber": Rhythia.mod_blox_saber,
 		"mod_360": Rhythia.mod_360,
 		"mod_360_speed": Rhythia.mod_360_speed,
 		"mod_360_shuffle": Rhythia.mod_360 and Rhythia.mod_360_shuffle,
@@ -823,6 +824,7 @@ func _apply_mods_locally(mods: Dictionary, force: bool = false):
 	Rhythia.mod_flashlight = mods.get("flashlight", Rhythia.mod_flashlight)
 	Rhythia.mod_true_flashlight = mods.get("true_flashlight", Rhythia.mod_true_flashlight if not mods.has("flashlight") else false)
 	Rhythia.mod_reverse = mods.get("reverse", Rhythia.mod_reverse)
+	Rhythia.mod_blox_saber = mods.get("blox_saber", false)
 	Rhythia.mod_360 = mods.get("mod_360", Rhythia.mod_360)
 	Rhythia.mod_360_speed = mods.get("mod_360_speed", Rhythia.mod_360_speed)
 	Rhythia.mod_360_shuffle = mods.get("mod_360_shuffle", false) and Rhythia.mod_360 # (after mod_360)
