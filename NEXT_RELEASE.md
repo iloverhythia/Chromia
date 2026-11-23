@@ -16,3 +16,4 @@ in scripts/Savia.gd and empties this list.
 - Add a friend without leaving the chat: type a player's name or #number in the DMs tab, and accept or decline friend requests right there. The Friends window (Online > Friends) finds players by name too and has a Message button.
 - Announcements tab: the team's latest announcements stay there to read, also the ones sent while you were away or in a map.
 - New setting: Auto Skip (Settings > Gameplay, with Restart on Death). The parts of a map that can be skipped (the wait before the first note, long breaks) are skipped by themselves a moment after the "to skip" timer shows. Off by default; not in a lobby, where the host's skip moves everyone.
+- Replays: the Note Hitboxes option now shows a white square the size of the hitbox coming in with each note, in front of it, until the note is hit or gone (it was a pile of green and red squares lying on the grid).

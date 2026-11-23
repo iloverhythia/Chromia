@@ -57,7 +57,7 @@ func _restyle():
 	var cap: Label = S.label("REPLAY", S.f_bold, S.PINK)
 	top.add_child(cap)
 	for it in [["Cursor Path", "replay_cursor_path", "The line the cursor took, a little behind and ahead of where it is"],
-			["Note Hitboxes", "replay_note_hitbox", "The square each note is hit in: green once it was hit, red when it was missed"],
+			["Note Hitboxes", "replay_note_hitbox", "The square each note is hit in: a white square that comes in with the note, in front of it"],
 			["Frame Markers", "replay_frame_marker", "A dot on every cursor position the replay recorded"]]:
 		var b := Button.new()
 		b.text = it[0]

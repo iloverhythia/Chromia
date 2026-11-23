@@ -10,23 +10,22 @@ extends Spatial
 #                   stretch (the cursor is drawn in a straight line between
 #                   them: this shows how many there are and where)
 #   Note Hitboxes   the square a note is hit in (the cursor's middle has to be
-#                   inside it), for the notes about to arrive and just gone:
-#                   white while it comes, green once the replay hit it, red
-#                   when it missed
+#                   inside it): a white square that comes in with each note,
+#                   on its near side
 #
 # A child of the note area (NoteManager), so everything is in its own units:
 # the cursor's and the notes' positions as the game itself places them.
 
 const PAST_MS := 900.0
 const AHEAD_MS := 350.0
-const BOX_AHEAD_MS := 550.0
-const BOX_PAST_MS := 160.0
-const MAX_BOXES := 48
+const MAX_BOXES := 160
+const FRONT := 0.12 # how far in front of its note a hitbox square is drawn
 
 var spawn # NoteManager
 var cursor: Spatial
 var _lines: ImmediateGeometry
 var _dots: ImmediateGeometry
+var _boxes: ImmediateGeometry
 var _was := false
 var _col := Color(1, 0.756863, 0.960784) # the menus' accent (your Menu Customizer look's)
 
@@ -48,6 +47,9 @@ static func _material(points: bool) -> SpatialMaterial:
 	return m
 
 func _ready():
+	# (after the note area has moved its notes for this frame: its own
+	# process_priority is 2. Before it, the squares were a frame behind their notes)
+	process_priority = 3
 	_col = load("res://scripts/ui/menu/OnlineStyle.gd").new().ACCENT
 	_lines = ImmediateGeometry.new()
 	_lines.material_override = _material(false)
@@ -57,6 +59,10 @@ func _ready():
 	_dots.material_override = _material(true)
 	_dots.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
 	add_child(_dots)
+	_boxes = ImmediateGeometry.new()
+	_boxes.material_override = _material(false)
+	_boxes.cast_shadow = GeometryInstance.SHADOW_CASTING_SETTING_OFF
+	add_child(_boxes)
 
 # a recorded position as the cursor is placed for it (Cursor.gd)
 func _place(x: float, y: float, z: float) -> Vector3:
@@ -84,10 +90,12 @@ func _process(_d):
 			_was = false
 			_lines.clear()
 			_dots.clear()
+			_boxes.clear()
 		return
 	_was = true
 	_lines.clear()
 	_dots.clear()
+	_boxes.clear()
 	var z: float = cursor.transform.origin.z if cursor != null and is_instance_valid(cursor) else 0.0
 	var col: Color = _col
 	var list: Array = Rhythia.replay.cursor_positions
@@ -117,7 +125,12 @@ func _process(_d):
 	if boxes:
 		_draw_boxes(z)
 
-func _draw_boxes(z: float):
+# A white square the size of the note's hitbox, travelling with each note on
+# its near side (towards you), from where the note appears until it is hit or
+# gone. Fainter far away, solid as it arrives. (It used to be squares lying
+# on the grid for the next 48 notes at once, green or red: a note's hit state
+# was read as its time, so none of them waited for its note.)
+func _draw_boxes(_z: float):
 	var notes: Array = spawn.notes
 	if notes.empty():
 		return
@@ -125,34 +138,41 @@ func _draw_boxes(z: float):
 	if hbs == 0.57: hbs = 0.56875
 	if Rhythia.mod_hard_mode:
 		hbs *= Rhythia.HARD_MODE_SCALE
-	var ms: float = spawn.ms
-	var speed: float = max(0.05, float(spawn.get("speed_multi")) if spawn.get("speed_multi") != null else 1.0)
+	var draw_ms: float = float(spawn.get("_draw_ms")) if spawn.get("_draw_ms") != null else float(spawn.ms)
+	var per_ms: float = float(spawn.get("_f_approach_speed")) / 1000.0 if spawn.get("_f_approach_speed") != null else 0.0
+	var far: float = float(spawn.get("_f_spawn_dist")) if spawn.get("_f_spawn_dist") != null else 0.0
+	if per_ms <= 0.0 or far <= 0.0:
+		return
+	var back: float = float(spawn.get("grid_pushback")) if spawn.get("grid_pushback") != null else 0.0
+	var w: float = max(0.03, hbs * 0.075) # the outline's width
 	var from: int = int(clamp(int(spawn.current_note), 0, notes.size() - 1))
-	# (a few that just went by, to see how they ended)
-	var first := from
-	while first > 0 and float(notes[first - 1][2]) >= ms - BOX_PAST_MS * speed and from - first < 8:
-		first -= 1
 	var began := false
 	var drawn := 0
-	for i in range(first, notes.size()):
-		var nt: float = float(notes[i][2])
-		if nt > ms + BOX_AHEAD_MS * speed or drawn >= MAX_BOXES:
+	for i in range(from, notes.size()):
+		var nd: Array = notes[i]
+		var dist: float = per_ms * (float(nd[1]) - draw_ms)
+		if dist > far or drawn >= MAX_BOXES:
 			break
-		var p: Vector2 = notes[i][0]
-		var c := Color(1, 1, 1, 0.25 + 0.6 * (1.0 - clamp((nt - ms) / (BOX_AHEAD_MS * speed), 0.0, 1.0)))
-		if nt <= ms:
-			# gone by: how the replay ended it
-			var hit: bool = Rhythia.replay.sv != 1 and Rhythia.replay.should_hit(i)
-			c = Color(0.45, 1.0, 0.55, 0.9) if hit else Color(1.0, 0.4, 0.4, 0.9)
+		if int(nd[2]) != Globals.NSTATE_ACTIVE or dist < -back - 0.01:
+			continue
+		var p: Vector2 = nd[0]
+		# (a note that goes on past the grid, Note Pushback: its square waits on
+		# the grid, where it is hit, and doesn't fly into the camera)
+		var z: float = -max(dist, 0.0) + FRONT
+		var c := Color(1, 1, 1, 0.3 + 0.7 * (1.0 - clamp(dist / far, 0.0, 1.0)))
 		if not began:
 			began = true
-			_lines.begin(Mesh.PRIMITIVE_LINES)
-		var corners := [Vector3(p.x - hbs, p.y - hbs, z), Vector3(p.x + hbs, p.y - hbs, z), Vector3(p.x + hbs, p.y + hbs, z), Vector3(p.x - hbs, p.y + hbs, z)]
-		for k in 4:
-			_lines.set_color(c)
-			_lines.add_vertex(corners[k])
-			_lines.set_color(c)
-			_lines.add_vertex(corners[(k + 1) % 4])
+			_boxes.begin(Mesh.PRIMITIVE_TRIANGLES)
+		# four bars: top, bottom, left, right (outer edge = the hitbox)
+		_bar(p.x - hbs, p.y + hbs - w, p.x + hbs, p.y + hbs, z, c)
+		_bar(p.x - hbs, p.y - hbs, p.x + hbs, p.y - hbs + w, z, c)
+		_bar(p.x - hbs, p.y - hbs + w, p.x - hbs + w, p.y + hbs - w, z, c)
+		_bar(p.x + hbs - w, p.y - hbs + w, p.x + hbs, p.y + hbs - w, z, c)
 		drawn += 1
 	if began:
-		_lines.end()
+		_boxes.end()
+
+func _bar(x0: float, y0: float, x1: float, y1: float, z: float, c: Color):
+	for v in [Vector3(x0, y0, z), Vector3(x1, y0, z), Vector3(x1, y1, z), Vector3(x0, y0, z), Vector3(x1, y1, z), Vector3(x0, y1, z)]:
+		_boxes.set_color(c)
+		_boxes.add_vertex(v)
