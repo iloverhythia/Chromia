@@ -1870,6 +1870,16 @@ func _card_menu(c: Dictionary, at: Vector2):
 	# (you're in a lobby: bring them in)
 	if _lm != null and _lm.lobby_active and not _lm.watch_mode and not c.is_you:
 		_ctx.add_item("Invite to your lobby", 3)
+	# friends and blocking (LobbyManager social_action), like a name in chat
+	if _lm != null and not c.is_you and int(c.number) > 0:
+		_ctx.add_separator()
+		match String(_lm.relation(int(c.number))):
+			"none": _ctx.add_item("Add friend", 4)
+			"incoming": _ctx.add_item("Accept friend request", 5)
+		if String(_lm.relation(int(c.number))) == "blocked":
+			_ctx.add_item("Unblock", 7)
+		else:
+			_ctx.add_item("Block", 6)
 	_ctx_card = c
 	_ctx.popup(Rect2(at, Vector2(1, 1)))
 
@@ -1887,6 +1897,12 @@ func _on_card_menu(id: int):
 		3:
 			if _lm != null:
 				_lm.invite_player(int(c.number))
+		4, 5, 7:
+			if _lm != null:
+				_lm.social_action({4: "request", 5: "accept", 7: "unblock"}[id], int(c.number))
+		6:
+			if _lm != null:
+				_lm.confirm_block(int(c.number), String(c.nm))
 
 func _show_stats(number: int, nm: String):
 	if number <= 0:

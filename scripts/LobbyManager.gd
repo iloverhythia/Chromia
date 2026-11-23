@@ -980,6 +980,20 @@ func social_action(action: String, number: int):
 	if types.has(action):
 		_send({"type": types[action], "number": number})
 
+# Block, after "are you sure" (the chat's name menu, the Spectate list, the
+# Friends window): who is their name, or "" for "player #n"
+const BLOCK_TEXT := "Block %s? Their chat messages get folded away for you (click Show to see one), they can't send you friend requests or lobby invites, and any friendship ends. They aren't told."
+func confirm_block(number: int, who: String = ""):
+	if number <= 0:
+		return
+	if who == "":
+		who = "player #%d" % number
+	Globals.confirm_prompt.open(BLOCK_TEXT % who, "Block", [{text = "Cancel"}, {text = "Block"}])
+	var ok = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	if int(ok) == 1:
+		social_action("block", number)
+
 func refresh_social():
 	if _connected():
 		_send({"type": "social_get"})

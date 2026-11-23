@@ -194,11 +194,8 @@ func _on_mod_pick(id: int):
 	var number := int(_menu.get_meta("number"))
 	if id >= 10 and id <= 15 and number > 0:
 		if id == 14:
-			Globals.confirm_prompt.open("Block %s? Their chat messages get folded away for you (click Show to see one), they can't send you friend requests or lobby invites, and any friendship ends. They aren't told." % String(_menu.get_meta("who")), "Block", [{text = "Cancel"}, {text = "Block"}])
-			var ok = yield(Globals.confirm_prompt, "option_selected")
-			Globals.confirm_prompt.close()
-			if int(ok) != 1 or not is_instance_valid(_lm):
-				return
+			_lm.confirm_block(number, String(_menu.get_meta("who")))
+			return
 		var action: String = {10: "request", 11: "cancel", 12: "accept", 13: "remove", 14: "block", 15: "unblock"}[id]
 		_lm.social_action(action, number)
 		return

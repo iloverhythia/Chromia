@@ -4,8 +4,9 @@ extends PanelContainer
 #   Friends   your friends (online ones first): Invite (when you're in a
 #             lobby) and Remove
 #   Requests  friend requests to you (Accept / Decline) and yours (Cancel)
-#   Blocked   who you blocked (Unblock)
-# and "Add a friend" by player number. Right-click a name in any chat to add
+#   Blocked   who you blocked (Unblock), and Block by player number
+# and "Add a friend" by player number (on Blocked: block one). Block is in
+# the Spectate list's player menu too, and on a friend request. Right-click a name in any chat to add
 # a friend or block someone too (ChatReactions.gd). The lists are the
 # server's (LobbyManager social_state, savia_web social.js); the website's
 # profile has the same ones.
@@ -18,6 +19,7 @@ var _tab := "friends"
 var _tabs := {}
 var _list: VBoxContainer
 var _number: LineEdit
+var _go: Button
 
 static func open_on(parent: Node, tab: String = ""):
 	var tree = parent.get_tree()
@@ -83,11 +85,11 @@ func _init():
 	S.field(_number)
 	_number.connect("text_entered", self, "_add_by_number")
 	add.add_child(_number)
-	var ab := Button.new()
-	ab.text = "Send request"
-	S.button(ab, true, true)
-	ab.connect("pressed", self, "_add_by_number", [""])
-	add.add_child(ab)
+	_go = Button.new()
+	_go.text = "Send request"
+	S.button(_go, true, true)
+	_go.connect("pressed", self, "_add_by_number", [""])
+	add.add_child(_go)
 
 	var sc := ScrollContainer.new()
 	sc.scroll_horizontal_enabled = false
@@ -139,12 +141,17 @@ func _add_by_number(_t = ""):
 		Globals.notify(Globals.NOTIFY_WARN, "Type their player number (it's on their profile).", "Friends")
 		return
 	if lm != null:
-		lm.social_action("request", int(s))
+		if _tab == "blocked":
+			lm.confirm_block(int(s))
+		else:
+			lm.social_action("request", int(s))
 	_number.text = ""
 
 func _refill(_x = null):
 	for k in _tabs:
 		_tabs[k].pressed = k == _tab
+	_number.placeholder_text = "Block someone by player number" if _tab == "blocked" else "Add a friend by player number"
+	_go.text = "Block" if _tab == "blocked" else "Send request"
 	var n_in: int = lm.friend_requests_in.size() if lm != null else 0
 	_tabs["requests"].text = "Requests (%d)" % n_in if n_in > 0 else "Requests"
 	for c in _list.get_children():
@@ -166,7 +173,7 @@ func _refill(_x = null):
 			_note("No friends yet. Right-click someone's name in chat, or type their player number above.")
 	elif _tab == "requests":
 		for p in lm.friend_requests_in:
-			_row(p, "Wants to be friends", [["Accept", "accept", true], ["Decline", "decline", false]])
+			_row(p, "Wants to be friends", [["Accept", "accept", true], ["Decline", "decline", false], ["Block", "block", false]])
 			shown += 1
 		for p in lm.friend_requests_out:
 			_row(p, "Request sent", [["Cancel", "cancel", false]])
@@ -178,7 +185,7 @@ func _refill(_x = null):
 			_row(p, "Their chat messages are folded away", [["Unblock", "unblock", false]])
 			shown += 1
 		if shown == 0:
-			_note("You haven't blocked anyone. Right-click a name in chat to block someone.")
+			_note("You haven't blocked anyone. Type a player number above, right-click a name in chat, or use the ... on someone in Spectate.")
 
 func _note(text: String):
 	_list.add_child(S.label(text, S.f_small, S.DIM, true))
@@ -221,6 +228,9 @@ func _act(action: String, number: int, bt: Button):
 		lm.invite_player(number)
 		bt.text = "Invited"
 		bt.disabled = true
+		return
+	if action == "block":
+		lm.confirm_block(number)
 		return
 	bt.disabled = true
 	lm.social_action(action, number)
