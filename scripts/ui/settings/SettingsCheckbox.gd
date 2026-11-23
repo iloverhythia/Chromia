@@ -173,13 +173,11 @@ func _add_settings_collapsible():
 	var parent = get_parent()
 	if parent == null or parent.has_node("SettingsCollapsible"):
 		return
-	if not Rhythia.new_settings_ui or Rhythia.sound_space_mode:
-		return # (the old page's groups have no titles to click)
 	var cb = duplicate()
 	cb.name = "SettingsCollapsible"
 	cb.target = "settings_collapsible"
 	cb.text = "Collapsible Groups"
-	cb.hint_tooltip = "Click a group's title in Settings (Modifiers, Camera...) to fold it shut, and again to open it. Which ones are shut is remembered. Off: every group is open."
+	cb.hint_tooltip = "Click a group's title in Settings (Modifiers, Camera...) to fold it shut, and again to open it. Which ones are shut is remembered. Off: every group is open. (With New Settings UI on: the old page's groups have no titles.)"
 	parent.add_child(cb)
 	var at: Node = parent.get_node_or_null("NewSettingsUI")
 	parent.move_child(cb, (at.get_index() if at != null else get_index()) + 1)

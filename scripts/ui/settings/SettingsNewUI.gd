@@ -351,7 +351,7 @@ func _fold_click(ev) -> bool:
 		if not (g is VBoxContainer and g.has_meta("nsu_group") and g.is_visible_in_tree()):
 			continue
 		var r: Rect2 = g.get_global_rect()
-		var strip := Rect2(r.position, Vector2(r.size.x, FOLD_H * g.get_global_transform().get_scale().y))
+		var strip: Rect2 = Rect2(r.position, Vector2(r.size.x, FOLD_H * g.get_global_transform().get_scale().y))
 		if strip.has_point(at):
 			var key := _fold_key(g)
 			var list: Array = Rhythia.settings_collapsed.duplicate()
@@ -396,7 +396,7 @@ func _tick():
 	var titles := []
 	for i in range(tc.get_tab_count()):
 		titles.append(tc.get_tab_title(i))
-	var sig := PoolStringArray(titles).join("|") + "#" + PoolStringArray(Rhythia.settings_hidden_tabs).join("|") + ("#all" if _show_hidden else "")
+	var sig: String = PoolStringArray(titles).join("|") + "#" + PoolStringArray(Rhythia.settings_hidden_tabs).join("|") + ("#all" if _show_hidden else "")
 	if sig != _sig:
 		_sig = sig
 		for b in cat_btns:
@@ -574,9 +574,13 @@ func _draw_card(g: Control, title: String):
 	var x := 20.0
 	if Rhythia.settings_collapsible:
 		# Collapsible Groups: an arrow, pointing down when open, right when shut
-		var cy := 12 + S.f_head.get_ascent() * 0.62
+		var cy: float = 12.0 + S.f_head.get_ascent() * 0.62
 		var c := Vector2(26, cy)
-		var pts := PoolVector2Array([c + Vector2(-5, -3), c + Vector2(5, -3), c + Vector2(0, 4)]) if not shut else PoolVector2Array([c + Vector2(-3, -5), c + Vector2(-3, 5), c + Vector2(4, 0)])
+		var pts: PoolVector2Array
+		if shut:
+			pts = PoolVector2Array([c + Vector2(-3, -5), c + Vector2(-3, 5), c + Vector2(4, 0)])
+		else:
+			pts = PoolVector2Array([c + Vector2(-5, -3), c + Vector2(5, -3), c + Vector2(0, 4)])
 		g.draw_colored_polygon(pts, S.PINK)
 		x = 40.0
 	g.draw_string(S.f_head, Vector2(x, 12 + S.f_head.get_ascent()), tr(title), S.PINK)
