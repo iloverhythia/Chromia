@@ -487,6 +487,7 @@ func _get_active_mods_dict() -> Dictionary:
 		"earthquake": mod_earthquake,
 		"360": mod_360,
 		"360_speed": mod_360_speed,
+		"360_shuffle": mod_360 and mod_360_shuffle,
 		"strobe": mod_strobe,
 		"hardrock": mod_hardrock,
 		"harderrock": mod_harderrock,
@@ -3453,7 +3454,7 @@ func update_rpc_song():
 	if mod_flashlight: mods.append("Flashlight")
 	if mod_true_flashlight: mods.append("True Flashlight")
 	if mod_reverse: mods.append("Reverse")
-	if mod_360: mods.append(("360x%s" % Rhythia.mod_360_speed))
+	if mod_360: mods.append(("360%s x%s" % [" Shuffle" if mod_360_shuffle else "", Rhythia.mod_360_speed]))
 	if mod_strobe: mods.append(("Strobe!!!"))
 	if replay.autoplayer: mods.append("Auto")
 
@@ -3503,6 +3504,10 @@ var mod_sudden_death: bool = false setget set_mod_sudden_death
 var mod_chaos: bool = false setget set_mod_chaos
 var mod_earthquake: bool = false setget set_mod_earthquake
 var mod_360: bool = false setget set_mod_360
+# 360 Shuffle (scripts/game/Spin360.gd): the 360 mod with its speed and
+# direction changing, the same way every time for a map. On with 360 only:
+# turning it on turns 360 on, turning 360 off turns it off.
+var mod_360_shuffle: bool = false setget set_mod_360_shuffle
 var mod_360_speed: float = 1 setget _set_mod_360_speed
 var mod_strobe: bool = false setget _set_mod_strobe
 var mod_hardrock: bool = false setget set_mod_hardrock
@@ -3604,7 +3609,13 @@ func set_mod_chaos(v: bool):
 func set_mod_earthquake(v: bool):
 	mod_earthquake = v; emit_signal("mods_changed")
 func set_mod_360(v: bool):
-	mod_360 = v; emit_signal("mods_changed")
+	mod_360 = v
+	if not v: mod_360_shuffle = false
+	emit_signal("mods_changed")
+func set_mod_360_shuffle(v: bool):
+	mod_360_shuffle = v
+	if v: mod_360 = true
+	emit_signal("mods_changed")
 func _set_mod_360_speed(v: float):
 	mod_360_speed = v; emit_signal("mods_changed")
 func _set_mod_strobe(v: bool):
@@ -4598,6 +4609,7 @@ func generate_pb_str(for_pb: bool = false):
 	if invert_mouse: pts.append("m_im")
 	if mod_earthquake: pts.append("m_earthquake")
 	if mod_360: pts.append("m_360")
+	if mod_360 and mod_360_shuffle: pts.append("m_360s")
 	if mod_strobe: pts.append("m_strobe")
 	if mod_hardrock: pts.append("m_hardrock")
 	if mod_harderrock: pts.append("m_harderrock")
@@ -4642,6 +4654,7 @@ func parse_pb_str(txt: String):
 	data.mod_nofail = false
 	data.mod_strobe = false
 	data.mod_360 = false
+	data.mod_360_shuffle = false # (after mod_360: applied in this order)
 
 	for s in pts:
 		if s.begins_with("s:c"):
@@ -4677,6 +4690,7 @@ func parse_pb_str(txt: String):
 				"m_earthquake": data.mod_earthquake = true
 				"m_strobe": data.mod_strobe = true
 				"m_360": data.mod_360 = true
+				"m_360s": data.mod_360_shuffle = true
 				"m_hardrock": data.mod_hardrock = true
 				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true

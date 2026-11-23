@@ -374,12 +374,22 @@ func _cache_frame_settings():
 	_f_spin = Rhythia.note_spin_x != 0 or Rhythia.note_spin_y != 0 or Rhythia.note_spin_z != 0
 	if _f_spin:
 		_f_spin_basis = Basis().rotated(Vector3(1, 0, 0), Rhythia.note_spin_x / 2000).rotated(Vector3(0, 1, 0), Rhythia.note_spin_y / 2000).rotated(Vector3(0, 0, 1), Rhythia.note_spin_z / 2000)
+# 360's turn at a map time: plain, or 360 Shuffle's (Spin360.gd, seeded with the map's id)
+var _spin360 = null
+func _spin360_angle(t: float) -> float:
+	if not Rhythia.mod_360_shuffle:
+		return t * (Rhythia.mod_360_speed * 0.0006)
+	var sid := String(Rhythia.selected_song.id) if Rhythia.selected_song != null else ""
+	if _spin360 == null or _spin360.key != "%s|%s" % [sid, Rhythia.mod_360_speed]:
+		_spin360 = load("res://scripts/game/Spin360.gd").new(sid, Rhythia.mod_360_speed)
+	return _spin360.angle(t)
+
 var last_reposition_ms: float = -10000
 var out_of_notes: bool = false
 func reposition_notes(force: bool = false, rerun_start: int = -1):
 	if Rhythia.mod_360:
 		_n_notes.translation = Vector3(1, -1, 0)
-		_n_notes.rotation.z = ms * (Rhythia.mod_360_speed * 0.0006)
+		_n_notes.rotation.z = _spin360_angle(ms)
 	else:
 		_n_notes.rotation.z = 0
 		_n_notes.translation = Vector3.ZERO

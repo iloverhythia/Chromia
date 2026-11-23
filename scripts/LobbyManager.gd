@@ -768,6 +768,7 @@ func _collect_current_mods() -> Dictionary:
 		"reverse": Rhythia.mod_reverse,
 		"mod_360": Rhythia.mod_360,
 		"mod_360_speed": Rhythia.mod_360_speed,
+		"mod_360_shuffle": Rhythia.mod_360 and Rhythia.mod_360_shuffle,
 		"strobe": Rhythia.mod_strobe,
 		"start_offset": Rhythia.start_offset,
 		"spin": bool(Rhythia.cam_unlock), # (a setting, not a mod: only spectators use it, see _apply_watch_spin)
@@ -824,6 +825,7 @@ func _apply_mods_locally(mods: Dictionary, force: bool = false):
 	Rhythia.mod_reverse = mods.get("reverse", Rhythia.mod_reverse)
 	Rhythia.mod_360 = mods.get("mod_360", Rhythia.mod_360)
 	Rhythia.mod_360_speed = mods.get("mod_360_speed", Rhythia.mod_360_speed)
+	Rhythia.mod_360_shuffle = mods.get("mod_360_shuffle", false) and Rhythia.mod_360 # (after mod_360)
 	Rhythia.mod_strobe = mods.get("strobe", Rhythia.mod_strobe)
 	Rhythia.start_offset = mods.get("start_offset", Rhythia.start_offset)
 

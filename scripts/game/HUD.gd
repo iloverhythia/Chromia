@@ -2372,6 +2372,7 @@ func _ready():
 	if Rhythia.mod_earthquake: _mod_icon("earthquake")
 	if Rhythia.mod_360:
 		_mod_icon("mod_360")
+		if Rhythia.mod_360_shuffle: mods.append("360 Shuffle")
 		var speed = Rhythia.mod_360_speed
 		if speed < 0 or abs(speed) != 1: # (which way and how fast: not on the icon)
 			mods.append(("%sx%s" % ["-360" if speed < 0 else "360", abs(speed)]) if abs(speed) != 1 else "-360")

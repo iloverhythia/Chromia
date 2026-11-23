@@ -1289,7 +1289,7 @@ func _format_mods(mods: Dictionary) -> String:
 	if mods.get("hard_mode", false): parts.append("Hard Mode")
 	if mods.get("true_flashlight", false): parts.append("True Flashlight")
 	elif mods.get("flashlight", false): parts.append("Flashlight")
-	if mods.get("mod_360", false): parts.append("360x%s" % mods.get("mod_360_speed", 1))
+	if mods.get("mod_360", false): parts.append("360%s x%s" % [" Shuffle" if mods.get("mod_360_shuffle", false) else "", mods.get("mod_360_speed", 1)])
 	if mods.get("strobe", false): parts.append("Strobe!!!")
 	var start_offset = float(mods.get("start_offset", 0.0))
 	if start_offset != 0.0: parts.append("Start %+dms" % int(start_offset))
@@ -2988,6 +2988,8 @@ func _add_new_mod_checkboxes():
 		"Hard Rock, but the notes spread even further out and the hit window is tighter")
 	_mod_checkbox(mods, right, "TrueFlashlightMod", "True Flashlight", "mod_true_flashlight", y + row_h * 2,
 		"Flashlight, and the circle closes in every 100 combo (up to 500); a miss opens it again")
+	_mod_checkbox(mods, left, "Shuffle360", "360 Shuffle", "mod_360_shuffle", y + row_h * 2,
+		"360, but the spin keeps changing speed and direction: the same way every time for a map (360 speed sets how fast)")
 	# (more mods than fit: they're on pages now, ModPages.gd)
 	load("res://scripts/ui/menu/ModPages.gd").install(mods)
 
