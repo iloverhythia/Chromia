@@ -70,6 +70,12 @@ func _restyle():
 		b.connect("toggled", self, "_on_switch", [it[1]])
 		top.add_child(b)
 	top.add_child(S.spacer())
+	# Save video: this replay made into a video on the website (VideoExport.gd)
+	if not OS.has_feature("JavaScript"):
+		var rec: Button = S.make_button("Save video", self, "_on_save_video", [], false, true)
+		rec.hint_tooltip = "Make a video of this replay on the website, with your settings (opens your browser)"
+		rec.pause_mode = PAUSE_MODE_PROCESS
+		top.add_child(rec)
 	var hide: Button = S.make_button("Hide", self, "_set_collapsed", [true], false, true)
 	hide.hint_tooltip = "Leaves only the small logo in the corner (F1 hides that too)"
 	hide.pause_mode = PAUSE_MODE_PROCESS
@@ -85,6 +91,15 @@ func _restyle():
 	row.move_child(_time_label, play_button.get_index() + 1)
 	speed_label.add_font_override("font", S.f_bold)
 	speed_label.add_color_override("font_color", S.TEXT)
+
+func _on_save_video():
+	var file := String(Rhythia.replay_path)
+	if file == "" or not file.to_lower().ends_with(".sspre") or not File.new().file_exists(file):
+		Globals.notify(Globals.NOTIFY_WARN, "This replay isn't in a file the website can read.", "Save video")
+		return
+	var song = Rhythia.selected_song
+	var what := "Replay · %s" % (String(song.name) if song != null else "")
+	load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
 
 func _on_switch(on: bool, key: String):
 	Rhythia.set(key, on)

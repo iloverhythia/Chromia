@@ -29,6 +29,7 @@ static func start(tree: SceneTree, replay_file: String, song, title: String):
 		cur.queue_free()
 	var n = load("res://scripts/VideoExport.gd").new()
 	n.name = "VideoExport"
+	n.pause_mode = PAUSE_MODE_PROCESS # (pressed from a paused replay, too)
 	n._replay_file = replay_file
 	n._song = song
 	n._title = title
