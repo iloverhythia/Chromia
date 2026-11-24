@@ -1746,7 +1746,17 @@ func _start_map_upload(song_id: String):
 	if open_err != OK:
 		print("[furria] upload aborted: couldn't open ", song.filePath, " (error ", open_err, ")")
 		return
-	var bytes = f.get_buffer(f.get_len())
+	var size: int = f.get_len()
+	if size > MAP_SEND_MAX_BYTES:
+		# The server takes maps up to 60 MB. A 1.3 GB map was read whole and
+		# made into text here (twice its size again) for someone watching: the
+		# game ran out of memory and closed, three times. Not read now: the
+		# server is told its size, refuses it and tells whoever was waiting.
+		f.close()
+		Rhythia.trail("not sending the map to the server for someone else: %d MB, the server takes %d MB at most" % [size / 1048576, MAP_SEND_MAX_BYTES / 1048576])
+		_send({"type": "upload_map_start", "song_id": song_id, "total_bytes": int(min(size, 999999999))})
+		return
+	var bytes = f.get_buffer(size)
 	f.close()
 	print("[furria] uploading ", song.filePath, " — ", bytes.size(), " bytes")
 	Rhythia.trail("sending the map to the server for someone else (%d KB)" % int(bytes.size() / 1024))
@@ -1760,6 +1770,8 @@ func _start_map_upload(song_id: String):
 		push_error("[furria] upload_map_start failed to send: %s" % start_err)
 		_abort_map_upload("Failed to start uploading the map to the server.")
 
+# the biggest map the server takes (its SAVIA_MAX_MAP_BYTES, 60 MB)
+const MAP_SEND_MAX_BYTES: int = 60 * 1024 * 1024
 const _MAP_UPLOAD_STALL_TIMEOUT_MSEC: int = 15000
 var _map_upload_last_progress_msec: int = 0
 var _map_upload_next_attempt_msec: int = 0
@@ -1882,6 +1894,12 @@ func _start_map_publish(song_id: String):
 	var f = File.new()
 	if f.open(song.filePath, File.READ) != OK:
 		emit_signal("lobby_error", "Couldn't open the map file to publish it.")
+		_advance_publish_queue()
+		return
+	if f.get_len() > MAP_SEND_MAX_BYTES:
+		# (the server refuses it, and reading a map that size can run the game out of memory)
+		f.close()
+		emit_signal("lobby_error", "This map is too big to publish: the server takes maps up to %d MB." % (MAP_SEND_MAX_BYTES / 1048576))
 		_advance_publish_queue()
 		return
 	var bytes = f.get_buffer(f.get_len())

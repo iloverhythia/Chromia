@@ -2709,6 +2709,12 @@ var loaded_world = null
 var was_map_screen_centered: bool = true
 var menu_target: String = ProjectSettings.get_setting("application/config/default_menu_target")
 var is_init: bool = true
+# do_init is running: the content, settings and update check aren't all done.
+# The intro cutscene plays while it runs; when the intro ended (or was skipped)
+# before it was done, the start screen loaded the menu at once, on half-loaded
+# content, and the game closed (crash reports at 30 s, the intro's length, most
+# of all while do_init waited on the "outdated version" box). init.gd waits.
+var init_running: bool = false
 
 
 var was_auto_play_switch: bool = true
@@ -7449,6 +7455,7 @@ func _alert_on_vr_menu(text: String):
 	Globals.confirm_prompt.close()
 
 func do_init(_ud = null):
+	init_running = true
 	# Started on a thread (Globals, and init.gd for Reload Content), but it adds
 	# nodes, timers and keybinds to the running game, which is only safe on the
 	# main thread: continue there.
@@ -8107,5 +8114,6 @@ func do_init(_ud = null):
 		_map_registry_thread.wait_to_finish()
 
 	is_init = false
+	init_running = false
 	check_for_update_log()
 	emit_signal("init_stage_reached", "Waiting for menu", true)
