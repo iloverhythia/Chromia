@@ -1680,6 +1680,22 @@ func lock_song_notes(song):
 			told = true
 			doing("waiting for the notes of %s (another job is reading them)" % String(song.id))
 		OS.delay_msec(2)
+# The same without waiting (the song loader asks every frame, so the screen
+# keeps moving and says what it waits for): true when taken. take_over: take
+# it even though someone holds it (they've had NOTES_LOCK_WAIT_MS).
+func try_lock_song_notes(song, take_over: bool = false) -> bool:
+	if song == null:
+		return true
+	_notes_busy_mutex.lock()
+	var held: bool = _notes_busy.has(song)
+	if held and not take_over:
+		_notes_busy_mutex.unlock()
+		return false
+	_notes_busy[song] = true
+	_notes_busy_mutex.unlock()
+	if held:
+		trail("notes of %s: waited %d s for whoever was reading them, going on without" % [String(song.id), NOTES_LOCK_WAIT_MS / 1000])
+	return true
 func unlock_song_notes(song):
 	if song == null:
 		return
