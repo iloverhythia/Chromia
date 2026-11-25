@@ -2289,7 +2289,7 @@ func _on_discord_login_changed():
 # to make it, then to switch between it and the main account
 func _other_account() -> Dictionary:
 	for a in Rhythia.accounts:
-		if String(a.get("client_id", "")) != Rhythia.cid:
+		if String(a.get("client_id", "")) != Rhythia.cid and not bool(a.get("bot", false)):
 			return a
 	return {}
 
@@ -2298,6 +2298,10 @@ func _update_account_button():
 		return
 	account_button.disabled = false
 	var other := _other_account()
+	_update_bot_button()
+	if Rhythia.on_bot_account():
+		account_button.visible = false # (on D. Jarvis: Back to my account)
+		return
 	if not other.empty():
 		account_button.text = "Switch to main" if bool(other.get("main", false)) else "Switch to alt"
 		account_button.hint_tooltip = "%s (#%s)" % [String(other.get("name", "")), str(other.get("number", ""))]
@@ -2308,6 +2312,37 @@ func _update_account_button():
 		account_button.visible = true
 	else:
 		account_button.visible = false
+
+# D. Jarvis (the official bot): admins can play as him, and come back (Savia.gd)
+var bot_button: Button
+func _update_bot_button():
+	if account_button == null or not is_instance_valid(account_button):
+		return
+	if bot_button == null or not is_instance_valid(bot_button):
+		var S = _online_style()
+		bot_button = S.make_button("Play as D. Jarvis", self, "_on_bot_button_pressed", [], false)
+		bot_button.visible = false
+		account_button.get_parent().add_child(bot_button)
+		account_button.get_parent().move_child(bot_button, account_button.get_index() + 1)
+	bot_button.disabled = false
+	if Rhythia.on_bot_account():
+		bot_button.text = "Back to my account"
+		bot_button.hint_tooltip = "Stop playing as D. Jarvis"
+		bot_button.visible = true
+	elif not Rhythia.bot_account().empty():
+		bot_button.text = "Play as D. Jarvis"
+		bot_button.hint_tooltip = "The official Chromia bot (admins): chat, DM and play as him; he doesn't answer by himself while you do"
+		bot_button.visible = true
+	else:
+		bot_button.visible = false
+
+func _on_bot_button_pressed():
+	bot_button.disabled = true
+	if Rhythia.on_bot_account():
+		Rhythia.back_from_bot()
+	else:
+		Rhythia.switch_to_bot()
+	_update_bot_button()
 
 func _on_account_button_pressed():
 	account_button.disabled = true

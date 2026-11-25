@@ -31,7 +31,7 @@ const PINK = Color(0.96, 0.6, 0.78) # section headings (like the profile page)
 const RULE = Color(1, 1, 1, 0.16)
 const MAX_IMG_CACHE = 160
 const CHAT_MAX_LINES = 200
-const DEVICE_NAMES = {"pc": "PC", "vr": "VR", "quest": "VR", "mobile": "Phone", "web": "Browser"}
+const DEVICE_NAMES = {"pc": "PC", "vr": "VR", "quest": "VR", "mobile": "Phone", "web": "Browser", "bot": "Bot"}
 # the game's difficulties (Globals.DIFF_EASY = 0 ... 4); -1 = none set
 const DIFF_NAMES = ["Easy", "Medium", "Hard", "Logic", "Tasukete"]
 
@@ -1666,7 +1666,11 @@ func _fill_card(c: Dictionary, p: Dictionary):
 			_load_avatar(url, c.pic)
 	# what they're doing
 	var song := String(p.get("song_name", ""))
-	if playing:
+	if bool(p.get("is_bot", false)) and not playing:
+		# D. Jarvis, the official bot: always online (say "@D. Jarvis" in chat to talk to him)
+		c.status_full = "Official Chromia Bot  ·  say @D. Jarvis to talk"
+		c.status.add_color_override("font_color", ACCENT)
+	elif playing:
 		c.status_full = "Playing " + (song if song != "" else "a map") + ("  ·  Spin" if bool(p.get("spin", false)) else "")
 		c.status.add_color_override("font_color", PLAYING)
 	elif status == "afk" or status == "away":

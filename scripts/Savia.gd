@@ -930,6 +930,48 @@ func _on_accounts_received(_result, code, _h, body, r: HTTPRequest, then: String
 				switch_to_account(String(a.get("client_id", "")))
 				break
 
+# D. Jarvis, the official bot (server src/djarvis.js): admins see him in the
+# accounts list (bot: true) and can play as him. The account you came from is
+# kept on this device (client db "bot_return") for Back to my account: the bot's
+# account has no switcher of its own.
+func bot_account() -> Dictionary:
+	for a in accounts:
+		if bool(a.get("bot", false)):
+			return a
+	return {}
+
+func on_bot_account() -> bool:
+	var back := String(_read_client_db().get("bot_return", ""))
+	return back != "" and back != cid
+
+func switch_to_bot():
+	var b := bot_account()
+	var id := String(b.get("client_id", ""))
+	if id == "" or id == cid:
+		return
+	var db = _read_client_db()
+	db["bot_return"] = cid
+	_write_client_db(db)
+	switch_account(id)
+	accounts = []
+	Globals.notify(Globals.NOTIFY_INFO, "You're playing as D. Jarvis now. Profile > Back to my account takes you back.", "Switched Account")
+	emit_signal("accounts_changed")
+	emit_signal("discord_login_changed")
+
+func back_from_bot():
+	var db = _read_client_db()
+	var back := String(db.get("bot_return", ""))
+	if back == "":
+		return
+	db.erase("bot_return")
+	_write_client_db(db)
+	if back != cid:
+		switch_account(back)
+	Globals.notify(Globals.NOTIFY_INFO, "You're back on your own account.", "Switched Account")
+	check_accounts()
+	emit_signal("accounts_changed")
+	emit_signal("discord_login_changed")
+
 func on_alt_account() -> bool:
 	for a in accounts:
 		if String(a.get("client_id", "")) == cid:

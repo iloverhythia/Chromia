@@ -1242,6 +1242,21 @@ func staff_chat_ban(mid: String, minutes: int = 0):
 			m["minutes"] = minutes
 		_send(m)
 
+# the game's /mute and /unmute (ChatCommands.gd): the server answers with staff_result
+func staff_mute(who: String, length: String, reason: String = ""):
+	if who != "" and length != "" and _connected():
+		var m := {"type": "staff_mute", "who": who.substr(0, 64), "duration": length.substr(0, 40)}
+		if reason != "":
+			m["reason"] = reason.substr(0, 200)
+		_send(m)
+
+func staff_unmute(who: String):
+	if who != "" and _connected():
+		_send({"type": "staff_unmute", "who": who.substr(0, 64)})
+
+# a mute over a year: how long, in the server's words ("2 centuries", "1 eon")
+var chat_ban_words := ""
+
 # banned from chat or not, and how long is left (ms; null: no end)
 func _set_chat_ban(banned: bool, left_ms):
 	var end_ticks := 0
@@ -1257,6 +1272,8 @@ func _set_chat_ban(banned: bool, left_ms):
 func chat_ban_left_text() -> String:
 	if not chat_banned or chat_ban_end_ticks <= 0:
 		return ""
+	if chat_ban_words != "":
+		return chat_ban_words # (decades, centuries, eons: the server's words)
 	var s: int = int(max(1, ceil(float(chat_ban_end_ticks - OS.get_ticks_msec()) / 1000.0)))
 	var d: int = s / 86400
 	var h: int = (s % 86400) / 3600
@@ -2186,8 +2203,10 @@ func _handle_message(msg: Dictionary):
 				_signed_in = true
 				_dm_start()
 			if msg.has("chat_banned"):
+				chat_ban_words = Globals.s(msg.get("chat_ban_left_words", ""))
 				_set_chat_ban(bool(msg.get("chat_banned")), msg.get("chat_ban_left_ms"))
 		"chat_ban":
+			chat_ban_words = Globals.s(msg.get("left_words", ""))
 			_set_chat_ban(bool(msg.get("banned", false)), msg.get("left_ms"))
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
