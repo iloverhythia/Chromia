@@ -2335,12 +2335,18 @@ func _ready():
 
 	var ms = ""
 
-	# (the website's game view shows only the replay: no controls, no
-	# "Replaying" mark; WebReplay.gd)
-	if Rhythia.replaying and not load("res://scripts/WebReplay.gd").wanted():
+	# (the website's game view: no "Replaying" mark, and the replay bar
+	# (scrubbing, speed, the drawings; Hide) only when watching, not while
+	# it records a video; WebReplay.gd)
+	var web_view: bool = load("res://scripts/WebReplay.gd").wanted()
+	if Rhythia.replaying and not web_view:
 		if Rhythia.replay.autoplayer: modicons.get_node("Autoplay").visible = true
 		else: modicons.get_node("Replaying").visible = true
 		_build_replay_controls()
+	elif Rhythia.replaying and web_view:
+		var wr = get_node_or_null("/root/WebReplay")
+		if wr == null or not bool(wr.recording):
+			_build_replay_controls()
 
 	if Rhythia.mod_nofail: ms += tr("[ NOFAIL ACTIVE ]") + "\n"
 	elif Rhythia.health_model == Globals.HP_OLD: ms += "Using old hp model (more hp + fast regen)\n"

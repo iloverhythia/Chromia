@@ -4035,6 +4035,7 @@ var alt_cam: bool = false
 var hide_replay_ui: bool = false
 # the replay viewer's drawings on the grid (scripts/game/ReplayOverlay.gd; its bar has the buttons)
 var replay_cursor_path: bool = false
+var replay_cursor_path_ms: float = 900.0 # how much of the path behind the cursor is drawn (the bar's slider)
 var replay_note_hitbox: bool = false
 var replay_frame_marker: bool = false
 var show_xp_notifications: bool = true
@@ -5350,6 +5351,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		for rk in ["replay_cursor_path", "replay_note_hitbox", "replay_frame_marker"]:
 			if data.has(rk):
 				set(rk, bool(data[rk]))
+		if data.has("replay_cursor_path_ms"):
+			replay_cursor_path_ms = clamp(float(data.replay_cursor_path_ms), 100.0, 5000.0)
 		if data.has("sort_by_stars"):
 			sort_by_stars = bool(data.sort_by_stars)
 		if data.has("sort_by_plays"):
@@ -6298,6 +6301,7 @@ func _write_settings_file(saveFile: String):
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
 			replay_cursor_path = replay_cursor_path,
+			replay_cursor_path_ms = replay_cursor_path_ms,
 			replay_note_hitbox = replay_note_hitbox,
 			replay_frame_marker = replay_frame_marker,
 			sort_by_stars = sort_by_stars,

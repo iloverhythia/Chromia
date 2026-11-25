@@ -69,6 +69,22 @@ func _restyle():
 		b.pause_mode = PAUSE_MODE_PROCESS
 		b.connect("toggled", self, "_on_switch", [it[1]])
 		top.add_child(b)
+		if it[1] == "replay_cursor_path":
+			# how long the path is (Rhythia.replay_cursor_path_ms)
+			_path_slider = HSlider.new()
+			_path_slider.min_value = 100
+			_path_slider.max_value = 5000
+			_path_slider.step = 50
+			_path_slider.value = Rhythia.replay_cursor_path_ms
+			_path_slider.rect_min_size = Vector2(100, 30)
+			_path_slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			_path_slider.hint_tooltip = "How much of the cursor's path is drawn behind it"
+			_path_slider.pause_mode = PAUSE_MODE_PROCESS
+			_path_slider.connect("value_changed", self, "_on_path_length")
+			top.add_child(_path_slider)
+			_path_label = S.label("%.1f s" % (Rhythia.replay_cursor_path_ms / 1000.0), S.f_small, S.DIM)
+			_path_label.rect_min_size = Vector2(40, 0)
+			top.add_child(_path_label)
 	top.add_child(S.spacer())
 	# Save video: this replay made into a video on the website (VideoExport.gd)
 	if not OS.has_feature("JavaScript"):
@@ -101,6 +117,15 @@ func _on_save_video():
 	var what := "Replay · %s" % (String(song.name) if song != null else "")
 	load("res://scripts/VideoExport.gd").start(get_tree(), file, song, what)
 
+var _path_slider: HSlider
+var _path_label: Label
+var _path_bar: Dictionary
+func _on_path_length(v: float):
+	Rhythia.replay_cursor_path_ms = v
+	_path_label.text = "%.1f s" % (v / 1000.0)
+	_path_save_t = 0.6
+
+var _path_save_t := 0.0 # (saved once the slider stops)
 func _on_switch(on: bool, key: String):
 	Rhythia.set(key, on)
 	Rhythia.call_deferred("save_settings")
@@ -214,6 +239,8 @@ func _ready():
 	var fill_color: Color = S.LILAC
 	_scrub_bar = _wrap_slider_with_bar(scrub_slider, track_color, fill_color, grabber_tex, blank_tex)
 	_speed_bar = _wrap_slider_with_bar(speed_slider, track_color, fill_color, grabber_tex, blank_tex)
+	if _path_slider != null:
+		_path_bar = _wrap_slider_with_bar(_path_slider, track_color, fill_color, grabber_tex, blank_tex)
 
 	play_button.connect("pressed", self, "_on_play_pressed")
 	scrub_slider.connect("drag_started", self, "_on_scrub_drag_started")
@@ -283,6 +310,12 @@ func _on_speed_value_changed(value: float):
 func _process(delta):
 	_update_progress_bar(scrub_slider, _scrub_bar)
 	_update_progress_bar(speed_slider, _speed_bar)
+	if _path_slider != null and not _path_bar.empty():
+		_update_progress_bar(_path_slider, _path_bar)
+	if _path_save_t > 0.0:
+		_path_save_t -= delta
+		if _path_save_t <= 0.0:
+			Rhythia.call_deferred("save_settings")
 	if Spawn == null: return
 	if not _dragging_scrub:
 		_syncing_slider = true

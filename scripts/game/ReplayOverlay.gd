@@ -16,8 +16,7 @@ extends Spatial
 # A child of the note area (NoteManager), so everything is in its own units:
 # the cursor's and the notes' positions as the game itself places them.
 
-const PAST_MS := 900.0
-const AHEAD_MS := 350.0
+const AHEAD_MAX_MS := 350.0
 const MAX_BOXES := 160
 const FRONT := 0.12 # how far in front of its note a hitbox square is drawn
 
@@ -100,6 +99,9 @@ func _process(_d):
 	var col: Color = _col
 	var list: Array = Rhythia.replay.cursor_positions
 	var now: float = spawn.rms
+	# how far back (the bar's Length slider) and ahead (a share of it, up to 350 ms)
+	var PAST_MS: float = clamp(float(Rhythia.replay_cursor_path_ms), 100.0, 5000.0)
+	var AHEAD_MS: float = min(AHEAD_MAX_MS, PAST_MS * 0.4)
 	if (path or marks) and list.size() >= 2:
 		var a := int(max(0, _last_before(list, now - PAST_MS)))
 		var b := int(min(list.size() - 1, _last_before(list, now + AHEAD_MS) + 1))
