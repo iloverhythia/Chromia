@@ -249,7 +249,12 @@ func _on_cat_input(ev, i: int):
 		_cat_menu = PopupMenu.new()
 		S.popup(_cat_menu)
 		_cat_menu.connect("id_pressed", self, "_on_cat_menu")
-		add_child(_cat_menu)
+		# (in a layer of its own on top: this page is drawn first, behind the
+		# settings pages, and a menu under it was drawn behind them too)
+		var layer := CanvasLayer.new()
+		layer.layer = 100
+		add_child(layer)
+		layer.add_child(_cat_menu)
 	_cat_menu.clear()
 	if _is_hidden(i):
 		_cat_menu.add_item("Show \"%s\" in the list again" % tc.get_tab_title(i), 1)
