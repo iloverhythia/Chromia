@@ -449,17 +449,17 @@ func _pick_song(method: String):
 	Globals.file_sel.open_file(self, method, PoolStringArray(["*.mp3, *.ogg ; Songs (mp3, ogg)"]), false, _start_dir())
 
 # ---- CREATE NEW MAP
-# A Sound Space map (.sspm, plays everywhere) or a Chromia map (.chrm: Chromia's
-# extras, lyrics now; the editor shows its tools: GRAPHICS > Lyrics)
+# SSQE+'s create screen (SSQELegacyScreens.gd), in both looks: the game it's
+# for (Chromia, Sound Space, Rhythia, Novastra/Phoenyx/Other) and the song. A
+# Chromia map (.chrm) has Chromia's extras: the editor shows its tools
+# (GRAPHICS > Lyrics); new_chromia says so to _on_new_song_picked.
 var new_chromia := false
 func _on_new_map():
-	Globals.confirm_prompt.open("A Chromia map can have Chromia's extras (lyrics now, more to come): they show when it's played in Chromia, and it's exported as a .chrm. A Sound Space map is the usual .sspm that plays everywhere.", "Create New Map",
-		[{text = "Cancel"}, {text = "Sound Space map"}, {text = "Chromia map"}])
-	var c: int = yield(Globals.confirm_prompt, "option_selected")
-	if c <= 0:
-		return
-	new_chromia = c == 2
-	_pick_song("_on_new_song_picked")
+	_ensure_legacy()
+	legacy.from_home = not _legacy_on()
+	if legacy.from_home and home != null:
+		home.visible = false
+	legacy.show_screen("create")
 
 func _on_new_song_picked(files):
 	var path := _first(files)
