@@ -89,9 +89,29 @@ func _show_speed_keys(on: bool):
 		_speed_label.text = "Speed: %s (%.2fx)   A / D to change, Esc when done" % [speed, float(Globals.speed_multi[lvl])]
 
 func _step_speed(dir: int):
-	var i: int = SPEED_ORDER.find(Rhythia.mod_speed_level)
+	var lvl: int = Rhythia.mod_speed_level
+	var i: int = SPEED_ORDER.find(lvl)
 	if i < 0:
-		i = SPEED_ORDER.find(Globals.SPEED_NORMAL) # (from a custom speed: next to normal)
+		# from a custom speed: the nearest speed that way (D: the next faster
+		# one, A: the next slower one); none that way: it stays custom
+		var cur: float = float(Globals.speed_multi[Globals.SPEED_CUSTOM])
+		var pick := -1
+		for k in range(SPEED_ORDER.size()):
+			var m: float = float(Globals.speed_multi[SPEED_ORDER[k]])
+			if dir > 0 and m > cur + 0.0001:
+				pick = k
+				break
+			if dir < 0 and m < cur - 0.0001:
+				pick = k
+		if pick >= 0:
+			Rhythia.mod_speed_level = SPEED_ORDER[pick]
+		_show_speed_keys(true)
+		return
+	# past the fastest (++++): your custom speed
+	if dir > 0 and i == SPEED_ORDER.size() - 1:
+		Rhythia.mod_speed_level = Globals.SPEED_CUSTOM
+		_show_speed_keys(true)
+		return
 	i = int(clamp(i + dir, 0, SPEED_ORDER.size() - 1))
 	Rhythia.mod_speed_level = SPEED_ORDER[i]
 	_show_speed_keys(true)
