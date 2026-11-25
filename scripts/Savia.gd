@@ -6704,6 +6704,15 @@ func register_worlds():
 		"res://assets/worlds/soundspace/tunnel.tscn", "hi", # the Sound Space room (same as Sound Space Mode)
 		"res://assets/worlds/grid/grid.png"
 	))
+	# Chromia's own (assets/worlds/chromia: script-built, light enough for headsets)
+	for w in [["chromia_contours", "Contours", "contours"], ["chromia_prism_rain", "Prism Rain", "prism_rain"],
+			["chromia_lilac_orbit", "Lilac Orbit", "lilac_orbit"], ["chromia_aurora", "Aurora", "aurora"],
+			["chromia_pulse_floor", "Pulse Floor", "pulse_floor"]]:
+		registry_world.add_item(BackgroundWorld.new(
+			w[0], w[1],
+			"res://assets/worlds/chromia/%s/%s.tscn" % [w[2], w[2]], "Chromia",
+			"res://assets/worlds/chromia/%s/cover.png" % w[2]
+		))
 	# Backgrounds recreated from Rhythia's (Godot 4 C#) spaces
 	registry_world.add_item(BackgroundWorld.new(
 		"furria_space_void", "Void (Rhythia)",
