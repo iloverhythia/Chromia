@@ -34,3 +34,6 @@ in scripts/Savia.gd and empties this list.
 - Browser version: maps from hosts that don't allow browser downloads (most Rhythia maps) now download, through the Chromia server, instead of saying "This map's host doesn't allow downloads from the browser"
 - Being spectated no longer makes your game stutter when someone starts watching mid-song: your look is sent without reading your background, mesh and sound files again, and a map sent to a spectator who doesn't have it is read a little at a time
 - Speed keys (Ctrl+S): from a custom speed, A / D go to the nearest speed that way (instead of back to Normal), and D past ++++ goes to your custom speed
+- Save video (Game view): the song is no longer nearly silent after a pause in the play (it kept the volume it had the moment the music came back in)
+- After unpausing, the music fades back in to your Music Volume instead of full volume (and in replays it no longer keeps getting louder afterwards)
+- Watching someone's replay from the leaderboard plays their own hit and miss sounds (the ones they play with), and yours again after

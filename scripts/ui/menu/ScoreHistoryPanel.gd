@@ -1036,7 +1036,7 @@ func _watch_board(e: Dictionary, video: bool = false):
 	_replay_req.timeout = 30
 	_replay_req.body_size_limit = 32 * 1024 * 1024
 	add_child(_replay_req)
-	_replay_req.connect("request_completed", self, "_on_board_replay", [_replay_req, id, who, video])
+	_replay_req.connect("request_completed", self, "_on_board_replay", [_replay_req, id, who, video, number])
 	var url := SITE + "/savia-public/api/player/%d/replay/%s/%d" % [number, id.http_escape(), int(e.get("index", 0))]
 	if _replay_req.request(url) != OK:
 		_replay_req.queue_free()
@@ -1045,7 +1045,7 @@ func _watch_board(e: Dictionary, video: bool = false):
 		return
 	Globals.notify(Globals.NOTIFY_INFO, "Getting %s's replay..." % who, "Replay", 3)
 
-func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String, who: String, video: bool = false):
+func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: HTTPRequest, id: String, who: String, video: bool = false, number: int = -1):
 	r.queue_free()
 	if r == _replay_req:
 		_replay_req = null
@@ -1066,6 +1066,58 @@ func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: 
 	f.close()
 	if video:
 		load("res://scripts/VideoExport.gd").start(get_tree(), path, song, "%s's pass" % who)
+		return
+	_their_sounds_then_play(number, path, who, id)
+
+# Their own hit and miss sounds for the replay (the settings they saved with
+# their passes: the same as the website's Game view), then it plays. Yours are
+# back in the menu (menuload: SpectateSettings.restore clears these).
+func _their_sounds_then_play(number: int, path: String, who: String, id: String):
+	var spec = load("res://scripts/SpectateSettings.gd")
+	for k in ["spec_hit_snd", "spec_miss_snd"]:
+		if Rhythia.has_meta(k):
+			Rhythia.remove_meta(k)
+	if number > 0:
+		var req := HTTPRequest.new()
+		req.timeout = 6
+		add_child(req)
+		if req.request(SITE + "/savia-public/api/player/%d/settings" % number) == OK:
+			var res = yield(req, "request_completed") # [result, code, headers, body]
+			var j: JSONParseResult = JSON.parse(PoolByteArray(res[3]).get_string_from_utf8()) if int(res[0]) == HTTPRequest.RESULT_SUCCESS and int(res[1]) == 200 else null
+			if j != null and j.error == OK and j.result is Dictionary and not j.result.empty():
+				var want := []
+				for kind in ["hit", "miss"]:
+					var sp: Array = spec.sound_file_parts(String(j.result.get(kind + "_sound_file", "")))
+					if sp.empty():
+						Rhythia.set_meta("spec_%s_snd" % kind, "res://none") # (they use the game's own: the default)
+					else:
+						want.append([kind, sp[0], sp[1]])
+				var lm = get_node_or_null("/root/LobbyManager")
+				if lm != null and lm.has_method("_queue_asset_download"):
+					for w in want:
+						lm._queue_asset_download("sound", w[1], w[2])
+				# (a few seconds at most for them to come)
+				var waited := 0.0
+				while waited < 4.0:
+					var all_here := true
+					for w in want:
+						if spec.cached_asset(w[1], w[2]) == "":
+							all_here = false
+					if all_here or not is_inside_tree():
+						break
+					yield(get_tree().create_timer(0.2), "timeout")
+					waited += 0.2
+				for w in want:
+					var p: String = spec.cached_asset(w[1], w[2])
+					if p != "":
+						Rhythia.set_meta("spec_%s_snd" % w[0], p)
+		req.queue_free()
+	# (another map was picked, or the menu was left, meanwhile)
+	var song = Rhythia.selected_song
+	if not is_inside_tree() or song == null or String(song.id) != id or Rhythia.in_map:
+		for k in ["spec_hit_snd", "spec_miss_snd"]:
+			if Rhythia.has_meta(k):
+				Rhythia.remove_meta(k)
 		return
 	var run = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/Run")
 	if run and run.has_method("files_dropped"):

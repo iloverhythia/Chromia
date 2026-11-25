@@ -1382,19 +1382,19 @@ func _process(delta: float):
 						pause_state = 1
 						ms = pause_ms - (pause_state * (_unpause_s() * 1000 * speed_multi))
 						emit_signal("ms_change", ms)
-						_n_music.volume_db = -30
+						_n_music.volume_db = Rhythia.music_volume_db - 30 # (fades back in to your music volume)
 						# with the audio offset, like every other play() here (it was left out,
 						# so after unpausing the music was off by music_offset)
 						_n_music.play(max(ms + Rhythia.music_offset, 0) / 1000)
 			if Input.is_action_pressed("pause") and pause_state > 0:
 				var prev_state = pause_state
 				pause_state = max(pause_state - (delta / _unpause_s()), 0)
-				_n_music.volume_db = min(_n_music.volume_db + (delta * 30 * 0.75 / _unpause_s()), 0)
+				_n_music.volume_db = min(_n_music.volume_db + (delta * 30 * 0.75 / _unpause_s()), Rhythia.music_volume_db)
 				if pause_state == 0:
 
 					if (prev_state != pause_state) and Rhythia.record_replays:
 						Rhythia.replay.store_sig(rms, Globals.RS_FINISH_UNPAUSE)
-					_n_music.volume_db = 0
+					_n_music.volume_db = Rhythia.music_volume_db # (was 0: louder than your Music Volume after every unpause)
 					pause_state = 0
 					pause_cooldown = 1
 			elif pause_state == 0:
@@ -1473,15 +1473,16 @@ func _process(delta: float):
 				pause_state = 1
 				ms = pause_ms - (pause_state * (_unpause_s() * 1000 * speed_multi)) + unpause_lag * speed_multi
 				emit_signal("ms_change", ms)
-				_n_music.volume_db = -30
+				_n_music.volume_db = Rhythia.music_volume_db - 30 # (fades back in to your music volume)
 				_n_music.play((ms + Rhythia.music_offset) / 1000)
 			if replay_unpause and pause_state >= 0:
 				pause_state = max(pause_state - (delta / _unpause_s()), 0)
-				_n_music.volume_db = min(_n_music.volume_db + (delta * 30 * 0.75 / _unpause_s()), 0)
+				_n_music.volume_db = min(_n_music.volume_db + (delta * 30 * 0.75 / _unpause_s()), Rhythia.music_volume_db)
 				if should_end_unpause:
 
 					_n_music.volume_db = Rhythia.music_volume_db
 					pause_state = 0
+					replay_unpause = false # (done: it kept raising the music past your volume)
 			if should_giveup: get_parent().end(Globals.END_GIVEUP)
 
 		if not viewer_paused:
