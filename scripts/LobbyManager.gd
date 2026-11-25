@@ -1,6 +1,7 @@
 extends Node
 
 signal lobby_created(code)
+signal casino_update(msg) # (the casino window: CasinoWindow.gd)
 signal perms_changed() # (what your staff permissions allow changed: the admin tools)
 signal lobby_joined(code)
 signal lobby_closed()
@@ -394,6 +395,14 @@ func get_cards():
 
 func set_card(id: String):
 	_ensure_connected_then_send({"type": "set_card", "id": id, "client_id": Rhythia.cid})
+
+# --- the casino window (scripts/ui/CasinoWindow.gd): the Discord casino's chips and
+# games (savia_web casino.js gameApi). op: state, daily, bet, play, step, give, top, help
+func casino_send(op: String, payload: Dictionary = {}):
+	var m := {"type": "casino", "op": op, "client_id": Rhythia.cid}
+	for k in payload:
+		m[k] = payload[k]
+	_ensure_connected_then_send(m)
 
 func redeem_card_code(code: String):
 	_ensure_connected_then_send({"type": "redeem_card_code", "code": code.substr(0, 64), "client_id": Rhythia.cid})
@@ -2490,6 +2499,8 @@ func _handle_message(msg: Dictionary):
 				_show_announcement_banner(announce_text, announce_from)
 		"public_lobbies":
 			emit_signal("public_lobbies_received", msg.get("lobbies", []))
+		"casino":
+			emit_signal("casino_update", msg)
 		"cards":
 			var cl = msg.get("cards", [])
 			emit_signal("cards_received", cl if cl is Array else [], Globals.s(msg.get("chosen", "default")))
