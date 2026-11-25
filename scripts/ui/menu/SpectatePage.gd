@@ -2597,12 +2597,27 @@ func _on_stats_http(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequ
 		j = parse_json(body.get_string_from_utf8())
 	call(method, j, number)
 
-func _stat_cell(grid: GridContainer, title: String, value: String, sub: String = ""):
+func _stat_cell(grid: GridContainer, title: String, value: String, sub: String = "", icon: Texture = null, col = null):
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 0)
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
 	v.add_child(_label(title, font_tiny, DIM))
-	v.add_child(_label(value, font_name, ACCENT))
+	var vl := _label(value, font_name, col if col is Color else ACCENT)
+	if icon != null:
+		# (a little picture before the number: the trophy)
+		var h := HBoxContainer.new()
+		h.add_constant_override("separation", int(4 * _k))
+		var t := TextureRect.new()
+		t.texture = icon
+		t.expand = true
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.rect_min_size = Vector2(1, 1) * float(font_name.get_height()) * 0.8
+		t.size_flags_vertical = SIZE_SHRINK_CENTER
+		h.add_child(t)
+		h.add_child(vl)
+		v.add_child(h)
+	else:
+		v.add_child(vl)
 	if sub != "":
 		v.add_child(_label(sub, font_tiny, DIM))
 	grid.add_child(v)
@@ -2659,7 +2674,7 @@ func _on_stats_profile(p, number: int):
 	_stats_box.add_child(badges)
 
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 5
 	grid.add_constant_override("hseparation", int(16 * _k))
 	_stats_box.add_child(grid)
 	var lv = p.get("level")
@@ -2671,6 +2686,9 @@ func _on_stats_profile(p, number: int):
 	_stat_cell(grid, "LEVEL", lv_text)
 	_stat_cell(grid, "XP", _num(p.get("xp", 0)), ("#%d" % int(p.xp_rank)) if p.get("xp_rank") != null else "")
 	_stat_cell(grid, "SP", _num(p.get("sp", 0)), ("#%d" % int(p.sp_rank)) if p.get("sp_rank") != null else "")
+	# trophies: the ranked maps they're #1 on (Trophy.gd)
+	var TR = load("res://scripts/ui/Trophy.gd")
+	_stat_cell(grid, "TROPHIES", _num(p.get("trophies", 0)), ("#%d" % int(p.trophies_rank)) if p.get("trophies_rank") != null else "", TR.texture(), TR.GOLD)
 	_stat_cell(grid, "PASSES", _num(p.get("pass_count", 0)), "%d maps" % int(p.get("map_count", 0)))
 	var bio := Globals.s(p.get("bio", "")).strip_edges()
 	if bio != "":

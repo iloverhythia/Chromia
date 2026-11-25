@@ -70,7 +70,7 @@ func _init(scale := 1.0, with_pictures := true):
 func set_board(rows: Array, title: String, footer: String = "", show_continue: bool = false):
 	var keys := []
 	for r in rows:
-		keys.append(var2str([int(r.peer_id), r.name, r.is_you, r.alive, r.is_host, r.get("tag_text", ""), r.get("finished", false), r.get("avatar_url", "")]))
+		keys.append(var2str([int(r.peer_id), r.name, r.is_you, r.alive, r.is_host, r.get("tag_text", ""), r.get("finished", false), r.get("avatar_url", ""), r.get("trophies", 0)]))
 	keys.sort()
 	var set_sig := var2str([keys, show_continue])
 	var changed := false
@@ -156,7 +156,17 @@ func _row(r: Dictionary, rank: int, results: bool):
 	h.add_child(v)
 	var nm: Label = S.label(String(r.name), f_name, S.TEXT)
 	nm.clip_text = true
-	v.add_child(nm)
+	# their trophies by the name (the ranked maps they're #1 on: Trophy.gd)
+	if int(r.get("trophies", 0)) > 0:
+		var nh := HBoxContainer.new()
+		nh.add_constant_override("separation", int(5 * k))
+		nm.size_flags_horizontal = SIZE_EXPAND_FILL
+		nh.add_child(nm)
+		var TR = load("res://scripts/ui/Trophy.gd")
+		nh.add_child(TR.row(int(r.trophies), f_sub, TR.GOLD))
+		v.add_child(nh)
+	else:
+		v.add_child(nm)
 	var sub: Label = S.label(_sub(r), f_sub, S.BAD if not r.alive else S.DIM)
 	sub.clip_text = true
 	v.add_child(sub)

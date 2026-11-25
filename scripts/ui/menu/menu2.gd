@@ -24,7 +24,15 @@ var leaderboard_list_box: VBoxContainer
 var _leaderboard_loaded: bool = false
 var leaderboard_mode_additive_btn: Button
 var leaderboard_mode_weighted_btn: Button
-var _leaderboard_mode: int = 1 # 1 Weighted (SP, shown first), 0 Additive (XP)
+var _leaderboard_mode: int = 1 # 1 Weighted (SP, shown first), 0 Additive (XP), 2 Trophies, 3 Top Passes
+var leaderboard_mode_trophies_btn: Button
+var leaderboard_mode_passes_btn: Button
+# Trophies (the ranked maps each player is #1 on) and Top Passes (everyone's
+# best pass on each ranked map, by SP): the website's tabs of the same names
+var _leaderboard_entries_trophies: Array = []
+var _leaderboard_entries_passes: Array = []
+var _lb_kind_loaded := {}
+var trophy_total_label: Label
 var _leaderboard_weighted_loaded: bool = false
 var _leaderboard_entries_additive: Array = []
 var _leaderboard_entries_weighted: Array = []
@@ -466,12 +474,27 @@ func _build_profile_ui():
 	pvbox.add_child(discord_hbox)
 
 	var tiles = GridContainer.new()
-	tiles.columns = 4
+	tiles.columns = 5
 	tiles.add_constant_override("hseparation", 8)
 	tiles.add_constant_override("vseparation", 8)
 	pvbox.add_child(tiles)
 	xp_total_label = S.tile(tiles, Globals.comma_sep(int(Rhythia.jp)), "XP")
 	sp_total_label = S.tile(tiles, Globals.comma_sep(int(Rhythia.sp)), "SP")
+	# trophies: the ranked maps you're #1 on, with the little trophy (Trophy.gd)
+	trophy_total_label = S.tile(tiles, Globals.comma_sep(int(Rhythia.trophies)), "Trophies", "Ranked maps where you have the #1 pass")
+	var tv: Control = trophy_total_label.get_parent()
+	var trow = HBoxContainer.new()
+	trow.add_constant_override("separation", 4)
+	trow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.add_child(trow)
+	tv.move_child(trow, 0)
+	tv.remove_child(trophy_total_label)
+	trow.add_child(load("res://scripts/ui/Trophy.gd").icon(float(S.f_bold.get_height()) * 0.8))
+	trow.add_child(trophy_total_label)
+	trophy_total_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL # (it clips its text: it needs the room)
+	trophy_total_label.add_color_override("font_color", load("res://scripts/ui/Trophy.gd").GOLD)
+	if not Rhythia.is_connected("trophies_changed", self, "_on_trophies_changed"):
+		Rhythia.connect("trophies_changed", self, "_on_trophies_changed")
 	# Offline RP: earned on this computer, works with the servers down.
 	rp_total_label = S.tile(tiles, "0", "RP", "Rhythia Points, earned offline from passes. Your best play on each map counts; play n is worth 97%^(n-1).")
 	var ms = int(Rhythia.get_lifetime_stats().get("play_time_ms", 0))
@@ -535,7 +558,11 @@ func _build_profile_ui():
 	leaderboard_mode_weighted_btn.hint_tooltip = "Ranked by SP"
 	leaderboard_mode_additive_btn = S.make_button("Additive", self, "_on_leaderboard_mode_pressed", [0], false, true)
 	leaderboard_mode_additive_btn.hint_tooltip = "Ranked by XP"
-	for mb in [leaderboard_mode_weighted_btn, leaderboard_mode_additive_btn]:
+	leaderboard_mode_trophies_btn = S.make_button("Trophies", self, "_on_leaderboard_mode_pressed", [2], false, true)
+	leaderboard_mode_trophies_btn.hint_tooltip = "Ranked by trophies: the ranked maps each player is #1 on"
+	leaderboard_mode_passes_btn = S.make_button("Top Passes", self, "_on_leaderboard_mode_pressed", [3], false, true)
+	leaderboard_mode_passes_btn.hint_tooltip = "Everyone's best pass on each ranked map, by SP"
+	for mb in [leaderboard_mode_weighted_btn, leaderboard_mode_additive_btn, leaderboard_mode_trophies_btn, leaderboard_mode_passes_btn]:
 		mb.add_stylebox_override("disabled", S.flat(Color(S.LILAC.r, S.LILAC.g, S.LILAC.b, 0.3), 3, S.LILAC, 1, 12, 4))
 		mb.add_color_override("font_color_disabled", S.TEXT)
 		mode_hbox.add_child(mb)
@@ -611,32 +638,86 @@ func _on_leaderboard_device():
 	_leaderboard_entries_additive = []
 	_leaderboard_entries_weighted = []
 	_leaderboard_weighted_loaded = true
+	_leaderboard_entries_trophies = []
+	_leaderboard_entries_passes = []
+	_lb_kind_loaded.clear()
 	_build_leaderboard_rows(leaderboard_list_box, [], "sp", "SP")
 	Rhythia.fetch_leaderboard()
 	Rhythia.fetch_leaderboard_sp()
+	if _leaderboard_mode >= 2:
+		_fetch_lb_kind(_leaderboard_mode)
 
 func _on_refresh_leaderboard_pressed():
 	if _leaderboard_mode == 1:
 		Rhythia.fetch_leaderboard_sp()
+	elif _leaderboard_mode >= 2:
+		_fetch_lb_kind(_leaderboard_mode)
 	else:
 		Rhythia.fetch_leaderboard()
+
+# the Trophies (2) and Top Passes (3) boards, from the website's API
+func _fetch_lb_kind(mode: int):
+	_lb_kind_loaded[mode] = true
+	var http := HTTPRequest.new()
+	http.timeout = 15
+	add_child(http)
+	http.connect("request_completed", self, "_on_lb_kind_received", [http, mode])
+	var dev: String = load("res://scripts/ui/LbModes.gd").query()
+	var url: String = Rhythia.PUBLIC_LB_URL + "trophies?limit=100" + dev if mode == 2 else Rhythia.PUBLIC_LB_URL.replace("/leaderboard/", "/top-passes") + "?limit=100" + dev
+	if http.request(url) != OK:
+		http.queue_free()
+		_lb_kind_loaded.erase(mode)
+
+func _on_lb_kind_received(_result, code, _headers, body, http: HTTPRequest, mode: int):
+	http.queue_free()
+	var rows := []
+	if code == 200:
+		var p := JSON.parse(body.get_string_from_utf8())
+		if p.error == OK and p.result is Dictionary:
+			var list = p.result.get("entries" if mode == 2 else "passes", [])
+			if list is Array:
+				for e in list:
+					if e is Dictionary:
+						rows.append(e)
+	else:
+		_lb_kind_loaded.erase(mode) # (tried again next time the tab opens)
+	if mode == 2:
+		_leaderboard_entries_trophies = rows
+	else:
+		_leaderboard_entries_passes = rows
+	if _leaderboard_mode == mode:
+		_show_lb_mode()
+
+func _show_lb_mode():
+	match _leaderboard_mode:
+		1: _build_leaderboard_rows(leaderboard_list_box, _leaderboard_entries_weighted, "sp", "SP")
+		2: _build_leaderboard_rows(leaderboard_list_box, _leaderboard_entries_trophies, "trophies", "")
+		3: _build_leaderboard_rows(leaderboard_list_box, _leaderboard_entries_passes, "passes", "")
+		_: _build_leaderboard_rows(leaderboard_list_box, _leaderboard_entries_additive, "xp", "XP")
+
+func _on_trophies_changed():
+	if trophy_total_label != null and is_instance_valid(trophy_total_label):
+		trophy_total_label.text = Globals.comma_sep(int(Rhythia.trophies))
 
 func _on_leaderboard_mode_pressed(mode: int):
 	_leaderboard_mode = mode
 	_update_leaderboard_mode_buttons()
-	if mode == 1:
-		_build_leaderboard_rows(leaderboard_list_box, _leaderboard_entries_weighted, "sp", "SP")
-		if not _leaderboard_weighted_loaded:
-			_leaderboard_weighted_loaded = true
-			Rhythia.fetch_leaderboard_sp()
-	else:
-		_build_leaderboard_rows(leaderboard_list_box, _leaderboard_entries_additive, "xp", "XP")
+	_show_lb_mode()
+	if mode == 1 and not _leaderboard_weighted_loaded:
+		_leaderboard_weighted_loaded = true
+		Rhythia.fetch_leaderboard_sp()
+	elif mode >= 2 and not _lb_kind_loaded.has(mode):
+		_fetch_lb_kind(mode)
 
 func _update_leaderboard_mode_buttons():
 	if leaderboard_mode_additive_btn == null or leaderboard_mode_weighted_btn == null:
 		return
 	leaderboard_mode_additive_btn.disabled = _leaderboard_mode == 0
 	leaderboard_mode_weighted_btn.disabled = _leaderboard_mode == 1
+	if leaderboard_mode_trophies_btn != null:
+		leaderboard_mode_trophies_btn.disabled = _leaderboard_mode == 2
+	if leaderboard_mode_passes_btn != null:
+		leaderboard_mode_passes_btn.disabled = _leaderboard_mode == 3
 
 # the names you go by (to light your own row on the leaderboard)
 func _my_names() -> Array:
@@ -782,6 +863,12 @@ func _lb_row(list_box: VBoxContainer, entries: Array, i: int, value_key: String,
 	var variants := [long_bits.join("  ·  "), short_bits.join("  ·  ")]
 	if lv != "":
 		variants.append(lv)
+	if value_key == "passes":
+		# Top Passes: the map, the accuracy and the speed under the name
+		var song := Globals.s(e.get("song_name", "")).strip_edges()
+		var acc := "%.2f%%" % (float(e.get("accuracy", 0.0)) * 100.0)
+		var spd := "%.2fx" % float(e.get("speed", 1.0))
+		variants = ["%s  ·  %s  ·  %s" % [song, acc, spd], "%s  ·  %s" % [song, acc], song]
 	var text = load("res://scripts/ui/menu/LbRowText.gd").new()
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -793,10 +880,26 @@ func _lb_row(list_box: VBoxContainer, entries: Array, i: int, value_key: String,
 	right.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_child(right)
+	if value_key == "passes":
+		# (a pass: its SP; no lead, the passes are of different maps)
+		var spl = S.label("%s SP" % Globals.comma_sep(_lb_int(e.get("sp", 0))), S.f_bold, S.ACCENT)
+		spl.align = Label.ALIGN_RIGHT
+		right.add_child(spl)
+		var ml := _lb_int(e.get("misses", 0))
+		var mis = S.label("%d %s" % [ml, "miss" if ml == 1 else "misses"], S.f_small, S.DIM)
+		mis.align = Label.ALIGN_RIGHT
+		right.add_child(mis)
+		return
 	var value := _lb_int(e.get(value_key, 0))
-	var val = S.label("%s %s" % [Globals.comma_sep(value), unit], S.f_bold, S.ACCENT)
-	val.align = Label.ALIGN_RIGHT
-	right.add_child(val)
+	if value_key == "trophies":
+		var T = load("res://scripts/ui/Trophy.gd")
+		var tr: HBoxContainer = T.row(value, S.f_bold, T.GOLD)
+		tr.alignment = BoxContainer.ALIGN_END
+		right.add_child(tr)
+	else:
+		var val = S.label("%s %s" % [Globals.comma_sep(value), unit], S.f_bold, S.ACCENT)
+		val.align = Label.ALIGN_RIGHT
+		right.add_child(val)
 	# (the lead over the next player, as on the website)
 	if i + 1 < entries.size() and entries[i + 1] is Dictionary:
 		var lead = S.label("+%s" % Globals.comma_sep(int(max(value - _lb_int(entries[i + 1].get(value_key, 0)), 0))), S.f_small, S.DIM)
@@ -1334,7 +1437,17 @@ func _rebuild_player_list(players: Array, local_peer_id: int):
 		row.add_child(texts)
 		var you: bool = int(p.get("peer_id", -1)) == local_peer_id
 		# (a long name ends in "…" instead of pushing the card's buttons out)
-		texts.add_child(S.fit_label(pname + ("  (you)" if you else ""), S.f_bold, S.TEXT))
+		# the name, and their trophies by it (the ranked maps they're #1 on: Trophy.gd)
+		var name_row := HBoxContainer.new()
+		name_row.add_constant_override("separation", 8)
+		var nl = S.fit_label(pname + ("  (you)" if you else ""), S.f_bold, S.TEXT)
+		nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_row.add_child(nl)
+		var tro = p.get("trophies")
+		if tro is int or tro is float: # (also 0; an older server sends none)
+			var TR = load("res://scripts/ui/Trophy.gd")
+			name_row.add_child(TR.row(int(tro), S.f_bold, TR.GOLD))
+		texts.add_child(name_row)
 		var state := "Ready"
 		var col: Color = S.PLAYING
 		if p.get("missing_map", false):

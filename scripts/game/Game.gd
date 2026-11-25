@@ -541,6 +541,7 @@ func _update_lobby_score_ui():
 				"tag_color": Globals.s(p.get("tag_color", "")),
 				"avatar_url": Globals.s(p.get("avatar_url", "")),
 				"finished": bool(p.get("finished", false)),
+				"trophies": int(p.get("trophies", 0)) if (p.get("trophies") is int or p.get("trophies") is float) else 0,
 			})
 	else:
 		rows.append({
