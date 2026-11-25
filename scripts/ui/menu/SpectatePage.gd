@@ -12,23 +12,23 @@ extends Control
 # other side: off, nobody can watch you. Made by Sidebar.gd.
 
 const AnimPic = preload("res://scripts/ui/AnimPic.gd")
-const LILAC = Color(0.764706, 0.65098, 0.8)
-const ACCENT = Color(1, 0.756863, 0.960784)
-const ACCENT_HOVER = Color(0.913725, 0.74902, 0.94902)
-const TEXT = Color(0.898039, 0.94902, 1, 1)
-const DIM = Color(0.62, 0.6, 0.68, 1)
-const FAINT = Color(0.62, 0.6, 0.68, 0.5)
-const PLAYING = Color(0.55, 0.9, 0.65)
-const WINDOW_BG = Color(0.035, 0.03, 0.05, 0.985)
-const SECTION_BG = Color(1, 1, 1, 0.025)
-const CARD_BG = Color(0.075, 0.068, 0.1, 1)
-const CARD_HOVER = Color(0.11, 0.1, 0.145, 1)
-const FIELD_BG = Color(0.13, 0.125, 0.165, 1)
-const BTN_BG = Color(0.1, 0.095, 0.125, 1)
-const BTN_HOVER = Color(0.14, 0.13, 0.18, 1)
-const HEART = Color(1, 0.45, 0.62)
-const PINK = Color(0.96, 0.6, 0.78) # section headings (like the profile page)
-const RULE = Color(1, 1, 1, 0.16)
+var LILAC := Color(0.764706, 0.65098, 0.8)
+var ACCENT := Color(1, 0.756863, 0.960784)
+var ACCENT_HOVER := Color(0.913725, 0.74902, 0.94902)
+var TEXT := Color(0.898039, 0.94902, 1, 1)
+var DIM := Color(0.62, 0.6, 0.68, 1)
+var FAINT := Color(0.62, 0.6, 0.68, 0.5)
+var PLAYING := Color(0.55, 0.9, 0.65)
+var WINDOW_BG := Color(0.035, 0.03, 0.05, 0.985)
+var SECTION_BG := Color(1, 1, 1, 0.025)
+var CARD_BG := Color(0.075, 0.068, 0.1, 1)
+var CARD_HOVER := Color(0.11, 0.1, 0.145, 1)
+var FIELD_BG := Color(0.13, 0.125, 0.165, 1)
+var BTN_BG := Color(0.1, 0.095, 0.125, 1)
+var BTN_HOVER := Color(0.14, 0.13, 0.18, 1)
+var HEART := Color(1, 0.45, 0.62)
+var PINK := Color(0.96, 0.6, 0.78) # section headings (like the profile page)
+var RULE := Color(1, 1, 1, 0.16)
 const MAX_IMG_CACHE = 160
 const CHAT_MAX_LINES = 200
 const DEVICE_NAMES = {"pc": "PC", "vr": "VR", "quest": "VR", "mobile": "Phone", "web": "Browser", "bot": "Bot"}
@@ -133,7 +133,9 @@ func _pad(sb: StyleBoxFlat, h: float, v: float) -> StyleBoxFlat:
 	sb.content_margin_bottom = v
 	return sb
 
-func _label(text: String, font: Font, color: Color = TEXT) -> Label:
+func _label(text: String, font: Font, color = null) -> Label:
+	if not (color is Color):
+		color = TEXT
 	var l = Label.new()
 	l.text = text
 	l.add_font_override("font", font)
@@ -370,7 +372,19 @@ class EyeButton extends TextureRect:
 
 # ------------------------------------------------------------------ build
 
+# The colours follow the Menu Customizer look (Settings > Menu Customizer), as
+# the Online, Profile and Settings pages do (OnlineStyle.gd): the buttons'
+# colour for buttons, tabs and outlines, the accent for headings and values,
+# the text colour, and the dark panels in the buttons' hue. The game's own
+# colours stay where no look is set.
+func _apply_menu_look():
+	var S = load("res://scripts/ui/menu/OnlineStyle.gd").new()
+	for k in ["LILAC", "ACCENT", "ACCENT_HOVER", "TEXT", "DIM", "WINDOW_BG", "CARD_BG", "CARD_HOVER", "FIELD_BG", "BTN_BG", "BTN_HOVER", "PINK"]:
+		set(k, S.pick(k, get(k)))
+	FAINT = Color(DIM.r, DIM.g, DIM.b, 0.5)
+
 func _ready():
+	_apply_menu_look()
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 	mouse_filter = MOUSE_FILTER_IGNORE
