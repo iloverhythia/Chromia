@@ -289,6 +289,7 @@ func _restore_keybind(action: String, config: ConfigFile):
 
 var jp: int = 0
 var sp: int = 0
+var song_skipped_ms: float = 0.0 # (this song's time jumped over by skips: not time played)
 # trophies: the ranked maps you're #1 on (the server's /savia-player-xp; scripts/ui/Trophy.gd)
 signal trophies_changed
 var trophies: int = 0
@@ -4585,7 +4586,8 @@ func record_play_stats():
 		_: st.fails = int(st.fails) + 1
 	st.notes_hit = int(st.notes_hit) + int(song_end_hits)
 	st.notes_missed = int(st.notes_missed) + int(song_end_misses)
-	var play_ms := int(max(0, song_end_position - start_offset) / max(Globals.speed_multi[mod_speed_level], 0.01))
+	# (the empty parts you skipped aren't time played: NoteManager._count_skipped)
+	var play_ms := int(max(0, song_end_position - start_offset - song_skipped_ms) / max(Globals.speed_multi[mod_speed_level], 0.01))
 	st.play_time_ms = int(st.play_time_ms) + play_ms
 	st.best_combo = max(int(st.best_combo), int(song_end_combo))
 	if int(st.first_play_ts) == 0:

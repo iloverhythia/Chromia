@@ -801,6 +801,7 @@ func _on_networked_skip(target_ms: float):
 	if Rhythia.record_replays:
 		Rhythia.replay.store_sig(rms, Globals.RS_SKIP)
 	ms = target_ms
+	_count_skipped(prev_ms, ms)
 	emit_signal("ms_change", ms)
 	do_note_queue()
 	if (ms + Rhythia.music_offset) >= Rhythia.start_offset:
@@ -809,7 +810,14 @@ func _on_networked_skip(target_ms: float):
 
 var _tracker = null # PlayTracker: how you play, for the Settings Generator
 
+# Time played (Savia.gd's lifetime stats) leaves out the empty parts you skip:
+# the song's time each skip jumps over (from the start you picked on) is added up here
+func _count_skipped(from_ms: float, to_ms: float):
+	var start := float(Rhythia.start_offset)
+	Rhythia.song_skipped_ms += max(0.0, max(to_ms, start) - max(from_ms, start))
+
 func _ready():
+	Rhythia.song_skipped_ms = 0.0
 	Rhythia.start_log("note spawner")
 	load("res://scripts/game/PlayTracker.gd").attach(self)
 	_tracker = get_node_or_null("PlayTracker")
@@ -1352,6 +1360,7 @@ func _process(delta: float):
 						if Rhythia.record_replays:
 							Rhythia.replay.store_sig(rms, Globals.RS_SKIP)
 						ms = next_ms - 1000 - (1000 * speed_multi)
+						_count_skipped(prev_ms, ms)
 						emit_signal("ms_change", ms)
 						do_note_queue()
 						# the music goes there too, as with a lobby skip (left to the
