@@ -42,6 +42,8 @@ signal my_frame_changed(frame) # (the frame you picked: {id, name, style, color,
 signal card_message(text, refresh)
 signal code_result(ok, text, cards) # (Inventory & Misc > Codes: scripts/ui/menu/InventoryPage.gd)
 signal spectate_denied(reason)
+signal coop_received(peer_id, hits, misses) # co-op: the notes your partner hit and missed
+signal coop_partner_pts(peer_id, pts) # co-op: your partner's cursor (ms, x, y, ms, x, y...)
 signal watch_ended(text)
 signal presence_support_changed(supported)
 signal watchers_changed(count, names)
@@ -328,7 +330,7 @@ func _on_offline_mode_changed():
 	emit_signal("blocked_changed") # (the chat boxes draw again: hidden, or back with what came in)
 	emit_signal("social_changed")
 
-func create_lobby(name: String = "Host", is_public: bool = true) -> bool:
+func create_lobby(name: String = "Host", is_public: bool = true, coop: bool = false, coop_mode: String = "any") -> bool:
 	if Rhythia.offline_mode:
 		emit_signal("lobby_error", OFFLINE_TEXT)
 		return false
@@ -336,6 +338,8 @@ func create_lobby(name: String = "Host", is_public: bool = true) -> bool:
 	player_name = name
 	_pending_name = name
 	_pending_is_public = is_public
+	_pending_coop = coop
+	_pending_coop_mode = coop_mode
 	_connecting_intent = "create"
 	return _connect_or_send_intent()
 
@@ -703,6 +707,9 @@ func _connect_or_send_intent() -> bool:
 func _send_lobby_intent():
 	if _connecting_intent == "create":
 		var msg = {"type": "create_lobby", "name": _pending_name, "client_id": Rhythia.cid, "is_public": _pending_is_public}
+		if _pending_coop:
+			msg["coop"] = true
+			msg["coop_mode"] = _pending_coop_mode
 		msg.merge(_discord_identity_fields())
 		_send(msg)
 	elif _connecting_intent == "join":
@@ -2277,6 +2284,7 @@ func _handle_message(msg: Dictionary):
 			emit_signal("lobby_state_changed")
 		"game_started":
 			lobby_state = msg.get("state", lobby_state)
+			Rhythia.coop_now = coop_on() # (co-op: never sent as a pass)
 			print("[furria] applying mods before transition: ", lobby_state.get("mods", {}))
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
@@ -2317,9 +2325,16 @@ func _handle_message(msg: Dictionary):
 					_scene_transition_now()
 				else:
 					_watch_wait_t = max(_watch_wait_t, SPECTATE_ASSET_WAIT) # (their border / mesh downloading)
+		"coop_hits":
+			var hn = msg.get("n", [])
+			var mn = msg.get("m", [])
+			emit_signal("coop_received", int(msg.get("peer_id", -1)), hn if hn is Array else [], mn if mn is Array else [])
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
+			if peer_id != local_peer_id and coop_on():
+				var lp = msg.get("pts", null)
+				emit_signal("coop_partner_pts", peer_id, lp if lp is Array and lp.size() >= 3 else [float(msg.get("ms", 0.0)), float(msg.get("x", 0.0)), float(msg.get("y", 0.0))])
 			emit_signal("live_state_received",
 				peer_id, float(msg.get("x", 0)), float(msg.get("y", 0)), int(msg.get("combo", 0)), int(msg.get("combo_level", 1)),
 				int(msg.get("score", 0)), int(msg.get("hits", 0)), int(msg.get("misses", 0)), int(msg.get("total_notes", 0)),
@@ -2705,6 +2720,50 @@ var _presence_t: float = 0.0
 var _presence_hello_t: float = -1.0
 var _presence_retry_t: float = 3.0 # the first connect, a moment after the game starts
 var _presence_failures: int = 0
+
+# --- co-op lobbies (NoteManager's co-op part) ------------------------------------
+# Two players, one play (two at most: the server keeps a third out). The mode
+# says how the notes are shared: "any", "alternate" or "sides".
+var _pending_coop := false
+var _pending_coop_mode := "any"
+const COOP_MODES := ["any", "alternate", "sides"]
+const COOP_MODE_NAMES := {"any": "Any note", "alternate": "Take turns", "sides": "Left / right"}
+
+func coop_on() -> bool:
+	return lobby_active and bool(lobby_state.get("coop", false))
+
+func coop_mode() -> String:
+	var m := String(lobby_state.get("coop_mode", "any"))
+	return m if m in COOP_MODES else "any"
+
+# 0 for the first player (the lower peer id), 1 for the other
+func coop_slot() -> int:
+	for p in players:
+		var pid := int(p.get("peer_id", -1))
+		if pid != local_peer_id and pid >= 0 and pid < local_peer_id:
+			return 1
+	return 0
+
+func coop_partner_name() -> String:
+	for p in players:
+		if int(p.get("peer_id", -1)) != local_peer_id:
+			return Globals.s(p.get("name", "Partner"))
+	return "Partner"
+
+# the host: co-op on or off, and its mode (before a round)
+func set_coop(on: bool, mode: String = ""):
+	var msg := {"type": "set_coop", "on": on}
+	if mode != "":
+		msg["mode"] = mode
+	_send(msg)
+
+func send_coop(hits: Array, misses: Array):
+	if not coop_on() or (hits.empty() and misses.empty()):
+		return
+	var msg := {"type": "coop_hits", "n": hits}
+	if not misses.empty():
+		msg["m"] = misses
+	_send(msg)
 
 # sending your play to whoever watches you (in a lobby, or watched alone)
 func broadcasting() -> bool:

@@ -238,6 +238,8 @@ func note_reposition(i: int):
 			alpha = lerp(alpha_lut[li], alpha_lut[int(min(li + 1, 64))], lx - li)
 
 		_mm_notes.set_instance_transform(slot, nt)
+		if _coop_split and i < _coop_mine.size() and _coop_mine[i] == 0:
+			alpha *= COOP_THEIRS_ALPHA # (co-op: your partner's note, see-through)
 		_mm_notes.set_instance_color(slot, Color(col.r, col.g, col.b, col.a * alpha))
 		if asq:
 			var sc = (linstep(0, _f_spawn_dist, current_dist) + 0.6) * 0.4
@@ -491,10 +493,20 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 			is_first = false
 
 
+		elif ms >= notems and notes[i][2] == Globals.NSTATE_ACTIVE and _coop_split and i < _coop_mine.size() and _coop_mine[i] == 0:
+			# co-op: your partner's note. Their message says how it went
+			# (_on_coop_received); nothing from them well after it: missed.
+			if ms > notems + hit_window + COOP_WAIT_MS:
+				notes[i][2] = Globals.NSTATE_MISS
+				get_parent().miss(notes[i][3])
+				prev_ms = notems
 		elif ms >= notems and notes[i][2] == Globals.NSTATE_ACTIVE:
-			var result = Rhythia.visual_mode or note_check_collision(i)
+			# (co-op, any note: a hit only in its window as always, but a miss
+			# waits a moment for your partner's hit to arrive)
+			var result = (Rhythia.visual_mode or note_check_collision(i)) and (not _coop or ms <= notems + hit_window)
+			var miss_at: float = notems + hit_window + (COOP_ANY_GRACE_MS if _coop else 0.0)
 
-			if not result and (ms > notems + hit_window or pause_state == -1):
+			if not result and (ms > miss_at or pause_state == -1):
 				var spectating_now = (Grid != null and Grid.spectating) or get_parent().ending
 				if not Rhythia.replaying and Rhythia.record_replays and not spectating_now:
 					Rhythia.replay.note_miss(i)
@@ -517,6 +529,8 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 					emit_signal("miss", notes[i][3])
 					if _tracker != null:
 						_tracker.note_miss(i)
+					if _coop_split:
+						_coop_out_misses.append(i) # (your note: your partner's health bar is yours)
 				prev_ms = notems
 			elif result:
 
@@ -545,6 +559,8 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				if not spectating_now:
 					if _tracker != null:
 						_tracker.note_hit(i)
+					if _coop:
+						_coop_out_hits.append(i)
 					emit_signal("hit", notes[i][3])
 					var score: int = get_parent().hit(notes[i][3])
 					if Rhythia.sound_space_mode:
@@ -788,7 +804,183 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 		_tracker = null
 
 	notes_loaded = true
+	_coop_setup()
 	call_deferred("reposition_notes", true)
+
+# --- co-op (a co-op lobby: LobbyManager.coop_on) ------------------------------------
+# Two players, one play: hits and misses go both ways (LobbyManager.send_coop),
+# so the score, combo and health bar are shared. How the notes are shared:
+#   any:       either cursor can hit any note (a miss waits COOP_ANY_GRACE_MS
+#              for the partner's hit)
+#   alternate: the first player (the lower peer id) takes the 1st, 3rd...
+#              notes, the other the 2nd, 4th...
+#   sides:     the left of the grid is the first player's, the right the
+#              other's, the middle column takes turns
+# In the split ones your partner's notes are see-through and theirs to judge.
+# Their cursor is drawn too, a moment behind (their positions come with the
+# song time they were at: drawn at yours, less COOP_CURSOR_LAG_MS).
+const COOP_ANY_GRACE_MS := 220.0
+const COOP_WAIT_MS := 1500.0
+const COOP_THEIRS_ALPHA := 0.3
+const COOP_CURSOR_LAG_MS := 120.0
+var _coop := false
+var _coop_split := false
+var _coop_mode := "any"
+var _coop_slot := 0
+var _coop_mine := PoolByteArray() # 1: your note (the split ones)
+var _coop_out_hits := []
+var _coop_out_misses := []
+var _coop_send_t := 0.0
+var _coop_pts := [] # your partner's cursor: ms, x, y, ms, x, y...
+var _coop_cursor: Spatial = null
+
+func _coop_setup():
+	var lm = _lobby_manager if is_instance_valid(_lobby_manager) else null
+	if lm == null or not lm.has_method("coop_on") or not lm.coop_on() or Rhythia.replaying or (Grid != null and Grid.spectating):
+		return
+	_coop = true
+	_coop_mode = lm.coop_mode()
+	_coop_split = _coop_mode != "any"
+	_coop_slot = lm.coop_slot()
+	_coop_mine = PoolByteArray()
+	_coop_mine.resize(notes.size())
+	for i in range(notes.size()):
+		_coop_mine[i] = 1 if _coop_owner(i) == _coop_slot else 0
+	if not lm.is_connected("coop_received", self, "_on_coop_received"):
+		lm.connect("coop_received", self, "_on_coop_received")
+	if not lm.is_connected("coop_partner_pts", self, "_on_coop_pts"):
+		lm.connect("coop_partner_pts", self, "_on_coop_pts")
+	_make_coop_cursor(lm.coop_partner_name())
+	Rhythia.trail("co-op: %s, you're player %d, %d of %d notes yours" % [_coop_mode, _coop_slot + 1, _coop_count_mine(), notes.size()])
+
+func _coop_count_mine() -> int:
+	var n := 0
+	for v in _coop_mine:
+		n += int(v)
+	return n
+
+func _coop_owner(i: int) -> int:
+	if _coop_mode == "alternate":
+		return i % 2
+	if _coop_mode == "sides":
+		var x: float = notes[i][0].x
+		if x < 0.67:
+			return 0
+		if x > 1.33:
+			return 1
+		return i % 2
+	return _coop_slot # (any: everyone's)
+
+func _on_coop_received(_peer: int, hits: Array, misses: Array):
+	if not _coop or not active:
+		return
+	for v in hits:
+		var i := int(v)
+		if i < 0 or i >= notes.size() or notes[i][2] != Globals.NSTATE_ACTIVE:
+			continue
+		notes[i][2] = Globals.NSTATE_HIT
+		if Rhythia.play_hit_snd and _frame_hit_snd < HIT_SOUNDS_PER_FRAME:
+			_frame_hit_snd += 1
+			SFXManager.play_hitsfx(notes[i][5])
+		emit_signal("hit", notes[i][3])
+		get_parent().hit(notes[i][3])
+	if not _coop_split:
+		return # (any: both judge every note, a miss is a miss for both)
+	for v in misses:
+		var i := int(v)
+		if i < 0 or i >= notes.size() or notes[i][2] != Globals.NSTATE_ACTIVE:
+			continue
+		notes[i][2] = Globals.NSTATE_MISS
+		get_parent().miss(notes[i][3])
+
+func _on_coop_pts(_peer: int, pts: Array):
+	for k in range(0, pts.size() - 2, 3):
+		var t := float(pts[k])
+		var n: int = _coop_pts.size()
+		if n >= 3 and t <= float(_coop_pts[n - 3]):
+			if t < float(_coop_pts[n - 3]) - 2000.0:
+				_coop_pts.clear() # (their song went back: a restart)
+			else:
+				continue
+		_coop_pts.append(t)
+		_coop_pts.append(float(pts[k + 1]))
+		_coop_pts.append(float(pts[k + 2]))
+	while _coop_pts.size() > 600:
+		for _j in range(3):
+			_coop_pts.pop_front()
+
+func _coop_frame(delta: float):
+	# what you hit and missed, to your partner (a few times a second is plenty)
+	_coop_send_t += delta
+	if _coop_send_t >= 0.03 and (not _coop_out_hits.empty() or not _coop_out_misses.empty()):
+		_coop_send_t = 0.0
+		var lm = _lobby_manager if is_instance_valid(_lobby_manager) else null
+		if lm != null:
+			while not _coop_out_hits.empty() or not _coop_out_misses.empty():
+				var h: Array = _coop_out_hits.slice(0, min(63, _coop_out_hits.size() - 1)) if not _coop_out_hits.empty() else []
+				var m: Array = _coop_out_misses.slice(0, min(63, _coop_out_misses.size() - 1)) if not _coop_out_misses.empty() else []
+				for _j in range(h.size()):
+					_coop_out_hits.pop_front()
+				for _j in range(m.size()):
+					_coop_out_misses.pop_front()
+				lm.send_coop(h, m)
+		else:
+			_coop_out_hits.clear()
+			_coop_out_misses.clear()
+	# their cursor, where it was a moment ago in the song
+	if _coop_cursor == null or not is_instance_valid(_coop_cursor):
+		return
+	var n: int = _coop_pts.size()
+	if n < 3:
+		_coop_cursor.visible = false
+		return
+	var t: float = ms - COOP_CURSOR_LAG_MS
+	var x: float = float(_coop_pts[n - 2])
+	var y: float = float(_coop_pts[n - 1])
+	if t < float(_coop_pts[n - 3]):
+		for k in range(n - 6, -1, -3):
+			var t0 := float(_coop_pts[k])
+			if t0 <= t:
+				var t1 := float(_coop_pts[k + 3])
+				var f: float = clamp((t - t0) / max(t1 - t0, 0.001), 0.0, 1.0)
+				x = lerp(float(_coop_pts[k + 1]), float(_coop_pts[k + 4]), f)
+				y = lerp(float(_coop_pts[k + 2]), float(_coop_pts[k + 5]), f)
+				break
+	_coop_cursor.visible = true
+	_coop_cursor.transform.origin = Vector3(x, y, _n_cursor.transform.origin.z)
+
+# your partner's cursor: your cursor's shape, tinted, with their name over it
+func _make_coop_cursor(partner_name: String):
+	_coop_cursor = Spatial.new()
+	_coop_cursor.name = "CoopCursor"
+	var src = _n_cursor.get_node_or_null("Mesh")
+	if src is MeshInstance and src.mesh != null:
+		var m := MeshInstance.new()
+		m.mesh = src.mesh
+		m.transform = src.transform
+		var mat = src.material_override
+		if mat == null:
+			mat = src.get_surface_material(0)
+		if mat == null and src.mesh.get_surface_count() > 0:
+			mat = src.mesh.surface_get_material(0)
+		if mat is SpatialMaterial:
+			mat = mat.duplicate()
+			mat.flags_transparent = true
+			mat.albedo_color = Color(0.45, 0.85, 1.0, 0.8)
+		if mat != null:
+			m.material_override = mat
+		_coop_cursor.add_child(m)
+	var label := Label3D.new()
+	label.text = partner_name
+	label.pixel_size = 0.012 # (the default font, 16 px: about a fifth of a grid square)
+	label.billboard = SpatialMaterial.BILLBOARD_ENABLED
+	label.modulate = Color(0.6, 0.9, 1.0, 0.9)
+	label.outline_modulate = Color(0, 0, 0, 0.8)
+	label.transform.origin = Vector3(0, 0.35, 0.01)
+	label.no_depth_test = true
+	_coop_cursor.add_child(label)
+	_coop_cursor.visible = false
+	add_child(_coop_cursor)
 
 func _on_networked_skip(target_ms: float):
 	# (the host's skip is for those still playing. Watching someone, the time
@@ -1319,6 +1511,8 @@ func _process(delta: float):
 				drift = Vector2(m2.transform.origin.x, m2.transform.origin.y)
 			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0, drift)
 
+	if _coop and active and notes_loaded:
+		_coop_frame(delta)
 	if active and notes_loaded:
 		if not notes_loaded: return
 		can_skip = ((next_ms - prev_ms) > 5000) and (next_ms >= max(ms + (3000 * speed_multi), 1100 * speed_multi)) and (_mm_visible <= 1)

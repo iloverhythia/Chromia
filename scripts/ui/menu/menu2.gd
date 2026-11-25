@@ -53,6 +53,8 @@ var lobby_player_list_box: VBoxContainer
 var lobby_copy_code_button: Button
 
 var lobby_public_checkbox: CheckBox
+var lobby_coop_checkbox: CheckBox # co-op: two players, one play (LobbyManager coop_*)
+var lobby_coop_mode: OptionButton
 var lobby_browse_button: Button
 var lobby_public_list_box: VBoxContainer
 var _lobby_public_scroll: ScrollContainer
@@ -160,6 +162,21 @@ func _build_lobby_ui():
 	lobby_public_checkbox.pressed = true
 	lobby_public_checkbox.theme = ui_theme
 	lobby_setup_box.add_child(lobby_public_checkbox)
+
+	lobby_coop_checkbox = CheckBox.new()
+	lobby_coop_checkbox.text = "Co-op (2 players)"
+	lobby_coop_checkbox.hint_tooltip = "Two players play the map together as one team: one score, one health bar. Co-op plays don't count for the leaderboards."
+	lobby_coop_checkbox.theme = ui_theme
+	lobby_setup_box.add_child(lobby_coop_checkbox)
+	lobby_coop_mode = OptionButton.new()
+	lobby_coop_mode.theme = ui_theme
+	lobby_coop_mode.add_item("Any note: either cursor hits any note")
+	lobby_coop_mode.add_item("Take turns: every other note is yours")
+	lobby_coop_mode.add_item("Left / right: each takes a side of the grid")
+	lobby_coop_mode.hint_tooltip = "How the notes are shared. In Take turns and Left / right, your partner's notes are see-through and theirs to hit."
+	lobby_coop_mode.visible = false
+	lobby_setup_box.add_child(lobby_coop_mode)
+	lobby_coop_checkbox.connect("toggled", self, "_on_lobby_coop_toggled")
 
 	lobby_code_input = LineEdit.new()
 	lobby_code_input.placeholder_text = "Enter lobby code to join"
@@ -1351,6 +1368,9 @@ func _update_lobby_ui(_code = null): # lobby_joined passes the lobby code
 
 	var state = lobby_manager.lobby_state
 	lobby_status_label.text = "Hosting a lobby" if is_host else "In a lobby"
+	if lobby_manager.coop_on():
+		# (co-op: how the notes are shared, and that it doesn't count)
+		lobby_status_label.text = "%s co-op lobby: %s (2 players, not ranked)" % ["Hosting a" if is_host else "In a", lobby_manager.COOP_MODE_NAMES.get(lobby_manager.coop_mode(), "Any note")]
 	lobby_code_label.text = lobby_manager.lobby_code
 	lobby_map_label.full = "Map: %s" % (state.get("song_name", "") if state.get("song_name", "") != "" else "none yet")
 	lobby_selected_map_label.full = ("Your selected map: %s" % _get_selected_song_name()) if is_host else "The host picks the map"
@@ -2437,10 +2457,16 @@ func _on_host_lobby_pressed():
 		name_text = "Host"
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
-		lobby_manager.create_lobby(name_text, lobby_public_checkbox.pressed)
+		var coop: bool = lobby_coop_checkbox != null and lobby_coop_checkbox.pressed
+		var coop_mode: String = ["any", "alternate", "sides"][int(clamp(lobby_coop_mode.selected, 0, 2))] if coop else "any"
+		lobby_manager.create_lobby(name_text, lobby_public_checkbox.pressed, coop, coop_mode)
 		lobby_status_label.text = "Connecting..."
 		lobby_panel.visible = true
 		lobby_toggle_button.text = "Hide Online"
+
+func _on_lobby_coop_toggled(on: bool):
+	if lobby_coop_mode != null:
+		lobby_coop_mode.visible = on
 
 func _on_join_lobby_pressed():
 	var name_text = lobby_name_input.text.strip_edges()

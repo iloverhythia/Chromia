@@ -509,6 +509,7 @@ func _get_active_mods_dict() -> Dictionary:
 		"true_flashlight": mod_true_flashlight,
 		"reverse": mod_reverse,
 		"blox_saber": mod_blox_saber, # (never sent as a pass: report_map_completion; the server refuses it too)
+		"coop": coop_now, # (a co-op lobby's play: never sent as a pass either)
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
 		"retain_pitch": retain_song_pitch,
@@ -660,7 +661,7 @@ func sp_for_accuracy(accuracy: float) -> int:
 	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
 
 func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
-	if mod_nofail or visual_mode or mod_extra_energy or mod_reverse or mod_blox_saber or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
+	if mod_nofail or visual_mode or mod_extra_energy or mod_reverse or mod_blox_saber or coop_now or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
 	if replay != null and replay.autoplayer:
 		return false
@@ -681,7 +682,7 @@ func pass_url(url: String) -> String:
 # The server decides whether it's posted (the map has to be in the defeats
 # feed, and it has to be your new best at or above the map's list %).
 func report_progress(song_id: String, fraction: float):
-	if cid == "" or song_id == "" or offline_mode or mod_blox_saber:
+	if cid == "" or song_id == "" or offline_mode or mod_blox_saber or coop_now:
 		return
 	var percent := int(floor(clamp(fraction, 0.0, 1.0) * 100.0))
 	if percent < 1 or percent > 99:
@@ -710,6 +711,9 @@ func _on_progress_reported(_result, response_code, _headers, body, req: HTTPRequ
 var _offline_pass_told := false
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
+		return
+	if coop_now: # (co-op: two players, one play, so never sent)
+		Globals.notify(Globals.NOTIFY_INFO, "Co-op plays don't count for the leaderboards (no XP, SP or leaderboard).", "Score not submitted", 6)
 		return
 	if mod_blox_saber: # (Blox Saber: pausing without the wait, so never sent)
 		Globals.notify(Globals.NOTIFY_INFO, "Blox Saber is on, so this score isn't sent (no XP, SP or leaderboard).", "Score not submitted", 6)
@@ -3771,6 +3775,9 @@ var mod_reverse: bool = false setget set_mod_reverse
 # NoteManager pause_cooldown). Scores aren't sent (report_map_completion) and
 # give no RP (offline_rp_rules_ok); local bests are kept apart ("m_blox").
 var mod_blox_saber: bool = false setget set_mod_blox_saber
+# a co-op lobby's round is being played (LobbyManager game_started; not a
+# setting: off again in any song outside a lobby, songload.gd)
+var coop_now: bool = false
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
 var reverse_length_ms: float = 0.0
 var reverse_song_id: String = ""
@@ -4891,6 +4898,7 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_true_flashlight: pts.append("m_trueflashlight")
 	if mod_reverse: pts.append("m_reverse")
 	if mod_blox_saber: pts.append("m_blox")
+	if coop_now: pts.append("m_coop") # (co-op bests kept apart from yours)
 	if mod_nofail: pts.append("m_nofail")
 
 	pts.sort()
