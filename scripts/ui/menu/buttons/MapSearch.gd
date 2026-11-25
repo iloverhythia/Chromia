@@ -103,6 +103,10 @@ func _speed_key_input(event) -> bool:
 	if sc == KEY_S and event.control and not event.alt:
 		if not event.echo:
 			_show_speed_keys(not _speed_keys)
+			# (out of the search box: the start keys, Space or the retry key, then
+			# start the map instead of typing into it; a letter still types)
+			if _speed_keys and has_focus():
+				release_focus()
 		return true
 	if not _speed_keys:
 		return false
@@ -115,6 +119,11 @@ func _speed_key_input(event) -> bool:
 	if event.echo:
 		return false
 	_show_speed_keys(false)
+	# (a start key ends speed keys too, and never types: out of the search box)
+	if sc == KEY_SPACE or (InputMap.has_action("retry") and event.is_action("retry")):
+		if has_focus():
+			release_focus()
+		return false
 	return sc == KEY_ESCAPE or sc == KEY_ENTER or sc == KEY_KP_ENTER
 
 func _input(event):
