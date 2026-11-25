@@ -23,6 +23,8 @@ func _ready():
 func speed_text_entered(new_text):
 	var speed = float(new_text)
 	self.value = clamp(speed, min_value, max_value)
+	upd_label() # (the same value as before: the box still shows the number it is)
+	$SpeedTextBox.release_focus() # (Enter: done typing)
 
 func upd_label():
 	$SpeedTextBox.text = str(value)
