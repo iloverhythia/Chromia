@@ -4,6 +4,8 @@ extends Control
 # (the old dropdown ran off the bottom of the screen). Opened by WorldSel.gd,
 # which puts it in a CanvasLayer on the window, or straight on the VR menu
 # screen (a CanvasLayer there gets the pointer at the wrong spot).
+# Settings > VR > Hands uses it too: then the items are Dictionaries
+# {name, section, cover, has_cover, id} (VRTab.gd) and the title is "Hands".
 
 signal picked(world)
 
@@ -13,6 +15,7 @@ const DRAG_START := 12.0
 
 var worlds: Array = []
 var selected = null
+var title_text := "Background"
 
 var _root: Control
 var _panel: PanelContainer
@@ -97,7 +100,7 @@ func _build():
 	var top := HBoxContainer.new()
 	col.add_child(top)
 	var title := Label.new()
-	title.text = "Background"
+	title.text = title_text
 	title.add_font_override("font", _big)
 	if _S != null:
 		title.add_color_override("font_color", _S.ACCENT)
@@ -125,6 +128,8 @@ func _build():
 
 # Sections in list order: Chromia's own backgrounds, Rhythia's, Roblox Rhythia's
 static func _section_of(w) -> String:
+	if w is Dictionary:
+		return str(w.get("section", ""))
 	var c: String = w.creator
 	if c.begins_with("Rhythia (Roblox)"):
 		return "Rhythia (Roblox)"

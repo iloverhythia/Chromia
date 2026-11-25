@@ -158,12 +158,13 @@ func _ready():
 	_label("Hands", f_title, ACCENT)
 	_label("What your hands look like. Custom uses vr_hand.obj from the user folder (the right hand, in metres, controller at the middle, pointing along -Z; the left hand is mirrored).", f_body, DIM, true)
 	_hand_pick = _option_row("Hands", [["Default", "default"], ["Furry paws", "paw"], ["Ball", "ball"], ["Cartoon glove", "glove"], ["Robot", "robot"], ["Skeleton", "skeleton"], ["Crystal", "crystal"], ["My own (Hand Creator)", "built"], ["Custom (vr_hand.obj)", "custom"]], "_on_hand")
-	# The Hand Creator: build your own hand out of parts (HandCreatorPanel.gd, vr/HandCreator.gd)
+	# (pressing it opens every hand as a picture, like the Background menu: _open_hand_picker)
+	_hand_pick.get_popup().modulate = Color(1, 1, 1, 0)
+	_hand_pick.get_popup().connect("about_to_show", self, "_open_hand_picker")
+	# The Hand Creator: build your own hand out of parts (HandCreatorPanel.gd,
+	# vr/HandCreator.gd), in a window of its own (PopupWindow.gd)
 	_creator_btn = _button(box, "Open the Hand Creator", "_toggle_creator")
 	_creator_btn.rect_min_size = Vector2(260, 36)
-	_creator = load("res://scripts/ui/settings/HandCreatorPanel.gd").new()
-	_creator.visible = false
-	box.add_child(_creator)
 	_label("Hand direction: turn the hand itself on the controller (nose up or down, left or right, or roll it) so it lines up with your beam. The beam stays where it is (that's Controller grip, below). For the right hand; the left hand gets the mirror image.", f_body, DIM, true)
 	for row in HAND_ROWS:
 		_grip_row(row)
@@ -331,16 +332,82 @@ func _on_curve(on: bool):
 var _values := [] # [slider, value label, row [label, setting, min, max, step, unit, shown scale]]
 var _miss_box: CheckBox
 var _hand_pick: OptionButton
-var _creator = null # the Hand Creator's editor, under the Hands list (built when first opened)
+var _creator = null # the Hand Creator's editor (HandCreatorPanel.gd) while its window is open
+var _creator_win = null
 var _creator_btn: Button = null
-var _creator_made := false
+
+func _creator_open() -> bool:
+	return _creator_win != null and is_instance_valid(_creator_win) and not _creator_win.is_queued_for_deletion()
 
 func _toggle_creator():
-	if not _creator_made:
-		_creator_made = true
-		_creator.setup(self)
-	_creator.visible = not _creator.visible
-	_creator_btn.text = "Close the Hand Creator" if _creator.visible else "Open the Hand Creator"
+	if _creator_open():
+		_creator_win.close()
+		return
+	_creator = load("res://scripts/ui/settings/HandCreatorPanel.gd").new()
+	_creator.setup(self)
+	_creator_win = load("res://scripts/ui/settings/PopupWindow.gd").new()
+	_creator_win.title_text = "Hand Creator"
+	_creator_win.content = _creator
+	_creator_win.connect("closed", self, "_on_creator_closed")
+	load("res://scripts/ui/settings/PopupWindow.gd").show_over(_creator_btn, _creator_win)
+
+func _on_creator_closed():
+	_creator = null
+	_creator_win = null
+
+# Hands: every hand as a picture in a grid (WorldPicker.gd, as the Background
+# menu), in place of the dropdown's list. The OptionButton still holds the
+# choices (and breck's own hand when it's added: _add_own_hand).
+var _hand_picker = null
+func _open_hand_picker():
+	_hand_pick.get_popup().call_deferred("hide")
+	if _hand_picker != null and is_instance_valid(_hand_picker):
+		return
+	var HP = load("res://scripts/ui/settings/HandPreviews.gd")
+	var picker = preload("res://scripts/ui/settings/WorldPicker.gd").new()
+	picker.title_text = "Hands"
+	var items := []
+	var cur = null
+	var slow := []
+	for i in range(_hand_pick.get_item_count()):
+		var kind := str(_hand_pick.get_item_metadata(i))
+		var item := {"id": kind, "index": i, "name": _hand_pick.get_item_text(i),
+			"section": "Your own" if kind == "built" or kind == "custom" else "Hands",
+			"cover": null, "has_cover": false}
+		if kind != "custom" or File.new().file_exists(Globals.p("user://vr_hand.obj")):
+			var vp: Viewport = HP.make_viewport()
+			picker.add_child(vp) # (freed with the picker)
+			item.cover = vp.get_texture()
+			item.has_cover = true
+			if HP.is_ready(kind):
+				HP.fill(vp, kind)
+			else:
+				slow.append([vp, kind])
+		items.append(item)
+		if i == _hand_pick.selected:
+			cur = item
+	picker.worlds = items
+	picker.selected = cur
+	picker.connect("picked", self, "_on_hand_picked")
+	_hand_picker = picker
+	load("res://scripts/ui/settings/PopupWindow.gd").show_over(_hand_pick, picker)
+	if not slow.empty():
+		_fill_hand_previews(picker, slow)
+
+# the hands that take a while to make: one at a time, once the picker shows
+func _fill_hand_previews(picker, slow: Array):
+	for e in slow:
+		yield(get_tree(), "idle_frame")
+		yield(get_tree(), "idle_frame")
+		if not is_instance_valid(picker) or not is_instance_valid(e[0]):
+			return
+		load("res://scripts/ui/settings/HandPreviews.gd").fill(e[0], e[1])
+
+func _on_hand_picked(item):
+	if item == null:
+		return
+	_hand_pick.select(int(item.index))
+	_on_hand(int(item.index))
 var _fov_pick: OptionButton
 var _rate_pick: OptionButton
 var _unlock_box: CheckBox = null
@@ -581,7 +648,7 @@ func _on_hand(i: int):
 		# (nothing made yet: the first hand to start from, and the creator opened)
 		var HC = load("res://vr/HandCreator.gd")
 		Rhythia.vr_hand_design = HC.encode(HC.parse(HC.PRESETS[0][1]))
-		if _creator != null and not _creator.visible:
+		if not _creator_open():
 			_toggle_creator()
 	if Rhythia.vr_player != null and Rhythia.vr_player.has_method("apply_hand"):
 		Rhythia.vr_player.apply_hand()
