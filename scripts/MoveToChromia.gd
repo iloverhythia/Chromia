@@ -46,7 +46,7 @@ func start():
 		return
 	_zip = install_dir().plus_file("chromia-windows.zip")
 	_http = HTTPRequest.new()
-	_http.use_threads = true
+	_http.use_threads = OS.can_use_threads()
 	_http.download_file = _zip
 	add_child(_http)
 	_http.connect("request_completed", self, "_downloaded")
