@@ -134,8 +134,14 @@ const _MAP_CHUNK_SIZE: int = 64 * 1024
 
 var _map_upload_active: bool = false
 var _map_upload_song_id: String = ""
-var _map_upload_b64: String = ""
-var _map_upload_pos: int = 0
+var _map_upload_pos: int = 0 # (bytes of the file sent)
+# (the map is read and sent a piece at a time: reading a whole map and making
+# it text in one go, for someone who started watching, stuttered the game of
+# whoever was playing it)
+var _map_upload_file: File = null
+var _map_upload_size: int = 0
+var _map_upload_chunk: String = "" # (the piece waiting to go, kept until it has)
+const _MAP_UPLOAD_RAW: int = 48 * 1024 # (64 KB as text: a multiple of 3, so the pieces join up)
 
 var _map_publish_active: bool = false
 var _map_publish_song_id: String = ""
@@ -1378,12 +1384,25 @@ var player_view_settings: Dictionary = {}
 var _spectate_load_target: int = -1
 
 # Your display settings, for anyone who watches you (sent when a round starts).
-func send_view_settings():
+# light: someone started watching in the middle of a song. Only the settings,
+# and only files already hashed: reading and hashing your background, mesh or
+# sounds there took the whole file in one frame, and your game stuttered the
+# moment someone watched you. (At a song's start everything is sent.)
+func send_view_settings(light := false):
 	if not broadcasting():
 		return
-	upload_cursor_picture()
-	upload_spectate_assets()
-	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+	if not light:
+		upload_cursor_picture()
+		upload_spectate_assets()
+	_send({"type": "set_view_settings", "settings": _collect_view_settings(light)})
+
+func _collect_view_settings(light: bool) -> Dictionary:
+	if light:
+		Engine.set_meta("spec_light", true)
+	var out: Dictionary = load("res://scripts/SpectateSettings.gd").collect()
+	if light:
+		Engine.remove_meta("spec_light")
+	return out
 
 # Your cursor picture to the server once (it keeps it by the file's hash), so
 # spectators watching with your settings see your cursor.
@@ -1628,13 +1647,14 @@ func _on_cursor_uploaded(result, code, _headers, _body, http):
 # song, so whoever starts watching from the Spectate tab sees it your way
 # right away (servers with the Spectate tab only; a lobby uses the above).
 var _solo_settings_sent := false # (this song's settings are on the server already)
-func send_solo_view_settings():
+func send_solo_view_settings(light := false):
 	_solo_settings_sent = false
 	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
-	upload_cursor_picture()
-	upload_spectate_assets()
-	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+	if not light: # (mid-song: send_view_settings)
+		upload_cursor_picture()
+		upload_spectate_assets()
+	_send({"type": "set_view_settings", "settings": _collect_view_settings(light)})
 	_solo_settings_sent = true
 
 # a song starts (not in a lobby): while you're watched, the server takes it as
@@ -1756,16 +1776,16 @@ func _start_map_upload(song_id: String):
 		Rhythia.trail("not sending the map to the server for someone else: %d MB, the server takes %d MB at most" % [size / 1048576, MAP_SEND_MAX_BYTES / 1048576])
 		_send({"type": "upload_map_start", "song_id": song_id, "total_bytes": int(min(size, 999999999))})
 		return
-	var bytes = f.get_buffer(size)
-	f.close()
-	print("[furria] uploading ", song.filePath, " — ", bytes.size(), " bytes")
-	Rhythia.trail("sending the map to the server for someone else (%d KB)" % int(bytes.size() / 1024))
-	_map_upload_b64 = Marshalls.raw_to_base64(bytes)
+	print("[furria] uploading ", song.filePath, " — ", size, " bytes")
+	Rhythia.trail("sending the map to the server for someone else (%d KB)" % int(size / 1024))
+	_map_upload_file = f
+	_map_upload_size = size
+	_map_upload_chunk = ""
 	_map_upload_song_id = song_id
 	_map_upload_pos = 0
 	_map_upload_active = true
 	_map_upload_last_progress_msec = OS.get_ticks_msec()
-	var start_err = _send({"type": "upload_map_start", "song_id": song_id, "total_bytes": bytes.size()})
+	var start_err = _send({"type": "upload_map_start", "song_id": song_id, "total_bytes": size})
 	if start_err != OK:
 		push_error("[furria] upload_map_start failed to send: %s" % start_err)
 		_abort_map_upload("Failed to start uploading the map to the server.")
@@ -1783,14 +1803,18 @@ func _process_map_upload_step():
 		return
 	if OS.get_ticks_msec() < _map_upload_next_attempt_msec:
 		return
-	var done = _map_upload_pos >= _map_upload_b64.length()
+	var done = _map_upload_pos >= _map_upload_size and _map_upload_chunk == ""
 	var payload: Dictionary
 	if done:
 		payload = {"type": "upload_map_end", "song_id": _map_upload_song_id}
 	else:
-		var chunk_end = min(_map_upload_pos + _MAP_CHUNK_SIZE, _map_upload_b64.length())
-		var chunk = _map_upload_b64.substr(_map_upload_pos, chunk_end - _map_upload_pos)
-		payload = {"type": "upload_map_chunk", "song_id": _map_upload_song_id, "chunk": chunk}
+		if _map_upload_chunk == "":
+			if _map_upload_file == null:
+				_abort_map_upload("Failed to upload the map to the server.")
+				return
+			var n: int = int(min(_MAP_UPLOAD_RAW, _map_upload_size - _map_upload_pos))
+			_map_upload_chunk = Marshalls.raw_to_base64(_map_upload_file.get_buffer(n))
+		payload = {"type": "upload_map_chunk", "song_id": _map_upload_song_id, "chunk": _map_upload_chunk}
 
 	var send_err = _send(payload)
 	if send_err != OK:
@@ -1805,16 +1829,25 @@ func _process_map_upload_step():
 	if done:
 		_map_upload_active = false
 		_map_upload_song_id = ""
-		_map_upload_b64 = ""
+		_close_map_upload_file()
 		return
-	_map_upload_pos = payload.chunk.length() + _map_upload_pos
-	emit_signal("map_upload_progress", _map_upload_song_id, int(_map_upload_pos * 0.75), int(_map_upload_b64.length() * 0.75))
+	_map_upload_pos = int(min(_map_upload_pos + _MAP_UPLOAD_RAW, _map_upload_size))
+	_map_upload_chunk = ""
+	if _map_upload_pos >= _map_upload_size:
+		_close_map_upload_file()
+	emit_signal("map_upload_progress", _map_upload_song_id, _map_upload_pos, _map_upload_size)
+
+func _close_map_upload_file():
+	if _map_upload_file != null:
+		_map_upload_file.close()
+		_map_upload_file = null
 
 func _abort_map_upload(reason: String):
 	var song_id = _map_upload_song_id
 	_map_upload_active = false
 	_map_upload_song_id = ""
-	_map_upload_b64 = ""
+	_map_upload_chunk = ""
+	_close_map_upload_file()
 	if song_id != "":
 		_send({"type": "cancel_map_upload", "song_id": song_id})
 	emit_signal("lobby_error", reason)
@@ -2328,11 +2361,11 @@ func _handle_message(msg: Dictionary):
 			# restart): the server lost your settings with the old connection,
 			# so whoever starts watching would see it their own way
 			if presence_supported == 1 and Rhythia.in_map and not lobby_active and not watch_mode and not _solo_settings_sent:
-				call_deferred("send_solo_view_settings")
+				call_deferred("send_solo_view_settings", true)
 		"view_settings_wanted":
 			# (someone started watching and the server has no settings of yours)
 			if Rhythia.in_map and not lobby_active and not watch_mode:
-				send_solo_view_settings()
+				send_solo_view_settings(true)
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
@@ -2379,7 +2412,7 @@ func _handle_message(msg: Dictionary):
 				# since the song started and gives them to whoever watches: sending
 				# them again mid-song only made the game stutter)
 				if lobby_active or not _solo_settings_sent:
-					send_view_settings()
+					send_view_settings(true)
 				var game = get_tree().current_scene.find_node("Game", true, false) if get_tree().current_scene else null
 				if game != null and game.has_method("_sync_lobby_stats"):
 					game._sync_lobby_stats()

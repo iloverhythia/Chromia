@@ -32,3 +32,4 @@ in scripts/Savia.gd and empties this list.
 - Pressing Enter in the 360 speed box now leaves the box
 - Speed keys (Ctrl+S in the map list): Space or the retry key no longer types into the map search, even when you were typing in it before
 - Browser version: maps from hosts that don't allow browser downloads (most Rhythia maps) now download, through the Chromia server, instead of saying "This map's host doesn't allow downloads from the browser"
+- Being spectated no longer makes your game stutter when someone starts watching mid-song: your look is sent without reading your background, mesh and sound files again, and a map sent to a spectator who doesn't have it is read a little at a time
