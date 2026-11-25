@@ -3622,7 +3622,7 @@ func update_rpc_song():
 	if mod_flashlight: mods.append("Flashlight")
 	if mod_true_flashlight: mods.append("True Flashlight")
 	if mod_reverse: mods.append("Reverse")
-	if mod_360: mods.append(("360%s x%s" % [" Shuffle" if mod_360_shuffle else "", Rhythia.mod_360_speed]))
+	if mod_360: mods.append("360%s%s" % [" Shuffle" if mod_360_shuffle else "", "" if is_equal_approx(float(Rhythia.mod_360_speed), 1.0) else " x%s" % Rhythia.mod_360_speed]) # (no "x1" at normal speed)
 	if mod_strobe: mods.append(("Strobe!!!"))
 	if replay.autoplayer: mods.append("Auto")
 

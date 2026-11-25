@@ -1289,7 +1289,7 @@ func _format_mods(mods: Dictionary) -> String:
 	if mods.get("hard_mode", false): parts.append("Hard Mode")
 	if mods.get("true_flashlight", false): parts.append("True Flashlight")
 	elif mods.get("flashlight", false): parts.append("Flashlight")
-	if mods.get("mod_360", false): parts.append("360%s x%s" % [" Shuffle" if mods.get("mod_360_shuffle", false) else "", mods.get("mod_360_speed", 1)])
+	if mods.get("mod_360", false): parts.append("360%s%s" % [" Shuffle" if mods.get("mod_360_shuffle", false) else "", "" if is_equal_approx(float(mods.get("mod_360_speed", 1)), 1.0) else " x%s" % mods.get("mod_360_speed", 1)])
 	if mods.get("strobe", false): parts.append("Strobe!!!")
 	if mods.get("blox_saber", false): parts.append("Blox Saber")
 	var start_offset = float(mods.get("start_offset", 0.0))
