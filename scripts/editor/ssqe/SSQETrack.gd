@@ -233,6 +233,15 @@ func _draw():
 			draw_multiline(line_pts_dim, col(4, 0.35))
 		if line_pts_on.size() > 0:
 			draw_multiline(line_pts_on, col(4, 1.0))
+		# Chromia's lyrics (GRAPHICS > Lyrics): a small "T" over the track at each
+		# one (they're moved and changed on the timeline in Extra Objects > Lyrics)
+		var lr: float = max(4.0, cell_gap * 0.42)
+		for o in map.special_objects.items:
+			if o.id != 15 or o.ms < min_ms:
+				continue
+			if o.ms > max_ms:
+				break
+			_draw_object_icon(o, Vector2(base_x + o.ms * ms_to_px + note_size / 2, cell_gap * 0.5), lr, col(2, 0.9))
 	else:
 		var list = map.vfx_objects if map.render_mode == RM.VFX else map.special_objects
 		var check_id: bool = map.render_mode == RM.SPECIAL and map.object_mode != SSQEMap.OBJ_DISABLED

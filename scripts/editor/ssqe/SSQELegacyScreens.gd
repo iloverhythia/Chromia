@@ -32,7 +32,7 @@ const CHANGELOG_URL := "https://raw.githubusercontent.com/iloverhythia/Sound-Spa
 const FEEDBACK_URL := "https://forms.gle/Rh4RXKT9KyttJ9Dc6"
 const LOGO := "res://assets/images/editor/ssqe_logo.png"
 const UNC_CHECK := Color8(75, 75, 75) # Checkbox_Uncolored's check
-const GAMES_CREATE := ["Sound Space", "Rhythia", "Novastra/Phoenyx/Other"]
+const GAMES_CREATE := ["Sound Space", "Rhythia", "Novastra/Phoenyx/Other", "Chromia"] # (Chromia: a .chrm with Chromia's extras, EditorProject.chromia)
 const GAMES_PLAYTEST := ["Chromia", "Rhythia", "Novastra"]
 const SETTINGS_TABS := ["COLORS", "GRAPHICS", "MAPPING", "PLAYER", "AUDIO", "OTHER"]
 const STATIC_KEYBINDS := "Static keybinds:\n\n> Zoom: CTRL + SCROLL\n\n> Beat Divisor: SHIFT + SCROLL\n>> Hold CTRL to increment by 0.5\n\n> Seek: SCROLL/LEFT/RIGHT\n> Play/Pause: SPACE\n\n> Select all: CTRL + A\n> Deselect all: ESCAPE\n\n> Delete: DELETE/BACKSPACE\n> Copy: CTRL + C\n> Paste: CTRL + V\n> Cut: CTRL + X\n> Undo: CTRL + Z\n> Redo: CTRL + Y\n\n> Fullscreen: F11\n> Save: CTRL + S\n> Save as: CTRL + SHIFT + S\n\n> Place stored patterns: 0-9\n>> Hold SHIFT to store selected notes as the key's pattern\n>> Hold CTRL to clear the key's pattern"
@@ -231,11 +231,11 @@ func _build():
 	_btn("create", 690, 920, 540, 75, "BACK TO MENU", 48, "show_screen", ["menu"])
 	create_game = max(0, GAMES_CREATE.find(String(s.get("createGame", "Sound Space"))))
 	for i in GAMES_CREATE.size():
-		_create_checks.append(_check("create", 320, 415 + i * 100, 50, GAMES_CREATE[i], 30, "m:create_game_%d" % i))
+		_create_checks.append(_check("create", 320, 415 + i * 72, 50, GAMES_CREATE[i], 30, "m:create_game_%d" % i))
 	# (each game's panel: at the game buttons' container, 320,415)
 	var gx := 320 + 370
 	var gy := 415
-	_create_panels = [[], [], []]
+	_create_panels = [[], [], [], []]
 	_create_panels[0].append(_lbl("create", gx, gy - 45, 540, 50, "Audio ID", 36))
 	_id_box = LineEdit.new()
 	_id_box.add_color_override("font_color", Color(1, 1, 1))
@@ -256,6 +256,13 @@ func _build():
 	_pathbox("create", gx, gy + 5, 540, 50, "CHOOSE", 28, "_choose_audio", "_audio_label")
 	for it in items.slice(n0, items.size() - 1):
 		_create_panels[2].append(it.node)
+	# a Chromia map: a song, and Chromia's own tools in the editor (GRAPHICS > Lyrics)
+	_create_panels[3].append(_lbl("create", gx, gy - 45, 540, 50, "Import Audio", 36))
+	n0 = items.size()
+	_pathbox("create", gx, gy + 5, 540, 50, "CHOOSE", 28, "_choose_audio", "_audio_label")
+	for it in items.slice(n0, items.size() - 1):
+		_create_panels[3].append(it.node)
+	_create_panels[3].append(_lbl("create", gx, gy + 85, 540, 100, "A Chromia map (.chrm) can have Chromia's extras:\nlyrics now (GRAPHICS > Lyrics), more to come.\nThey show when it's played in Chromia.", 20))
 
 	# ---------------------------------------------------------------- settings
 	_sq("settings", 0, 0, 1920, 1080, L.BG)
@@ -613,6 +620,8 @@ func get_create_game_2(): return create_game == 2
 func set_create_game_0(_v): _set_create_game(0)
 func set_create_game_1(_v): _set_create_game(1)
 func set_create_game_2(_v): _set_create_game(2)
+func get_create_game_3(): return create_game == 3
+func set_create_game_3(_v): _set_create_game(3)
 func _set_create_game(i: int):
 	create_game = i
 	s.createGame = GAMES_CREATE[i]
@@ -787,6 +796,7 @@ func _on_create():
 		Globals.notify(Globals.NOTIFY_WARN, "Choose an audio file first.", "Create Map")
 		return
 	hide_for_editor()
+	page.new_chromia = create_game == 3
 	page._on_new_song_picked([audio_file])
 
 # a Roblox audio by its ID (Sound Space's songs): downloaded, then mapped

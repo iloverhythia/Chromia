@@ -449,7 +449,16 @@ func _pick_song(method: String):
 	Globals.file_sel.open_file(self, method, PoolStringArray(["*.mp3, *.ogg ; Songs (mp3, ogg)"]), false, _start_dir())
 
 # ---- CREATE NEW MAP
+# A Sound Space map (.sspm, plays everywhere) or a Chromia map (.chrm: Chromia's
+# extras, lyrics now; the editor shows its tools: GRAPHICS > Lyrics)
+var new_chromia := false
 func _on_new_map():
+	Globals.confirm_prompt.open("A Chromia map can have Chromia's extras (lyrics now, more to come): they show when it's played in Chromia, and it's exported as a .chrm. A Sound Space map is the usual .sspm that plays everywhere.", "Create New Map",
+		[{text = "Cancel"}, {text = "Sound Space map"}, {text = "Chromia map"}])
+	var c: int = yield(Globals.confirm_prompt, "option_selected")
+	if c <= 0:
+		return
+	new_chromia = c == 2
 	_pick_song("_on_new_song_picked")
 
 func _on_new_song_picked(files):
@@ -460,7 +469,18 @@ func _on_new_song_picked(files):
 	if res is String:
 		_notify(res, "Map Editor", Globals.NOTIFY_WARN)
 		return
+	if new_chromia:
+		res.chromia = true
+		res.save()
+	new_chromia = false
 	_open(res)
+	if res.chromia and ed != null:
+		# (exported as a .chrm; the Lyrics tool on the Extra Objects page too)
+		ed.s.exportType = "Chromia (CHRM)"
+		ed.s.modchartGame = "Chromia"
+		ed.settings_changed()
+		if ed.panels:
+			ed.panels._apply_visibility()
 	_notify("Set up the BPM in TIMING > OPEN BPM SETUP (or DETECT BPM), then place notes with Q W E / A S D / Z X C or the mouse.", "New map")
 
 # ---- EDIT SELECTED MAP

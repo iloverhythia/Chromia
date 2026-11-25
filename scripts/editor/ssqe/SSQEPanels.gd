@@ -65,6 +65,14 @@ var notes_label: Label
 var sr_label: Label
 var replace_id_box: LineEdit
 var lyric_box: LineEdit
+var gfx_lyric_box: LineEdit # (GRAPHICS > Lyrics: Chromia's lyrics in the main panel)
+var _chromia_nodes := [] # (GRAPHICS > Lyrics: shown for Chromia maps, chromia_map())
+
+# a Chromia map (made as one, opened from a .chrm, or with lyrics): its own tools show
+func chromia_map() -> bool:
+	if ed != null and ed.page != null and ed.page.project != null and bool(ed.page.project.get("chromia")):
+		return true
+	return ed != null and ed.map != null and _has_lyrics()
 var lyric_create: Button
 var lyric_preview: Label
 var fever_preview: ColorRect
@@ -573,6 +581,23 @@ func build():
 	_slider(X + 0, Y + 210, 230, 32, "gridZoomSlider", 150, 5, 50, g)
 	note_size_label = _label(X + 0, Y + 260, 230, 32, "", 26, g)
 	_slider(X + 0, Y + 290, 230, 32, "noteSizeSlider", 175, 5, 75, g)
+	# Chromia's lyrics (they show in the game's songs; saved in .chrm maps and
+	# maps saved to the game): typed here, placed at the song's position.
+	# EDIT ON TIMELINE opens them as objects on the track to move or change.
+	var n_chromia := items.size()
+	# (400 wide: the SFX / Music volume sliders are at the right edge under it)
+	_label(X + 0, Y + 420, 400, 32, "LYRICS (CHROMIA)", 28, g, false, "color2")
+	gfx_lyric_box = _textbox(X + 0, Y + 456, 400, 34, 26, g)
+	gfx_lyric_box.placeholder_text = "Lyric text, Enter places it"
+	gfx_lyric_box.connect("text_entered", self, "_on_gfx_lyric_entered")
+	_check(X + 0, Y + 498, "Fade In", 26, "lyricFadeIn", g, 190)
+	_check(X + 205, Y + 498, "Fade Out", 26, "lyricFadeOut", g, 195)
+	_btn(X + 0, Y + 540, 195, 36, "CREATE", 26, "_create_gfx_lyric", [], g)
+	_btn(X + 205, Y + 540, 195, 36, "ON TIMELINE", 26, "_lyrics_on_timeline", [], g)
+	var lyr_help := _label(X + 0, Y + 584, 400, 60, "\"-\" in front: a new line   \"-\" at the end: joins the next one   empty: clears the line", 19, g, false)
+	lyr_help.autowrap = true
+	for i in range(n_chromia, items.size()):
+		_chromia_nodes.append(items[i].node)
 
 	# ------------------------------------------------ Export
 	g = "EXPORT"
@@ -745,7 +770,7 @@ const T_SLOT_H := 80.0
 const T_SLOT_STEP := 90.0
 const T_DRAWER_K := 1.5
 # where a panel's own controls end on the stage (they all start at 232)
-const T_BOTTOM := {"OPTIONS": 552, "TIMING": 652, "PATTERNS": 919, "PLAYTEST": 782, "SNAPPING": 634, "GRAPHICS": 624, "EXPORT": 612, "special": 930}
+const T_BOTTOM := {"OPTIONS": 552, "TIMING": 652, "PATTERNS": 919, "PLAYTEST": 782, "SNAPPING": 634, "GRAPHICS": 870, "EXPORT": 612, "special": 930}
 
 func _slot(i: int, right := false) -> Array:
 	return [1920.0 - 10.0 - T_STACK_W if right else 10.0, T_SLOT_Y + i * T_SLOT_STEP, T_STACK_W, T_SLOT_H]
@@ -880,7 +905,8 @@ func _group_visible(g: String) -> bool:
 		"notenav":
 			return special_on and special_mode == "Modify Notes"
 		"lyricpreview":
-			return special_on and (special_mode == "Lyrics" or special_mode == "")
+			# (also on the main screen while the map has lyrics: GRAPHICS > Lyrics)
+			return (special_on and (special_mode == "Lyrics" or special_mode == "")) or (not special_on and _has_lyrics())
 		"fever":
 			return false
 		"touch":
@@ -896,6 +922,8 @@ func _apply_visibility():
 		var vis := _group_visible(it.group)
 		if it.node == qx_slider or it.node == qy_slider or it.node == qx_label or it.node == qy_label:
 			vis = vis and not ed.s.oldQuantumSnap
+		if vis and _chromia_nodes.has(it.node):
+			vis = chromia_map()
 		it.node.visible = vis
 
 func _update_nav_text():
@@ -1003,6 +1031,13 @@ func update():
 		if it.node.has_meta("game_switch"):
 			it.node.text = "GAME: " + SSQEMap.ss(s.modchartGame)
 	# lyrics / fever previews
+	if not special_on:
+		var lp0 := _group_visible("lyricpreview")
+		lyric_preview.visible = lp0
+		if lp0:
+			var r0: Array = ed.lyric_preview()
+			lyric_preview.text = r0[0]
+			lyric_preview.modulate.a = r0[1]
 	if special_on:
 		var lp := _group_visible("lyricpreview")
 		lyric_preview.visible = lp
@@ -1201,7 +1236,42 @@ func _cycle_game():
 
 func _on_lyric_entered(text: String):
 	_create_lyric()
+
+# GRAPHICS > Lyrics (Chromia): the same lyric as Extra Objects > Lyrics makes,
+# at the song's position
+func _on_gfx_lyric_entered(_text: String):
+	_create_gfx_lyric()
+
+func _create_gfx_lyric():
+	if gfx_lyric_box == null:
+		return
+	var map = ed.map
+	var ms: float = ed.closest_beat(ed.current_time())
+	ms = int(clamp(ms if ms >= 0 else ed.current_time(), 0, ed.total_time()))
+	map.special_objects.add_objects("ADD LYRIC", SSQEMap.lyric(int(ms), gfx_lyric_box.text, lyric_fade_in, lyric_fade_out))
+	if ed.s.autoAdvance:
+		ed.advance()
+	gfx_lyric_box.text = ""
+	lyric_fade_in = false
+	lyric_fade_out = false
+	_apply_visibility()
+
+# the lyrics as objects on the track (Extra Objects > Lyrics), to move, change or delete them
+func _lyrics_on_timeline():
+	if SSQEMap.ss(ed.s.modchartGame) != "Novastra":
+		ed.s.modchartGame = "Chromia"
+	_set_special(true)
+	if special_mode != "Lyrics":
+		_on_special_mode("Lyrics")
 	lyric_box.grab_focus()
+
+func _has_lyrics() -> bool:
+	if ed == null or ed.map == null:
+		return false
+	for o in ed.map.special_objects.items:
+		if o.id == 15:
+			return true
+	return false
 
 func _create_lyric():
 	var map = ed.map
