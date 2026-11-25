@@ -401,6 +401,8 @@ static func from_song(s):
 	m.props.mappers = pr.mapper
 	m.props.difficulty = _diff_name(pr.difficulty)
 	m.notes.sort()
+	# the map's lyrics and other Chromia extras (a .chrm, or a map saved from the editor)
+	load("res://scripts/content/ChromiaMap.gd").add_to_map(m, load("res://scripts/content/ChromiaMap.gd").read_song(s))
 	pr.store_map(m)
 	if not pr._write_audio(buf, ext):
 		return "Couldn't save the song into the editor folder."
@@ -467,6 +469,11 @@ func export_to_maps(m):
 	s.notes = notes
 	s.note_count = notes.size()
 	s.last_ms = notes[-1][2]
+	# Chromia's extras (lyrics...) go in the map file too (ChromiaMap.gd)
+	var CM = load("res://scripts/content/ChromiaMap.gd")
+	var extras: Dictionary = CM.extras_from_map(m)
+	if not extras.empty():
+		s.custom_data[CM.KEY] = CM.to_text(extras)
 	if has_cover:
 		var img = Image.new()
 		if img.load(cover_path()) == OK:

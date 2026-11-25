@@ -813,6 +813,11 @@ func _ready():
 	Rhythia.start_log("note spawner")
 	load("res://scripts/game/PlayTracker.gd").attach(self)
 	_tracker = get_node_or_null("PlayTracker")
+	# a Chromia map's lyrics (ChromiaMap.gd); checked first, so that nothing
+	# wrong with it can stop the rest of the song from being set up
+	var lyr = load("res://scripts/game/Lyrics.gd")
+	if lyr != null and lyr.can_instance():
+		lyr.attach(self)
 	load("res://scripts/ui/TouchIndicator.gd").for_replay() # shows the recorded fingers (also on computers)
 	var lobby_manager = get_node_or_null("/root/LobbyManager")
 	if lobby_manager != null:

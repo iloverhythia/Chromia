@@ -493,8 +493,8 @@ var _pending_cover := PoolByteArray()
 func _on_load_map():
 	Globals.file_sel.raise()
 	Globals.file_sel.open_file(self, "_on_map_file_picked", PoolStringArray([
-		"*.txt, *.sspm, *.osu, *.rhm, *.phxm, *.npk, *.nch, *.qem, *.qemz, *.phz, *.zip, *.json ; All maps",
-		"*.txt ; Map data (SSQE)", "*.qem, *.qemz ; SSQE maps", "*.sspm ; Sound Space maps", "*.rhm ; Rhythia maps",
+		"*.chrm, *.txt, *.sspm, *.osu, *.rhm, *.phxm, *.npk, *.nch, *.qem, *.qemz, *.phz, *.zip, *.json ; All maps",
+		"*.chrm ; Chromia maps", "*.txt ; Map data (SSQE)", "*.qem, *.qemz ; SSQE maps", "*.sspm ; Sound Space maps", "*.rhm ; Rhythia maps",
 		"*.phxm ; Rewrite maps", "*.npk, *.nch ; Novastra maps", "*.osu ; osu! maps", "*.phz ; Pulsus maps",
 		"*.zip, *.json ; Vulnus maps"]), false, _start_dir())
 
@@ -504,7 +504,7 @@ func _on_map_file_picked(files):
 		return
 	var ext := path.get_extension().to_lower()
 	match ext:
-		"sspm":
+		"sspm", "chrm":
 			var s = Song.new()
 			var r = s.load_from_sspm(path)
 			if r is String:

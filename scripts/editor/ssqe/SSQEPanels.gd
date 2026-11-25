@@ -14,8 +14,8 @@ const RM = SSQEMap.RenderMode
 const CAMERA_MODES = ["half lock", "full lock", "spin"]
 # the Playtest panel's speed ("Selected": the one picked in the game's mods; EditorPage.PLAYTEST_SPEEDS)
 const PLAYTEST_SPEEDS = ["Selected", "0.69x", "0.74x", "0.8x", "0.87x", "1x", "1.15x", "1.25x", "1.35x", "1.45x"]
-const EXPORT_TYPES = ["Nightly (SSPM)", "Rhythia (RHM)", "Rewrite (PHXM)", "Novastra (NPK)", "SSQE (QEMZ)"]
-const GAMES = ["Rhythia", "Novastra"]
+const EXPORT_TYPES = ["Nightly (SSPM)", "Rhythia (RHM)", "Rewrite (PHXM)", "Novastra (NPK)", "SSQE (QEMZ)", "Chromia (CHRM)"]
+const GAMES = ["Rhythia", "Novastra", "Chromia"]
 const LEFT_NAVS = ["OPTIONS", "TIMING", "PATTERNS", "PLAYTEST"]
 const RIGHT_NAVS = ["SNAPPING", "GRAPHICS", "EXPORT"]
 const TEXT = Color(0.898039, 0.94902, 1)
@@ -592,7 +592,8 @@ func build():
 	# ------------------------------------------------ extra objects
 	g = "special"
 	for it in [["Beats", 0], ["Mines", 40], ["Glides", 80], ["Lyrics", 120], ["Fevers", 160], ["Modify Notes", 668]]:
-		special_buttons[it[0]] = _btn(10, 232 + it[1], 150, 30, it[0], 26, "_on_special_mode", [it[0]], "special_nova")
+		# (Lyrics also for Chromia: they show in its songs, saved in .chrm maps)
+		special_buttons[it[0]] = _btn(10, 232 + it[1], 150, 30, it[0], 26, "_on_special_mode", [it[0]], "special_lyrics" if it[0] == "Lyrics" else "special_nova")
 	lyric_box = _textbox(175, 232, 370, 30, 26, "lyric")
 	lyric_box.connect("text_entered", self, "_on_lyric_entered")
 	_check(175, 232 + 40, "Fade In", 26, "lyricFadeIn", "lyric", 545)
@@ -872,6 +873,8 @@ func _group_visible(g: String) -> bool:
 			return special_on
 		"special_nova":
 			return special_on and SSQEMap.ss(ed.s.modchartGame) == "Novastra"
+		"special_lyrics":
+			return special_on and SSQEMap.ss(ed.s.modchartGame) in ["Novastra", "Chromia"]
 		"lyric":
 			return special_on and special_mode == "Lyrics"
 		"notenav":
@@ -1289,6 +1292,8 @@ func _export_map():
 		ed.dialogs.export_nova()
 	elif t == EXPORT_TYPES[4]:
 		ed.dialogs.export_qemz()
+	elif t == EXPORT_TYPES[5]:
+		ed.dialogs.export_sspm("chrm") # (a .sspm with Chromia's extras: lyrics...; ChromiaMap.gd)
 
 func _replace_id():
 	var id := replace_id_box.text.strip_edges()

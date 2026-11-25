@@ -1034,9 +1034,13 @@ func _x_finish():
 		if not cover.empty():
 			entries.append(["cover", cover])
 		bytes = F.zip_files(entries)
+	elif format == "chrm":
+		# a Chromia map: the .sspm with the lyrics and other extras in it (ChromiaMap.gd)
+		var CM = load("res://scripts/content/ChromiaMap.gd")
+		bytes = F.write_sspm(map, meta, audio, cover, CM.to_text(CM.extras_from_map(map)))
 	else:
 		bytes = F.write_sspm(map, meta, audio, cover)
-	_save_bytes(bytes, "%s.%s" % [id, format], "*.%s ; %s map" % [format, format.to_upper()])
+	_save_bytes(bytes, "%s.%s" % [id, format], "*.chrm ; Chromia map" if format == "chrm" else "*.%s ; %s map" % [format, format.to_upper()])
 	close("export_" + format)
 
 # ================================================================== Export PHXM (Rewrite)
