@@ -4186,6 +4186,26 @@ func _web_replay_light():
 # just before it's drawn (NoteManager._process), and nothing holds the frame
 # back: VSync, the FPS cap and the Windows compositor's extra frame are off
 # for the song. Your VSync and FPS cap come back after it.
+# The frames are held to four times the screen's refresh rate (240 to 1,000
+# a second; or your Max FPS when that is lower), not left unlimited: with no
+# limit at all a fast PC made 1,400 frames a second, the graphics card was
+# full, and Windows (and anything recording) couldn't get the frames to the
+# screen: the picture stood still for a tenth of a second or more, again and
+# again in busy parts of a map, while the game itself ran on. Four frames for
+# every one the screen shows still has each one start from your newest mouse
+# movement, a quarter of a screen refresh at most.
+func no_delay_fps() -> int:
+	var hz := 60.0
+	if OS.has_method("get_screen_refresh_rate"):
+		var r := float(OS.call("get_screen_refresh_rate"))
+		if r >= 30.0 and r <= 1000.0:
+			hz = r
+	var cap := int(clamp(round(hz * 4.0), 240.0, 1000.0))
+	var own: int = user_fps_cap()
+	if own > 0 and own < cap:
+		cap = own
+	return cap
+
 func no_delay_active() -> bool:
 	return pc_no_delay and not legacy_mouse and not vr and not device("mobile") and not OS.has_feature("JavaScript") and not replaying
 
@@ -4196,7 +4216,7 @@ func no_delay_begin():
 	Input.use_accumulated_input = false
 	OS.vsync_enabled = false
 	OS.vsync_via_compositor = false
-	Engine.target_fps = 0
+	Engine.target_fps = no_delay_fps()
 
 func no_delay_end():
 	if not has_meta("no_delay_saved"):

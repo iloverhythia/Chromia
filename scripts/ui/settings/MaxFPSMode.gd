@@ -27,7 +27,7 @@ func _add_no_delay():
 	cb.set_script(load("res://scripts/ui/settings/SettingsCheckbox.gd"))
 	cb.target = "pc_no_delay"
 	cb.text = "No Delay (Experimental)"
-	cb.hint_tooltip = "Removes mouse movement delay in maps: every mouse movement is used as soon as it comes in, even while a frame is being made, and VSync, the FPS cap and the Windows compositor's extra frame are off while you play (yours come back after the map). PC only. Uses more GPU."
+	cb.hint_tooltip = "Removes mouse movement delay in maps: every mouse movement is used as soon as it comes in, even while a frame is being made, and VSync and the Windows compositor's extra frame are off while you play (yours come back after the map). Frames are held to four times your screen's refresh rate (240 to 1,000 a second, or your Max FPS if lower), so the graphics card isn't so full that the picture stutters. PC only. Uses more GPU."
 	p.add_child(cb)
 	p.move_child(cb, get_index() + 1)
 	cb.pressed = Rhythia.pc_no_delay
