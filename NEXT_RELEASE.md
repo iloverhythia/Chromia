@@ -31,3 +31,4 @@ in scripts/Savia.gd and empties this list.
 - Settings (old look, and Sound Space Mode): right-click a tab to hide it (the same menu shows hidden ones again), and Collapsible Groups gives each group a title you click to fold it
 - Pressing Enter in the 360 speed box now leaves the box
 - Speed keys (Ctrl+S in the map list): Space or the retry key no longer types into the map search, even when you were typing in it before
+- Browser version: maps from hosts that don't allow browser downloads (most Rhythia maps) now download, through the Chromia server, instead of saying "This map's host doesn't allow downloads from the browser"

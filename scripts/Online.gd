@@ -125,6 +125,15 @@ func test_connection():
 	var res = ctest_hr.request(ProjectSettings.get_setting("application/networking/test_url"))
 	if res != OK: emit_signal("_connection_test", false)
 
+const MAPDL_PROXY := "https://chromia.lol/savia-map-dl?url="
+# hosts a browser may download maps from directly (they allow it: CORS)
+const WEB_CORS_OK := ["https://raw.githubusercontent.com/", "https://static.rhythia.com/", "https://savvyscripter-gh.github.io/"]
+func _web_can_fetch(url: String) -> bool:
+	for h in WEB_CORS_OK:
+		if url.begins_with(h):
+			return true
+	return false
+
 func _mapdl_handler(id: String, map: Song):
 	print("[MapDB Download] Starting download of map %s" % map.id)
 	if not ProjectSettings.get_setting("application/networking/enabled"):
@@ -132,8 +141,11 @@ func _mapdl_handler(id: String, map: Song):
 	if mapdb_apis.empty():
 		mapdl_error(id, "MapDB APIs Invalid", map); return
 	print(id)
-	if is_web() and map.web_blocked:
-		mapdl_error(id, "This map's host doesn't allow downloads from the browser. Get it in the desktop client, or look for it in the Map Browser.", map); return
+	# (browser version: a host that doesn't let browsers download from it, like
+	# cdn.rhythia.net, is gone through the Chromia server: /savia-map-dl)
+	var url: String = map.download_url
+	if is_web() and (map.web_blocked or not _web_can_fetch(url)):
+		url = MAPDL_PROXY + url.percent_encode()
 
 	# (No "can the internet be reached" check first. It asked google.com, with
 	# five seconds to answer: where that site is blocked or slow, no map could
@@ -144,7 +156,7 @@ func _mapdl_handler(id: String, map: Song):
 		dir.remove(Globals.p("user://mapdl.sspm.part"))
 
 	mapdl_hr.download_file = Globals.p("user://mapdl.sspm.part")
-	var res = mapdl_hr.request(map.download_url)
+	var res = mapdl_hr.request(url)
 	if res != OK:
 		if res == ERR_INVALID_PARAMETER: mapdl_error(id, "Invalid Parameter", map)
 		elif res == ERR_CANT_CONNECT: mapdl_error(id, "Can't Connect", map)
