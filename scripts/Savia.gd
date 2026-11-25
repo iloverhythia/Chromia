@@ -289,6 +289,9 @@ func _restore_keybind(action: String, config: ConfigFile):
 
 var jp: int = 0
 var sp: int = 0
+# trophies: the ranked maps you're #1 on (the server's /savia-player-xp; scripts/ui/Trophy.gd)
+signal trophies_changed
+var trophies: int = 0
 var in_map: bool = false
 var discord_user: Dictionary = {}
 # Experimental "10x EXP" (level experience, PlayerLevel.gd; not ranked XP):
@@ -315,6 +318,7 @@ func load_profile():
 		return
 	jp = int(config.get_value("profile", "jp", 0))
 	sp = int(config.get_value("profile", "sp", 0))
+	trophies = int(config.get_value("profile", "trophies", 0))
 	var discord_id = String(config.get_value("profile", "discord_id", ""))
 	if discord_id != "":
 		discord_user = {
@@ -329,6 +333,7 @@ func save_jp():
 	config.load("user://settings.cfg")
 	config.set_value("profile", "jp", jp)
 	config.set_value("profile", "sp", sp)
+	config.set_value("profile", "trophies", trophies)
 	config.save("user://settings.cfg")
 
 const REPORT_COMPLETION_URL = "https://chromia.lol/savia-report-completion"
@@ -460,6 +465,10 @@ func _on_player_xp_received(result, response_code, headers, body, http_request: 
 		return
 	jp = int(json_result.result.get("xp", jp))
 	sp = int(json_result.result.get("sp", sp))
+	var t := int(json_result.result.get("trophies", trophies))
+	if t != trophies:
+		trophies = t
+		emit_signal("trophies_changed")
 	save_jp()
 
 func current_speed_multiplier() -> float:
@@ -2845,6 +2854,11 @@ func vr_res_high() -> bool:
 func vr_foveation_now() -> int:
 	if vr_foveation >= 0:
 		return int(clamp(vr_foveation, 0, 3))
+	# (Auto on the Meta Quest: High, dynamic, at every render resolution. The
+	# headset only lowers the edges' resolution as far as a frame needs to be
+	# on time, so it costs nothing when there's room: store review, a steady 72)
+	if OS.has_feature("quest"):
+		return 3
 	if vr_scale_active > VR_FOV_HIGH_FROM:
 		return 3
 	return 2 if vr_scale_active > VR_MSAA_OFF_FROM else 1
@@ -2862,7 +2876,12 @@ func apply_vr_msaa():
 	if vp.msaa != want:
 		vp.msaa = want
 		trail("VR anti-aliasing %s (render resolution %d%%)" % ["on" if want != Viewport.MSAA_DISABLED else "off", int(round(vr_scale_active * 100.0))])
-var vr_simple_bg: bool = false # VR songs on the plain VOID background
+# VR songs on the plain VOID background. On by default on the Meta Quest (a
+# new install; a saved setting is kept): with the "Best frame rate" button's
+# other choices (foveation High, glow off, 100%), so the headset holds its
+# refresh rate in songs from the first start (the store's review measures a
+# first start, and saw the frame rate swing round 60: VRC.Quest.Performance.1)
+var vr_simple_bg: bool = OS.has_feature("quest")
 
 # --- Passthrough (Meta Quest; Settings > VR > Graphics) -----------------------------
 # Your real room is the background, in the menu and in songs: the headset's

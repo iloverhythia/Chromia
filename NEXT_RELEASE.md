@@ -37,3 +37,4 @@ in scripts/Savia.gd and empties this list.
 - Save video (Game view): the song is no longer nearly silent after a pause in the play (it kept the volume it had the moment the music came back in)
 - After unpausing, the music fades back in to your Music Volume instead of full volume (and in replays it no longer keeps getting louder afterwards)
 - Watching someone's replay from the leaderboard plays their own hit and miss sounds (the ones they play with), and yours again after
+- Meta Quest: a new install starts with the fastest graphics in songs (the same as Settings > VR > "Best frame rate": foveated rendering High, the plain background in songs, glow off), so the headset holds its 72 Hz from the first song. Foveated rendering on Auto is now High on the Quest (dynamic: it only lowers the edges when a frame needs it). Frame Smoothing's rate drop never goes below 72 Hz in a headset. Your saved settings are kept

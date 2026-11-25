@@ -22,6 +22,7 @@ const LATE_TOO_MANY := 0.04 # share of a song's frames that came late: go down a
 const LATE_CLEAN := 0.005 # under this the song counts as clean
 const MIN_FRAMES := 1200 # (shorter songs say too little)
 const CLEAN_SONGS := 5 # clean songs before the next rate up is tried
+const MIN_VR_HZ := 72.0 # (the lowest rate a headset is put at)
 
 static func on() -> bool:
 	return bool(Rhythia.get("frame_smoothing"))
@@ -160,7 +161,9 @@ static func song_done(frames: int, late: int, secs: float, hz: float):
 	if share > LATE_TOO_MANY:
 		var lower := 0.0
 		for r in list:
-			if float(r) < hz - 0.5:
+			# (never under 72 Hz in a headset: the Quest's 60 Hz is for video
+			# apps, and the store wants games at 72 or more)
+			if float(r) < hz - 0.5 and float(r) >= MIN_VR_HZ - 0.5:
 				lower = float(r)
 		if st.trial:
 			st.need = int(min(int(st.need) * 2, 40)) # (the try didn't hold: wait longer)
