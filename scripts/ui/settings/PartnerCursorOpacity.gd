@@ -10,7 +10,7 @@ func upd(_v = null):
 func _ready():
 	min_value = 0
 	max_value = 100
-	step = 5
+	step = 1 # (any whole percent: 5 snapped what you typed)
 	suffix = "%"
 	allow_greater = false
 	value = round(Rhythia.partner_cursor_opacity * 100.0)
