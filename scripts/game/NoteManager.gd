@@ -1515,8 +1515,12 @@ func _process(delta: float):
 				drift = Vector2(m2.transform.origin.x, m2.transform.origin.y)
 			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0, drift)
 
-	if _coop and active and notes_loaded:
+	if _coop and active and notes_loaded and not (Grid != null and Grid.spectating):
 		_coop_frame(delta)
+	elif _coop and _coop_cursor != null and is_instance_valid(_coop_cursor):
+		# (you failed and now watch your partner: your cursor shows theirs, so
+		# their blue one, which stopped following them, goes)
+		_coop_cursor.visible = false
 	if active and notes_loaded:
 		if not notes_loaded: return
 		can_skip = ((next_ms - prev_ms) > 5000) and (next_ms >= max(ms + (3000 * speed_multi), 1100 * speed_multi)) and (_mm_visible <= 1)
