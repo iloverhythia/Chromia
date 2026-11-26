@@ -1521,6 +1521,64 @@ func _reload_spectate(theirs: bool):
 	_update_view_button()
 	lobby_manager.reload_into_spectate(spectate_peer_id)
 
+# --- a leaderboard replay: their settings or yours (ScoreHistoryPanel) ----------------
+# Like spectating: a button at the top left and Tab switch, and the replay
+# starts again the other way.
+var _board_view_button: Button = null
+var _board_switching := false
+func _board_replay_ui():
+	if not Rhythia.replaying or not Rhythia.has_meta("board_replay") or Rhythia.render_fps > 0:
+		return
+	var info: Dictionary = Rhythia.get_meta("board_replay")
+	var box := VBoxContainer.new()
+	box.add_constant_override("separation", 6)
+	_top_left().add_child(box)
+	_top_left().move_child(box, 0)
+	_board_view_button = Button.new()
+	_board_view_button.focus_mode = Control.FOCUS_NONE
+	var f := DynamicFont.new()
+	f.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	f.size = 16
+	f.add_fallback(load("res://assets/font/Noto_Sans_JP/NotoSansJP-Medium.otf"))
+	_board_view_button.add_font_override("font", f)
+	_board_view_button.connect("pressed", self, "toggle_board_replay_view")
+	box.add_child(_board_view_button)
+	var spec = _spec_settings()
+	var theirs: bool = spec.active() and spec.applied_for() == -2
+	var key: String = "trigger" if Rhythia.vr else "Tab"
+	var st = info.get("settings", {})
+	if not (st is Dictionary) or st.empty():
+		_board_view_button.text = "%s's settings aren't available: yours" % String(info.get("who", "Their"))
+		_board_view_button.disabled = true
+	elif theirs:
+		_board_view_button.text = "%s's settings  |  Use yours (%s)" % [String(info.get("who", "Their")), key]
+	else:
+		_board_view_button.text = "Your settings  |  Use %s's (%s)" % [String(info.get("who", "their")), key]
+
+func toggle_board_replay_view():
+	if _board_switching or not Rhythia.replaying or not Rhythia.has_meta("board_replay"):
+		return
+	var info: Dictionary = Rhythia.get_meta("board_replay")
+	var settings: Dictionary = info.get("settings", {})
+	if settings.empty():
+		return
+	_board_switching = true
+	var spec = _spec_settings()
+	var theirs: bool = spec.active() and spec.applied_for() == -2
+	spec.set_prefer_theirs(not theirs)
+	if _board_view_button != null:
+		_board_view_button.text = "Loading %s settings..." % ("your" if theirs else "their")
+		_board_view_button.disabled = true
+	if theirs:
+		spec.restore()
+	else:
+		yield(load("res://scripts/ui/menu/ScoreHistoryPanel.gd").board_put_on(self, settings), "completed")
+	# the replay again from the start, the other way
+	get_tree().paused = false
+	Rhythia.replay = Replay.new()
+	Rhythia.replaying = true
+	get_tree().change_scene("res://scenes/loaders/songload.tscn")
+
 func toggle_spectate_view():
 	if not spectating or _spec_reloading:
 		return
@@ -1534,6 +1592,10 @@ func toggle_spectate_view():
 	_check_view_settings()
 
 func _input(event):
+	if _board_view_button != null and event is InputEventKey and event.pressed and not event.echo and event.scancode == KEY_TAB:
+		toggle_board_replay_view()
+		get_tree().set_input_as_handled()
+		return
 	if not spectating:
 		return
 	if _spec_page != null and is_instance_valid(_spec_page) and _spec_page.is_open():
@@ -2193,6 +2255,7 @@ func _ready():
 			_cs_tint_target = _readable(cs.real_colors[0])
 			_cs_tint = _cs_tint_target
 	_create_spectators_banner()
+	_board_replay_ui()
 	var lobby_manager_for_spectators = _get_lobby_manager()
 	if lobby_manager_for_spectators != null and not lobby_manager_for_spectators.is_connected("lobby_state_changed", self, "_on_lobby_state_changed_for_spectators_list"):
 		lobby_manager_for_spectators.connect("lobby_state_changed", self, "_on_lobby_state_changed_for_spectators_list")

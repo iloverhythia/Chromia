@@ -1069,14 +1069,16 @@ func _on_board_replay(result: int, code: int, _headers, body: PoolByteArray, r: 
 		return
 	_their_sounds_then_play(number, path, who, id)
 
-# Their own hit and miss sounds for the replay (the settings they saved with
-# their passes: the same as the website's Game view), then it plays. Yours are
-# back in the menu (menuload: SpectateSettings.restore clears these).
+# The player's own settings for the replay (the ones they saved with their
+# passes: what the website's Game view and a spectator see): their camera,
+# notes, cursor, HUD, background and hit / miss sounds, put on like when you
+# spectate them (SpectateSettings.apply) when you prefer theirs (Tab in the
+# replay switches: HUD.toggle_board_replay_view). Kept in "board_replay" for
+# that; yours are back in the menu (menuload: SpectateSettings.restore).
 func _their_sounds_then_play(number: int, path: String, who: String, id: String):
 	var spec = load("res://scripts/SpectateSettings.gd")
-	for k in ["spec_hit_snd", "spec_miss_snd"]:
-		if Rhythia.has_meta(k):
-			Rhythia.remove_meta(k)
+	spec.restore()
+	var settings := {}
 	if number > 0:
 		var req := HTTPRequest.new()
 		req.timeout = 6
@@ -1084,42 +1086,42 @@ func _their_sounds_then_play(number: int, path: String, who: String, id: String)
 		if req.request(SITE + "/savia-public/api/player/%d/settings" % number) == OK:
 			var res = yield(req, "request_completed") # [result, code, headers, body]
 			var j: JSONParseResult = JSON.parse(PoolByteArray(res[3]).get_string_from_utf8()) if int(res[0]) == HTTPRequest.RESULT_SUCCESS and int(res[1]) == 200 else null
-			if j != null and j.error == OK and j.result is Dictionary and not j.result.empty():
-				var want := []
-				for kind in ["hit", "miss"]:
-					var sp: Array = spec.sound_file_parts(String(j.result.get(kind + "_sound_file", "")))
-					if sp.empty():
-						Rhythia.set_meta("spec_%s_snd" % kind, "res://none") # (they use the game's own: the default)
-					else:
-						want.append([kind, sp[0], sp[1]])
-				var lm = get_node_or_null("/root/LobbyManager")
-				if lm != null and lm.has_method("_queue_asset_download"):
-					for w in want:
-						lm._queue_asset_download("sound", w[1], w[2])
-				# (a few seconds at most for them to come)
-				var waited := 0.0
-				while waited < 4.0:
-					var all_here := true
-					for w in want:
-						if spec.cached_asset(w[1], w[2]) == "":
-							all_here = false
-					if all_here or not is_inside_tree():
-						break
-					yield(get_tree().create_timer(0.2), "timeout")
-					waited += 0.2
-				for w in want:
-					var p: String = spec.cached_asset(w[1], w[2])
-					if p != "":
-						Rhythia.set_meta("spec_%s_snd" % w[0], p)
+			if j != null and j.error == OK and j.result is Dictionary:
+				settings = j.result
 		req.queue_free()
+	Rhythia.set_meta("board_replay", {"settings": settings, "who": who})
+	if not settings.empty() and spec.prefer_theirs():
+		yield(board_put_on(self, settings), "completed")
+	else:
+		yield(get_tree(), "idle_frame")
 	# (another map was picked, or the menu was left, meanwhile)
 	var song = Rhythia.selected_song
 	if not is_inside_tree() or song == null or String(song.id) != id or Rhythia.in_map:
-		for k in ["spec_hit_snd", "spec_miss_snd"]:
-			if Rhythia.has_meta(k):
-				Rhythia.remove_meta(k)
+		if not Rhythia.in_map:
+			spec.restore() # (yours back: no replay after all)
+			if Rhythia.has_meta("board_replay"):
+				Rhythia.remove_meta("board_replay")
 		return
 	var run = Rhythia.menu_node("Main/Maps/Results/Results/RS/H1/Info/Run")
 	if run and run.has_method("files_dropped"):
 		Rhythia.trail("leaderboard replay: %s on %s" % [who, id])
 		run.files_dropped(PoolStringArray([path]), 0)
+
+# their settings on (their files downloaded first: a few seconds at most)
+static func board_put_on(node: Node, settings: Dictionary):
+	var spec = load("res://scripts/SpectateSettings.gd")
+	var lm = node.get_node_or_null("/root/LobbyManager")
+	yield(node.get_tree(), "idle_frame") # (always waits once: the caller yields on it)
+	if lm != null and lm.has_method("fetch_spectate_assets"):
+		lm.fetch_spectate_assets(settings)
+		var waited := 0.0
+		while waited < 5.0 and not lm.spectate_assets_ready():
+			yield(node.get_tree().create_timer(0.2), "timeout")
+			waited += 0.2
+	spec.apply(settings, BOARD_PEER)
+	# (they use the game's own sounds: the default ones, not yours)
+	for kind in ["hit", "miss"]:
+		if spec.sound_file_parts(String(settings.get(kind + "_sound_file", ""))).empty():
+			Rhythia.set_meta("spec_%s_snd" % kind, "res://none")
+
+const BOARD_PEER := -2 # (SpectateSettings.applied_for: a leaderboard replay's player)
