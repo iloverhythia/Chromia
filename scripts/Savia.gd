@@ -2337,6 +2337,11 @@ func session_report(lines: int = 400) -> String:
 	var eng := _engine_log_tail(Globals.p("user://logs/godot.log"), 80)
 	if eng != "":
 		out += "\n--- engine log (last lines) ---\n" + eng
+	# (the Performance Logger's own file, when it's on: PerfLog.gd)
+	if perf_logger:
+		var perf: String = load("res://scripts/PerfLog.gd").tail(150)
+		if perf != "":
+			out += "\n--- performance log (last lines) ---\n" + perf
 	return load("res://scripts/CrashSend.gd").scrub(out)
 
 # The engine's own log of the last session (errors and warnings from Godot,
@@ -4240,6 +4245,17 @@ func map_rp_shown() -> bool:
 	var lm = get_node_or_null("/root/LobbyManager")
 	return lm != null and bool(lm.get("servers_offline"))
 var pc_no_delay: bool = false # Experimental: No Delay (PC mouse), no_delay_begin / no_delay_end
+# Settings > Video & Audio > Performance Logger (scripts/PerfLog.gd): every
+# frame timed, hitches written down with what the game was doing
+var perf_logger: bool = false setget _set_perf_logger
+func _set_perf_logger(on: bool):
+	perf_logger = on
+	if not is_inside_tree():
+		return
+	if on:
+		load("res://scripts/PerfLog.gd").start(get_tree())
+	else:
+		load("res://scripts/PerfLog.gd").stop(get_tree())
 # Experimental: autoplay moves the cursor like a person (scripts/cursordance/Human.gd)
 var realistic_autoplay: bool = false
 
@@ -5373,6 +5389,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			if max_fps_mode and not vr: call_deferred("apply_max_fps_mode")
 		if data.has("pc_no_delay"):
 			pc_no_delay = bool(data.pc_no_delay)
+		if data.has("perf_logger"):
+			self.perf_logger = bool(data.perf_logger)
 		if data.has("render_res") and RENDER_RES_CHOICES.has(int(data.render_res)):
 			render_res = int(data.render_res)
 		call_deferred("apply_render_res")
@@ -6361,6 +6379,7 @@ func _write_settings_file(saveFile: String):
 			custombg_color = custombg_color.to_html(false),
 			max_fps_mode = max_fps_mode,
 			pc_no_delay = pc_no_delay,
+			perf_logger = perf_logger,
 			render_res = render_res,
 			legacy_mouse = legacy_mouse,
 			show_map_rp = show_map_rp,

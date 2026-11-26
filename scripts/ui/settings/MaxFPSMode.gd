@@ -14,6 +14,7 @@ func _pressed():
 func _ready():
 	pressed = Rhythia.max_fps_mode
 	call_deferred("_add_no_delay")
+	call_deferred("_add_perf_logger")
 	# Render Resolution, under these (scripts/ui/settings/RenderRes.gd)
 	call_deferred("_add_render_res")
 
@@ -50,3 +51,20 @@ func _add_menu_limit():
 	p.add_child(cb)
 	p.move_child(cb, get_index() + 1)
 	cb.pressed = Rhythia.menu_fps_limit
+
+# Performance Logger (scripts/PerfLog.gd), under No Delay: every frame timed,
+# each stutter written down with what the game was doing at the time
+func _add_perf_logger():
+	var p = get_parent()
+	if p == null or p.has_node("PerfLogger"):
+		return
+	var cb: CheckBox = duplicate(0)
+	cb.name = "PerfLogger"
+	cb.set_script(load("res://scripts/ui/settings/SettingsCheckbox.gd"))
+	cb.target = "perf_logger"
+	cb.text = "Performance Logger"
+	cb.hint_tooltip = "For lag and stutters: times every frame and writes down each stutter with what the game was doing (its scripts, drawing, the graphics driver or another program), plus a summary every 5 seconds, in logs/performance.txt in the game's folder. After a stutter, Settings > Crash Reports > \"Send this session's log\" sends it to the developers. Costs almost nothing; turn it off when you're done."
+	p.add_child(cb)
+	var after = p.get_node_or_null("PCNoDelay")
+	p.move_child(cb, (after.get_index() if after != null else get_index()) + 1)
+	cb.pressed = Rhythia.perf_logger
