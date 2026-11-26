@@ -501,10 +501,10 @@ func reposition_notes(force: bool = false, rerun_start: int = -1):
 				get_parent().miss(notes[i][3])
 				prev_ms = notems
 		elif ms >= notems and notes[i][2] == Globals.NSTATE_ACTIVE:
-			# (co-op, any note: a hit only in its window as always, but a miss
+			# (co-op, Any note: a hit only in its window as always, but a miss
 			# waits a moment for your partner's hit to arrive)
 			var result = (Rhythia.visual_mode or note_check_collision(i)) and (not _coop or ms <= notems + hit_window)
-			var miss_at: float = notems + hit_window + (COOP_ANY_GRACE_MS if _coop else 0.0)
+			var miss_at: float = notems + hit_window + (COOP_ANY_GRACE_MS if _coop and not _coop_split else 0.0)
 
 			if not result and (ms > miss_at or pause_state == -1):
 				var spectating_now = (Grid != null and Grid.spectating) or get_parent().ending
