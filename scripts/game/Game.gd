@@ -962,7 +962,10 @@ func _ready():
 	# someone else's settings are on but this isn't spectating (the watch ended
 	# while this song was loading): never play it with their settings
 	var spec = load("res://scripts/SpectateSettings.gd")
-	if not is_late_join and spec.active() and (lobby_manager == null or not lobby_manager.lobby_active):
+	# (a leaderboard replay watched with the player's settings is fine:
+	# ScoreHistoryPanel puts them on, "board_replay")
+	var board_replay: bool = Rhythia.replaying and Rhythia.has_meta("board_replay")
+	if not is_late_join and not board_replay and spec.active() and (lobby_manager == null or not lobby_manager.lobby_active):
 		Rhythia.trail("watch ended while its song loaded: back to the menu")
 		spec.restore()
 		black_fade_target = true
