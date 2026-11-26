@@ -173,8 +173,8 @@ func _build_lobby_ui():
 	lobby_coop_mode.theme = ui_theme
 	lobby_coop_mode.add_item("Any note: both cursors go anywhere")
 	lobby_coop_mode.add_item("Left / right: each keeps to a half of the grid")
-	lobby_coop_mode.add_item("Take turns: every other note is yours")
-	lobby_coop_mode.hint_tooltip = "How you share the notes. You both see every note. Any note: either cursor can hit any note. Left / right: your cursor can't cross the middle line (the middle column is for both). Take turns: every other note is yours, your partner's are a little faded."
+	lobby_coop_mode.add_item("Take turns: every other note is yours (you only see yours)")
+	lobby_coop_mode.hint_tooltip = "How you share the notes. Any note: you both see every note and either cursor can hit any of them. Left / right: you both see every note, and your cursor can't cross the middle line (the middle column is for both). Take turns: every other note is yours, and you only see yours."
 	lobby_coop_mode.visible = false
 	lobby_setup_box.add_child(lobby_coop_mode)
 	lobby_coop_checkbox.connect("toggled", self, "_on_lobby_coop_toggled")

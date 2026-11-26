@@ -158,6 +158,8 @@ func note_reposition(i: int):
 	var state: int = nd[2]
 	var col: Color = nd[3]
 	var chaos_offset: Vector2 = nd[4]
+	# (co-op, Take turns: your partner's notes aren't shown at all)
+	var theirs: bool = _coop_split and i < _coop_mine.size() and _coop_mine[i] == 0
 	var nt: Transform = nd[5]
 	var slot: int = i - current_note
 
@@ -181,7 +183,7 @@ func note_reposition(i: int):
 
 		if _f_spawn_effect:
 			var spawn_effect_t = 1 - clamp(4 * (_f_spawn_dist - current_dist) / _f_spawn_dist, 0, 1)
-			_mm_spawn.set_instance_color(slot, col)
+			_mm_spawn.set_instance_color(slot, Color(0, 0, 0, 0) if theirs else col)
 			if spawn_effect_t != 0:
 				var effect_transform = Transform.IDENTITY
 				effect_transform.origin = nt.origin
@@ -238,8 +240,8 @@ func note_reposition(i: int):
 			alpha = lerp(alpha_lut[li], alpha_lut[int(min(li + 1, 64))], lx - li)
 
 		_mm_notes.set_instance_transform(slot, nt)
-		if _coop_split and i < _coop_mine.size() and _coop_mine[i] == 0:
-			alpha *= COOP_THEIRS_ALPHA # (co-op: your partner's note, see-through)
+		if theirs:
+			alpha = 0.0 # (co-op, Take turns: your partner's note, hidden)
 		_mm_notes.set_instance_color(slot, Color(col.r, col.g, col.b, col.a * alpha))
 		if asq:
 			var sc = (linstep(0, _f_spawn_dist, current_dist) + 0.6) * 0.4
@@ -251,7 +253,7 @@ func note_reposition(i: int):
 				at.origin.z = 0
 
 			_mm_asq.set_instance_transform(slot, at)
-			if _f_ghost:
+			if _f_ghost or theirs:
 				_mm_asq.set_instance_color(slot, Color(1, 1, 1, 1 * alpha))
 			else:
 				_mm_asq.set_instance_color(slot, Color(1, 1, 1, pow(linstep(_f_spawn_dist, 0, current_dist), 1.7)))
@@ -821,7 +823,6 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 # song time they were at: drawn at yours, less COOP_CURSOR_LAG_MS).
 const COOP_ANY_GRACE_MS := 220.0
 const COOP_WAIT_MS := 1500.0
-const COOP_THEIRS_ALPHA := 0.6 # (Take turns: your partner's notes a little faded, not see-through)
 const COOP_CURSOR_LAG_MS := 120.0
 var _coop := false
 var _coop_split := false
