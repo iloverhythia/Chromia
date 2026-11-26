@@ -253,6 +253,12 @@ func _run_render(t: String):
 	replay_path = "user://web_replay.sspre"
 	if not _save(replay_path, rep):
 		return _fail("The replay couldn't be saved in the browser.")
+	# a co-op play: the partner's cursor and notes (NoteManager._coop_replay_setup)
+	var coop = _json(yield(_fetch("/savia-render/%s/coop" % t), "completed"))
+	if coop is Dictionary and coop.get("pts", null) is Array:
+		Rhythia.set_meta("replay_coop", coop)
+	elif Rhythia.has_meta("replay_coop"):
+		Rhythia.remove_meta("replay_coop")
 	_status.text = "Putting on their settings..."
 	var settings = _json(yield(_fetch("/savia-render/%s/settings" % t), "completed"))
 	if settings is Dictionary and not settings.empty():

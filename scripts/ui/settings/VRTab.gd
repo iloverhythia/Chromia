@@ -173,7 +173,7 @@ func _ready():
 	_label("Graphics", f_title, ACCENT)
 	_label("Foveated rendering draws the edges of your view (blurry in the lenses anyway) at lower resolution: a big speed-up on the Meta Quest. Higher refresh rates look smoother but cost more. Render resolution applies the next time VR starts; above 140% is sharper but much heavier (200% draws four times the pixels), so lower it again if songs stutter. Glow (bloom) is a full-screen effect per eye; it's off on the Quest unless you turn it on.", f_body, DIM, true)
 	if OS.has_feature("quest"):
-		_fov_pick = _option_row("Foveated rendering", [["Auto (High, dynamic)" if OS.has_feature("quest") else "Auto (more as the render resolution goes up)", -1], ["Off", 0], ["Low", 1], ["Medium", 2], ["High", 3]], "_on_foveation")
+		_fov_pick = _option_row("Foveated rendering", [["Auto (more as the render resolution goes up)", -1], ["Off", 0], ["Low", 1], ["Medium", 2], ["High", 3]], "_on_foveation")
 		var rates: Array = load("res://vr/VRPlayer.gd").refresh_rates()
 		var items := [["Headset default", 0.0]]
 		var has_240 := false

@@ -11,3 +11,7 @@ func _process(_d):
 func _ready():
 	value = Rhythia.half_ghost_strength * 100.0
 	connect("changed", self, "upd")
+	call_deferred("_add_time_row") # (Half Ghost Start under it: HalfGhostTime.gd)
+
+func _add_time_row():
+	load("res://scripts/ui/settings/HalfGhostTime.gd").add_next_to(get_parent())

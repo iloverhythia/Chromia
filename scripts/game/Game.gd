@@ -134,13 +134,15 @@ func end(end_type: int):
 	Rhythia.song_end_position = min($Spawn.ms, last_ms)
 	Rhythia.song_end_length = last_ms
 	Rhythia.song_end_type = end_type
+	Rhythia.song_end_coop = Rhythia.coop_now # (a co-op play: never your best, do_pb_check_and_set)
 	Rhythia.song_end_combo = max_combo
 	print("song max combo: ", max_combo)
 	# (each step in the crash log: a crash after a song names the step)
 	if not Rhythia.replaying:
 		Rhythia.record_play_stats()
 	Rhythia.trail("song end: stats saved")
-	load("res://scripts/ScoreHistory.gd").record_attempt() # skips replays/autoplay itself
+	if not Rhythia.coop_now: # (a co-op play isn't one of yours)
+		load("res://scripts/ScoreHistory.gd").record_attempt() # skips replays/autoplay itself
 	var tracker = get_node_or_null("Spawn/PlayTracker")
 	if tracker != null:
 		tracker.finish(end_type) # Settings Generator data
@@ -172,10 +174,14 @@ func end(end_type: int):
 		else:
 			lobby_manager.notify_failed()
 			$Spawn.active = false
-			var first_peer_id = lobby_manager.get_first_place_peer_id()
-			var hud = get_node("HUD")
-			if hud != null and first_peer_id != -1:
-				hud.enter_spectate_mode(first_peer_id)
+			# (co-op: one health bar, so you fail together: your partner's game
+			# ends with yours (_on_lobby_player_failed) and the round's results
+			# come, no watching them)
+			if not (lobby_manager.has_method("coop_on") and lobby_manager.coop_on()):
+				var first_peer_id = lobby_manager.get_first_place_peer_id()
+				var hud = get_node("HUD")
+				if hud != null and first_peer_id != -1:
+					hud.enter_spectate_mode(first_peer_id)
 		get_tree().paused = false
 		return
 
@@ -751,7 +757,7 @@ func _recompute_score_state(all_notes: Array, resolved_count: int):
 		total_notes += 1
 		if all_notes[i][2] == Globals.NSTATE_HIT:
 			hits += 1
-			if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit, 0, max_energy)
+			if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit * (COOP_HEAL if Rhythia.coop_now else 1.0), 0, max_energy) # (co-op: half: COOP_HEAL)
 			combo += 1
 			if combo > max_combo: max_combo = combo
 			if combo_level != 8:
@@ -769,6 +775,11 @@ func _recompute_score_state(all_notes: Array, resolved_count: int):
 			if combo_level != 1: combo_level -= 1
 	update_hud()
 
+# co-op: health back per hit, of what a solo hit gives. Either of you hitting
+# a note is a hit, so only the notes you both miss cost health: with full
+# healing as well it hardly ever ran out
+const COOP_HEAL := 0.5
+
 func hit(col):
 	if ending: return
 	emit_signal("hit", col)
@@ -776,7 +787,7 @@ func hit(col):
 	total_notes += 1
 	# (the lobby gets your stats 4 times a second from _process, not on every
 	# note: one message per note, sent on to every player, lagged matches)
-	if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit, 0, max_energy)
+	if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit * (COOP_HEAL if Rhythia.coop_now else 1.0), 0, max_energy) # (co-op: half: COOP_HEAL)
 	combo += 1
 
 	if combo > max_combo: max_combo = combo
@@ -804,6 +815,16 @@ func hit(col):
 
 	score += points
 	return points
+
+# co-op: your partner failed (your shared health ran out on their screen
+# first): you fail with them
+func _on_lobby_player_failed(peer_id: int):
+	var lm = get_node_or_null("/root/LobbyManager")
+	if ending or lm == null or not lm.coop_on() or peer_id == lm.local_peer_id or Rhythia.replaying:
+		return
+	if not $Spawn.active or ($Spawn.Grid != null and $Spawn.Grid.spectating):
+		return
+	end(Globals.END_FAIL)
 
 func miss(col):
 	if ending: return
@@ -907,6 +928,9 @@ func _ready():
 	$Spawn.connect("timer_update", self, "update_timer")
 
 	$Spawn.connect("miss", self, "miss")
+	var lm_coop = get_node_or_null("/root/LobbyManager")
+	if lm_coop != null and lm_coop.has_method("coop_on") and lm_coop.coop_on() and not lm_coop.is_connected("player_failed", self, "_on_lobby_player_failed"):
+		lm_coop.connect("player_failed", self, "_on_lobby_player_failed")
 	Rhythia.start_log("loading map")
 	loadMapFile()
 	Rhythia.start_log("map loaded")
@@ -938,7 +962,10 @@ func _ready():
 	# someone else's settings are on but this isn't spectating (the watch ended
 	# while this song was loading): never play it with their settings
 	var spec = load("res://scripts/SpectateSettings.gd")
-	if not is_late_join and spec.active() and (lobby_manager == null or not lobby_manager.lobby_active):
+	# (a leaderboard replay watched with the player's settings is fine:
+	# ScoreHistoryPanel puts them on, "board_replay")
+	var board_replay: bool = Rhythia.replaying and Rhythia.has_meta("board_replay")
+	if not is_late_join and not board_replay and spec.active() and (lobby_manager == null or not lobby_manager.lobby_active):
 		Rhythia.trail("watch ended while its song loaded: back to the menu")
 		spec.restore()
 		black_fade_target = true

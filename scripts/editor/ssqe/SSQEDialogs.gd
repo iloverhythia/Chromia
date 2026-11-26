@@ -10,6 +10,7 @@ const F = preload("res://scripts/editor/ssqe/SSQEFormats.gd")
 const SSQESettings = preload("res://scripts/editor/ssqe/SSQESettings.gd")
 const SSQEImport = preload("res://scripts/editor/ssqe/SSQEImport.gd")
 const EditorProject = preload("res://scripts/editor/EditorProject.gd")
+const AutoLyrics = preload("res://scripts/editor/ssqe/AutoLyrics.gd")
 # (Chromia's colours; with a look made in Settings > Menu Customizer they follow
 # it, as the game's own pages do: OnlineStyle.gd, _apply_menu_look)
 var TEXT := Color(0.898039, 0.94902, 1)
@@ -878,6 +879,133 @@ func tap():
 # ================================================================== Bookmarks (BookmarksWindow)
 
 var _b: Dictionary = {}
+
+# ================================================================== auto lyrics
+# GRAPHICS > Lyrics > AUTO LYRICS: the song's timed lyrics from LRCLIB
+# (AutoLyrics.gd), searched by the map's song name, placed as Chromia lyrics.
+var _al: Dictionary = {}
+func auto_lyrics():
+	var X := 15.0
+	var Y := 15.0
+	var info := floating("autolyrics", "Auto Lyrics", 650, 450)
+	_al = {"info": info, "http": null}
+	a_label(info, "Song", X, Y, 50, 22)
+	_al.query = a_box(info, X + 55, Y, 440, 22, AutoLyrics.query_for(ed))
+	_al.query.placeholder_text = "Artist and song name"
+	_al.query.connect("text_entered", self, "_al_search_entered")
+	a_button(info, "Search", X + 505, Y, 115, 22, "_al_search")
+	_al.grid = a_grid(info, [["Artist", 190], ["Title", 250], ["Length", 70], ["Times", 70]], X, Y + 32, 620, 290)
+	_al.grid.select_mode = Tree.SELECT_SINGLE
+	_al.grid.connect("item_activated", self, "_al_add")
+	var O := Y + 332
+	a_label(info, "Offset (ms)", X, O, 90, 22)
+	_al.offset = a_box(info, X + 95, O, 80, 22, "0")
+	_al.offset.hint_tooltip = "Moves every lyric: + later, - earlier (when the map's song starts earlier or later than the original)"
+	_al.replace = a_check(info, "Replace the lyrics already there", true, X + 190, O, 300, 22)
+	a_button(info, "Add Lyrics", X + 505, O, 115, 22, "_al_add")
+	_al.status = a_label(info, "", X, O + 30, 620, 60)
+	_al.status.autowrap = true
+	_al.status.valign = Label.VALIGN_TOP
+	if _al.query.text != "":
+		_al_search()
+	else:
+		_al.status.text = "Type the artist and song name, then press Search."
+
+func _al_say(text: String):
+	if _al.has("status") and is_instance_valid(_al.status):
+		_al.status.text = text
+
+func _al_search_entered(_t: String):
+	_al_search()
+
+func _al_search():
+	var q: String = _al.query.text.strip_edges()
+	if q == "":
+		_al_say("Type the artist and song name first.")
+		return
+	if _al.http != null and is_instance_valid(_al.http):
+		_al.http.cancel_request()
+		_al.http.queue_free()
+	var h := HTTPRequest.new()
+	h.timeout = 20
+	_al.info.win.add_child(h) # (closing the window ends it)
+	_al.http = h
+	h.connect("request_completed", self, "_al_got", [h])
+	# (the browser version can't set its own User-Agent: LRCLIB lets it search without)
+	var headers := [] if OS.has_feature("JavaScript") else ["User-Agent: Chromia map editor (https://chromia.lol)"]
+	if h.request(AutoLyrics.SEARCH_URL % q.percent_encode(), headers) != OK:
+		_al_say("Couldn't search (no connection?).")
+		return
+	_al_say("Searching for \"%s\"..." % q)
+
+func _al_got(result: int, code: int, _headers, body: PoolByteArray, h):
+	if _al.get("http") != h or not is_instance_valid(_al.get("grid")):
+		return
+	h.queue_free()
+	_al.http = null
+	if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+		_al_say("Couldn't reach the lyrics library (%s). Try again in a moment." % (str(code) if code > 0 else "no connection"))
+		return
+	var j := JSON.parse(body.get_string_from_utf8())
+	var found: Array = AutoLyrics.ranked(j.result if j.error == OK else [], ed.total_time() / 1000.0)
+	var tree: Tree = _al.grid
+	tree.clear()
+	var root := tree.create_item()
+	for r in found.slice(0, 29) if found.size() > 30 else found:
+		var it := tree.create_item(root)
+		it.set_text(0, String(r.get("artistName", "")))
+		it.set_text(1, String(r.get("trackName", "")))
+		it.set_text(2, AutoLyrics.length_text(float(r.get("duration", 0.0))))
+		it.set_text(3, "yes" if String(r.get("syncedLyrics", "")) != "" else "no")
+		it.set_metadata(0, r)
+	if found.empty():
+		_al_say("No lyrics found. Try the song name another way (artist and title, without extras like \"official video\").")
+		return
+	root.get_children().select(0)
+	_al_say("Found %d. The best match is picked (nearest to your song's length, with times): press Add Lyrics, or double-click another one.%s" % [
+		found.size(), "" if String(found[0].get("syncedLyrics", "")) != "" else " None of them has times, so the lines would be spread evenly over the song."])
+
+func _al_add():
+	if not is_instance_valid(_al.get("grid")):
+		return
+	var it: TreeItem = _al.grid.get_selected()
+	if it == null:
+		_al_say("Pick a song in the list first.")
+		return
+	var r: Dictionary = it.get_metadata(0)
+	var total: float = ed.total_time()
+	var offset := int(_al.offset.text.strip_edges()) if _al.offset.text.strip_edges().is_valid_integer() else 0
+	var lines: Array
+	var synced := String(r.get("syncedLyrics", ""))
+	if synced != "":
+		lines = AutoLyrics.parse_lrc(synced, offset, total)
+	else:
+		lines = AutoLyrics.spread_plain(String(r.get("plainLyrics", "")), max(0, offset), int(total))
+	var lyr: Array = AutoLyrics.to_lyrics(lines, total)
+	if lyr.empty():
+		_al_say("That one has no lyrics that fit in your song (check the offset).")
+		return
+	var add := []
+	for l in lyr:
+		add.append(SSQEMap.lyric(int(l[0]), String(l[1]), false, false))
+	var old := []
+	if _al.replace.pressed:
+		for o in ed.map.special_objects.items:
+			if o.id == SSQEMap.OBJ_LYRIC:
+				old.append(o)
+	ed.map.special_objects.replace("AUTO LYRICS", old, add)
+	# (it's a Chromia map now: its lyrics tools stay in GRAPHICS, and it exports as one)
+	if ed.page != null and ed.page.project != null and "chromia" in ed.page.project and not ed.page.project.chromia:
+		ed.page.project.chromia = true
+		ed.page.project.save()
+	if ed.panels:
+		ed.panels._apply_visibility()
+	var lines_n := 0
+	for l in lyr:
+		if String(l[1]) != "":
+			lines_n += 1
+	_al_say("Added %d lines of \"%s\"%s. Ctrl+Z takes them away; ON TIMELINE shows them on the track to move or change." % [
+		lines_n, String(r.get("trackName", "")), " (replacing %d)" % old.size() if not old.empty() else ""])
 
 func bookmarks():
 	var X := 15.0

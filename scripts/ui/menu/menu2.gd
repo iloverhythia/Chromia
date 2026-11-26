@@ -55,6 +55,7 @@ var lobby_copy_code_button: Button
 var lobby_public_checkbox: CheckBox
 var lobby_coop_checkbox: CheckBox # co-op: two players, one play (LobbyManager coop_*)
 var lobby_coop_mode: OptionButton
+const LOBBY_COOP_MODES := ["any", "sides", "alternate"] # (the order in the list)
 var lobby_browse_button: Button
 var lobby_public_list_box: VBoxContainer
 var _lobby_public_scroll: ScrollContainer
@@ -165,15 +166,15 @@ func _build_lobby_ui():
 
 	lobby_coop_checkbox = CheckBox.new()
 	lobby_coop_checkbox.text = "Co-op (2 players)"
-	lobby_coop_checkbox.hint_tooltip = "Two players play the map together as one team: one score, one health bar. Co-op plays don't count for the leaderboards."
+	lobby_coop_checkbox.hint_tooltip = "Two players play the map together as one team: you both see every note and either of you can hit it, with one score and one health bar (you fail together). Co-op plays don't count for the leaderboards."
 	lobby_coop_checkbox.theme = ui_theme
 	lobby_setup_box.add_child(lobby_coop_checkbox)
 	lobby_coop_mode = OptionButton.new()
 	lobby_coop_mode.theme = ui_theme
-	lobby_coop_mode.add_item("Any note: either cursor hits any note")
-	lobby_coop_mode.add_item("Take turns: every other note is yours")
-	lobby_coop_mode.add_item("Left / right: each takes a side of the grid")
-	lobby_coop_mode.hint_tooltip = "How the notes are shared. In Take turns and Left / right, your partner's notes are see-through and theirs to hit."
+	lobby_coop_mode.add_item("Any note: both cursors go anywhere")
+	lobby_coop_mode.add_item("Left / right: each keeps to a half of the grid")
+	lobby_coop_mode.add_item("Take turns: every other note is yours (you only see yours)")
+	lobby_coop_mode.hint_tooltip = "How you share the notes. Any note: you both see every note and either cursor can hit any of them. Left / right: you both see every note, and your cursor can't cross the middle line (the middle column is for both). Take turns: every other note is yours, and you only see yours."
 	lobby_coop_mode.visible = false
 	lobby_setup_box.add_child(lobby_coop_mode)
 	lobby_coop_checkbox.connect("toggled", self, "_on_lobby_coop_toggled")
@@ -2458,7 +2459,7 @@ func _on_host_lobby_pressed():
 	var lobby_manager = _get_lobby_manager()
 	if lobby_manager != null:
 		var coop: bool = lobby_coop_checkbox != null and lobby_coop_checkbox.pressed
-		var coop_mode: String = ["any", "alternate", "sides"][int(clamp(lobby_coop_mode.selected, 0, 2))] if coop else "any"
+		var coop_mode: String = LOBBY_COOP_MODES[int(clamp(lobby_coop_mode.selected, 0, LOBBY_COOP_MODES.size() - 1))] if coop else "any"
 		lobby_manager.create_lobby(name_text, lobby_public_checkbox.pressed, coop, coop_mode)
 		lobby_status_label.text = "Connecting..."
 		lobby_panel.visible = true

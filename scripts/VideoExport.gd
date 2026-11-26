@@ -94,6 +94,13 @@ func _go():
 	var r2 = yield(_request("%s/%s/replay?%s" % [RENDER_URL, token, _auth()], HTTPClient.METHOD_POST, ["Content-Type: application/octet-stream"], rep), "completed")
 	if not (r2 is Dictionary) or not r2.get("ok", false):
 		return _fail(String(r2.get("error", "")) if r2 is Dictionary else "")
+	# a co-op play: your partner's cursor and the notes they hit (NoteManager's
+	# co-op track) go with it, for the Game view
+	var track = Rhythia.get_meta("coop_track") if Rhythia.has_meta("coop_track") else null
+	if track is Dictionary and String(track.get("replay_id", "")) != "" and _replay_file.get_file() == "%s.sspre" % String(track.replay_id):
+		var r4 = yield(_request("%s/%s/coop?%s" % [RENDER_URL, token, _auth()], HTTPClient.METHOD_POST, ["Content-Type: application/json"], JSON.print(track).to_utf8()), "completed")
+		if not (r4 is Dictionary) or not r4.get("ok", false):
+			Globals.notify(Globals.NOTIFY_WARN, "Your partner's cursor and notes couldn't be sent: the video shows only yours.", "Save video")
 	if r.get("need_map", false):
 		var f := File.new()
 		if f.open(map_file, File.READ) != OK or f.get_len() > MAX_MAP_BYTES:

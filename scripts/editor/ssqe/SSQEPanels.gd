@@ -594,7 +594,9 @@ func build():
 	_check(X + 205, Y + 498, "Fade Out", 26, "lyricFadeOut", g, 195)
 	_btn(X + 0, Y + 540, 195, 36, "CREATE", 26, "_create_gfx_lyric", [], g)
 	_btn(X + 205, Y + 540, 195, 36, "ON TIMELINE", 26, "_lyrics_on_timeline", [], g)
-	var lyr_help := _label(X + 0, Y + 584, 400, 60, "\"-\" in front: a new line   \"-\" at the end: joins the next one   empty: clears the line", 19, g, false)
+	# (the song's timed lyrics from the internet: SSQEDialogs.auto_lyrics)
+	_btn(X + 0, Y + 584, 400, 36, "AUTO LYRICS", 26, "_auto_lyrics", [], g)
+	var lyr_help := _label(X + 0, Y + 628, 400, 60, "\"-\" in front: a new line   \"-\" at the end: joins the next one   empty: clears the line", 19, g, false)
 	lyr_help.autowrap = true
 	for i in range(n_chromia, items.size()):
 		_chromia_nodes.append(items[i].node)
@@ -1255,6 +1257,10 @@ func _create_gfx_lyric():
 	lyric_fade_in = false
 	lyric_fade_out = false
 	_apply_visibility()
+
+func _auto_lyrics():
+	if ed.dialogs:
+		ed.dialogs.auto_lyrics()
 
 # the lyrics as objects on the track (Extra Objects > Lyrics), to move, change or delete them
 func _lyrics_on_timeline():
