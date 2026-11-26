@@ -2902,11 +2902,10 @@ func vr_res_high() -> bool:
 func vr_foveation_now() -> int:
 	if vr_foveation >= 0:
 		return int(clamp(vr_foveation, 0, 3))
-	# (Auto on the Meta Quest: High, dynamic, at every render resolution. The
-	# headset only lowers the edges' resolution as far as a frame needs to be
-	# on time, so it costs nothing when there's room: store review, a steady 72)
-	if OS.has_feature("quest"):
-		return 3
+	# (Auto: Low at the normal render resolution, more as it goes up. It was
+	# High on the Meta Quest at every resolution for a while (nov25-2026-a): the
+	# headset keeps a dynamic level near the most it's allowed, so the view
+	# looked very pixelated. "Best frame rate" still picks High.)
 	if vr_scale_active > VR_FOV_HIGH_FROM:
 		return 3
 	return 2 if vr_scale_active > VR_MSAA_OFF_FROM else 1
