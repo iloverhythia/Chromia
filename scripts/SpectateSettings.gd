@@ -35,7 +35,7 @@ const VR_LOOK_KEYS := ["vr_beam_color", "vr_beam_width", "vr_beam_rainbow", "vr_
 # what the notes, cursor, grid and HUD look like
 const VIEW_KEYS := [
 	"approach_rate", "spawn_distance", "fade_length", "note_size", "note_opacity", "note_brightness",
-	"note_spin_x", "note_spin_y", "note_spin_z", "half_ghost", "half_ghost_strength",
+	"note_spin_x", "note_spin_y", "note_spin_z", "half_ghost", "half_ghost_strength", "half_ghost_ms",
 	"note_visual_approach", "visual_approach_follow", "do_note_pushback", "note_spawn_effect",
 	"show_touch_indicator", "touch_style", # (phones: the rings under the fingers, shown in replays too)
 	"hitwindow_ms", "note_hitbox_size", "speed_hitwindow",

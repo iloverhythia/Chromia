@@ -60,7 +60,7 @@ const SETTINGS := [
 	"parallax", "ui_parallax", "grid_parallax", "approach_rate", "spawn_distance",
 	"fade_length", "fov", "note_size", "cursor_scale", "edge_drift", "half_ghost",
 	"cursor_trail", "faraway_hud", "hitwindow_ms", "note_hitbox_size",
-	"note_visual_approach", "half_ghost_strength",
+	"note_visual_approach", "half_ghost_strength", "half_ghost_ms",
 ]
 # mods saved with each play: the ones that change how notes look or move
 const MODS := [

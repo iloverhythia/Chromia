@@ -1082,9 +1082,12 @@ func _ready():
 		fade_out_end = ((6.0 / 50.0) * approach_rate)
 
 	elif Rhythia.half_ghost:
+		# (from Half Ghost Start, 240 ms before the note by default: it was
+		# always 12/50 of a second; faded fully at a quarter of it, as before)
+		var hg_s: float = clamp(float(Rhythia.half_ghost_ms), 20.0, 2000.0) / 1000.0
 		fade_out_enabled = true
-		fade_out_start = ((12.0 / 50) * approach_rate)
-		fade_out_end = ((3.0 / 50.0) * approach_rate)
+		fade_out_start = hg_s * approach_rate
+		fade_out_end = hg_s * 0.25 * approach_rate
 		fade_out_base = clamp(Rhythia.half_ghost_strength, 0.1, 1.0)
 
 	if Rhythia.mod_nearsighted:

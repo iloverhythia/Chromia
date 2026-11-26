@@ -4110,6 +4110,7 @@ var replay_note_hitbox: bool = false
 var replay_frame_marker: bool = false
 var show_xp_notifications: bool = true
 var half_ghost_strength: float = 0.8
+var half_ghost_ms: float = 240.0 # when Half Ghost starts fading a note, ms before it (Settings > Notes > Half Ghost Start)
 var record_limit: int = 0
 var record_mode: int = 1
 var resolution: int = 3
@@ -5460,6 +5461,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			show_xp_notifications = bool(data.show_xp_notifications)
 		if data.has("half_ghost_strength"):
 			half_ghost_strength = clamp(float(data.half_ghost_strength), 0.1, 1.0)
+		if data.has("half_ghost_ms"):
+			half_ghost_ms = clamp(float(data.half_ghost_ms), 20.0, 2000.0)
 		if data.has("record_mode"):
 			record_mode = data.record_mode
 		if data.has("resolution"):
@@ -6406,6 +6409,7 @@ func _write_settings_file(saveFile: String):
 			random_colorset = random_colorset,
 			show_xp_notifications = show_xp_notifications,
 			half_ghost_strength = half_ghost_strength,
+			half_ghost_ms = half_ghost_ms,
 			record_mode = record_mode,
 			resolution = resolution,
 			record_limit = record_limit,
