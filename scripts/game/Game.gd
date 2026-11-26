@@ -755,7 +755,7 @@ func _recompute_score_state(all_notes: Array, resolved_count: int):
 		total_notes += 1
 		if all_notes[i][2] == Globals.NSTATE_HIT:
 			hits += 1
-			if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit, 0, max_energy)
+			if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit * (COOP_HEAL if Rhythia.coop_now else 1.0), 0, max_energy) # (co-op: half: COOP_HEAL)
 			combo += 1
 			if combo > max_combo: max_combo = combo
 			if combo_level != 8:
@@ -773,6 +773,11 @@ func _recompute_score_state(all_notes: Array, resolved_count: int):
 			if combo_level != 1: combo_level -= 1
 	update_hud()
 
+# co-op: health back per hit, of what a solo hit gives. Either of you hitting
+# a note is a hit, so only the notes you both miss cost health: with full
+# healing as well it hardly ever ran out
+const COOP_HEAL := 0.5
+
 func hit(col):
 	if ending: return
 	emit_signal("hit", col)
@@ -780,7 +785,7 @@ func hit(col):
 	total_notes += 1
 	# (the lobby gets your stats 4 times a second from _process, not on every
 	# note: one message per note, sent on to every player, lagged matches)
-	if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit, 0, max_energy)
+	if not Rhythia.mod_no_regen: energy = clamp(energy + energy_per_hit * (COOP_HEAL if Rhythia.coop_now else 1.0), 0, max_energy) # (co-op: half: COOP_HEAL)
 	combo += 1
 
 	if combo > max_combo: max_combo = combo
