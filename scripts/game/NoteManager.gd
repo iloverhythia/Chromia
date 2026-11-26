@@ -946,8 +946,12 @@ func _coop_frame(delta: float):
 				x = lerp(float(_coop_pts[k + 1]), float(_coop_pts[k + 4]), f)
 				y = lerp(float(_coop_pts[k + 2]), float(_coop_pts[k + 5]), f)
 				break
-	_coop_cursor.visible = true
+	_coop_cursor.visible = _coop_cursor_alpha() > 0.001 # (0%: hidden, Settings > Cursor)
 	_coop_cursor.transform.origin = Vector3(x, y, _n_cursor.transform.origin.z)
+
+# Settings > Cursor > Co-op Partner Cursor (yours only: 0 hides it)
+func _coop_cursor_alpha() -> float:
+	return clamp(float(Rhythia.partner_cursor_opacity), 0.0, 1.0)
 
 # your partner's cursor: your cursor's shape, tinted, with their name over it
 func _make_coop_cursor(partner_name: String):
@@ -966,7 +970,7 @@ func _make_coop_cursor(partner_name: String):
 		if mat is SpatialMaterial:
 			mat = mat.duplicate()
 			mat.flags_transparent = true
-			mat.albedo_color = Color(0.45, 0.85, 1.0, 0.8)
+			mat.albedo_color = Color(0.45, 0.85, 1.0, _coop_cursor_alpha())
 		if mat != null:
 			m.material_override = mat
 		_coop_cursor.add_child(m)
@@ -974,7 +978,7 @@ func _make_coop_cursor(partner_name: String):
 	label.text = partner_name
 	label.pixel_size = 0.012 # (the default font, 16 px: about a fifth of a grid square)
 	label.billboard = SpatialMaterial.BILLBOARD_ENABLED
-	label.modulate = Color(0.6, 0.9, 1.0, 0.9)
+	label.modulate = Color(0.6, 0.9, 1.0, min(0.9, _coop_cursor_alpha() + 0.1))
 	label.outline_modulate = Color(0, 0, 0, 0.8)
 	label.transform.origin = Vector3(0, 0.35, 0.01)
 	label.no_depth_test = true

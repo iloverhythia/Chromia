@@ -4384,6 +4384,7 @@ func apply_max_fps_mode():
 		vp.msaa = int(ProjectSettings.get_setting("rendering/quality/filters/msaa"))
 		vp.hdr = bool(ProjectSettings.get_setting("rendering/quality/depth/hdr"))
 var cursor_scale: float = 1
+var partner_cursor_opacity: float = 0.8 # co-op: your partner's cursor on your screen (0 hides it)
 var enable_drift_cursor: bool = true
 var follow_drift_cursor: bool = false
 var cursor_spin: float = 0
@@ -5213,6 +5214,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			enable_grid = data.enable_grid
 		if data.has("cursor_scale"):
 			cursor_scale = data.cursor_scale
+		if data.has("partner_cursor_opacity"):
+			partner_cursor_opacity = clamp(float(data.partner_cursor_opacity), 0.0, 1.0)
 		if data.has("note_size"):
 			note_size = data.note_size
 		if data.has("note_spin_x"):
@@ -6295,6 +6298,7 @@ func _write_settings_file(saveFile: String):
 			show_config = show_config,
 			enable_grid = false,
 			cursor_scale = cursor_scale,
+			partner_cursor_opacity = partner_cursor_opacity,
 			enable_drift_cursor = enable_drift_cursor,
 			follow_drift_cursor = follow_drift_cursor,
 			hitwindow_ms = float(get_meta("mp_hitwindow_own")) if has_meta("mp_hitwindow_own") else hitwindow_ms, # (multiplayer's 55 ms isn't saved over yours)
