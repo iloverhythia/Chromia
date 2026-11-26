@@ -134,13 +134,15 @@ func end(end_type: int):
 	Rhythia.song_end_position = min($Spawn.ms, last_ms)
 	Rhythia.song_end_length = last_ms
 	Rhythia.song_end_type = end_type
+	Rhythia.song_end_coop = Rhythia.coop_now # (a co-op play: never your best, do_pb_check_and_set)
 	Rhythia.song_end_combo = max_combo
 	print("song max combo: ", max_combo)
 	# (each step in the crash log: a crash after a song names the step)
 	if not Rhythia.replaying:
 		Rhythia.record_play_stats()
 	Rhythia.trail("song end: stats saved")
-	load("res://scripts/ScoreHistory.gd").record_attempt() # skips replays/autoplay itself
+	if not Rhythia.coop_now: # (a co-op play isn't one of yours)
+		load("res://scripts/ScoreHistory.gd").record_attempt() # skips replays/autoplay itself
 	var tracker = get_node_or_null("Spawn/PlayTracker")
 	if tracker != null:
 		tracker.finish(end_type) # Settings Generator data

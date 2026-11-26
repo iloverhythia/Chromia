@@ -3778,6 +3778,7 @@ var mod_blox_saber: bool = false setget set_mod_blox_saber
 # a co-op lobby's round is being played (LobbyManager game_started; not a
 # setting: off again in any song outside a lobby, songload.gd)
 var coop_now: bool = false
+var song_end_coop: bool = false # the play that just ended was a co-op one (Game.end)
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
 var reverse_length_ms: float = 0.0
 var reverse_song_id: String = ""
@@ -4841,6 +4842,7 @@ func _read_best_file(path: String) -> Dictionary:
 
 func do_pb_check_and_set() -> bool:
 	if mod_nofail or was_replay or start_offset != 0 or just_ended_queue or OS.has_feature("debug"): return false
+	if song_end_coop: return false # (co-op: two players, one play: never your best)
 	var has_passed: bool = song_end_type == Globals.END_PASS
 	var pb: Dictionary = {}
 	pb.position = song_end_position
@@ -4899,7 +4901,6 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_true_flashlight: pts.append("m_trueflashlight")
 	if mod_reverse: pts.append("m_reverse")
 	if mod_blox_saber: pts.append("m_blox")
-	if coop_now: pts.append("m_coop") # (co-op bests kept apart from yours)
 	if mod_nofail: pts.append("m_nofail")
 
 	pts.sort()
