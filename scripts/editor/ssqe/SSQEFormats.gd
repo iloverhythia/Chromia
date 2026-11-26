@@ -298,7 +298,9 @@ static func _zeros(w: StreamPeerBuffer, n: int):
 	w.put_data(z)
 
 # SSPM.Write (v2) - meta: {songId, mapName, mappers (one per line), difficulty, customDifficulty}
-static func write_sspm(map, meta: Dictionary, audio: PoolByteArray, cover: PoolByteArray) -> PoolByteArray:
+# chromia: Chromia's extras as JSON (ChromiaMap.gd), kept as the custom data
+# field "chromia" (a .chrm); "" for none
+static func write_sspm(map, meta: Dictionary, audio: PoolByteArray, cover: PoolByteArray, chromia: String = "") -> PoolByteArray:
 	map.notes.sort()
 	var export_offset := int(map.props.exportOffset)
 	var notes := []
@@ -327,12 +329,20 @@ static func write_sspm(map, meta: Dictionary, audio: PoolByteArray, cover: PoolB
 		_str16(w, m)
 	var custom_offset := 0
 	var custom_length := 0
-	if SSQEMap.ss(meta.customDifficulty).strip_edges() != "":
+	var has_diff: bool = SSQEMap.ss(meta.customDifficulty).strip_edges() != ""
+	if has_diff or chromia != "":
 		custom_offset = w.get_position()
-		w.put_u16(1)
-		_str16(w, "difficulty_name")
-		w.put_u8(0x09)
-		_str16(w, SSQEMap.ss(meta.customDifficulty))
+		w.put_u16((1 if has_diff else 0) + (1 if chromia != "" else 0))
+		if has_diff:
+			_str16(w, "difficulty_name")
+			w.put_u8(0x09)
+			_str16(w, SSQEMap.ss(meta.customDifficulty))
+		if chromia != "":
+			_str16(w, "chromia")
+			w.put_u8(0x0b) # (a long string: u32 length)
+			var b := chromia.to_utf8()
+			w.put_u32(b.size())
+			w.put_data(b)
 		custom_length = w.get_position() - custom_offset
 	else:
 		w.put_u16(0)

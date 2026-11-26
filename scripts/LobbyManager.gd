@@ -1,6 +1,7 @@
 extends Node
 
 signal lobby_created(code)
+signal casino_update(msg) # (the casino window: CasinoWindow.gd)
 signal perms_changed() # (what your staff permissions allow changed: the admin tools)
 signal lobby_joined(code)
 signal lobby_closed()
@@ -41,6 +42,8 @@ signal my_frame_changed(frame) # (the frame you picked: {id, name, style, color,
 signal card_message(text, refresh)
 signal code_result(ok, text, cards) # (Inventory & Misc > Codes: scripts/ui/menu/InventoryPage.gd)
 signal spectate_denied(reason)
+signal coop_received(peer_id, hits, misses) # co-op: the notes your partner hit and missed
+signal coop_partner_pts(peer_id, pts) # co-op: your partner's cursor (ms, x, y, ms, x, y...)
 signal watch_ended(text)
 signal presence_support_changed(supported)
 signal watchers_changed(count, names)
@@ -134,8 +137,14 @@ const _MAP_CHUNK_SIZE: int = 64 * 1024
 
 var _map_upload_active: bool = false
 var _map_upload_song_id: String = ""
-var _map_upload_b64: String = ""
-var _map_upload_pos: int = 0
+var _map_upload_pos: int = 0 # (bytes of the file sent)
+# (the map is read and sent a piece at a time: reading a whole map and making
+# it text in one go, for someone who started watching, stuttered the game of
+# whoever was playing it)
+var _map_upload_file: File = null
+var _map_upload_size: int = 0
+var _map_upload_chunk: String = "" # (the piece waiting to go, kept until it has)
+const _MAP_UPLOAD_RAW: int = 48 * 1024 # (64 KB as text: a multiple of 3, so the pieces join up)
 
 var _map_publish_active: bool = false
 var _map_publish_song_id: String = ""
@@ -321,7 +330,7 @@ func _on_offline_mode_changed():
 	emit_signal("blocked_changed") # (the chat boxes draw again: hidden, or back with what came in)
 	emit_signal("social_changed")
 
-func create_lobby(name: String = "Host", is_public: bool = true) -> bool:
+func create_lobby(name: String = "Host", is_public: bool = true, coop: bool = false, coop_mode: String = "any") -> bool:
 	if Rhythia.offline_mode:
 		emit_signal("lobby_error", OFFLINE_TEXT)
 		return false
@@ -329,6 +338,8 @@ func create_lobby(name: String = "Host", is_public: bool = true) -> bool:
 	player_name = name
 	_pending_name = name
 	_pending_is_public = is_public
+	_pending_coop = coop
+	_pending_coop_mode = coop_mode
 	_connecting_intent = "create"
 	return _connect_or_send_intent()
 
@@ -388,6 +399,14 @@ func get_cards():
 
 func set_card(id: String):
 	_ensure_connected_then_send({"type": "set_card", "id": id, "client_id": Rhythia.cid})
+
+# --- the casino window (scripts/ui/CasinoWindow.gd): the Discord casino's chips and
+# games (savia_web casino.js gameApi). op: state, daily, bet, play, step, give, top, help
+func casino_send(op: String, payload: Dictionary = {}):
+	var m := {"type": "casino", "op": op, "client_id": Rhythia.cid}
+	for k in payload:
+		m[k] = payload[k]
+	_ensure_connected_then_send(m)
 
 func redeem_card_code(code: String):
 	_ensure_connected_then_send({"type": "redeem_card_code", "code": code.substr(0, 64), "client_id": Rhythia.cid})
@@ -619,6 +638,7 @@ func update_player_stats(score: int, hits: int, misses: int, total_notes: int):
 func start_game():
 	print("[furria] start_game() called, lobby_active=", lobby_active, " is_host=", is_host)
 	if lobby_active and is_host:
+		push_current_mods() # (the lead-in you have now: it isn't a mod, so changing it sent nothing)
 		_send({"type": "start_game"})
 		print("[furria] start_game message sent")
 
@@ -687,6 +707,9 @@ func _connect_or_send_intent() -> bool:
 func _send_lobby_intent():
 	if _connecting_intent == "create":
 		var msg = {"type": "create_lobby", "name": _pending_name, "client_id": Rhythia.cid, "is_public": _pending_is_public}
+		if _pending_coop:
+			msg["coop"] = true
+			msg["coop_mode"] = _pending_coop_mode
 		msg.merge(_discord_identity_fields())
 		_send(msg)
 	elif _connecting_intent == "join":
@@ -700,6 +723,8 @@ func _send_lobby_intent():
 # connection dropping. Counts only, no names.)
 func _on_connected(_proto = ""):
 	Rhythia.trail("server: connected")
+	_hello_seen = false
+	_signed_in = false
 	_send_lobby_intent()
 	_send({"type": "hello"})
 	if Rhythia.cid != "":
@@ -750,6 +775,9 @@ func _send(payload: Dictionary) -> int:
 
 func _collect_current_mods() -> Dictionary:
 	return {
+		# (the host's own lead-in: everyone plays the game with it, Savia.apply_lobby_lead_in;
+		# never applied as a setting. Your own, also while one game's is applied)
+		"lead_in_ms": Rhythia._lobby_lead_in_backup if Rhythia._lobby_lead_in_backup >= 0 else Rhythia.lead_in_ms,
 		"nofail": Rhythia.mod_nofail,
 		"speed_level": Rhythia.mod_speed_level,
 		"speed_custom": Globals.speed_multi[Globals.SPEED_CUSTOM] if Rhythia.mod_speed_level == Globals.SPEED_CUSTOM else 1.0,
@@ -766,8 +794,10 @@ func _collect_current_mods() -> Dictionary:
 		"flashlight": Rhythia.mod_flashlight,
 		"true_flashlight": Rhythia.mod_true_flashlight,
 		"reverse": Rhythia.mod_reverse,
+		"blox_saber": Rhythia.mod_blox_saber,
 		"mod_360": Rhythia.mod_360,
 		"mod_360_speed": Rhythia.mod_360_speed,
+		"mod_360_shuffle": Rhythia.mod_360 and Rhythia.mod_360_shuffle,
 		"strobe": Rhythia.mod_strobe,
 		"start_offset": Rhythia.start_offset,
 		"spin": bool(Rhythia.cam_unlock), # (a setting, not a mod: only spectators use it, see _apply_watch_spin)
@@ -822,8 +852,10 @@ func _apply_mods_locally(mods: Dictionary, force: bool = false):
 	Rhythia.mod_flashlight = mods.get("flashlight", Rhythia.mod_flashlight)
 	Rhythia.mod_true_flashlight = mods.get("true_flashlight", Rhythia.mod_true_flashlight if not mods.has("flashlight") else false)
 	Rhythia.mod_reverse = mods.get("reverse", Rhythia.mod_reverse)
+	Rhythia.mod_blox_saber = mods.get("blox_saber", false)
 	Rhythia.mod_360 = mods.get("mod_360", Rhythia.mod_360)
 	Rhythia.mod_360_speed = mods.get("mod_360_speed", Rhythia.mod_360_speed)
+	Rhythia.mod_360_shuffle = mods.get("mod_360_shuffle", false) and Rhythia.mod_360 # (after mod_360)
 	Rhythia.mod_strobe = mods.get("strobe", Rhythia.mod_strobe)
 	Rhythia.start_offset = mods.get("start_offset", Rhythia.start_offset)
 
@@ -978,6 +1010,20 @@ func social_action(action: String, number: int):
 	if types.has(action):
 		_send({"type": types[action], "number": number})
 
+# Block, after "are you sure" (the chat's name menu, the Spectate list, the
+# Friends window): who is their name, or "" for "player #n"
+const BLOCK_TEXT := "Block %s? Their chat messages get folded away for you (click Show to see one), they can't send you friend requests or lobby invites, and any friendship ends. They aren't told."
+func confirm_block(number: int, who: String = ""):
+	if number <= 0:
+		return
+	if who == "":
+		who = "player #%d" % number
+	Globals.confirm_prompt.open(BLOCK_TEXT % who, "Block", [{text = "Cancel"}, {text = "Block"}])
+	var ok = yield(Globals.confirm_prompt, "option_selected")
+	Globals.confirm_prompt.close()
+	if int(ok) == 1:
+		social_action("block", number)
+
 func refresh_social():
 	if _connected():
 		_send({"type": "social_get"})
@@ -1001,7 +1047,7 @@ func _on_social_state(msg: Dictionary):
 	if news is Dictionary and not Rhythia.offline_mode: # (Offline Mode: they wait in Online > Friends)
 		var who := Globals.s(news.get("name", "Someone"))
 		if Globals.s(news.get("kind", "")) == "friend_request":
-			Globals.notify(Globals.NOTIFY_INFO, "%s sent you a friend request. Online > Friends to accept it." % who, "Friend request", 8)
+			Globals.notify(Globals.NOTIFY_INFO, "%s sent you a friend request. Accept it in the chat's DMs tab (the eye button) or in Online > Friends." % who, "Friend request", 8)
 		elif Globals.s(news.get("kind", "")) == "friend_accepted":
 			Globals.notify(Globals.NOTIFY_SUCCEED, "You and %s are friends now." % who, "Friends")
 	emit_signal("social_changed")
@@ -1013,6 +1059,172 @@ func _people(v) -> Array:
 			if p is Dictionary and p.get("number") != null:
 				out.append({number = int(p.number), name = Globals.s(p.get("name", "")), avatar_url = Globals.s(p.get("avatar_url", "")) if p.get("avatar_url") != null else "", online = bool(p.get("online", false))})
 	return out
+
+# --- direct messages, announcements so far (savia_web dms.js) -------------------
+# Friends can message each other: the chat's DMs tab (SpectatePage.gd) and the
+# Friends window's Message button. The server keeps a conversation's last
+# messages, so they're there after a restart and reach someone who was away.
+# Announcements: the server's last ones, for the chat's Announcements tab.
+signal dm_message(number)        # a new message in the conversation with that player
+signal dm_list_changed           # the conversations, their previews or unread counts
+signal dm_history_loaded(number)
+signal players_found(q, players) # (adding a friend by name: [{number, name, avatar_url, relation}])
+signal announcements_changed
+var dms_supported := false
+var find_supported := false
+var dm_conversations: Array = [] # newest first: {number, name, avatar_url, online, friends, last_text, last_from, last_ts, unread}
+var dm_threads := {}             # number -> [{id, from, name, text, ts}] (once asked for)
+var dm_unread_total := 0
+var dm_open_with := 0            # the conversation on screen (its messages count as read)
+var dm_list_open := false        # the DMs tab is on screen: a new message shows there, no notification
+var announcements: Array = []    # oldest first: {text, from_name, ts}
+const DM_THREAD_MAX := 300
+# The conversations and the announcements are asked for once the server has
+# said what it can do (server_hello) AND you're signed in (auth_ok), whichever
+# comes last: the server drops these when they come before the sign-in.
+var _hello_seen := false
+var _signed_in := false
+var _news_supported := false
+func _dm_start():
+	if not (_hello_seen and _signed_in):
+		return
+	dm_threads = {} # (a new connection: read again when a conversation is opened)
+	request_dm_list()
+	if _news_supported:
+		_send({"type": "announcements_get"})
+
+func send_dm(number: int, text: String):
+	text = text.strip_edges()
+	if number <= 0 or text == "":
+		return
+	if not _connected() or not dms_supported:
+		Globals.notify(Globals.NOTIFY_WARN, "Connect to the server first." if not _connected() else "This server doesn't have direct messages yet.", "Direct message")
+		return
+	_send({"type": "dm_send", "number": number, "text": text.substr(0, 300)})
+
+func request_dm_list():
+	if _connected() and dms_supported:
+		_send({"type": "dm_list"})
+
+func request_dm_history(number: int):
+	if number > 0 and _connected() and dms_supported:
+		_send({"type": "dm_history", "number": number})
+
+func mark_dm_read(number: int):
+	for c in dm_conversations:
+		if int(c.number) == number and int(c.unread) > 0:
+			dm_unread_total = int(max(0, dm_unread_total - int(c.unread)))
+			c.unread = 0
+			if _connected() and dms_supported:
+				_send({"type": "dm_read", "number": number})
+			emit_signal("dm_list_changed")
+			return
+
+func find_players(q: String):
+	q = q.strip_edges()
+	if q != "" and _connected() and find_supported:
+		_send({"type": "player_find", "q": q.substr(0, 64)})
+
+func dm_conversation(number: int):
+	for c in dm_conversations:
+		if int(c.number) == number:
+			return c
+	return null
+
+# a friend's (or anyone you have a conversation with) name, "" not known
+func dm_name(number: int) -> String:
+	var c = dm_conversation(number)
+	if c != null and String(c.name) != "":
+		return String(c.name)
+	for p in friends:
+		if int(p.number) == number:
+			return String(p.name)
+	return ""
+
+func _dm_person(number: int) -> Dictionary:
+	for p in friends:
+		if int(p.number) == number:
+			return p
+	return {}
+
+func _on_dm_message(msg: Dictionary):
+	var with := int(msg.get("with", 0))
+	var from := int(msg.get("from", 0))
+	if with <= 0:
+		return
+	var m := {id = Globals.s(msg.get("id", "")), from = from, name = Globals.s(msg.get("name", "")), text = Globals.s(msg.get("text", "")), ts = float(msg.get("ts", 0))}
+	if dm_threads.has(with):
+		var th: Array = dm_threads[with]
+		for old in th:
+			if String(old.id) != "" and String(old.id) == String(m.id):
+				return # (seen already: a second copy of the game signed in)
+		th.append(m)
+		while th.size() > DM_THREAD_MAX:
+			th.pop_front()
+	var mine: bool = from == my_player_number
+	var seen: bool = mine or dm_open_with == with
+	var c = dm_conversation(with)
+	if c == null:
+		var p := _dm_person(with)
+		c = {number = with, name = String(p.get("name", m.name if not mine else "")), avatar_url = String(p.get("avatar_url", "")), online = bool(p.get("online", true)), friends = true, last_text = "", last_from = 0, last_ts = 0.0, unread = 0}
+	else:
+		dm_conversations.erase(c)
+	c.last_text = m.text
+	c.last_from = from
+	c.last_ts = m.ts
+	if not mine and String(m.name) != "":
+		c.name = m.name
+	if not seen:
+		c.unread = int(c.unread) + 1
+		dm_unread_total += 1
+	dm_conversations.push_front(c)
+	if dm_open_with == with and not mine and _connected():
+		_send({"type": "dm_read", "number": with})
+	emit_signal("dm_message", with)
+	emit_signal("dm_list_changed")
+	# (not in the middle of a map, and not while it's on screen)
+	if not seen and not dm_list_open and not Rhythia.in_map and not Rhythia.chat_hidden():
+		Globals.notify(Globals.NOTIFY_INFO, m.text, "Message from %s" % (m.name if m.name != "" else "player #%d" % from), 6)
+
+func _on_dm_list(msg: Dictionary):
+	var out := []
+	var v = msg.get("conversations")
+	if v is Array:
+		for c in v:
+			if c is Dictionary and c.get("number") != null:
+				out.append({number = int(c.number), name = Globals.s(c.get("name", "")), avatar_url = Globals.s(c.get("avatar_url", "")) if c.get("avatar_url") != null else "",
+					online = bool(c.get("online", false)), friends = bool(c.get("friends", true)), last_text = Globals.s(c.get("last_text", "")),
+					last_from = int(c.get("last_from", 0)), last_ts = float(c.get("last_ts", 0)), unread = int(c.get("unread", 0))})
+	dm_conversations = out
+	dm_unread_total = 0
+	for c in out:
+		if int(c.number) == dm_open_with:
+			c.unread = 0
+		dm_unread_total += int(c.unread)
+	emit_signal("dm_list_changed")
+
+func _on_dm_history(msg: Dictionary):
+	var number := int(msg.get("number", 0))
+	if number <= 0:
+		return
+	var th := []
+	var v = msg.get("messages")
+	if v is Array:
+		for m in v:
+			if m is Dictionary:
+				th.append({id = Globals.s(m.get("id", "")), from = int(m.get("from", 0)), name = "", text = Globals.s(m.get("text", "")), ts = float(m.get("ts", 0))})
+	dm_threads[number] = th
+	emit_signal("dm_history_loaded", number)
+
+func _on_announcements(msg: Dictionary):
+	var out := []
+	var v = msg.get("list")
+	if v is Array:
+		for a in v:
+			if a is Dictionary and Globals.s(a.get("text", "")) != "":
+				out.append({text = Globals.s(a.get("text", "")), from_name = Globals.s(a.get("from_name", "")), ts = float(a.get("ts", 0))})
+	announcements = out
+	emit_signal("announcements_changed")
 
 # --- chat reactions (ChatReactions.gd draws them) ------------------------------
 # Each chat line has an id from the server ("" from an older server); a
@@ -1037,6 +1249,21 @@ func staff_chat_ban(mid: String, minutes: int = 0):
 			m["minutes"] = minutes
 		_send(m)
 
+# the game's /mute and /unmute (ChatCommands.gd): the server answers with staff_result
+func staff_mute(who: String, length: String, reason: String = ""):
+	if who != "" and length != "" and _connected():
+		var m := {"type": "staff_mute", "who": who.substr(0, 64), "duration": length.substr(0, 40)}
+		if reason != "":
+			m["reason"] = reason.substr(0, 200)
+		_send(m)
+
+func staff_unmute(who: String):
+	if who != "" and _connected():
+		_send({"type": "staff_unmute", "who": who.substr(0, 64)})
+
+# a mute over a year: how long, in the server's words ("2 centuries", "1 eon")
+var chat_ban_words := ""
+
 # banned from chat or not, and how long is left (ms; null: no end)
 func _set_chat_ban(banned: bool, left_ms):
 	var end_ticks := 0
@@ -1052,6 +1279,8 @@ func _set_chat_ban(banned: bool, left_ms):
 func chat_ban_left_text() -> String:
 	if not chat_banned or chat_ban_end_ticks <= 0:
 		return ""
+	if chat_ban_words != "":
+		return chat_ban_words # (decades, centuries, eons: the server's words)
 	var s: int = int(max(1, ceil(float(chat_ban_end_ticks - OS.get_ticks_msec()) / 1000.0)))
 	var d: int = s / 86400
 	var h: int = (s % 86400) / 3600
@@ -1188,12 +1417,25 @@ var player_view_settings: Dictionary = {}
 var _spectate_load_target: int = -1
 
 # Your display settings, for anyone who watches you (sent when a round starts).
-func send_view_settings():
+# light: someone started watching in the middle of a song. Only the settings,
+# and only files already hashed: reading and hashing your background, mesh or
+# sounds there took the whole file in one frame, and your game stuttered the
+# moment someone watched you. (At a song's start everything is sent.)
+func send_view_settings(light := false):
 	if not broadcasting():
 		return
-	upload_cursor_picture()
-	upload_spectate_assets()
-	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+	if not light:
+		upload_cursor_picture()
+		upload_spectate_assets()
+	_send({"type": "set_view_settings", "settings": _collect_view_settings(light)})
+
+func _collect_view_settings(light: bool) -> Dictionary:
+	if light:
+		Engine.set_meta("spec_light", true)
+	var out: Dictionary = load("res://scripts/SpectateSettings.gd").collect()
+	if light:
+		Engine.remove_meta("spec_light")
+	return out
 
 # Your cursor picture to the server once (it keeps it by the file's hash), so
 # spectators watching with your settings see your cursor.
@@ -1438,13 +1680,14 @@ func _on_cursor_uploaded(result, code, _headers, _body, http):
 # song, so whoever starts watching from the Spectate tab sees it your way
 # right away (servers with the Spectate tab only; a lobby uses the above).
 var _solo_settings_sent := false # (this song's settings are on the server already)
-func send_solo_view_settings():
+func send_solo_view_settings(light := false):
 	_solo_settings_sent = false
 	if lobby_active or presence_supported != 1 or not _connected() or not Rhythia.allow_spectators:
 		return
-	upload_cursor_picture()
-	upload_spectate_assets()
-	_send({"type": "set_view_settings", "settings": load("res://scripts/SpectateSettings.gd").collect()})
+	if not light: # (mid-song: send_view_settings)
+		upload_cursor_picture()
+		upload_spectate_assets()
+	_send({"type": "set_view_settings", "settings": _collect_view_settings(light)})
 	_solo_settings_sent = true
 
 # a song starts (not in a lobby): while you're watched, the server takes it as
@@ -1556,20 +1799,32 @@ func _start_map_upload(song_id: String):
 	if open_err != OK:
 		print("[furria] upload aborted: couldn't open ", song.filePath, " (error ", open_err, ")")
 		return
-	var bytes = f.get_buffer(f.get_len())
-	f.close()
-	print("[furria] uploading ", song.filePath, " — ", bytes.size(), " bytes")
-	Rhythia.trail("sending the map to the server for someone else (%d KB)" % int(bytes.size() / 1024))
-	_map_upload_b64 = Marshalls.raw_to_base64(bytes)
+	var size: int = f.get_len()
+	if size > MAP_SEND_MAX_BYTES:
+		# The server takes maps up to 60 MB. A 1.3 GB map was read whole and
+		# made into text here (twice its size again) for someone watching: the
+		# game ran out of memory and closed, three times. Not read now: the
+		# server is told its size, refuses it and tells whoever was waiting.
+		f.close()
+		Rhythia.trail("not sending the map to the server for someone else: %d MB, the server takes %d MB at most" % [size / 1048576, MAP_SEND_MAX_BYTES / 1048576])
+		_send({"type": "upload_map_start", "song_id": song_id, "total_bytes": int(min(size, 999999999))})
+		return
+	print("[furria] uploading ", song.filePath, " — ", size, " bytes")
+	Rhythia.trail("sending the map to the server for someone else (%d KB)" % int(size / 1024))
+	_map_upload_file = f
+	_map_upload_size = size
+	_map_upload_chunk = ""
 	_map_upload_song_id = song_id
 	_map_upload_pos = 0
 	_map_upload_active = true
 	_map_upload_last_progress_msec = OS.get_ticks_msec()
-	var start_err = _send({"type": "upload_map_start", "song_id": song_id, "total_bytes": bytes.size()})
+	var start_err = _send({"type": "upload_map_start", "song_id": song_id, "total_bytes": size})
 	if start_err != OK:
 		push_error("[furria] upload_map_start failed to send: %s" % start_err)
 		_abort_map_upload("Failed to start uploading the map to the server.")
 
+# the biggest map the server takes (its SAVIA_MAX_MAP_BYTES, 60 MB)
+const MAP_SEND_MAX_BYTES: int = 60 * 1024 * 1024
 const _MAP_UPLOAD_STALL_TIMEOUT_MSEC: int = 15000
 var _map_upload_last_progress_msec: int = 0
 var _map_upload_next_attempt_msec: int = 0
@@ -1581,14 +1836,18 @@ func _process_map_upload_step():
 		return
 	if OS.get_ticks_msec() < _map_upload_next_attempt_msec:
 		return
-	var done = _map_upload_pos >= _map_upload_b64.length()
+	var done = _map_upload_pos >= _map_upload_size and _map_upload_chunk == ""
 	var payload: Dictionary
 	if done:
 		payload = {"type": "upload_map_end", "song_id": _map_upload_song_id}
 	else:
-		var chunk_end = min(_map_upload_pos + _MAP_CHUNK_SIZE, _map_upload_b64.length())
-		var chunk = _map_upload_b64.substr(_map_upload_pos, chunk_end - _map_upload_pos)
-		payload = {"type": "upload_map_chunk", "song_id": _map_upload_song_id, "chunk": chunk}
+		if _map_upload_chunk == "":
+			if _map_upload_file == null:
+				_abort_map_upload("Failed to upload the map to the server.")
+				return
+			var n: int = int(min(_MAP_UPLOAD_RAW, _map_upload_size - _map_upload_pos))
+			_map_upload_chunk = Marshalls.raw_to_base64(_map_upload_file.get_buffer(n))
+		payload = {"type": "upload_map_chunk", "song_id": _map_upload_song_id, "chunk": _map_upload_chunk}
 
 	var send_err = _send(payload)
 	if send_err != OK:
@@ -1603,16 +1862,25 @@ func _process_map_upload_step():
 	if done:
 		_map_upload_active = false
 		_map_upload_song_id = ""
-		_map_upload_b64 = ""
+		_close_map_upload_file()
 		return
-	_map_upload_pos = payload.chunk.length() + _map_upload_pos
-	emit_signal("map_upload_progress", _map_upload_song_id, int(_map_upload_pos * 0.75), int(_map_upload_b64.length() * 0.75))
+	_map_upload_pos = int(min(_map_upload_pos + _MAP_UPLOAD_RAW, _map_upload_size))
+	_map_upload_chunk = ""
+	if _map_upload_pos >= _map_upload_size:
+		_close_map_upload_file()
+	emit_signal("map_upload_progress", _map_upload_song_id, _map_upload_pos, _map_upload_size)
+
+func _close_map_upload_file():
+	if _map_upload_file != null:
+		_map_upload_file.close()
+		_map_upload_file = null
 
 func _abort_map_upload(reason: String):
 	var song_id = _map_upload_song_id
 	_map_upload_active = false
 	_map_upload_song_id = ""
-	_map_upload_b64 = ""
+	_map_upload_chunk = ""
+	_close_map_upload_file()
 	if song_id != "":
 		_send({"type": "cancel_map_upload", "song_id": song_id})
 	emit_signal("lobby_error", reason)
@@ -1692,6 +1960,12 @@ func _start_map_publish(song_id: String):
 	var f = File.new()
 	if f.open(song.filePath, File.READ) != OK:
 		emit_signal("lobby_error", "Couldn't open the map file to publish it.")
+		_advance_publish_queue()
+		return
+	if f.get_len() > MAP_SEND_MAX_BYTES:
+		# (the server refuses it, and reading a map that size can run the game out of memory)
+		f.close()
+		emit_signal("lobby_error", "This map is too big to publish: the server takes maps up to %d MB." % (MAP_SEND_MAX_BYTES / 1048576))
 		_advance_publish_queue()
 		return
 	var bytes = f.get_buffer(f.get_len())
@@ -1933,9 +2207,13 @@ func _handle_message(msg: Dictionary):
 			_apply_server_name(msg)
 			if Globals.s(msg.get("type", "")) == "auth_ok":
 				_send({"type": "social_get"}) # (friends and blocked: social_state)
+				_signed_in = true
+				_dm_start()
 			if msg.has("chat_banned"):
+				chat_ban_words = Globals.s(msg.get("chat_ban_left_words", ""))
 				_set_chat_ban(bool(msg.get("chat_banned")), msg.get("chat_ban_left_ms"))
 		"chat_ban":
+			chat_ban_words = Globals.s(msg.get("left_words", ""))
 			_set_chat_ban(bool(msg.get("banned", false)), msg.get("left_ms"))
 		"lobby_created":
 			lobby_code = Globals.s(msg.get("code", ""))
@@ -2006,12 +2284,15 @@ func _handle_message(msg: Dictionary):
 			emit_signal("lobby_state_changed")
 		"game_started":
 			lobby_state = msg.get("state", lobby_state)
+			Rhythia.coop_now = coop_on() # (co-op: never sent as a pass)
 			print("[furria] applying mods before transition: ", lobby_state.get("mods", {}))
 			if not is_host:
 				_apply_mods_locally(lobby_state.get("mods", {}))
 				_apply_watch_spin(lobby_state.get("mods", {}))
 			enforce_mp_hitwindow() # (55 or 58 ms in multiplayer)
-			Rhythia.apply_lobby_lead_in()
+			# the host's lead-in, for this game only (the host: their own)
+			var host_lead: float = float(lobby_state.get("mods", {}).get("lead_in_ms", Rhythia.LOBBY_LEAD_IN_MS))
+			Rhythia.apply_lobby_lead_in(Rhythia.lead_in_ms if is_host else host_lead)
 			print("[furria] Rhythia.mod_speed_level after apply: ", Rhythia.mod_speed_level)
 			var t = get_tree().create_timer(0.4)
 			t.connect("timeout", self, "_scene_transition_now")
@@ -2044,9 +2325,16 @@ func _handle_message(msg: Dictionary):
 					_scene_transition_now()
 				else:
 					_watch_wait_t = max(_watch_wait_t, SPECTATE_ASSET_WAIT) # (their border / mesh downloading)
+		"coop_hits":
+			var hn = msg.get("n", [])
+			var mn = msg.get("m", [])
+			emit_signal("coop_received", int(msg.get("peer_id", -1)), hn if hn is Array else [], mn if mn is Array else [])
 		"live_state":
 			var peer_id = int(msg.get("peer_id", -1))
 			_live_state_cache[peer_id] = msg
+			if peer_id != local_peer_id and coop_on():
+				var lp = msg.get("pts", null)
+				emit_signal("coop_partner_pts", peer_id, lp if lp is Array and lp.size() >= 3 else [float(msg.get("ms", 0.0)), float(msg.get("x", 0.0)), float(msg.get("y", 0.0))])
 			emit_signal("live_state_received",
 				peer_id, float(msg.get("x", 0)), float(msg.get("y", 0)), int(msg.get("combo", 0)), int(msg.get("combo_level", 1)),
 				int(msg.get("score", 0)), int(msg.get("hits", 0)), int(msg.get("misses", 0)), int(msg.get("total_notes", 0)),
@@ -2107,15 +2395,20 @@ func _handle_message(msg: Dictionary):
 			replay_vr_supported = feats is Array and feats.has("replay_vr")
 			replay_vr_hand_supported = feats is Array and feats.has("replay_vr_hand")
 			translate_supported = feats is Array and feats.has("translate")
+			dms_supported = feats is Array and feats.has("dms")
+			find_supported = feats is Array and feats.has("player_find")
+			_news_supported = feats is Array and feats.has("announcements")
+			_hello_seen = true
+			_dm_start()
 			# reconnected in the middle of a song (a network blip, a server
 			# restart): the server lost your settings with the old connection,
 			# so whoever starts watching would see it their own way
 			if presence_supported == 1 and Rhythia.in_map and not lobby_active and not watch_mode and not _solo_settings_sent:
-				call_deferred("send_solo_view_settings")
+				call_deferred("send_solo_view_settings", true)
 		"view_settings_wanted":
 			# (someone started watching and the server has no settings of yours)
 			if Rhythia.in_map and not lobby_active and not watch_mode:
-				send_solo_view_settings()
+				send_solo_view_settings(true)
 		"online_players":
 			var lst = msg.get("players", [])
 			online_players = lst if lst is Array else []
@@ -2162,7 +2455,7 @@ func _handle_message(msg: Dictionary):
 				# since the song started and gives them to whoever watches: sending
 				# them again mid-song only made the game stutter)
 				if lobby_active or not _solo_settings_sent:
-					send_view_settings()
+					send_view_settings(true)
 				var game = get_tree().current_scene.find_node("Game", true, false) if get_tree().current_scene else null
 				if game != null and game.has_method("_sync_lobby_stats"):
 					game._sync_lobby_stats()
@@ -2183,6 +2476,27 @@ func _handle_message(msg: Dictionary):
 			close_lobby()
 		"social_state":
 			_on_social_state(msg)
+		"dm_message":
+			_on_dm_message(msg)
+		"dm_list":
+			_on_dm_list(msg)
+		"dm_history":
+			_on_dm_history(msg)
+		"dm_unread":
+			# (read on another copy of the game)
+			var dm_c = dm_conversation(int(msg.get("number", 0)))
+			if dm_c != null:
+				dm_c.unread = int(msg.get("unread", 0))
+			dm_unread_total = int(msg.get("total", 0))
+			emit_signal("dm_list_changed")
+		"dm_result":
+			if not bool(msg.get("ok", false)) and Globals.s(msg.get("error", "")) != "":
+				Globals.notify(Globals.NOTIFY_WARN, Globals.s(msg.get("error", "")), "Direct message")
+		"player_found":
+			var pf = msg.get("players")
+			emit_signal("players_found", Globals.s(msg.get("q", "")), pf if pf is Array else [])
+		"announcements":
+			_on_announcements(msg)
 		"social_result":
 			if not bool(msg.get("ok", false)) and Globals.s(msg.get("error", "")) != "":
 				Globals.notify(Globals.NOTIFY_WARN, Globals.s(msg.get("error", "")), "Friends")
@@ -2208,12 +2522,19 @@ func _handle_message(msg: Dictionary):
 			var announce_text = Globals.s(msg.get("text", ""))
 			var announce_from = Globals.s(msg.get("from_name", ""))
 			emit_signal("announcement_received", announce_text, announce_from, float(msg.get("ts", 0)))
+			if announce_text != "":
+				announcements.append({text = announce_text, from_name = announce_from, ts = float(msg.get("ts", 0))})
+				while announcements.size() > 50:
+					announcements.pop_front()
+				emit_signal("announcements_changed")
 			if Rhythia.in_map:
 				_pending_announcement = {"text": announce_text, "from_name": announce_from}
 			else:
 				_show_announcement_banner(announce_text, announce_from)
 		"public_lobbies":
 			emit_signal("public_lobbies_received", msg.get("lobbies", []))
+		"casino":
+			emit_signal("casino_update", msg)
 		"cards":
 			var cl = msg.get("cards", [])
 			emit_signal("cards_received", cl if cl is Array else [], Globals.s(msg.get("chosen", "default")))
@@ -2399,6 +2720,50 @@ var _presence_t: float = 0.0
 var _presence_hello_t: float = -1.0
 var _presence_retry_t: float = 3.0 # the first connect, a moment after the game starts
 var _presence_failures: int = 0
+
+# --- co-op lobbies (NoteManager's co-op part) ------------------------------------
+# Two players, one play (two at most: the server keeps a third out). The mode
+# says how the notes are shared: "any", "alternate" or "sides".
+var _pending_coop := false
+var _pending_coop_mode := "any"
+const COOP_MODES := ["any", "alternate", "sides"]
+const COOP_MODE_NAMES := {"any": "Any note", "alternate": "Take turns", "sides": "Left / right"}
+
+func coop_on() -> bool:
+	return lobby_active and bool(lobby_state.get("coop", false))
+
+func coop_mode() -> String:
+	var m := String(lobby_state.get("coop_mode", "any"))
+	return m if m in COOP_MODES else "any"
+
+# 0 for the first player (the lower peer id), 1 for the other
+func coop_slot() -> int:
+	for p in players:
+		var pid := int(p.get("peer_id", -1))
+		if pid != local_peer_id and pid >= 0 and pid < local_peer_id:
+			return 1
+	return 0
+
+func coop_partner_name() -> String:
+	for p in players:
+		if int(p.get("peer_id", -1)) != local_peer_id:
+			return Globals.s(p.get("name", "Partner"))
+	return "Partner"
+
+# the host: co-op on or off, and its mode (before a round)
+func set_coop(on: bool, mode: String = ""):
+	var msg := {"type": "set_coop", "on": on}
+	if mode != "":
+		msg["mode"] = mode
+	_send(msg)
+
+func send_coop(hits: Array, misses: Array):
+	if not coop_on() or (hits.empty() and misses.empty()):
+		return
+	var msg := {"type": "coop_hits", "n": hits}
+	if not misses.empty():
+		msg["m"] = misses
+	_send(msg)
 
 # sending your play to whoever watches you (in a lobby, or watched alone)
 func broadcasting() -> bool:

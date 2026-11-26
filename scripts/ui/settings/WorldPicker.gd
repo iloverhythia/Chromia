@@ -4,6 +4,8 @@ extends Control
 # (the old dropdown ran off the bottom of the screen). Opened by WorldSel.gd,
 # which puts it in a CanvasLayer on the window, or straight on the VR menu
 # screen (a CanvasLayer there gets the pointer at the wrong spot).
+# Settings > VR > Hands uses it too: then the items are Dictionaries
+# {name, section, cover, has_cover, id} (VRTab.gd) and the title is "Hands".
 
 signal picked(world)
 
@@ -13,6 +15,7 @@ const DRAG_START := 12.0
 
 var worlds: Array = []
 var selected = null
+var title_text := "Background"
 
 var _root: Control
 var _panel: PanelContainer
@@ -25,8 +28,22 @@ var _press_pos = null
 var _dragging := false
 var _last_drag_ms := -1000
 var _tiles := []
+# The Menu Customizer's look (Settings > Menu Customizer, MenuStyle.gd) when
+# one is set, through the Online page's colours (OnlineStyle.gd, as Settings,
+# Online and Profile do): the buttons' colour for the outline, the chosen
+# background and the Close button, the accent for the headings, your text
+# colour, the panels in the buttons' hue and your roundness. null: no look of
+# your own, the picker as it always was.
+var _S = null
+var _radius := -1
 
 func _ready():
+	var MS = load("res://scripts/ui/menu/MenuStyle.gd")
+	var st: Dictionary = MS.data().style
+	if not st.empty():
+		_S = load("res://scripts/ui/menu/OnlineStyle.gd").new()
+		if st.has("btn_radius"):
+			_radius = int(MS.get_value("btn_radius"))
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 	mouse_filter = MOUSE_FILTER_IGNORE
@@ -60,10 +77,11 @@ func _build():
 
 	_panel = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.075, 0.065, 0.11, 0.98)
-	sb.border_color = Color(0.78, 0.62, 1.0, 0.45)
+	sb.bg_color = Color(0.075, 0.065, 0.11, 0.98) if _S == null else Color(_S.CARD_BG.r, _S.CARD_BG.g, _S.CARD_BG.b, 0.98)
+	sb.border_color = Color(0.78, 0.62, 1.0, 0.45) if _S == null else Color(_S.LILAC.r, _S.LILAC.g, _S.LILAC.b, 0.55)
 	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(14)
+	sb.set_corner_radius_all(14 if _radius < 0 else int(clamp(_radius * 2, 0, 24)))
+	sb.corner_detail = 16
 	sb.content_margin_left = 16
 	sb.content_margin_right = 16
 	sb.content_margin_top = 12
@@ -82,14 +100,20 @@ func _build():
 	var top := HBoxContainer.new()
 	col.add_child(top)
 	var title := Label.new()
-	title.text = "Background"
+	title.text = title_text
 	title.add_font_override("font", _big)
+	if _S != null:
+		title.add_color_override("font_color", _S.ACCENT)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(title)
 	var close := Button.new()
 	close.text = "Close"
 	close.add_font_override("font", _font)
 	close.rect_min_size = Vector2(96, 44)
+	if _S != null:
+		_S.button(close, true)
+		_round(close)
+		close.rect_min_size = Vector2(96, 44)
 	close.connect("pressed", self, "close")
 	top.add_child(close)
 
@@ -104,6 +128,8 @@ func _build():
 
 # Sections in list order: Chromia's own backgrounds, Rhythia's, Roblox Rhythia's
 static func _section_of(w) -> String:
+	if w is Dictionary:
+		return str(w.get("section", ""))
 	var c: String = w.creator
 	if c.begins_with("Rhythia (Roblox)"):
 		return "Rhythia (Roblox)"
@@ -142,7 +168,7 @@ func _fill(cols: int, tile_w: float):
 		var head := Label.new()
 		head.text = s
 		head.add_font_override("font", _font)
-		head.add_color_override("font_color", Color(0.8, 0.66, 1.0))
+		head.add_color_override("font_color", Color(0.8, 0.66, 1.0) if _S == null else _S.ACCENT)
 		_grid_box.add_child(head)
 		var grid := GridContainer.new()
 		grid.columns = cols
@@ -160,15 +186,16 @@ func _tile(w, tile_w: float) -> Control:
 	b.rect_min_size = Vector2(tile_w, tile_w * 0.75 + 40)
 	b.clip_text = true
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(1, 1, 1, 0.05)
-	normal.set_corner_radius_all(10)
+	normal.bg_color = Color(1, 1, 1, 0.05) if _S == null else _S.BTN_BG
+	normal.set_corner_radius_all(10 if _radius < 0 else int(clamp(_radius, 0, 20)))
+	normal.corner_detail = 12
 	normal.set_border_width_all(2)
-	normal.border_color = Color(1, 1, 1, 0.08)
+	normal.border_color = Color(1, 1, 1, 0.08) if _S == null else Color(_S.LILAC.r, _S.LILAC.g, _S.LILAC.b, 0.12)
 	var hover := normal.duplicate()
-	hover.bg_color = Color(1, 1, 1, 0.1)
+	hover.bg_color = Color(1, 1, 1, 0.1) if _S == null else _S.BTN_HOVER
 	var on := normal.duplicate()
-	on.bg_color = Color(0.78, 0.62, 1.0, 0.22)
-	on.border_color = Color(0.85, 0.72, 1.0, 0.95)
+	on.bg_color = Color(0.78, 0.62, 1.0, 0.22) if _S == null else Color(_S.LILAC.r, _S.LILAC.g, _S.LILAC.b, 0.24)
+	on.border_color = Color(0.85, 0.72, 1.0, 0.95) if _S == null else Color(_S.LILAC.r, _S.LILAC.g, _S.LILAC.b, 0.95)
 	b.add_stylebox_override("normal", normal)
 	b.add_stylebox_override("hover", hover)
 	b.add_stylebox_override("pressed", on)
@@ -189,6 +216,8 @@ func _tile(w, tile_w: float) -> Control:
 	var lbl := Label.new()
 	lbl.text = w.name
 	lbl.add_font_override("font", _small)
+	if _S != null:
+		lbl.add_color_override("font_color", _S.TEXT)
 	lbl.align = Label.ALIGN_CENTER
 	lbl.valign = Label.VALIGN_CENTER
 	lbl.clip_text = true
@@ -198,6 +227,15 @@ func _tile(w, tile_w: float) -> Control:
 	b.add_child(lbl)
 	_tiles.append([b, w])
 	return b
+
+# (a button of the Online page's look with your roundness)
+func _round(b: Button):
+	if _radius < 0:
+		return
+	for k in ["normal", "hover", "pressed", "disabled"]:
+		var sb = b.get_stylebox(k)
+		if sb is StyleBoxFlat:
+			sb.set_corner_radius_all(int(clamp(_radius, 0, 20)))
 
 func _scroll_to_selected():
 	for t in _tiles:

@@ -93,7 +93,7 @@ func _fetch_list():
 	if Rhythia.in_map:
 		yield(_wait_out_song(), "completed")
 	var http := HTTPRequest.new()
-	http.use_threads = true # (the connection is made off the game's own thread)
+	http.use_threads = OS.can_use_threads() # (the connection is made off the game's own thread; the browser version has none)
 	http.timeout = 20
 	add_child(http)
 	http.connect("request_completed", self, "_on_list", [http])
@@ -161,7 +161,7 @@ func _next():
 	_busy = true
 	var part := cache_dir().plus_file(String(s.file) + ".part")
 	var http := HTTPRequest.new()
-	http.use_threads = true
+	http.use_threads = OS.can_use_threads() # (the browser version: none)
 	http.timeout = 120
 	http.download_file = part
 	http.body_size_limit = MAX_BYTES

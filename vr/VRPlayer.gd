@@ -40,6 +40,7 @@ func _ready():
 	# works on the eye images, which exist only then)
 	get_tree().create_timer(1.5).connect("timeout", self, "apply_xr_settings")
 	get_tree().connect("node_added", self, "_on_node_added")
+	Rhythia.connect("vr_passthrough_changed", self, "apply_passthrough_scene")
 	update_primary_ray()
 	_restore_play_lock()
 	set_process(true)
@@ -609,9 +610,61 @@ static func glow_on() -> bool:
 		return Rhythia.vr_glow == 1
 	return not OS.has_feature("quest")
 
+# --- Passthrough (Savia.gd apply_vr_passthrough): what's drawn over your room ------
+# With passthrough on, nothing of the game's surroundings is drawn: every
+# environment's background is "clear" (see-through on the headset; its real
+# background is kept on it and put back when passthrough goes off), and the
+# song's background (the "Space" the song scene adds) is hidden. What you play
+# with is untouched: the grid, the notes, the cursor, the HUD, your hands.
+func _passthrough_env(e: Environment):
+	if e == null:
+		return
+	if Rhythia.vr_passthrough_active:
+		if not e.has_meta("pt_bg"):
+			e.set_meta("pt_bg", e.background_mode)
+		e.background_mode = Environment.BG_CLEAR_COLOR
+	elif e.has_meta("pt_bg"):
+		e.background_mode = int(e.get_meta("pt_bg"))
+		e.remove_meta("pt_bg")
+
+func _passthrough_space(space: Node):
+	var show: bool = not Rhythia.vr_passthrough_active
+	if space is Spatial:
+		space.visible = show
+	else:
+		for c in space.get_children():
+			if c is Spatial:
+				c.visible = show
+
+static func _world_envs(n: Node, out: Array):
+	if n is WorldEnvironment:
+		out.append(n)
+	for c in n.get_children():
+		_world_envs(c, out)
+
+func apply_passthrough_scene():
+	var root: Viewport = get_tree().root
+	# (the environment a scene without its own falls back on)
+	if root.world != null:
+		_passthrough_env(root.world.fallback_environment)
+	var envs := []
+	_world_envs(root, envs)
+	for we in envs:
+		_passthrough_env(we.environment)
+	var cs = get_tree().current_scene
+	var space = cs.get_node_or_null("Space") if cs != null and cs.has_node("Game") else null
+	if space != null:
+		_passthrough_space(space)
+	# the menu's surroundings (vrmenu.gd)
+	var menu = Rhythia.vr_menu.get_parent() if is_instance_valid(Rhythia.vr_menu) else null
+	if menu != null and menu.has_method("apply_env"):
+		menu.apply_env()
+
 func _on_node_added(n: Node):
 	if n is WorldEnvironment:
 		call_deferred("_tune_env", n) # after its scene has set it up
+	elif n.name == "Space" and Rhythia.vr_passthrough_active and n.get_parent() != null and n.get_parent().has_node("Game"):
+		_passthrough_space(n) # (a song's background: not drawn over your room)
 	elif n is Viewport and n.name.ends_with("VP") and n.get_parent() != null and n.get_parent().name == "HUD":
 		# the song HUD's panels are drawn into 2D-only viewports: no 3D pass
 		# and no multisampling (4x on each, redrawn as the numbers change)
@@ -635,6 +688,9 @@ func _tune_env(we):
 	else:
 		e.glow_high_quality = false
 		e.glow_bicubic_upscale = false
+	_passthrough_env(e)
+	if Rhythia.vr_passthrough_active and get_tree().root.world != null:
+		_passthrough_env(get_tree().root.world.fallback_environment)
 
 # --- Haptics (Settings > VR > Haptics) ----------------------------------------
 # A short buzz in the pointing hand on each hit, a stronger one on a miss.

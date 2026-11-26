@@ -4,7 +4,7 @@ func _pressed():
 	Globals.file_sel.open_file(
 		self,
 		"_on_map_files_selected",
-		PoolStringArray(["*.sspm, *.sspm2 ; Sound Space maps"]),
+		PoolStringArray(["*.sspm, *.sspm2, *.chrm ; Maps", "*.chrm ; Chromia maps", "*.sspm, *.sspm2 ; Sound Space maps"]),
 		true,
 		"user://"
 	)

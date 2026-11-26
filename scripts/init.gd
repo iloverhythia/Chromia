@@ -74,6 +74,11 @@ func _ready():
 
 
 	if not Rhythia.is_init:
+		if Rhythia.init_running:
+			# (back from the intro before loading was done: its last stage,
+			# "Waiting for menu", loads the menu, as on a start without the intro)
+			Rhythia.trail("init screen: waiting for loading to finish")
+			return
 		stage("", true)
 		return
 	elif Rhythia.first_init_done:

@@ -107,6 +107,10 @@ static func sha_of(path: String) -> String:
 	var c = cache.get(path)
 	if c is Array and int(c[0]) == mt and int(c[1]) == size:
 		return String(c[2])
+	# (in the middle of a song: a file not hashed yet isn't hashed now, it would
+	# read the whole file in one frame: LobbyManager's light sends)
+	if Engine.has_meta("spec_light"):
+		return ""
 	var sha: String = f.get_sha256(path)
 	cache[path] = [mt, size, sha]
 	return sha

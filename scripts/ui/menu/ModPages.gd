@@ -34,7 +34,7 @@ const ORDER := [
 	# page 2
 	"Chaos", "Strobe",
 	"360", "FlashlightMod",
-	"TrueFlashlightMod",
+	"TrueFlashlightMod", "Shuffle360", "BloxSaberMod",
 ]
 
 var mods: Control

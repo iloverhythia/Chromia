@@ -71,10 +71,13 @@ func texture_for(fr: Dictionary) -> Texture:
 	return it.tex
 
 # (a picture that shows it says so now and then: FrameView)
-func touch(fr: Dictionary):
+# -> false when it was let go (nobody showed it for a while): draw it again
+func touch(fr: Dictionary) -> bool:
 	var it = _items.get(key_of(fr))
 	if it != null:
 		it.used = OS.get_ticks_msec()
+		return true
+	return false
 
 func _process(_delta):
 	if _items.empty():

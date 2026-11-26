@@ -289,6 +289,10 @@ func _restore_keybind(action: String, config: ConfigFile):
 
 var jp: int = 0
 var sp: int = 0
+var song_skipped_ms: float = 0.0 # (this song's time jumped over by skips: not time played)
+# trophies: the ranked maps you're #1 on (the server's /savia-player-xp; scripts/ui/Trophy.gd)
+signal trophies_changed
+var trophies: int = 0
 var in_map: bool = false
 var discord_user: Dictionary = {}
 # Experimental "10x EXP" (level experience, PlayerLevel.gd; not ranked XP):
@@ -315,6 +319,7 @@ func load_profile():
 		return
 	jp = int(config.get_value("profile", "jp", 0))
 	sp = int(config.get_value("profile", "sp", 0))
+	trophies = int(config.get_value("profile", "trophies", 0))
 	var discord_id = String(config.get_value("profile", "discord_id", ""))
 	if discord_id != "":
 		discord_user = {
@@ -329,11 +334,15 @@ func save_jp():
 	config.load("user://settings.cfg")
 	config.set_value("profile", "jp", jp)
 	config.set_value("profile", "sp", sp)
+	config.set_value("profile", "trophies", trophies)
 	config.save("user://settings.cfg")
 
 const REPORT_COMPLETION_URL = "https://chromia.lol/savia-report-completion"
 # a ranked pass sent with its replay (the server only gives XP with one)
 const SUBMIT_PASS_URL = "https://chromia.lol/savia-submit-pass"
+# a failed play's progress (%), for the Discord defeats feed (the server
+# posts a new best on a hard ranked map there)
+const REPORT_PROGRESS_URL = "https://chromia.lol/savia-report-progress"
 const PASS_ENV_URL = "https://chromia.lol/savia-pass-env" # (ProcessScan.gd: DLLs, Cheat Engine)
 const PLAYER_XP_URL = "https://chromia.lol/savia-player-xp"
 const LEADERBOARD_URL = "https://chromia.lol/savia-leaderboard"
@@ -457,6 +466,10 @@ func _on_player_xp_received(result, response_code, headers, body, http_request: 
 		return
 	jp = int(json_result.result.get("xp", jp))
 	sp = int(json_result.result.get("sp", sp))
+	var t := int(json_result.result.get("trophies", trophies))
+	if t != trophies:
+		trophies = t
+		emit_signal("trophies_changed")
 	save_jp()
 
 func current_speed_multiplier() -> float:
@@ -487,6 +500,7 @@ func _get_active_mods_dict() -> Dictionary:
 		"earthquake": mod_earthquake,
 		"360": mod_360,
 		"360_speed": mod_360_speed,
+		"360_shuffle": mod_360 and mod_360_shuffle,
 		"strobe": mod_strobe,
 		"hardrock": mod_hardrock,
 		"harderrock": mod_harderrock,
@@ -494,6 +508,8 @@ func _get_active_mods_dict() -> Dictionary:
 		"flashlight": flashlight_on(), # (True Flashlight counts as Flashlight wherever it isn't known)
 		"true_flashlight": mod_true_flashlight,
 		"reverse": mod_reverse,
+		"blox_saber": mod_blox_saber, # (never sent as a pass: report_map_completion; the server refuses it too)
+		"coop": coop_now, # (a co-op lobby's play: never sent as a pass either)
 		"spin": cam_unlock,
 		"note_pushback": do_note_pushback,
 		"retain_pitch": retain_song_pitch,
@@ -630,7 +646,9 @@ func sp_for_accuracy(accuracy: float) -> int:
 			info.same = true
 		else:
 			lock_song_notes(selected_song)
+			doing("comparing the notes of %s with the ranked version" % String(selected_song.id))
 			info.same = String(info.hash) == selected_song.compute_chart_hash()
+			doing("")
 			unlock_song_notes(selected_song)
 	if not bool(info.same):
 		return -1
@@ -643,7 +661,7 @@ func sp_for_accuracy(accuracy: float) -> int:
 	return int(round(int(info.xp) * speed * speed * accuracy * accuracy))
 
 func offline_rp_rules_ok(ignore_pauses: bool = false) -> bool:
-	if mod_nofail or visual_mode or mod_extra_energy or mod_reverse or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
+	if mod_nofail or visual_mode or mod_extra_energy or mod_reverse or mod_blox_saber or coop_now or start_offset != 0 or (song_end_pause_count > 0 and not ignore_pauses):
 		return false
 	if replay != null and replay.autoplayer:
 		return false
@@ -660,9 +678,45 @@ func pass_url(url: String) -> String:
 	var path_at := url.find("/", 8)
 	return "https://" + "chromia" + "." + "lol" + (url.substr(path_at) if path_at > 0 else "")
 
+# A failed play: how far into the map you got (0-1). Game.end, on a fail.
+# The server decides whether it's posted (the map has to be in the defeats
+# feed, and it has to be your new best at or above the map's list %).
+func report_progress(song_id: String, fraction: float):
+	if cid == "" or song_id == "" or offline_mode or mod_blox_saber or coop_now:
+		return
+	var percent := int(floor(clamp(fraction, 0.0, 1.0) * 100.0))
+	if percent < 1 or percent > 99:
+		return
+	var content_hash: String = selected_song.compute_chart_hash() if selected_song != null else ""
+	var req := HTTPRequest.new()
+	add_child(req)
+	req.connect("request_completed", self, "_on_progress_reported", [req, percent])
+	var url := "%s?client_id=%s&song_id=%s&percent=%d&speed=%s&content_hash=%s&hitwindow=%s&mods=%s" % [
+		pass_url(REPORT_PROGRESS_URL), cid.http_escape(), song_id.http_escape(), percent, str(current_speed_multiplier()),
+		content_hash.http_escape(), str(hitwindow_ms), JSON.print(_get_active_mods_dict()).http_escape()
+	]
+	if req.request(url) != OK:
+		req.queue_free()
+
+func _on_progress_reported(_result, response_code, _headers, body, req: HTTPRequest, percent: int):
+	req.queue_free()
+	if response_code != 200:
+		return
+	var j = JSON.parse(body.get_string_from_utf8())
+	if j.error != OK or typeof(j.result) != TYPE_DICTIONARY:
+		return
+	if bool(j.result.get("posted", false)):
+		Globals.notify(Globals.NOTIFY_SUCCEED, "Your %d%% is a new best on this map, so it was posted in the Discord's defeats channel." % percent, "New best: %d%%" % percent, 6)
+
 var _offline_pass_told := false
 func report_map_completion(song_id: String):
 	if cid == "" or song_id == "":
+		return
+	if coop_now: # (co-op: two players, one play, so never sent)
+		Globals.notify(Globals.NOTIFY_INFO, "Co-op plays don't count for the leaderboards (no XP, SP or leaderboard).", "Score not submitted", 6)
+		return
+	if mod_blox_saber: # (Blox Saber: pausing without the wait, so never sent)
+		Globals.notify(Globals.NOTIFY_INFO, "Blox Saber is on, so this score isn't sent (no XP, SP or leaderboard).", "Score not submitted", 6)
 		return
 	if offline_mode: # (Offline Mode: scores stay on your computer)
 		if not _offline_pass_told:
@@ -879,6 +933,48 @@ func _on_accounts_received(_result, code, _h, body, r: HTTPRequest, then: String
 			if not bool(a.get("main", false)):
 				switch_to_account(String(a.get("client_id", "")))
 				break
+
+# D. Jarvis, the official bot (server src/djarvis.js): admins see him in the
+# accounts list (bot: true) and can play as him. The account you came from is
+# kept on this device (client db "bot_return") for Back to my account: the bot's
+# account has no switcher of its own.
+func bot_account() -> Dictionary:
+	for a in accounts:
+		if bool(a.get("bot", false)):
+			return a
+	return {}
+
+func on_bot_account() -> bool:
+	var back := String(_read_client_db().get("bot_return", ""))
+	return back != "" and back != cid
+
+func switch_to_bot():
+	var b := bot_account()
+	var id := String(b.get("client_id", ""))
+	if id == "" or id == cid:
+		return
+	var db = _read_client_db()
+	db["bot_return"] = cid
+	_write_client_db(db)
+	switch_account(id)
+	accounts = []
+	Globals.notify(Globals.NOTIFY_INFO, "You're playing as D. Jarvis now. Profile > Back to my account takes you back.", "Switched Account")
+	emit_signal("accounts_changed")
+	emit_signal("discord_login_changed")
+
+func back_from_bot():
+	var db = _read_client_db()
+	var back := String(db.get("bot_return", ""))
+	if back == "":
+		return
+	db.erase("bot_return")
+	_write_client_db(db)
+	if back != cid:
+		switch_account(back)
+	Globals.notify(Globals.NOTIFY_INFO, "You're back on your own account.", "Switched Account")
+	check_accounts()
+	emit_signal("accounts_changed")
+	emit_signal("discord_login_changed")
 
 func on_alt_account() -> bool:
 	for a in accounts:
@@ -1117,11 +1213,12 @@ const VERSION_SEQUENCE = [
 	"july18-2026-b", "july19-2026-a", "july23-2026-a", "july23-2026-b",
 	"july24-2026-a", "july24-2026-b", "july25-2026-a", "july25-2026-b",
 	"july25-2026-c", "july26-2026-a", "july27-2026-a", "sep27-2026-web-a",
-	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a", "nov13-2026-b", "nov15-2026-a", "nov15-2026-b", "nov16-2026-a", "nov18-2026-a", "nov19-2026-a", "nov21-2026-a", "nov22-2026-a"
+	"sep27-2026-web-b", "oct16-2026-a", "oct16-2026-b", "oct17-2026-a", "oct17-2026-b", "oct17-2026-c", "oct17-2026-d", "oct17-2026-e", "oct17-2026-f", "oct17-2026-g", "oct18-2026-a", "oct18-2026-b", "oct18-2026-c", "oct18-2026-d", "oct18-2026-e", "oct18-2026-f", "oct18-2026-g", "oct18-2026-h", "oct18-2026-i", "oct18-2026-j", "oct18-2026-k", "oct18-2026-l", "oct18-2026-m", "oct18-2026-n", "oct18-2026-o", "oct18-2026-p", "oct18-2026-q", "oct18-2026-r", "oct18-2026-s", "oct18-2026-t", "oct18-2026-u", "oct18-2026-v", "oct18-2026-w", "oct18-2026-x", "oct18-2026-y", "oct18-2026-z", "oct19-2026-a", "oct19-2026-b", "oct19-2026-c", "oct19-2026-d", "oct19-2026-e", "oct19-2026-f", "oct19-2026-g", "oct19-2026-h", "oct19-2026-i", "oct19-2026-j", "oct19-2026-k", "oct19-2026-l", "oct19-2026-m", "oct19-2026-n", "oct19-2026-o", "oct19-2026-p", "oct19-2026-q", "oct19-2026-r", "oct19-2026-s", "oct20-2026-a", "oct20-2026-b", "oct20-2026-c", "oct20-2026-d", "oct20-2026-e", "oct20-2026-f", "oct20-2026-g", "oct20-2026-h", "oct20-2026-i", "oct20-2026-j", "oct20-2026-k", "oct20-2026-l", "oct20-2026-m", "oct20-2026-n", "oct20-2026-o", "oct20-2026-p", "oct20-2026-q", "oct20-2026-r", "oct20-2026-s", "oct20-2026-t", "oct20-2026-u", "oct20-2026-v", "oct20-2026-w", "oct20-2026-x", "oct20-2026-y", "oct21-2026-a", "oct21-2026-b", "oct21-2026-c", "oct21-2026-d", "oct21-2026-e", "oct21-2026-f", "oct21-2026-g", "oct21-2026-h", "oct21-2026-i", "oct21-2026-j", "oct21-2026-k", "oct21-2026-l", "oct21-2026-m", "oct21-2026-n", "oct21-2026-o", "oct21-2026-p", "oct22-2026-a", "oct22-2026-b", "oct22-2026-c", "oct22-2026-d", "oct22-2026-e", "oct22-2026-f", "oct22-2026-g", "oct22-2026-h", "oct22-2026-i", "oct22-2026-j", "oct22-2026-k", "oct22-2026-l", "oct22-2026-m", "oct22-2026-n", "oct22-2026-o", "oct22-2026-p", "oct22-2026-q", "oct22-2026-r", "oct22-2026-s", "oct22-2026-t", "oct23-2026-a", "oct23-2026-b", "oct23-2026-c", "oct23-2026-d", "oct23-2026-e", "oct23-2026-f", "oct23-2026-g", "oct23-2026-h", "oct24-2026-a", "oct24-2026-b", "oct24-2026-c", "oct24-2026-d", "oct24-2026-e", "oct25-2026-a", "oct26-2026-a", "oct26-2026-b", "oct26-2026-c", "oct26-2026-d", "oct26-2026-e", "oct26-2026-f", "oct27-2026-a", "oct27-2026-b", "oct27-2026-c", "oct27-2026-d", "oct27-2026-e", "oct27-2026-f", "oct27-2026-g", "oct27-2026-h", "oct27-2026-i", "oct27-2026-j", "oct27-2026-k", "oct27-2026-l", "oct27-2026-m", "oct28-2026-a", "oct28-2026-b", "oct28-2026-c", "oct28-2026-d", "oct28-2026-e", "oct28-2026-f", "oct29-2026-a", "oct29-2026-b", "oct29-2026-c", "oct29-2026-d", "oct29-2026-f", "oct29-2026-e", "oct29-2026-g", "oct29-2026-h", "oct30-2026-a", "oct30-2026-b", "oct30-2026-c", "oct30-2026-d", "oct31-2026-a", "oct31-2026-b", "oct31-2026-c", "oct31-2026-d", "oct31-2026-e", "oct31-2026-f", "nov1-2026-a", "nov1-2026-b", "nov2-2026-a", "nov4-2026-a", "nov7-2026-a", "nov7-2026-b", "nov8-2026-a", "nov10-2026-a", "nov11-2026-a", "nov13-2026-a", "nov13-2026-b", "nov15-2026-a", "nov15-2026-b", "nov16-2026-a", "nov18-2026-a", "nov19-2026-a", "nov21-2026-a", "nov22-2026-a", "nov25-2026-a"
 ]
 
 
 const VERSION_NOTES = {
+	"nov25-2026-a": "- Watching a replay: the replay bar has a Save video button, to make a video of the replay you're watching (it opens your browser, like Save video after a play)\n- New mod, 360 Shuffle: like 360, but the spin keeps changing speed and direction. It isn't random: every map has its own pattern, the same every time you play it (and in its replays), so you can learn it. 360 speed sets how fast. It has its own best scores, apart from plain 360\n- Blocking without the website: Online > Friends > Blocked has a \"Block someone by player number\" box, a friend request has a Block button, and the ... menu on a player in Spectate has Block / Unblock (and Add friend). Right-clicking a name in chat still works too\n- Settings: right-click a category in the list on the left to hide it (\"Hidden\" at the bottom of the list shows them again; search still finds what's in them). And a new setting, Replays & Misc > Experimental > Collapsible Groups: click a group's title (Modifiers, Camera...) to fold it shut; it stays that way\n- New mod, Blox Saber: no pause cooldown, so you can pause again right after unpausing, and from the very start of a map; unpausing takes a quarter second instead of 0.75. Scores with it aren't submitted (no XP, SP, RP or leaderboard), and it has its own best scores\n- Picking a map with an animated (GIF) cover no longer holds the menu up for seconds: only the cover's first picture is read for the still one, not the whole animation.\n- When the game freezes (the window stops answering), the next crash report now says what it was stuck on: the step it was in the middle of, the background jobs running, and whether the sound system or the graphics driver had stopped answering. Before, a freeze left nothing to go on.\n- The game can no longer wait forever for a map's notes when another job that was reading them stopped half-way.\n- The Spectate eye button can be dragged anywhere on the screen (mouse, finger or VR pointer) and stays where you leave it. A plain click still opens Spectate; right-click the eye to put it back in its corner.\n- Direct messages: friends can message each other in the game. The chat (the eye button) now has three tabs: Global, DMs and Announcements. DMs lists your friends and conversations with unread counts; messages sent while someone is offline are waiting for them, and a new one shows by the eye button.\n- Add a friend without leaving the chat: type a player's name or #number in the DMs tab, and accept or decline friend requests right there. The Friends window (Online > Friends) finds players by name too and has a Message button.\n- Announcements tab: the team's latest announcements stay there to read, also the ones sent while you were away or in a map.\n- New setting: Auto Skip (Settings > Gameplay, with Restart on Death). The parts of a map that can be skipped (the wait before the first note, long breaks) are skipped by themselves a moment after the \"to skip\" timer shows. Off by default; not in a lobby, where the host's skip moves everyone.\n- Replays: the Note Hitboxes option now shows a white square the size of the hitbox coming in with each note, in front of it, until the note is hit or gone (it was a pile of green and red squares lying on the grid).\n- Meta Quest: Passthrough (Settings > VR > Graphics). Play in your real room: the headset's cameras are the background in the menu and in songs, and the menu screen, the grid, notes, cursor, HUD and your hands are drawn over it as solid as ever. The game's own backgrounds aren't drawn while it's on. It needs the app's newest version installed from its file (the Quest app has to ask the headset for passthrough, which an in-app update can't add): until then the option is greyed out.\n- Defeats on Discord: beating a hard ranked map is posted in the Discord's defeats channel (the very first to beat one is marked First victor), and so is a new best % when you fail on one, if it's at or above that map's list %. Only at 1x speed or faster, and with the same rules as a ranked pass\n- Lobbies: everyone plays with the host's lead-in time (it was always 3 seconds). Only for that game: your own lead-in setting isn't changed and is back once you're in the menu\n- Fixed the game closing by itself right as the menu opened at startup. It happened when the intro finished (or was skipped) before the game was done loading, most of all while the \"You are on an outdated version\" box was waiting for an answer. The start screen now waits for loading to finish\n- Fixed the game closing when someone watching you didn't have the map and it was very big (over 60 MB): it was read whole into memory to send to the server, which only takes maps up to 60 MB anyway. Now it isn't read, and the watcher is told the map is too big. Publishing a map over 60 MB says so instead of trying\n- The loading screen before a map (in a lobby too) no longer just sits on black when something holds it up: after a few seconds it says what it's waiting for, and Esc goes back to the menu. Waiting for a map's notes that another job was reading used to stop the whole game (a black, frozen screen); it now keeps going and takes over after 15 seconds\n- The 360 mod's speed is only shown when it isn't normal (\"360 Shuffle\" instead of \"360 Shuffle x1\", e.g. on your Discord status)\n- Less lag for players with many prestige (or other moving) frames and cards: each frame is about three times quicker to draw, and frames and cards scrolled out of sight in a list are no longer drawn. Moving cards are drawn 30 times a second instead of every frame (15 on Quest, in VR and on phones)\n- Replays: a slider next to Cursor Path sets how long the path is (0.1 to 5 seconds behind the cursor). The website's Game view now has the replay bar too: scrub, change the speed, turn on the drawings, and Hide it (the small logo brings it back). Not while it's recording a video\n- No Delay (Settings > Video & Audio, Experimental): no more stutters in busy parts of a map where the picture stood still for a tenth of a second or more while the game ran on. With no frame limit at all the game made over a thousand frames a second, the graphics card was full and Windows (and anything recording) couldn't get the frames to the screen in time. No Delay now holds the frames to four times your screen's refresh rate (240 to 1,000 a second, or your Max FPS if lower); every frame still\n- New map file: Chromia maps (.chrm), with things Sound Space maps can't have. First: lyrics, made the way Novastra does them. In the Map Editor open Edit Extra Objects, set GAME to Chromia (or Novastra) and pick Lyrics: type a lyric and press Enter (or CREATE) to place it at the current time, with Fade In / Fade Out if you like. Lyrics add on to the line shown; \"-\" in front starts a new line, \"-\" at the end joins the next lyric on as a syllable, and an empty lyric clears the line. In songs the ly\n- Settings (old look, and Sound Space Mode): right-click a tab to hide it (the same menu shows hidden ones again), and Collapsible Groups gives each group a title you click to fold it\n- Pressing Enter in the 360 speed box now leaves the box\n- Speed keys (Ctrl+S in the map list): Space or the retry key no longer types into the map search, even when you were typing in it before\n- Browser version: maps from hosts that don't allow browser downloads (most Rhythia maps) now download, through the Chromia server, instead of saying \"This map's host doesn't allow downloads from the browser\"\n- Being spectated no longer makes your game stutter when someone starts watching mid-song: your look is sent without reading your background, mesh and sound files again, and a map sent to a spectator who doesn't have it is read a little at a time\n- Speed keys (Ctrl+S): from a custom speed, A / D go to the nearest speed that way (instead of back to Normal), and D past ++++ goes to your custom speed\n- Save video (Game view): the song is no longer nearly silent after a pause in the play (it kept the volume it had the moment the music came back in)\n- After unpausing, the music fades back in to your Music Volume instead of full volume (and in replays it no longer keeps getting louder afterwards)\n- Watching someone's replay from the leaderboard plays their own hit and miss sounds (the ones they play with), and yours again after\n- Meta Quest: a new install starts with the fastest graphics in songs (the same as Settings > VR > \"Best frame rate\": foveated rendering High, the plain background in songs, glow off), so the headset holds its 72 Hz from the first song. Foveated rendering on Auto is now High on the Quest (dynamic: it only lowers the edges when a frame needs it). Frame Smoothing's rate drop never goes below 72 Hz in a headset. Your saved settings are kept\n- Trophies: a new stat with a little trophy, one for every ranked map where you have the #1 pass. They show on your profile panel, your Profile page, Spectate > View stats and next to everyone's name in a multiplayer lobby. The leaderboard (Profile > Leaderboard) has a Trophies tab next to Additive, and a Top Passes tab too (everyone's best pass on each ranked map, by SP: the map, accuracy, speed and misses)\n- Time played (Profile, Stats) no longer counts the empty parts of a map you skip (your own skips and a lobby host's), and neither does the level experience that goes with it\n- Casino in the game: type /casino in a chat to open the casino window, with the same ten games, chips, daily bonus, leaderboard and Give chips as the Discord server's /casino. Your chips are your linked Discord account's, so they're the same on Discord and in the game (link Discord on your Profile first). A game left open in one place can be finished in the other\n- D. Jarvis, the official Chromia bot, is in the game: always online (at the bottom of the Online list, with a BOT tag), with the Discord bot's picture and \"Official Chromia Bot\" on his profile. Say \"@D. Jarvis\" in the global chat, or add him as a friend (he says yes at once) and message him, and he answers the way the Discord Jarvis does. Admins can play as him: Profile > Play as D. Jarvis (and Back to my account)\n- Chat commands: /casino opens the casino; staff have /mute <name or #number> <how long> [reason] (30m, 3d, 2 centuries, 1 eon, forever...: it always says how long), /unmute <name or #number> and /adminpanel (opens the admin panel). A very long chat mute shows how long in words (\"2 centuries left\")\n- The 360 Shuffle mod has its own icon (crossed arrows) next to the 360 one while you play\n- Map Editor: CREATE NEW MAP opens the create screen of the classic (SSQE+) look in both looks: pick the game (Chromia, Sound Space, Rhythia or Novastra/Phoenyx/Other) and the song. The note about Rhythia Online under CHOOSE is gone. A Chromia map (also one opened from a .chrm or one with lyrics) has its own tools in the main panels: GRAPHICS > Lyrics (CHROMIA) to type a lyric and place it where the song is (Enter or CREATE, Fade In / Fade Out), and ON TIMELINE to move or change them on the track.\n- The Map Editor's windows (Editor Settings, exports and the other dialogs) and the Spectate window follow your Menu Customizer look: its button colour for buttons, tabs, switches and outlines, its accent and text colours, and dark panels in your buttons' hue. Without a look of your own they stay as they were\n- 5 new Chromia world backgrounds, in the same neon-lilac look as the others: Contours, Prism Rain, Lilac Orbit, Aurora and Pulse Floor (Settings > Background, under Chromia)\n- The Background (world) menu follows your Menu Customizer look: its button colour for the tiles and Close, its accent for the headings and its corner roundness. Without a look of your own it stays as it was\n- VR settings: the Hands choice opens a full window with a picture of every hand (like the Background menu) instead of a dropdown, and the Hand Creator opens in its own full window (Close or Esc to go back). Both follow your Menu Customizer look\n- Co-op lobbies: tick Co-op (2 players) when hosting, and two of you play the map together with one score and one health bar. Pick how the notes are shared: Any note (either cursor can hit any note), Take turns (every other note is yours) or Left / right (each takes a side of the grid). Your partner's cursor shows with their name, and in Take turns and Left / right their notes are see-through. Co-op plays don't count for the leaderboards (no XP, SP or RP), and their best scores are kept apart from\n- Watching someone's pass from the leaderboard shows it with their settings (camera, notes, cursor, HUD, background and sounds), like spectating. Switch between theirs and yours with the button at the top left or Tab: the replay starts again the other way",
 	"nov22-2026-a": "- Map list: two new filters on the Filters page, \"completed\" (only maps you have passed, with any mods or speed) and \"uncompleted\" (only maps you haven't passed yet). The map you are on stays in the list, so passing a map with \"uncompleted\" on doesn't reset your filters\n- Map leaderboard (in the game): clicking a score now plays that pass's replay in the game instead of opening the website. Right-click a score to open the player's profile\n- Friends and blocking: right-click a name in any chat to add a friend or block them, and Online > Friends has your friends (who's online, Invite), friend requests and who you blocked. Blocked players' chat messages fold into \"1 blocked message  Show\" (click Show to see them), and their friend requests and lobby invites don't reach you. The website's profiles have the same buttons and lists\n- Save video for any run, not just the last one: every attempt in a map's History tab has a camera button, and History has a \"Newest first\" switch so your recent plays are at the top. (Holding restart after a fail used to make Save video show the second-long restart instead of the run you wanted.) Leaderboard passes with a replay have the camera button too\n- Offline Mode (Settings > Online): play on your own. You show as offline to everyone (not in Spectate, offline to friends and on your profile), nobody can watch, invite or collab with you, no chat shows (global, lobby, @mentions, friend request pop-ups) and you can't host, join or watch. Your scores aren't sent (no XP, SP or leaderboard places), but local RP and your History still count. Maps, updates and announcements still work. The Online page has a Go online button to turn it off\n- Scrolling in a chat (the Spectate window's chat, the Online panel) or any window over the menu (Friends, Invite players, Filters...) no longer scrolls your map list behind it\n- The Spectate window stays smooth with a lot of people online (it used to redo every player's card every second, on screen or not): much less lag on every device, VR and phones most of all\n- VR: turning the render resolution up costs less frame rate. Two new Auto choices in Settings > VR > Graphics follow it: above 120% anti-aliasing turns off (a picture drawn that big is smooth already) and foveated rendering goes up a step (two above 155%). Foveated rendering set to Low becomes Auto, which is the same thing at 100%; pick a level or Anti-aliasing On to have it your way\n- The first note of a map no longer hitches (VR and phones most of all): the HUD's big numbers were being made the moment they first appeared, about ten of them at once on the first hit and the rest over the next hits. They are made while the song counts in now, and kept between maps\n- The colorset picker (Settings > Colorsets) no longer lags with a lot of colorsets, in VR most of all: only the rows on screen are drawn, as one picture instead of a dozen pieces per colorset, and nothing is made for it when the menu loads. New: \"Only show favorites\" above the colorsets (star a colorset to make it one)\n- New prestige frames and cards for Prestige 5, 50, 500 and 5,000 (copper with rivets, rose gold with petals, emerald with laurels, amethyst with a crown of crystals), and one for Prestige 67: \"Six Seven\"\n- VR replays always keep your head and hand movement now, so watching one on a computer (or the website) shows the hands, the beam and what the headset saw. Until now that was only saved while the game was connected to the server: a VR play made offline, or while the connection was down, played back like a flat one. The hands also move more smoothly (they are saved more often)",
 	"nov21-2026-a": "- Android phones and tablets: less delay between your finger and the game, in songs and in the menus. The engine was handing touches to the game one frame late (after drawing instead of before); now they are used in the frame they arrive in\n- VR (Meta Quest): the on-screen keyboard is much lighter to draw (one picture instead of fifty separate buttons), so the frame rate no longer sags while it is out. In VR the map search now updates once you stop typing instead of after every key\n- VR (Meta Quest): a Chromia splash shows in the headset the moment the game is opened, the Loading panel is up and moving before the loading starts, and it keeps moving while the menu loads (the picture used to freeze for most of the loading)\n- Phones: loading screens keep moving while a song or the menu loads instead of freezing until it is done\n- Fixed small stutters in the middle of songs, most noticeable in VR: hit and miss effects (and score popups) are now all made ready while the song counts in, instead of being set up mid-song whenever several notes were hit at once\n- No more stutters from the game trying to reconnect to the server during a song you play alone (it reconnects when the song is over), or from menu music being downloaded and checked in the background while you play\n- Names no longer stay old after someone changes their Discord name: the Spectate tab, lobbies, chat and your own name in the menu show the new one\n- Watching a replay no longer \"fails\" partway through a map that was really passed (very rarely, the replay's health ran out where the run's didn't); a run that really failed still fails where it did",
 	"nov19-2026-a": "- Vaporwave (Roblox) background: fixed the lower half of the screen turning solid white (cutting the grid and HUD in half) whenever the camera rose a little, as it does in Spin and with parallax, and the sky turning flat grey when it dipped. The background has two huge paper-thin sheets lying exactly at eye level that were only ever meant to be seen edge-on\n- Fixed a way the game could close by itself when a song started right after you picked a map (within about half a second): picking a map started a background check of its song that read in a script at the same moment the song's loading did\n- A quick second click on a map in the list starts it the same way the Play button does (it had its own way in). The same click arriving twice no longer counts as a second click\n- VR (Meta Quest): the game no longer lowers your refresh rate by itself. With Frame Smoothing on it used to drop a headset from 120 Hz to 90 or 72 after a song with late frames and keep it there for many songs; a rate held that way is let go of. If you want it, it's a switch now: Settings > VR > Graphics > \"Lower the refresh rate by itself when songs keep dropping frames\"\n- VR (Meta Quest): Refresh rate has a 240 Hz entry. It asks the headset for 240 Hz even though the headset doesn't list it, and tells you whether the headset took it or which rate it is really at\n- VR (Meta Quest): a headset that keeps refusing the refresh rate asked for (another app holding it, for one) is no longer asked again every five seconds, which could cost a hitch each time; after three refusals it's left alone for a minute\n- VR (Meta Quest): Settings > VR > Graphics > \"Set up for the best frame rate\": one press for foveated rendering High, glow off, the simple background, and render resolution back to 100% if it was higher\n- Every pass now saves your display settings to the server (even with spectators off), so replays of your passes on the website play with your settings\n- Meta Quest and phones: the background check of a picked map's song (new in the last update) is off there for now. Two Quest reports ended seconds after a map was picked in the menu, which is when it ran\n- Meta Quest and phones: fixed a stutter every ten seconds during songs that came with the last update. The game notes every ten seconds that it is still running (for crash reports), and wrote that note to the device's storage in the middle of the song; it's written on the side now. The note about a slow frame doesn't go to the storage right after the slow frame either\n- Android phones: the file browser can see your files again (songs, maps, pictures in Downloads and other folders). On Android 11 and later it showed folders but no files. Tap the new \"Allow file access\" button in the file browser, turn on \"Allow access to manage all files\" for Chromia, and come back. You need to install this version's chromia-android.apk for it.\n- VR (Meta Quest): closing the game from the headset's own menu is no longer taken for a crash (no crash notice at the next start, no report sent). The game now notes when the headset's menu opens over it and when it gets the focus back.\n- NEW: Inventory & Misc, a new button on the sidebar (the backpack). It is laid out like Settings, with a tab each for Cards, Frames, Codes and the Avatar Creator\n- Cards and Frames moved there from the profile page (they were buttons that opened windows), and they now use the whole page\n- Secret codes have their own Codes tab (the box was in the Cards window). Unlocking something with a code shows an \"Unlocked!\" notification and lists what you got; a code for something you already have just says so\n- The Avatar Creator moved there from Settings > Replays & Misc > Experimental, and opens inside the page instead of on a screen of its own\n- Changing a map's difficulty (map screen > Change Difficulty) now sticks: it went back to the old one the next time you opened the game\n- Chat bans can have a length now (an hour, a day...): while banned, the chat box says how long is left, and you can talk again as soon as it's up. Staff picking Chat ban from the right-click menu choose 1 hour, 1 day or until lifted",
@@ -1615,17 +1712,47 @@ var star_mutex := Mutex.new() # (old global lock, no longer used for note reads)
 # 750k-note map). Now a song start only waits if the rater is on that same map.
 var _notes_busy := {}
 var _notes_busy_mutex := Mutex.new()
+# A lock that was never given back (its holder stopped on an error half-way)
+# used to be waited for without end: on the main thread that is a frozen game.
+# After NOTES_LOCK_WAIT_MS it is taken over.
+const NOTES_LOCK_WAIT_MS := 15000
 func lock_song_notes(song):
 	if song == null:
 		return
+	var t0 := OS.get_ticks_msec()
+	var told := false
 	while true:
 		_notes_busy_mutex.lock()
-		if not _notes_busy.has(song):
+		if not _notes_busy.has(song) or OS.get_ticks_msec() - t0 > NOTES_LOCK_WAIT_MS:
+			var stale: bool = _notes_busy.has(song)
 			_notes_busy[song] = true
 			_notes_busy_mutex.unlock()
+			if stale:
+				trail("notes of %s: waited %d s for whoever was reading them, going on without" % [String(song.id), NOTES_LOCK_WAIT_MS / 1000])
+			if told:
+				doing("")
 			return
 		_notes_busy_mutex.unlock()
+		if not told:
+			told = true
+			doing("waiting for the notes of %s (another job is reading them)" % String(song.id))
 		OS.delay_msec(2)
+# The same without waiting (the song loader asks every frame, so the screen
+# keeps moving and says what it waits for): true when taken. take_over: take
+# it even though someone holds it (they've had NOTES_LOCK_WAIT_MS).
+func try_lock_song_notes(song, take_over: bool = false) -> bool:
+	if song == null:
+		return true
+	_notes_busy_mutex.lock()
+	var held: bool = _notes_busy.has(song)
+	if held and not take_over:
+		_notes_busy_mutex.unlock()
+		return false
+	_notes_busy[song] = true
+	_notes_busy_mutex.unlock()
+	if held:
+		trail("notes of %s: waited %d s for whoever was reading them, going on without" % [String(song.id), NOTES_LOCK_WAIT_MS / 1000])
+	return true
 func unlock_song_notes(song):
 	if song == null:
 		return
@@ -1725,7 +1852,9 @@ func _star_req_worker(song):
 
 func _star_req_done(song):
 	if _star_req_thread != null and _star_req_thread.is_active():
+		doing("waiting for the picked map's star rating job to end")
 		_star_req_thread.wait_to_finish()
+		doing("")
 	_star_req_thread = null
 	Directory.new().remove(Globals.p(STAR_CLICK_FILE))
 	if _quitting:
@@ -1777,9 +1906,13 @@ func _notification(what):
 		# from there without telling us, which isn't a crash
 		trail("app paused (in background)")
 		_set_session_state("paused")
+		if _freeze_watch != null:
+			_freeze_watch.hold(true)
 	elif what == MainLoop.NOTIFICATION_APP_RESUMED:
 		_set_session_state("running")
 		trail("app resumed")
+		if _freeze_watch != null:
+			_freeze_watch.hold(false)
 		# back from logging in to Discord in the browser: check right away
 		if _discord_login_timer != null and not _discord_login_timer.is_stopped():
 			call_deferred("_poll_discord_login")
@@ -1788,9 +1921,13 @@ func _notification(what):
 		# from there without going to the background first: not a crash
 		trail("app lost focus")
 		_set_session_state("paused")
+		if _freeze_watch != null:
+			_freeze_watch.hold(true)
 	elif dev == "mobile" and what == MainLoop.NOTIFICATION_WM_FOCUS_IN:
 		_set_session_state("running")
 		trail("app focused")
+		if _freeze_watch != null:
+			_freeze_watch.hold(false)
 
 # --- VR headset (OpenXR): the headset's own menu over the game --------------------
 # A Meta Quest doesn't put the game in the background when its menu opens (no
@@ -2018,6 +2155,10 @@ func _trail_start():
 		_trail_file = null
 	trail("started %s on %s %s" % [ProjectSettings.get_setting("application/config/version"), OS.get_name(), OS.get_model_name()])
 	_write_alive()
+	if _trail_file != null and not load("res://scripts/WebReplay.gd").wanted():
+		_freeze_watch = load("res://scripts/FreezeWatch.gd").new()
+		_freeze_watch.name = "FreezeWatch"
+		add_child(_freeze_watch)
 	_heartbeat = Timer.new()
 	_heartbeat.wait_time = 10
 	_heartbeat.pause_mode = PAUSE_MODE_PROCESS
@@ -2082,12 +2223,37 @@ func _on_trail_frame_drawn():
 	_trail_frames_left -= 1
 	trail("frame drawn")
 
+# A game that freezes: FreezeWatch.gd writes what it was in the middle of.
+# doing("reading X") before a step on the main thread that reads files, waits
+# for another thread or takes a lock; doing("") after it.
+var _freeze_watch: Node = null
+func doing(what: String = ""):
+	if _freeze_watch != null:
+		_freeze_watch.doing(what)
+
+# (for a freeze's line in the trail; read from FreezeWatch's thread)
+func background_jobs() -> String:
+	var jobs := []
+	if _thumb_running:
+		jobs.append("cover thumbnails")
+	if _star_thread != null and not _star_done:
+		jobs.append("star ratings (%d done)" % _star_progress)
+	if _star_req_thread != null:
+		jobs.append("star rating of the picked map")
+	if not _sspm_import_done and _sspm_import_progress > 0:
+		jobs.append("map import")
+	if not _notes_busy.empty():
+		jobs.append("notes being read (%d)" % _notes_busy.size())
+	return "none" if jobs.empty() else PoolStringArray(jobs).join(", ")
+
 # Marks this session as closed normally (once): only a session that never got
 # here shows a crash report at the next start.
 var _session_closed := false
 func _trail_close(how: String):
 	if _session_closed:
 		return
+	if _freeze_watch != null:
+		_freeze_watch.stop()
 	trail(how)
 	_session_closed = true # (nothing more goes to the trail file after this)
 	_set_session_state("closed")
@@ -2471,8 +2637,10 @@ func _emit_thumbs_ready():
 
 func _thumb_builder_finished(built: int):
 	if _thumb_thread and _thumb_thread.is_active():
+		doing("waiting for the cover thumbnail job to end")
 		_thumb_thread.wait_to_finish()
 		_thumb_thread = null
+		doing("")
 	print("[covers] built %d new cover thumbnails" % built)
 	# Requests that arrived while the builder was finishing.
 	if not _thumb_priority.empty():
@@ -2614,6 +2782,12 @@ var loaded_world = null
 var was_map_screen_centered: bool = true
 var menu_target: String = ProjectSettings.get_setting("application/config/default_menu_target")
 var is_init: bool = true
+# do_init is running: the content, settings and update check aren't all done.
+# The intro cutscene plays while it runs; when the intro ended (or was skipped)
+# before it was done, the start screen loaded the menu at once, on half-loaded
+# content, and the game closed (crash reports at 30 s, the intro's length, most
+# of all while do_init waited on the "outdated version" box). init.gd waits.
+var init_running: bool = false
 
 
 var was_auto_play_switch: bool = true
@@ -2728,6 +2902,11 @@ func vr_res_high() -> bool:
 func vr_foveation_now() -> int:
 	if vr_foveation >= 0:
 		return int(clamp(vr_foveation, 0, 3))
+	# (Auto on the Meta Quest: High, dynamic, at every render resolution. The
+	# headset only lowers the edges' resolution as far as a frame needs to be
+	# on time, so it costs nothing when there's room: store review, a steady 72)
+	if OS.has_feature("quest"):
+		return 3
 	if vr_scale_active > VR_FOV_HIGH_FROM:
 		return 3
 	return 2 if vr_scale_active > VR_MSAA_OFF_FROM else 1
@@ -2745,7 +2924,61 @@ func apply_vr_msaa():
 	if vp.msaa != want:
 		vp.msaa = want
 		trail("VR anti-aliasing %s (render resolution %d%%)" % ["on" if want != Viewport.MSAA_DISABLED else "off", int(round(vr_scale_active * 100.0))])
-var vr_simple_bg: bool = false # VR songs on the plain VOID background
+# VR songs on the plain VOID background. On by default on the Meta Quest (a
+# new install; a saved setting is kept): with the "Best frame rate" button's
+# other choices (foveation High, glow off, 100%), so the headset holds its
+# refresh rate in songs from the first start (the store's review measures a
+# first start, and saw the frame rate swing round 60: VRC.Quest.Performance.1)
+var vr_simple_bg: bool = OS.has_feature("quest")
+
+# --- Passthrough (Meta Quest; Settings > VR > Graphics) -----------------------------
+# Your real room is the background, in the menu and in songs: the headset's
+# cameras show through wherever the game draws nothing. The game's own
+# surroundings (the song's background, the menu's environment) are left out;
+# the menu screen, the grid, notes, cursor, HUD and your hands are drawn over
+# the room as solid as ever.
+#
+# How: the OpenXR plugin starts the headset's passthrough layer under the
+# game's picture (XR_FB_passthrough), the main viewport is given a see-through
+# background, and every environment's background becomes "clear" (VRPlayer.gd
+# does that and hides the song's background; vrmenu.gd leaves its room out).
+# The Quest app asks for the feature in its manifest (export_presets.cfg,
+# xr_features/passthrough: optional). Nothing here on PC VR.
+# (Glow and the other screen effects don't run on a see-through picture: the
+# engine skips them.)
+var vr_passthrough: bool = false # the setting
+var vr_passthrough_active: bool = false # it is on right now
+signal vr_passthrough_changed
+var _vr_pt_retry := false
+
+func vr_passthrough_can() -> bool:
+	return vr and vr_xr_config != null and vr_xr_config.has_method("is_passthrough_supported") and bool(vr_xr_config.is_passthrough_supported())
+
+func apply_vr_passthrough():
+	if not vr:
+		return
+	var want: bool = vr_passthrough and vr_passthrough_can()
+	var vp: Viewport = get_tree().root
+	if want and not vr_passthrough_active:
+		vp.transparent_bg = true # (before it starts: the plugin looks for it)
+		if not bool(vr_xr_config.start_passthrough()):
+			vp.transparent_bg = false
+			want = false
+			trail("VR passthrough: the headset didn't start it%s" % ("" if _vr_pt_retry else ", trying once more in a moment"))
+			if not _vr_pt_retry:
+				# (right after VR starts the headset may not be ready for it yet)
+				_vr_pt_retry = true
+				get_tree().create_timer(2.0).connect("timeout", self, "apply_vr_passthrough")
+			else:
+				Globals.notify(Globals.NOTIFY_WARN, "The headset didn't start passthrough. Check that the app may use it (the headset's settings), then switch it on again in Settings > VR.", "VR")
+	elif not want and vr_passthrough_active:
+		vr_xr_config.stop_passthrough()
+		vp.transparent_bg = false
+	if want == vr_passthrough_active:
+		return
+	vr_passthrough_active = want
+	trail("VR passthrough %s" % ("on" if want else "off"))
+	emit_signal("vr_passthrough_changed")
 # the pointer beam (vr/Pointer.gd): thickness (x the default), colour, rainbow
 var vr_beam_width: float = 1.0
 var vr_beam_color: Color = Color(0, 1, 1, 0.63)
@@ -3060,6 +3293,8 @@ func start_vr(at_boot: bool = false):
 		setup_controller_bindings()
 	vr = true
 	_vr_started_ms = OS.get_ticks_msec()
+	if vr_passthrough:
+		call_deferred("apply_vr_passthrough") # (Settings > VR: your room as the background)
 	apply_render_res() # (VR has its own picture: the window is drawn as it is)
 	if fake_vr:
 		vr_scale_active = clamp(vr_render_scale, 0.5, VR_SCALE_MAX)
@@ -3448,12 +3683,13 @@ func update_rpc_song():
 	if mod_ghost: mods.append("Ghost")
 	if mod_nearsighted: mods.append("Nearsight")
 	if mod_hardrock: mods.append("Hard Rock")
+	if mod_blox_saber: mods.append("Blox Saber")
 	if mod_harderrock: mods.append("Harder Rock")
 	if mod_hard_mode: mods.append("Hard Mode")
 	if mod_flashlight: mods.append("Flashlight")
 	if mod_true_flashlight: mods.append("True Flashlight")
 	if mod_reverse: mods.append("Reverse")
-	if mod_360: mods.append(("360x%s" % Rhythia.mod_360_speed))
+	if mod_360: mods.append("360%s%s" % [" Shuffle" if mod_360_shuffle else "", "" if is_equal_approx(float(Rhythia.mod_360_speed), 1.0) else " x%s" % Rhythia.mod_360_speed]) # (no "x1" at normal speed)
 	if mod_strobe: mods.append(("Strobe!!!"))
 	if replay.autoplayer: mods.append("Auto")
 
@@ -3503,6 +3739,10 @@ var mod_sudden_death: bool = false setget set_mod_sudden_death
 var mod_chaos: bool = false setget set_mod_chaos
 var mod_earthquake: bool = false setget set_mod_earthquake
 var mod_360: bool = false setget set_mod_360
+# 360 Shuffle (scripts/game/Spin360.gd): the 360 mod with its speed and
+# direction changing, the same way every time for a map. On with 360 only:
+# turning it on turns 360 on, turning 360 off turns it off.
+var mod_360_shuffle: bool = false setget set_mod_360_shuffle
 var mod_360_speed: float = 1 setget _set_mod_360_speed
 var mod_strobe: bool = false setget _set_mod_strobe
 var mod_hardrock: bool = false setget set_mod_hardrock
@@ -3532,6 +3772,13 @@ func flashlight_on() -> bool:
 	return mod_flashlight or mod_true_flashlight
 # Reverse: the map played backwards, the song too (scripts/game/ReverseSong.gd); never ranked
 var mod_reverse: bool = false setget set_mod_reverse
+# Blox Saber: pause as often as you like (no second of wait after unpausing:
+# NoteManager pause_cooldown). Scores aren't sent (report_map_completion) and
+# give no RP (offline_rp_rules_ok); local bests are kept apart ("m_blox").
+var mod_blox_saber: bool = false setget set_mod_blox_saber
+# a co-op lobby's round is being played (LobbyManager game_started; not a
+# setting: off again in any song outside a lobby, songload.gd)
+var coop_now: bool = false
 var reverse_stream: AudioStream = null # (the song backwards, made on the loading screen)
 var reverse_length_ms: float = 0.0
 var reverse_song_id: String = ""
@@ -3549,6 +3796,10 @@ var invert_mouse: bool = false setget set_invert_mouse
 var disable_pausing: bool = false
 var speed_hitwindow: bool = true
 var restart_on_death: bool = false
+# Settings > Gameplay: a break that can be skipped (the timer's "TO SKIP") is
+# skipped by itself after a moment, as if the key was pressed (NoteManager.gd).
+# Not in a lobby (the host's skip moves everyone) or while watching someone.
+var auto_skip: bool = false
 var death_slowdown_enabled: bool = false
 const DEATH_SLOWDOWN_DURATION_SEC: float = 1.5
 
@@ -3604,7 +3855,13 @@ func set_mod_chaos(v: bool):
 func set_mod_earthquake(v: bool):
 	mod_earthquake = v; emit_signal("mods_changed")
 func set_mod_360(v: bool):
-	mod_360 = v; emit_signal("mods_changed")
+	mod_360 = v
+	if not v: mod_360_shuffle = false
+	emit_signal("mods_changed")
+func set_mod_360_shuffle(v: bool):
+	mod_360_shuffle = v
+	if v: mod_360 = true
+	emit_signal("mods_changed")
 func _set_mod_360_speed(v: float):
 	mod_360_speed = v; emit_signal("mods_changed")
 func _set_mod_strobe(v: bool):
@@ -3627,6 +3884,8 @@ func set_mod_true_flashlight(v: bool):
 	mod_true_flashlight = v
 	if v: mod_flashlight = false
 	emit_signal("mods_changed")
+func set_mod_blox_saber(v: bool):
+	mod_blox_saber = v; emit_signal("mods_changed")
 func set_mod_reverse(v: bool):
 	mod_reverse = v; emit_signal("mods_changed")
 
@@ -3693,12 +3952,15 @@ func _get_lead_in_ms() -> float:
 		return replay.lead_in_ms
 	return lead_in_ms
 
-const LOBBY_LEAD_IN_MS: float = 3000.0
+# In a lobby everyone plays with the host's lead-in (LobbyManager sends it with
+# the mods, "lead_in_ms"), only for that game: yours comes back in the menu
+# (menuload.gd restore_lobby_lead_in) and your setting is never changed.
+const LOBBY_LEAD_IN_MS: float = 3000.0 # (a host whose game doesn't send its lead-in)
 var _lobby_lead_in_backup: float = -1
-func apply_lobby_lead_in():
+func apply_lobby_lead_in(host_ms: float = LOBBY_LEAD_IN_MS):
 	if _lobby_lead_in_backup < 0:
 		_lobby_lead_in_backup = lead_in_ms
-	lead_in_ms = LOBBY_LEAD_IN_MS
+	lead_in_ms = clamp(host_ms, 0.0, 10000.0) if host_ms >= 0 else LOBBY_LEAD_IN_MS
 func restore_lobby_lead_in():
 	if _lobby_lead_in_backup >= 0:
 		lead_in_ms = _lobby_lead_in_backup
@@ -3843,6 +4105,7 @@ var alt_cam: bool = false
 var hide_replay_ui: bool = false
 # the replay viewer's drawings on the grid (scripts/game/ReplayOverlay.gd; its bar has the buttons)
 var replay_cursor_path: bool = false
+var replay_cursor_path_ms: float = 900.0 # how much of the path behind the cursor is drawn (the bar's slider)
 var replay_note_hitbox: bool = false
 var replay_frame_marker: bool = false
 var show_xp_notifications: bool = true
@@ -3898,6 +4161,14 @@ var new_settings_ui: bool = true setget _set_new_settings_ui
 # side instead of across the top (scripts/ui/settings/SettingsHeader.gd).
 # Changing it loads the menu again, like New Settings UI.
 var settings_side_tabs: bool = false setget _set_settings_side_tabs
+# The new Settings page (SettingsNewUI.gd): categories hidden from its list
+# (right-click one; "Hidden" at the bottom of the list shows them again), by
+# the page's node name ("Gameplay", "Replays & Misc"...)
+var settings_hidden_tabs: Array = []
+# Collapsible Groups (Replays & Misc > Experimental): click a group's title to
+# fold it shut; which are shut ("Page/Group") is remembered
+var settings_collapsible: bool = false
+var settings_collapsed: Array = []
 # Experimental: notes move in even steps matched to the screen's refresh rate
 # (visual only: NoteManager._update_draw_clock). On from the start on phones
 # and standalone headsets, where every frame is shown one refresh apart.
@@ -3985,6 +4256,26 @@ func _web_replay_light():
 # just before it's drawn (NoteManager._process), and nothing holds the frame
 # back: VSync, the FPS cap and the Windows compositor's extra frame are off
 # for the song. Your VSync and FPS cap come back after it.
+# The frames are held to four times the screen's refresh rate (240 to 1,000
+# a second; or your Max FPS when that is lower), not left unlimited: with no
+# limit at all a fast PC made 1,400 frames a second, the graphics card was
+# full, and Windows (and anything recording) couldn't get the frames to the
+# screen: the picture stood still for a tenth of a second or more, again and
+# again in busy parts of a map, while the game itself ran on. Four frames for
+# every one the screen shows still has each one start from your newest mouse
+# movement, a quarter of a screen refresh at most.
+func no_delay_fps() -> int:
+	var hz := 60.0
+	if OS.has_method("get_screen_refresh_rate"):
+		var r := float(OS.call("get_screen_refresh_rate"))
+		if r >= 30.0 and r <= 1000.0:
+			hz = r
+	var cap := int(clamp(round(hz * 4.0), 240.0, 1000.0))
+	var own: int = user_fps_cap()
+	if own > 0 and own < cap:
+		cap = own
+	return cap
+
 func no_delay_active() -> bool:
 	return pc_no_delay and not legacy_mouse and not vr and not device("mobile") and not OS.has_feature("JavaScript") and not replaying
 
@@ -3995,7 +4286,7 @@ func no_delay_begin():
 	Input.use_accumulated_input = false
 	OS.vsync_enabled = false
 	OS.vsync_via_compositor = false
-	Engine.target_fps = 0
+	Engine.target_fps = no_delay_fps()
 
 func no_delay_end():
 	if not has_meta("no_delay_saved"):
@@ -4345,7 +4636,8 @@ func record_play_stats():
 		_: st.fails = int(st.fails) + 1
 	st.notes_hit = int(st.notes_hit) + int(song_end_hits)
 	st.notes_missed = int(st.notes_missed) + int(song_end_misses)
-	var play_ms := int(max(0, song_end_position - start_offset) / max(Globals.speed_multi[mod_speed_level], 0.01))
+	# (the empty parts you skipped aren't time played: NoteManager._count_skipped)
+	var play_ms := int(max(0, song_end_position - start_offset - song_skipped_ms) / max(Globals.speed_multi[mod_speed_level], 0.01))
 	st.play_time_ms = int(st.play_time_ms) + play_ms
 	st.best_combo = max(int(st.best_combo), int(song_end_combo))
 	if int(st.first_play_ts) == 0:
@@ -4598,6 +4890,7 @@ func generate_pb_str(for_pb: bool = false):
 	if invert_mouse: pts.append("m_im")
 	if mod_earthquake: pts.append("m_earthquake")
 	if mod_360: pts.append("m_360")
+	if mod_360 and mod_360_shuffle: pts.append("m_360s")
 	if mod_strobe: pts.append("m_strobe")
 	if mod_hardrock: pts.append("m_hardrock")
 	if mod_harderrock: pts.append("m_harderrock")
@@ -4605,6 +4898,8 @@ func generate_pb_str(for_pb: bool = false):
 	if mod_flashlight: pts.append("m_flashlight")
 	if mod_true_flashlight: pts.append("m_trueflashlight")
 	if mod_reverse: pts.append("m_reverse")
+	if mod_blox_saber: pts.append("m_blox")
+	if coop_now: pts.append("m_coop") # (co-op bests kept apart from yours)
 	if mod_nofail: pts.append("m_nofail")
 
 	pts.sort()
@@ -4639,9 +4934,11 @@ func parse_pb_str(txt: String):
 	data.mod_flashlight = false
 	data.mod_true_flashlight = false
 	data.mod_reverse = false
+	data.mod_blox_saber = false
 	data.mod_nofail = false
 	data.mod_strobe = false
 	data.mod_360 = false
+	data.mod_360_shuffle = false # (after mod_360: applied in this order)
 
 	for s in pts:
 		if s.begins_with("s:c"):
@@ -4677,12 +4974,14 @@ func parse_pb_str(txt: String):
 				"m_earthquake": data.mod_earthquake = true
 				"m_strobe": data.mod_strobe = true
 				"m_360": data.mod_360 = true
+				"m_360s": data.mod_360_shuffle = true
 				"m_hardrock": data.mod_hardrock = true
 				"m_harderrock": data.mod_harderrock = true
 				"m_hardmode": data.mod_hard_mode = true
 				"m_flashlight": data.mod_flashlight = true
 				"m_trueflashlight": data.mod_true_flashlight = true
 				"m_reverse": data.mod_reverse = true
+				"m_blox": data.mod_blox_saber = true
 				"m_nofail": data.mod_nofail = true
 	return data
 var prev_state: Dictionary = {}
@@ -4938,6 +5237,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			speed_hitwindow = data.speed_hitwindow
 		if data.has("restart_on_death"):
 			restart_on_death = data.restart_on_death
+		if data.has("auto_skip"):
+			auto_skip = bool(data.auto_skip)
 		if data.has("death_slowdown_enabled"):
 			death_slowdown_enabled = data.death_slowdown_enabled
 		if data.has("cursor_spin"):
@@ -5095,6 +5396,12 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			new_settings_ui = bool(data.new_settings_ui)
 		if data.has("settings_side_tabs"):
 			settings_side_tabs = bool(data.settings_side_tabs)
+		if data.has("settings_hidden_tabs") and data.settings_hidden_tabs is Array:
+			settings_hidden_tabs = data.settings_hidden_tabs
+		if data.has("settings_collapsible"):
+			settings_collapsible = bool(data.settings_collapsible)
+		if data.has("settings_collapsed") and data.settings_collapsed is Array:
+			settings_collapsed = data.settings_collapsed
 		if data.has("map_grid"):
 			map_grid = bool(data.map_grid)
 		if data.has("is_staff"):
@@ -5136,6 +5443,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		for rk in ["replay_cursor_path", "replay_note_hitbox", "replay_frame_marker"]:
 			if data.has(rk):
 				set(rk, bool(data[rk]))
+		if data.has("replay_cursor_path_ms"):
+			replay_cursor_path_ms = clamp(float(data.replay_cursor_path_ms), 100.0, 5000.0)
 		if data.has("sort_by_stars"):
 			sort_by_stars = bool(data.sort_by_stars)
 		if data.has("sort_by_plays"):
@@ -5417,6 +5726,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 			vr_glow = int(clamp(int(data.vr_glow), -1, 1))
 		if data.has("vr_simple_bg"):
 			vr_simple_bg = bool(data.vr_simple_bg)
+		if data.has("vr_passthrough"):
+			vr_passthrough = bool(data.vr_passthrough)
 		if data.has("vr_beam_width"):
 			vr_beam_width = clamp(float(data.vr_beam_width), 0.2, 4.0)
 		if data.has("vr_beam_color") and data.vr_beam_color is String:
@@ -5989,6 +6300,7 @@ func _write_settings_file(saveFile: String):
 			hitwindow_ms = float(get_meta("mp_hitwindow_own")) if has_meta("mp_hitwindow_own") else hitwindow_ms, # (multiplayer's 55 ms isn't saved over yours)
 			speed_hitwindow = speed_hitwindow,
 			restart_on_death = restart_on_death,
+			auto_skip = auto_skip,
 			death_slowdown_enabled = death_slowdown_enabled,
 			cursor_spin = cursor_spin,
 			note_size = note_size,
@@ -6047,6 +6359,9 @@ func _write_settings_file(saveFile: String):
 			show_map_rp = show_map_rp,
 			new_settings_ui = new_settings_ui,
 			settings_side_tabs = settings_side_tabs,
+			settings_hidden_tabs = settings_hidden_tabs,
+			settings_collapsible = settings_collapsible,
+			settings_collapsed = settings_collapsed,
 			frame_smoothing = frame_smoothing,
 			fs_cap_hz = fs_cap_hz,
 			fs_auto_rate = fs_auto_rate,
@@ -6078,6 +6393,7 @@ func _write_settings_file(saveFile: String):
 			alt_cam = alt_cam,
 			hide_replay_ui = hide_replay_ui,
 			replay_cursor_path = replay_cursor_path,
+			replay_cursor_path_ms = replay_cursor_path_ms,
 			replay_note_hitbox = replay_note_hitbox,
 			replay_frame_marker = replay_frame_marker,
 			sort_by_stars = sort_by_stars,
@@ -6176,6 +6492,7 @@ func _write_settings_file(saveFile: String):
 			vr_render_scale = vr_render_scale,
 			vr_glow = vr_glow,
 			vr_simple_bg = vr_simple_bg,
+			vr_passthrough = vr_passthrough,
 			vr_beam_width = vr_beam_width,
 			vr_beam_color = vr_beam_color.to_html(true),
 			vr_beam_rainbow = vr_beam_rainbow,
@@ -6396,6 +6713,15 @@ func register_worlds():
 		"res://assets/worlds/soundspace/tunnel.tscn", "hi", # the Sound Space room (same as Sound Space Mode)
 		"res://assets/worlds/grid/grid.png"
 	))
+	# Chromia's own (assets/worlds/chromia: script-built, light enough for headsets)
+	for w in [["chromia_contours", "Contours", "contours"], ["chromia_prism_rain", "Prism Rain", "prism_rain"],
+			["chromia_lilac_orbit", "Lilac Orbit", "lilac_orbit"], ["chromia_aurora", "Aurora", "aurora"],
+			["chromia_pulse_floor", "Pulse Floor", "pulse_floor"]]:
+		registry_world.add_item(BackgroundWorld.new(
+			w[0], w[1],
+			"res://assets/worlds/chromia/%s/%s.tscn" % [w[2], w[2]], "Chromia",
+			"res://assets/worlds/chromia/%s/cover.png" % w[2]
+		))
 	# Backgrounds recreated from Rhythia's (Godot 4 C#) spaces
 	registry_world.add_item(BackgroundWorld.new(
 		"furria_space_void", "Void (Rhythia)",
@@ -7250,6 +7576,7 @@ func _alert_on_vr_menu(text: String):
 	Globals.confirm_prompt.close()
 
 func do_init(_ud = null):
+	init_running = true
 	# Started on a thread (Globals, and init.gd for Reload Content), but it adds
 	# nodes, timers and keybinds to the running game, which is only safe on the
 	# main thread: continue there.
@@ -7908,5 +8235,6 @@ func do_init(_ud = null):
 		_map_registry_thread.wait_to_finish()
 
 	is_init = false
+	init_running = false
 	check_for_update_log()
 	emit_signal("init_stage_reached", "Waiting for menu", true)

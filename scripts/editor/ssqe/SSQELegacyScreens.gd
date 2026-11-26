@@ -32,7 +32,7 @@ const CHANGELOG_URL := "https://raw.githubusercontent.com/iloverhythia/Sound-Spa
 const FEEDBACK_URL := "https://forms.gle/Rh4RXKT9KyttJ9Dc6"
 const LOGO := "res://assets/images/editor/ssqe_logo.png"
 const UNC_CHECK := Color8(75, 75, 75) # Checkbox_Uncolored's check
-const GAMES_CREATE := ["Sound Space", "Rhythia", "Novastra/Phoenyx/Other"]
+const GAMES_CREATE := ["Chromia", "Sound Space", "Rhythia", "Novastra/Phoenyx/Other"] # (Chromia: a .chrm with Chromia's extras, EditorProject.chromia)
 const GAMES_PLAYTEST := ["Chromia", "Rhythia", "Novastra"]
 const SETTINGS_TABS := ["COLORS", "GRAPHICS", "MAPPING", "PLAYER", "AUDIO", "OTHER"]
 const STATIC_KEYBINDS := "Static keybinds:\n\n> Zoom: CTRL + SCROLL\n\n> Beat Divisor: SHIFT + SCROLL\n>> Hold CTRL to increment by 0.5\n\n> Seek: SCROLL/LEFT/RIGHT\n> Play/Pause: SPACE\n\n> Select all: CTRL + A\n> Deselect all: ESCAPE\n\n> Delete: DELETE/BACKSPACE\n> Copy: CTRL + C\n> Paste: CTRL + V\n> Cut: CTRL + X\n> Undo: CTRL + Z\n> Redo: CTRL + Y\n\n> Fullscreen: F11\n> Save: CTRL + S\n> Save as: CTRL + SHIFT + S\n\n> Place stored patterns: 0-9\n>> Hold SHIFT to store selected notes as the key's pattern\n>> Hold CTRL to clear the key's pattern"
@@ -226,36 +226,37 @@ func _build():
 		_bar_closes.append(cl)
 
 	# ---------------------------------------------------------------- create
+	# (also the normal look's CREATE NEW MAP: EditorPage opens this screen;
+	# from_home: BACK TO MENU goes back to that start page)
 	_sq("create", 0, 0, 1920, 1080, L.BG)
 	_btn("create", 750, 705, 420, 50, "CREATE MAP", 38, "_on_create")
-	_btn("create", 690, 920, 540, 75, "BACK TO MENU", 48, "show_screen", ["menu"])
+	_btn("create", 690, 920, 540, 75, "BACK TO MENU", 48, "_create_back")
 	create_game = max(0, GAMES_CREATE.find(String(s.get("createGame", "Sound Space"))))
 	for i in GAMES_CREATE.size():
-		_create_checks.append(_check("create", 320, 415 + i * 100, 50, GAMES_CREATE[i], 30, "m:create_game_%d" % i))
-	# (each game's panel: at the game buttons' container, 320,415)
+		_create_checks.append(_check("create", 320, 345 + i * 100, 50, GAMES_CREATE[i], 30, "m:create_game_%d" % i))
+	# (each game's panel: beside the game buttons, 690,415)
 	var gx := 320 + 370
 	var gy := 415
-	_create_panels = [[], [], []]
-	_create_panels[0].append(_lbl("create", gx, gy - 45, 540, 50, "Audio ID", 36))
-	_id_box = LineEdit.new()
-	_id_box.add_color_override("font_color", Color(1, 1, 1))
-	_create_panels[0].append(_add("create", _id_box, gx + 100, gy + 5, 340, 50, 36))
-	_create_panels[0].append(_lbl("create", gx, gy + 55, 540, 50, "Import Audio", 36))
-	var n0 := items.size()
-	_pathbox("create", gx, gy + 105, 540, 50, "CHOOSE", 28, "_choose_audio", "_audio_label")
-	for it in items.slice(n0, items.size() - 1):
-		_create_panels[0].append(it.node)
-	_create_panels[1].append(_lbl("create", gx, gy - 45, 540, 50, "Import Audio", 36))
-	n0 = items.size()
-	_pathbox("create", gx, gy + 5, 540, 50, "CHOOSE", 28, "_choose_audio", "_audio_label")
-	for it in items.slice(n0, items.size() - 1):
-		_create_panels[1].append(it.node)
-	_create_panels[1].append(_lbl("create", gx, gy + 85, 540, 100, "Rhythia Online is no longer supported for importing\nand should not be used for new work.\n\ndiscord.gg/rhythia -> #Announcements", 20))
-	_create_panels[2].append(_lbl("create", gx, gy - 45, 540, 50, "Import Audio", 36))
-	n0 = items.size()
-	_pathbox("create", gx, gy + 5, 540, 50, "CHOOSE", 28, "_choose_audio", "_audio_label")
-	for it in items.slice(n0, items.size() - 1):
-		_create_panels[2].append(it.node)
+	_create_panels = []
+	for i in GAMES_CREATE.size():
+		_create_panels.append([])
+		if GAMES_CREATE[i] == "Sound Space":
+			# a Roblox audio by its ID, or a file
+			_create_panels[i].append(_lbl("create", gx, gy - 45, 540, 50, "Audio ID", 36))
+			_id_box = LineEdit.new()
+			_id_box.add_color_override("font_color", Color(1, 1, 1))
+			_create_panels[i].append(_add("create", _id_box, gx + 100, gy + 5, 340, 50, 36))
+			_create_panels[i].append(_lbl("create", gx, gy + 55, 540, 50, "Import Audio", 36))
+			var n0 := items.size()
+			_pathbox("create", gx, gy + 105, 540, 50, "CHOOSE", 28, "_choose_audio", "_audio_label")
+			for it in items.slice(n0, items.size() - 1):
+				_create_panels[i].append(it.node)
+		else:
+			_create_panels[i].append(_lbl("create", gx, gy - 45, 540, 50, "Import Audio", 36))
+			var n1 := items.size()
+			_pathbox("create", gx, gy + 5, 540, 50, "CHOOSE", 28, "_choose_audio", "_audio_label")
+			for it in items.slice(n1, items.size() - 1):
+				_create_panels[i].append(it.node)
 
 	# ---------------------------------------------------------------- settings
 	_sq("settings", 0, 0, 1920, 1080, L.BG)
@@ -613,11 +614,14 @@ func get_create_game_2(): return create_game == 2
 func set_create_game_0(_v): _set_create_game(0)
 func set_create_game_1(_v): _set_create_game(1)
 func set_create_game_2(_v): _set_create_game(2)
+func get_create_game_3(): return create_game == 3
+func set_create_game_3(_v): _set_create_game(3)
 func _set_create_game(i: int):
 	create_game = i
 	s.createGame = GAMES_CREATE[i]
 	_changed("createGame")
 	_show_create_panel()
+	_refresh_values() # (the radio buttons: only this one lit)
 
 func _show_create_panel():
 	for i in _create_panels.size():
@@ -726,6 +730,17 @@ func _gui_input(ev):
 
 func hide_for_editor():
 	visible = false
+	from_home = false
+
+# opened from the normal look's CREATE NEW MAP: back to its start page
+var from_home := false
+func _create_back():
+	if from_home:
+		from_home = false
+		visible = false
+		page._show_home()
+	else:
+		show_screen("menu")
 
 func _on_load():
 	page._on_load_map()
@@ -780,13 +795,14 @@ func _on_audio_chosen(files):
 
 func _on_create():
 	var id := _id_box.text.strip_edges()
-	if create_game == 0 and id != "" and audio_file == "":
+	if GAMES_CREATE[create_game] == "Sound Space" and id != "" and audio_file == "":
 		_download_roblox(id)
 		return
 	if audio_file == "":
 		Globals.notify(Globals.NOTIFY_WARN, "Choose an audio file first.", "Create Map")
 		return
 	hide_for_editor()
+	page.new_chromia = GAMES_CREATE[create_game] == "Chromia"
 	page._on_new_song_picked([audio_file])
 
 # a Roblox audio by its ID (Sound Space's songs): downloaded, then mapped

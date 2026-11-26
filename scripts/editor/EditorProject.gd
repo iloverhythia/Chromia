@@ -28,6 +28,7 @@ var overwrite_source := false # save over that map instead of a copy
 var modified := 0
 var note_count := 0
 var save_txt_path := "" # where SAVE AS last wrote the .txt (SSQE's "file name")
+var chromia := false # a Chromia map (.chrm): the editor shows Chromia's own tools (GRAPHICS > Lyrics)
 var map_text := ""   # SSQE .txt
 var map_ini := ""    # SSQE .ini
 # old projects (before the SSQE editor): their notes and timing
@@ -123,7 +124,7 @@ func to_dict() -> Dictionary:
 		"version": 2, "title": title, "mapper": mapper, "difficulty": difficulty,
 		"audio_file": audio_file, "has_cover": has_cover, "map_id": map_id, "source_id": source_id,
 		"overwrite_source": overwrite_source, "modified": modified, "note_count": note_count,
-		"save_txt_path": save_txt_path,
+		"save_txt_path": save_txt_path, "chromia": chromia,
 	}
 
 static func _write_text(path: String, text: String) -> bool:
@@ -177,6 +178,7 @@ static func load_project(project_id: String):
 	pr.source_id = Globals.s(d.get("source_id", ""))
 	pr.overwrite_source = bool(d.get("overwrite_source", false))
 	pr.save_txt_path = Globals.s(d.get("save_txt_path", ""))
+	pr.chromia = bool(d.get("chromia", false))
 	if pr.map_id == "":
 		pr.map_id = "chromia_editor_" + project_id
 	pr.modified = int(d.get("modified", 0))
@@ -401,6 +403,10 @@ static func from_song(s):
 	m.props.mappers = pr.mapper
 	m.props.difficulty = _diff_name(pr.difficulty)
 	m.notes.sort()
+	# the map's lyrics and other Chromia extras (a .chrm, or a map saved from the editor)
+	var extras: Dictionary = load("res://scripts/content/ChromiaMap.gd").read_song(s)
+	load("res://scripts/content/ChromiaMap.gd").add_to_map(m, extras)
+	pr.chromia = not extras.empty() or String(s.get("filePath")).to_lower().ends_with(".chrm")
 	pr.store_map(m)
 	if not pr._write_audio(buf, ext):
 		return "Couldn't save the song into the editor folder."
@@ -467,6 +473,11 @@ func export_to_maps(m):
 	s.notes = notes
 	s.note_count = notes.size()
 	s.last_ms = notes[-1][2]
+	# Chromia's extras (lyrics...) go in the map file too (ChromiaMap.gd)
+	var CM = load("res://scripts/content/ChromiaMap.gd")
+	var extras: Dictionary = CM.extras_from_map(m)
+	if not extras.empty():
+		s.custom_data[CM.KEY] = CM.to_text(extras)
 	if has_cover:
 		var img = Image.new()
 		if img.load(cover_path()) == OK:

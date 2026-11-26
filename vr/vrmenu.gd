@@ -36,17 +36,20 @@ func apply_env():
 	if old != null:
 		remove_child(old) # (its WorldEnvironment lets go of the world now)
 		old.queue_free()
-	var env = load("res://vr/MenuEnvs.gd").make(Rhythia.vr_menu_env)
+	# Passthrough (Settings > VR): your room is what's around you, so neither a
+	# built environment nor the classic room's logo and avatar
+	var passthrough: bool = Rhythia.vr_passthrough_active
+	var env = null if passthrough else load("res://vr/MenuEnvs.gd").make(Rhythia.vr_menu_env)
 	var classic: bool = env == null
 	for n in CLASSIC_NODES:
 		var c = get_node_or_null(n)
 		if c != null:
-			c.visible = classic
+			c.visible = classic and not passthrough
 	# one WorldEnvironment at a time: the classic one steps aside
 	$WorldEnvironment.environment = _classic_env if classic else null
 	if env != null:
 		add_child(env)
-	Rhythia.trail("VR menu environment: %s" % (Rhythia.vr_menu_env if env != null else "classic"))
+	Rhythia.trail("VR menu environment: %s" % ("your room (passthrough)" if passthrough else (Rhythia.vr_menu_env if env != null else "classic")))
 
 func _overlays() -> Array:
 	var out := []

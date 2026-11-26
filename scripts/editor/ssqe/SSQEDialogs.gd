@@ -10,9 +10,13 @@ const F = preload("res://scripts/editor/ssqe/SSQEFormats.gd")
 const SSQESettings = preload("res://scripts/editor/ssqe/SSQESettings.gd")
 const SSQEImport = preload("res://scripts/editor/ssqe/SSQEImport.gd")
 const EditorProject = preload("res://scripts/editor/EditorProject.gd")
-const TEXT = Color(0.898039, 0.94902, 1)
-const LILAC = Color(0.764706, 0.65098, 0.8)
-const ACCENT = Color(1, 0.756863, 0.960784)
+# (Chromia's colours; with a look made in Settings > Menu Customizer they follow
+# it, as the game's own pages do: OnlineStyle.gd, _apply_menu_look)
+var TEXT := Color(0.898039, 0.94902, 1)
+var LILAC := Color(0.764706, 0.65098, 0.8)
+var ACCENT := Color(1, 0.756863, 0.960784)
+var WIN_BG := Color(0.075, 0.065, 0.11, 0.98)
+var WIN_BORDER := Color(0.78, 0.62, 1.0, 0.45)
 
 var ed
 var theme_res: Theme
@@ -28,6 +32,22 @@ func _ready():
 	anchor_bottom = 1
 	mouse_filter = MOUSE_FILTER_IGNORE
 	theme_res = load("res://uitheme.tres")
+	_apply_menu_look()
+
+# the windows (Editor Settings, exports, the dialogs) in the Menu Customizer's
+# look: its button colour for the filled buttons, tabs, switches and outlines,
+# its accent, its text, and the dark panels in the buttons' hue
+func _apply_menu_look():
+	var S = load("res://scripts/ui/menu/OnlineStyle.gd").new()
+	var custom: bool = S.LILAC != S.DEFAULTS.LILAC
+	LILAC = S.pick("LILAC", LILAC)
+	ACCENT = S.ACCENT_HOVER if custom else ACCENT
+	TEXT = S.pick("TEXT", TEXT)
+	WIN_BG = S.pick("CARD_BG", WIN_BG)
+	WIN_BORDER = Color(LILAC.r, LILAC.g, LILAC.b, 0.45) if custom else WIN_BORDER
+	ST_SIDE = S.pick("WINDOW_BG", ST_SIDE)
+	ST_DIM = S.pick("DIM", ST_DIM)
+	_sw_cache.clear() # (the switches are drawn in the button colour)
 
 # Chromia's lilac boxes, with small margins so they fit the windows' sizes
 func _compact(c: Control, k: float):
@@ -66,8 +86,8 @@ func floating(id: String, title: String, w: float, h: float, big := false) -> Di
 	k = fit * 0.92 if (big or (ed.panels and ed.panels.touch_layout())) else min(k, fit)
 	var win := Panel.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.075, 0.065, 0.11, 0.98)
-	sb.border_color = Color(0.78, 0.62, 1.0, 0.45)
+	sb.bg_color = WIN_BG
+	sb.border_color = WIN_BORDER
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(8)
 	win.add_stylebox_override("panel", sb)
@@ -268,8 +288,8 @@ func _modal_box(text: String, title: String, buttons: Array, target, method: Str
 	var h: float = max(160.0 * k, lines * lf.get_height() + 110 * k)
 	var box := Panel.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.075, 0.065, 0.11, 0.98)
-	sb.border_color = Color(0.78, 0.62, 1.0, 0.45)
+	sb.bg_color = WIN_BG
+	sb.border_color = WIN_BORDER
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(8)
 	box.add_stylebox_override("panel", sb)
@@ -1034,9 +1054,13 @@ func _x_finish():
 		if not cover.empty():
 			entries.append(["cover", cover])
 		bytes = F.zip_files(entries)
+	elif format == "chrm":
+		# a Chromia map: the .sspm with the lyrics and other extras in it (ChromiaMap.gd)
+		var CM = load("res://scripts/content/ChromiaMap.gd")
+		bytes = F.write_sspm(map, meta, audio, cover, CM.to_text(CM.extras_from_map(map)))
 	else:
 		bytes = F.write_sspm(map, meta, audio, cover)
-	_save_bytes(bytes, "%s.%s" % [id, format], "*.%s ; %s map" % [format, format.to_upper()])
+	_save_bytes(bytes, "%s.%s" % [id, format], "*.chrm ; Chromia map" if format == "chrm" else "*.%s ; %s map" % [format, format.to_upper()])
 	close("export_" + format)
 
 # ================================================================== Export PHXM (Rewrite)
@@ -1501,10 +1525,10 @@ func settings(tab := ""):
 
 const ST_TAB_NAMES = {"COLORS": "Colors", "GRAPHICS": "Graphics", "MAPPING": "Mapping", "PLAYER": "Playtest",
 	"AUDIO": "Audio", "KEYBINDS": "Keybinds", "OTHER": "Other"}
-const ST_SIDE = Color(0.05, 0.043, 0.075, 1)
+var ST_SIDE := Color(0.05, 0.043, 0.075, 1)
 const ST_ROW = Color(1, 1, 1, 0.035)
 const ST_ROW_HOVER = Color(1, 1, 1, 0.06)
-const ST_DIM = Color(0.62, 0.6, 0.68, 1)
+var ST_DIM := Color(0.62, 0.6, 0.68, 1)
 
 func _st_box(bg: Color, radius: int, border := Color(0, 0, 0, 0), bw := 0) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -1667,7 +1691,9 @@ func _st_tab(t: String):
 
 # ---- rows
 
-func _sr_text(text: String, bold := false, size := 13, color := ST_DIM) -> Label:
+func _sr_text(text: String, bold := false, size := 13, color = null) -> Label:
+	if not (color is Color):
+		color = ST_DIM
 	var l := Label.new()
 	l.text = text
 	l.add_font_override("font", ed.font(int(size * _st.k), bold))

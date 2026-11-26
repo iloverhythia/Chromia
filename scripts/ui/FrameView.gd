@@ -39,8 +39,8 @@ func _direct() -> bool:
 
 func _process(delta):
 	_acc += delta
-	if not is_visible_in_tree():
-		return
+	if not is_visible_in_tree() or not _on_screen():
+		return # (scrolled out of a list or off screen: not drawn, not kept moving)
 	if _direct():
 		# (drawn here: about 30 times a second while it's on screen)
 		if _acc >= 0.033:
@@ -50,7 +50,19 @@ func _process(delta):
 		# (pasted from the shared picture, which moves by itself: it only
 		# needs to hear that it's still wanted)
 		_acc = 0.0
-		FrameCache.instance(get_tree()).touch(frame)
+		if not FrameCache.instance(get_tree()).touch(frame):
+			update() # (back on screen after it was let go: asks for it again)
+
+func _on_screen() -> bool:
+	var r := get_global_rect().grow(min(rect_size.x, rect_size.y) * 0.5)
+	if not get_viewport_rect().intersects(r):
+		return false
+	var p := get_parent()
+	while p != null and p is Control:
+		if p is ScrollContainer and not p.get_global_rect().intersects(r):
+			return false
+		p = p.get_parent()
+	return true
 
 func _draw():
 	if frame.empty():

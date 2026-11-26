@@ -9,7 +9,9 @@ var target2: String = _world_path()
 # background (the fastest) whatever background is picked
 static func _world_path() -> String:
 	var p: String = load("res://scripts/game/SoundSpaceMode.gd").space_path(Rhythia.selected_space.path)
-	if Rhythia.vr and Rhythia.vr_simple_bg and p == Rhythia.selected_space.path:
+	# (passthrough: the song's background isn't shown at all, so the plain one,
+	# the quickest to load, stands in for it)
+	if Rhythia.vr and (Rhythia.vr_simple_bg or Rhythia.vr_passthrough_active) and p == Rhythia.selected_space.path:
 		return "res://assets/worlds/void/void.tscn"
 	return p
 
@@ -25,8 +27,10 @@ func _ready():
 	# your own settings for a normal play (someone else's stay on only when
 	# this load goes straight into spectating them)
 	var lm = get_node_or_null("/root/LobbyManager")
+	if lm == null or not lm.lobby_active or not lm.coop_on():
+		Rhythia.coop_now = false # (co-op only in a co-op lobby's round)
 	var spec = load("res://scripts/SpectateSettings.gd")
-	if spec.active() and (lm == null or not lm.spectate_load_pending()):
+	if spec.active() and (lm == null or not lm.spectate_load_pending()) and not (Rhythia.replaying and Rhythia.has_meta("board_replay")):
 		spec.restore()
 		target2 = _world_path() # your background, not theirs
 	load("res://scripts/game/SoundSpaceMode.gd").begin_song() # Sound Space Mode: its look for this song
@@ -171,10 +175,12 @@ func finish():
 		# a short replay (< 70 signals) finishes reading without yielding, so
 		# done_loading was already emitted: waiting for it would hang here forever
 		if not Rhythia.replay.loaded:
+			waiting_for = "the replay"
 			yield(Rhythia.replay, "done_loading")
 
 	# A song the engine can't decode (.m4a, FLAC...): made an Ogg by the
 	# Chromia server, once, and kept (AudioConvert.gd)
+	waiting_for = "the song (getting it ready)"
 	yield(_convert_song(), "completed")
 
 	# Reverse: the song backwards first (ReverseSong.gd; kept for next time)
@@ -189,7 +195,13 @@ func finish():
 
 
 
-	Rhythia.lock_song_notes(Rhythia.selected_song) # the star rater may be reading this map
+	# (the star rater or a download may be reading this map: waited for a frame
+	# at a time, not by stopping the game, and taken over after a while)
+	waiting_for = "the map's notes (another job is reading them)"
+	var lock_t0 := OS.get_ticks_msec()
+	while not Rhythia.try_lock_song_notes(Rhythia.selected_song, OS.get_ticks_msec() - lock_t0 > Rhythia.NOTES_LOCK_WAIT_MS):
+		yield(get_tree(), "idle_frame")
+	waiting_for = "the map's notes"
 	var _read = Rhythia.selected_song.read_notes()
 	Rhythia.unlock_song_notes(Rhythia.selected_song) # (unlocked before anything that could fail on a broken map)
 	var _n_notes: int = _read.size() if _read is Array else 0
@@ -216,6 +228,7 @@ func finish():
 		warning_menu_exit()
 		return
 
+	waiting_for = "you (a box on screen)"
 	Rhythia.start_log("notes read, checking audio")
 	var broken_audio: bool = Rhythia.selected_song.stream() == Globals.error_sound
 	if broken_audio and Rhythia.vr:
@@ -297,7 +310,51 @@ func finish():
 
 	leaving = true
 
+# A load that takes long doesn't sit on a black screen saying nothing (a player
+# in a lobby was left on black): after a few seconds the screen says what it is
+# waiting for, the log says it too (a report from them shows the step), and
+# Esc goes back to the menu.
+var waiting_for: String = "the song's files"
+var _wait_t: float = 0.0
+var _wait_label: Label = null
+var _wait_logged: int = 0
+var _aborted := false # (Esc: back to the menu, whatever the load does next)
+func _waiting(delta: float):
+	if leaving:
+		return
+	_wait_t += delta
+	if _wait_t < 5.0:
+		return
+	if _wait_label == null:
+		_wait_label = Label.new()
+		_wait_label.align = Label.ALIGN_CENTER
+		_wait_label.anchor_right = 1
+		_wait_label.anchor_top = 0.5
+		_wait_label.anchor_bottom = 0.5
+		_wait_label.margin_top = 20
+		add_child(_wait_label)
+	var what: String = waiting_for
+	if not finishing:
+		what = "the song's files" if not RQueue.is_ready(target) else "the background"
+	_wait_label.text = "Loading... waiting for %s (%d s)\nPress Esc to go back to the menu." % [what, int(_wait_t)]
+	var mark: int = 10 if _wait_t < 30.0 else 60
+	if int(_wait_t) >= mark and _wait_logged < mark:
+		_wait_logged = mark
+		Rhythia.trail("song loader: still waiting for %s after %d s" % [what, int(_wait_t)])
+
+func _input(ev):
+	if _wait_t >= 5.0 and not leaving and not _aborted and ev is InputEventKey and ev.pressed and ev.scancode == KEY_ESCAPE:
+		Rhythia.trail("song loader: left with Esc after %d s (waiting for %s)" % [int(_wait_t), waiting_for])
+		_aborted = true
+		var lm = get_node_or_null("/root/LobbyManager")
+		if lm != null and lm.lobby_active and not lm.watch_mode:
+			Globals.notify(Globals.NOTIFY_INFO, "The round goes on without you.", "Lobby")
+		get_tree().change_scene("res://scenes/loaders/menuload.tscn")
+
 func _process(delta):
+	if _aborted:
+		return
+	_waiting(delta)
 
 	$Music.volume_db = -8 - (50 * black_fade)
 	if black_fade_target and black_fade != 1:

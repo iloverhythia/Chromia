@@ -125,22 +125,19 @@ static func _conic(stops: Array, t: float) -> Color:
 
 # A ring mesh: rings of vertices at `radii`, each with its alpha and its
 # light/dark amount, coloured round the ring by `stops` (turned by `rot`).
-static func _mesh_ring(ci: CanvasItem, c: Vector2, radii: Array, alphas: Array, shades: Array, stops: Array, rot: float, a0: float = 0.0, a1: float = TAU):
-	var span: float = abs(a1 - a0)
-	var seg := int(clamp(float(radii[radii.size() - 1]) * span * 0.35, 20.0, 180.0))
-	var nr := radii.size()
-	var pts := PoolVector2Array()
-	var cols := PoolColorArray()
+# (Every frame is made of these, worked out again each time it moves, so it is
+# kept light: about one slice per 6 px of the outer edge, which stays round to
+# a tenth of a pixel, and the triangles' order is made once for each size and
+# kept; it used to be up to 180 slices, all made again every time.)
+const MESH_IDX_KEY := "chromia_frame_mesh_idx"
+static func _mesh_idx(seg: int, nr: int) -> PoolIntArray:
+	if not Engine.has_meta(MESH_IDX_KEY):
+		Engine.set_meta(MESH_IDX_KEY, {})
+	var cache: Dictionary = Engine.get_meta(MESH_IDX_KEY)
+	var key := seg * 16 + nr
+	if cache.has(key):
+		return cache[key]
 	var idx := PoolIntArray()
-	for s in seg + 1:
-		var a: float = a0 + (a1 - a0) * float(s) / float(seg)
-		var base := _conic(stops, a / TAU + rot)
-		var d := Vector2(cos(a), sin(a))
-		for k in nr:
-			pts.append(c + d * float(radii[k]))
-			var col := _shade(base, float(shades[k]))
-			col.a = base.a * float(alphas[k])
-			cols.append(col)
 	for s in seg:
 		for k in nr - 1:
 			var i0: int = s * nr + k
@@ -150,7 +147,30 @@ static func _mesh_ring(ci: CanvasItem, c: Vector2, radii: Array, alphas: Array, 
 			idx.append(i0 + 1)
 			idx.append(i0 + nr + 1)
 			idx.append(i0 + nr)
-	VisualServer.canvas_item_add_triangle_array(ci.get_canvas_item(), idx, pts, cols)
+	cache[key] = idx
+	return idx
+
+static func _mesh_ring(ci: CanvasItem, c: Vector2, radii: Array, alphas: Array, shades: Array, stops: Array, rot: float, a0: float = 0.0, a1: float = TAU):
+	var span: float = abs(a1 - a0)
+	var seg := int(clamp(float(radii[radii.size() - 1]) * span * 0.16, 12.0, 96.0))
+	var nr := radii.size()
+	var pts := PoolVector2Array()
+	var cols := PoolColorArray()
+	pts.resize((seg + 1) * nr)
+	cols.resize((seg + 1) * nr)
+	var one: bool = stops.size() == 1
+	var w := 0
+	for s in seg + 1:
+		var a: float = a0 + (a1 - a0) * float(s) / float(seg)
+		var base: Color = stops[0] if one else _conic(stops, a / TAU + rot)
+		var d := Vector2(cos(a), sin(a))
+		for k in nr:
+			pts[w] = c + d * float(radii[k])
+			var col := _shade(base, float(shades[k]))
+			col.a = base.a * float(alphas[k])
+			cols[w] = col
+			w += 1
+	VisualServer.canvas_item_add_triangle_array(ci.get_canvas_item(), _mesh_idx(seg, nr), pts, cols)
 
 # a solid band from r_in to r_out with a feathered edge; bevel: the light/dark
 # amounts at its inner edge, middle and outer edge

@@ -12,26 +12,26 @@ extends Control
 # other side: off, nobody can watch you. Made by Sidebar.gd.
 
 const AnimPic = preload("res://scripts/ui/AnimPic.gd")
-const LILAC = Color(0.764706, 0.65098, 0.8)
-const ACCENT = Color(1, 0.756863, 0.960784)
-const ACCENT_HOVER = Color(0.913725, 0.74902, 0.94902)
-const TEXT = Color(0.898039, 0.94902, 1, 1)
-const DIM = Color(0.62, 0.6, 0.68, 1)
-const FAINT = Color(0.62, 0.6, 0.68, 0.5)
-const PLAYING = Color(0.55, 0.9, 0.65)
-const WINDOW_BG = Color(0.035, 0.03, 0.05, 0.985)
-const SECTION_BG = Color(1, 1, 1, 0.025)
-const CARD_BG = Color(0.075, 0.068, 0.1, 1)
-const CARD_HOVER = Color(0.11, 0.1, 0.145, 1)
-const FIELD_BG = Color(0.13, 0.125, 0.165, 1)
-const BTN_BG = Color(0.1, 0.095, 0.125, 1)
-const BTN_HOVER = Color(0.14, 0.13, 0.18, 1)
-const HEART = Color(1, 0.45, 0.62)
-const PINK = Color(0.96, 0.6, 0.78) # section headings (like the profile page)
-const RULE = Color(1, 1, 1, 0.16)
+var LILAC := Color(0.764706, 0.65098, 0.8)
+var ACCENT := Color(1, 0.756863, 0.960784)
+var ACCENT_HOVER := Color(0.913725, 0.74902, 0.94902)
+var TEXT := Color(0.898039, 0.94902, 1, 1)
+var DIM := Color(0.62, 0.6, 0.68, 1)
+var FAINT := Color(0.62, 0.6, 0.68, 0.5)
+var PLAYING := Color(0.55, 0.9, 0.65)
+var WINDOW_BG := Color(0.035, 0.03, 0.05, 0.985)
+var SECTION_BG := Color(1, 1, 1, 0.025)
+var CARD_BG := Color(0.075, 0.068, 0.1, 1)
+var CARD_HOVER := Color(0.11, 0.1, 0.145, 1)
+var FIELD_BG := Color(0.13, 0.125, 0.165, 1)
+var BTN_BG := Color(0.1, 0.095, 0.125, 1)
+var BTN_HOVER := Color(0.14, 0.13, 0.18, 1)
+var HEART := Color(1, 0.45, 0.62)
+var PINK := Color(0.96, 0.6, 0.78) # section headings (like the profile page)
+var RULE := Color(1, 1, 1, 0.16)
 const MAX_IMG_CACHE = 160
 const CHAT_MAX_LINES = 200
-const DEVICE_NAMES = {"pc": "PC", "vr": "VR", "quest": "VR", "mobile": "Phone", "web": "Browser"}
+const DEVICE_NAMES = {"pc": "PC", "vr": "VR", "quest": "VR", "mobile": "Phone", "web": "Browser", "bot": "Bot"}
 # the game's difficulties (Globals.DIFF_EASY = 0 ... 4); -1 = none set
 const DIFF_NAMES = ["Easy", "Medium", "Hard", "Logic", "Tasukete"]
 
@@ -60,6 +60,21 @@ var chat: RichTextLabel
 var chat_input: LineEdit
 var chat_send: Button
 var chat_muted: Label
+var chat_row: HBoxContainer
+# the chat's channels
+var _chat_tab := "global" # "global", "dms", "news"
+var _chat_tabs := {}
+var _dm_with := 0 # the conversation open in DMs (0: the list)
+var dm_head: HBoxContainer
+var dm_title: Label
+var dm_view: VBoxContainer
+var dm_find: LineEdit
+var dm_scroll: ScrollContainer
+var dm_box: VBoxContainer
+var _dm_found_q := ""
+var _dm_found := []
+var _news_new := false
+var _notice_dm := 0 # the notice by the eye is a direct message from them
 
 var _lm = null
 var _open := false
@@ -118,7 +133,9 @@ func _pad(sb: StyleBoxFlat, h: float, v: float) -> StyleBoxFlat:
 	sb.content_margin_bottom = v
 	return sb
 
-func _label(text: String, font: Font, color: Color = TEXT) -> Label:
+func _label(text: String, font: Font, color = null) -> Label:
+	if not (color is Color):
+		color = TEXT
 	var l = Label.new()
 	l.text = text
 	l.add_font_override("font", font)
@@ -288,10 +305,18 @@ static func _eye_texture_make(px: int, ring: Color) -> ImageTexture:
 	img.unlock()
 	return _to_tex(img)
 
-# The eye button: the drawn texture, brighter while pointed at
+# The eye button: the drawn texture, brighter while pointed at. Held and
+# moved, it goes where it's dragged (mouse, finger or VR pointer); a click
+# that doesn't move opens the window; a right click puts it back in its corner.
 class EyeButton extends TextureRect:
 	signal pressed
+	signal dragged(to) # being moved: where its top left corner should be (on the screen)
+	signal dropped
+	signal put_back
 	var down := false
+	var dragging := false
+	var _grab := Vector2()
+	var _from := Vector2()
 	var tex_normal: Texture
 	var tex_hover: Texture
 
@@ -304,27 +329,62 @@ class EyeButton extends TextureRect:
 		connect("mouse_exited", self, "_set_hover", [false])
 
 	func _set_hover(on: bool):
+		if dragging:
+			return # (the pointer got ahead of the button for a moment)
 		texture = tex_hover if on else tex_normal
-		if not on:
-			down = false
+		if not on and not down:
 			rect_scale = Vector2(1, 1)
 
 	func _gui_input(ev):
-		if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
+		if ev is InputEventMouseButton and ev.button_index == BUTTON_RIGHT:
+			if ev.pressed and not down:
+				emit_signal("put_back")
+			accept_event()
+		elif ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT:
 			rect_pivot_offset = rect_size / 2.0
 			if ev.pressed:
 				down = true
+				dragging = false
+				_grab = ev.position
+				_from = ev.global_position
 				rect_scale = Vector2(0.94, 0.94)
 			elif down:
 				down = false
 				rect_scale = Vector2(1, 1)
-				if Rect2(Vector2(), rect_size).has_point(ev.position):
+				if dragging:
+					dragging = false
+					emit_signal("dropped")
+					if not Rect2(Vector2(), rect_size).has_point(ev.position):
+						texture = tex_normal
+				elif Rect2(Vector2(), rect_size).has_point(ev.position):
 					emit_signal("pressed")
+				else:
+					texture = tex_normal
+			accept_event()
+		elif ev is InputEventMouseMotion and down:
+			# (a click's small wobble isn't a move: a fifth of the button first)
+			if not dragging and ev.global_position.distance_to(_from) > max(8.0, rect_size.x * 0.2):
+				dragging = true
+				rect_scale = Vector2(1, 1)
+			if dragging:
+				emit_signal("dragged", ev.global_position - _grab)
 			accept_event()
 
 # ------------------------------------------------------------------ build
 
+# The colours follow the Menu Customizer look (Settings > Menu Customizer), as
+# the Online, Profile and Settings pages do (OnlineStyle.gd): the buttons'
+# colour for buttons, tabs and outlines, the accent for headings and values,
+# the text colour, and the dark panels in the buttons' hue. The game's own
+# colours stay where no look is set.
+func _apply_menu_look():
+	var S = load("res://scripts/ui/menu/OnlineStyle.gd").new()
+	for k in ["LILAC", "ACCENT", "ACCENT_HOVER", "TEXT", "DIM", "WINDOW_BG", "CARD_BG", "CARD_HOVER", "FIELD_BG", "BTN_BG", "BTN_HOVER", "PINK"]:
+		set(k, S.pick(k, get(k)))
+	FAINT = Color(DIM.r, DIM.g, DIM.b, 0.5)
+
 func _ready():
+	_apply_menu_look()
 	anchor_right = 1.0
 	anchor_bottom = 1.0
 	mouse_filter = MOUSE_FILTER_IGNORE
@@ -354,6 +414,14 @@ func _ready():
 			_lm.connect("chat_message_deleted", self, "_on_chat_deleted")
 		if _lm.has_signal("blocked_changed"):
 			_lm.connect("blocked_changed", self, "_on_chat_deleted", [""]) # (drawn again: folded or unfolded)
+		if _lm.has_signal("dm_message"):
+			_lm.connect("dm_message", self, "_on_dm_message")
+			_lm.connect("dm_list_changed", self, "_on_dm_changed")
+			_lm.connect("dm_history_loaded", self, "_on_dm_history")
+			_lm.connect("players_found", self, "_on_players_found")
+			_lm.connect("announcements_changed", self, "_on_news_changed")
+			_lm.connect("social_changed", self, "_on_dm_changed")
+	add_to_group("spectate_page")
 	get_viewport().connect("size_changed", self, "_resize")
 	_resize()
 	set_process(true)
@@ -362,8 +430,61 @@ func _ready():
 func _build_eye():
 	eye = EyeButton.new()
 	eye.name = "SpectateButton"
+	eye.hint_tooltip = "Spectate and chat\nDrag it to move it, right-click to put it back in its corner"
 	eye.connect("pressed", self, "open")
+	eye.connect("dragged", self, "_on_eye_dragged")
+	eye.connect("dropped", self, "_on_eye_dropped")
+	eye.connect("put_back", self, "_on_eye_put_back")
 	add_child(eye)
+	_eye_at = _load_eye_place()
+
+# --- the eye goes where it's dragged ------------------------------------------------
+# Kept as its centre's share of the screen (0..1 each way), so it stays in the
+# same spot of a bigger or smaller window; null = its corner (bottom right).
+const EYE_CFG := "user://settings.cfg"
+var _eye_at = null
+
+func _load_eye_place():
+	var config := ConfigFile.new()
+	if config.load(EYE_CFG) != OK:
+		return null
+	var v = config.get_value("ui", "spectate_eye", null)
+	return v if v is Vector2 else null
+
+func _save_eye_place():
+	var config := ConfigFile.new()
+	config.load(EYE_CFG)
+	if _eye_at == null:
+		if config.has_section_key("ui", "spectate_eye"):
+			config.erase_section_key("ui", "spectate_eye")
+	else:
+		config.set_value("ui", "spectate_eye", _eye_at)
+	config.save(EYE_CFG)
+
+# (always whole on the screen)
+func _eye_clamped(pos: Vector2) -> Vector2:
+	var vp := get_viewport_rect().size
+	var edge := 4.0 * _k
+	return Vector2(clamp(pos.x, edge, max(edge, vp.x - eye.rect_size.x - edge)), clamp(pos.y, edge, max(edge, vp.y - eye.rect_size.y - edge))).floor()
+
+func _on_eye_dragged(to: Vector2):
+	eye.rect_position = _eye_clamped(to - rect_global_position)
+	notice.visible = false
+	_place_notice()
+
+func _on_eye_dropped():
+	var vp := get_viewport_rect().size
+	if vp.x <= 0 or vp.y <= 0:
+		return
+	_eye_at = (eye.rect_position + eye.rect_size / 2.0) / vp
+	_save_eye_place()
+
+func _on_eye_put_back():
+	if _eye_at == null:
+		return
+	_eye_at = null
+	_save_eye_place()
+	_resize()
 
 # ------------------------------------------------------------------ chat notification
 # A new global chat message while the window is closed: a small bubble left
@@ -407,7 +528,8 @@ func _notify_chat(client_id: String, name: String, text: String):
 	if _lm != null and _lm.has_method("is_blocked_chat") and _lm.is_blocked_chat(String(_lm.get("last_chat_id"))):
 		return # (someone you blocked)
 	_unread += 1
-	badge.text = str(_unread) if _unread < 100 else "99+"
+	_notice_dm = 0
+	_badge_text()
 	_place_notice()
 	if not eye.visible:
 		return
@@ -440,7 +562,11 @@ func _place_notice():
 		return
 	var sz := notice.get_combined_minimum_size()
 	notice.rect_size = sz
-	notice.rect_position = Vector2(eye.rect_position.x - sz.x - 10 * _k, eye.rect_position.y + (eye.rect_size.y - sz.y) / 2.0).floor()
+	var nx: float = eye.rect_position.x - sz.x - 10 * _k
+	if nx < 4.0:
+		nx = eye.rect_position.x + eye.rect_size.x + 10 * _k # (the eye is at the left edge: the message goes on its right)
+	var ny: float = clamp(eye.rect_position.y + (eye.rect_size.y - sz.y) / 2.0, 0.0, max(0.0, get_viewport_rect().size.y - sz.y))
+	notice.rect_position = Vector2(nx, ny).floor()
 	var bs := badge.get_combined_minimum_size()
 	bs.x = max(bs.x, bs.y)
 	badge.rect_size = bs
@@ -448,7 +574,17 @@ func _place_notice():
 
 func _on_notice_input(ev):
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_LEFT:
-		open()
+		if _notice_dm > 0:
+			open_dm(_notice_dm)
+		else:
+			open()
+
+func _dm_unread() -> int:
+	return int(_lm.dm_unread_total) if _lm != null and _lm.get("dm_unread_total") != null else 0
+
+func _badge_text():
+	var n := _unread + _dm_unread()
+	badge.text = str(n) if n < 100 else "99+"
 
 func _build_window():
 	overlay = Control.new()
@@ -579,7 +715,68 @@ func _build_window():
 	var cv := VBoxContainer.new()
 	cv.add_constant_override("separation", 8)
 	chat_panel.add_child(cv)
-	cv.add_child(_label("Global chat", font_title, PINK))
+	# the chat's channels: Global (everyone), DMs (your friends), Announcements
+	var tabs := HBoxContainer.new()
+	tabs.add_constant_override("separation", 6)
+	cv.add_child(tabs)
+	for k in [["global", "Global"], ["dms", "DMs"], ["news", "Announcements"]]:
+		var tb := Button.new()
+		tb.text = k[1]
+		tb.clip_text = true
+		tb.size_flags_horizontal = SIZE_EXPAND_FILL
+		tb.size_flags_stretch_ratio = 1.6 if k[0] == "news" else 1.0
+		tb.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+		tb.connect("pressed", self, "_pick_chat_tab", [k[0]])
+		tabs.add_child(tb)
+		_chat_tabs[k[0]] = tb
+	# a conversation: back to the list, who it is with
+	dm_head = HBoxContainer.new()
+	dm_head.add_constant_override("separation", 8)
+	dm_head.visible = false
+	cv.add_child(dm_head)
+	var back := Button.new()
+	back.text = "< Back"
+	_style_button(back)
+	back.add_font_override("font", font_small)
+	back.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	back.connect("pressed", self, "_dm_back")
+	dm_head.add_child(back)
+	dm_title = _label("", font_bold, TEXT)
+	dm_title.clip_text = true
+	dm_title.size_flags_horizontal = SIZE_EXPAND_FILL
+	dm_head.add_child(dm_title)
+	# the DMs list: add a friend, friend requests, your friends and conversations
+	dm_view = VBoxContainer.new()
+	dm_view.size_flags_vertical = SIZE_EXPAND_FILL
+	dm_view.add_constant_override("separation", 8)
+	dm_view.visible = false
+	cv.add_child(dm_view)
+	var find_row := HBoxContainer.new()
+	find_row.add_constant_override("separation", 6)
+	dm_view.add_child(find_row)
+	dm_find = LineEdit.new()
+	dm_find.placeholder_text = "Add a friend: name or #number"
+	dm_find.size_flags_horizontal = SIZE_EXPAND_FILL
+	dm_find.max_length = 64
+	_style_field(dm_find)
+	dm_find.connect("text_entered", self, "_dm_find_go")
+	dm_find.connect("text_changed", self, "_dm_find_changed")
+	find_row.add_child(dm_find)
+	var find_btn := Button.new()
+	find_btn.text = "Find"
+	_style_button(find_btn, true)
+	find_btn.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	find_btn.connect("pressed", self, "_dm_find_go", [""])
+	find_row.add_child(find_btn)
+	dm_scroll = ScrollContainer.new()
+	dm_scroll.size_flags_vertical = SIZE_EXPAND_FILL
+	dm_scroll.scroll_horizontal_enabled = false
+	_style_scroll(dm_scroll.get_v_scrollbar())
+	dm_view.add_child(dm_scroll)
+	dm_box = VBoxContainer.new()
+	dm_box.size_flags_horizontal = SIZE_EXPAND_FILL
+	dm_box.add_constant_override("separation", 6)
+	dm_scroll.add_child(dm_box)
 	chat = RichTextLabel.new()
 	chat.size_flags_vertical = SIZE_EXPAND_FILL
 	chat.scroll_following = true
@@ -597,6 +794,7 @@ func _build_window():
 	var row := HBoxContainer.new()
 	row.add_constant_override("separation", 8)
 	cv.add_child(row)
+	chat_row = row
 	chat_input = LineEdit.new()
 	chat_input.placeholder_text = "Write a message... (/help for commands)"
 	chat_input.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -643,6 +841,8 @@ func _resize():
 	if Rhythia.vr:
 		# (the VR screen's resize handle is in that corner: the eye goes beside it)
 		eye.rect_position.x -= load("res://vr/MenuResize.gd").ICON + 12.0
+	if _eye_at is Vector2:
+		eye.rect_position = _eye_clamped(_eye_at * vp - eye.rect_size / 2.0)
 	var tpx := int(ceil(d * 2.0))
 	if tpx != _eye_px:
 		_eye_px = tpx
@@ -675,7 +875,7 @@ func _process(delta):
 		eye.visible = show_eye
 		if not show_eye:
 			notice.visible = false
-	badge.visible = show_eye and _unread > 0
+	badge.visible = show_eye and (_unread + _dm_unread()) > 0
 	if _open:
 		_prog_tick += delta
 		if _prog_tick >= 0.5:
@@ -816,6 +1016,9 @@ func close():
 		chat_input.release_focus()
 	if search.has_focus():
 		search.release_focus()
+	if _lm != null and _lm.get("dm_open_with") != null:
+		_lm.dm_open_with = 0 # (a message that comes now is unread)
+		_lm.dm_list_open = false
 	if _lm != null and not _lm.watch_mode:
 		_lm.unsubscribe_online()
 
@@ -1477,7 +1680,11 @@ func _fill_card(c: Dictionary, p: Dictionary):
 			_load_avatar(url, c.pic)
 	# what they're doing
 	var song := String(p.get("song_name", ""))
-	if playing:
+	if bool(p.get("is_bot", false)) and not playing:
+		# D. Jarvis, the official bot: always online (say "@D. Jarvis" in chat to talk to him)
+		c.status_full = "Official Chromia Bot  ·  say @D. Jarvis to talk"
+		c.status.add_color_override("font_color", ACCENT)
+	elif playing:
 		c.status_full = "Playing " + (song if song != "" else "a map") + ("  ·  Spin" if bool(p.get("spin", false)) else "")
 		c.status.add_color_override("font_color", PLAYING)
 	elif status == "afk" or status == "away":
@@ -1604,10 +1811,447 @@ func _on_denied(reason: String):
 
 # ------------------------------------------------------------------ global chat
 
+const GLOBAL_HINT := "Write a message... (/help for commands)"
 func _fill_chat():
+	if chat == null:
+		return
+	for k in _chat_tabs:
+		var tb: Button = _chat_tabs[k]
+		_style_button(tb, k == _chat_tab)
+		tb.add_font_override("font", font_small)
+		for sbn in ["normal", "hover", "pressed"]:
+			var sb: StyleBoxFlat = tb.get_stylebox(sbn)
+			sb.content_margin_left = 6
+			sb.content_margin_right = 6
+	_tab_titles()
+	var listing: bool = _chat_tab == "dms" and _dm_with <= 0
+	dm_view.visible = listing
+	dm_head.visible = _chat_tab == "dms" and _dm_with > 0
+	chat.visible = not listing
+	chat_muted.visible = false
+	chat_row.visible = _chat_tab == "global" or (_chat_tab == "dms" and _dm_with > 0)
+	if _lm != null and _lm.get("dm_open_with") != null:
+		_lm.dm_open_with = _dm_with if (_open and _chat_tab == "dms") else 0
+		_lm.dm_list_open = _open and _chat_tab == "dms"
+	if _chat_tab == "dms":
+		if _dm_with > 0:
+			_fill_dm_thread()
+		else:
+			_fill_dm_list()
+	elif _chat_tab == "news":
+		_fill_news()
+	else:
+		_fill_global()
+
+func _tab_titles():
+	if _chat_tabs.empty():
+		return
+	var n := _dm_unread()
+	_chat_tabs["dms"].text = "DMs (%d)" % n if n > 0 else "DMs"
+	_chat_tabs["news"].text = "Announcements *" if _news_new else "Announcements"
+
+func _pick_chat_tab(k: String):
+	if k == _chat_tab and not (k == "dms" and _dm_with > 0):
+		return
+	_chat_tab = k
+	_dm_with = 0
+	if k == "news":
+		_news_new = false
+	_fill_chat()
+	if k == "dms" and _lm != null:
+		_lm.request_dm_list() # (fresh: who's online, what's unread)
+		_lm.refresh_social()
+
+# ---- DMs: the list (add a friend, friend requests, friends and conversations)
+
+func _dm_back():
+	_dm_with = 0
+	_fill_chat()
+
+# from anywhere (the Friends window's Message, the notice by the eye)
+func open_dm(number: int):
+	if number <= 0:
+		return
+	_chat_tab = "dms"
+	_dm_with = number
+	if _open:
+		_fill_chat()
+		if chat_input.editable and not Rhythia.device("mobile"):
+			chat_input.call_deferred("grab_focus")
+	else:
+		open()
+
+func _dm_note(text: String):
+	var l := _label(text, font_small, DIM)
+	l.autowrap = true
+	dm_box.add_child(l)
+
+func _dm_heading(text: String):
+	var l := _label(text, font_small, PINK)
+	dm_box.add_child(l)
+
+func _dm_person_row(name: String, sub: String, online, unread: int) -> HBoxContainer:
+	var card := PanelContainer.new()
+	card.add_stylebox_override("panel", _pad(_flat(CARD_BG, 3), 10, 7))
+	dm_box.add_child(card)
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 8)
+	card.add_child(h)
+	if online != null:
+		var dot := _label("●", font_small, PLAYING if online else FAINT)
+		dot.hint_tooltip = "Online" if online else "Offline"
+		dot.mouse_filter = MOUSE_FILTER_IGNORE
+		h.add_child(dot)
+	var v := VBoxContainer.new()
+	v.size_flags_horizontal = SIZE_EXPAND_FILL
+	v.add_constant_override("separation", 0)
+	v.mouse_filter = MOUSE_FILTER_IGNORE
+	h.add_child(v)
+	var l := _label(name, font_bold, TEXT)
+	l.clip_text = true
+	l.mouse_filter = MOUSE_FILTER_IGNORE
+	v.add_child(l)
+	if sub != "":
+		var s := _label(sub, font_small, TEXT if unread > 0 else DIM)
+		s.clip_text = true
+		s.mouse_filter = MOUSE_FILTER_IGNORE
+		v.add_child(s)
+	if unread > 0:
+		var b := _label(str(unread) if unread < 100 else "99+", font_small, Color(0.1, 0.07, 0.12))
+		b.add_stylebox_override("normal", _pad(_flat(HEART, 9), 7, 1))
+		b.size_flags_vertical = SIZE_SHRINK_CENTER
+		b.mouse_filter = MOUSE_FILTER_IGNORE
+		h.add_child(b)
+	return h
+
+func _dm_small_button(h: HBoxContainer, text: String, accent: bool, method: String, binds: Array) -> Button:
+	var b := Button.new()
+	b.text = text
+	_style_button(b, accent)
+	b.add_font_override("font", font_small)
+	for sbn in ["normal", "hover", "pressed", "disabled"]:
+		var sb: StyleBoxFlat = b.get_stylebox(sbn)
+		sb.content_margin_left = 9
+		sb.content_margin_right = 9
+	b.size_flags_vertical = SIZE_SHRINK_CENTER
+	b.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	b.connect("pressed", self, method, binds + [b])
+	h.add_child(b)
+	return b
+
+func _dm_social(action: String, number: int, b: Button):
+	if _lm == null:
+		return
+	b.disabled = true
+	_lm.social_action(action, number)
+	if action == "request":
+		b.text = "Sent"
+
+func _dm_find_changed(t: String):
+	if t.strip_edges() == "" and _dm_found_q != "":
+		_dm_found_q = ""
+		_dm_found = []
+		_fill_dm_list()
+
+func _dm_find_go(_t = "", _b = null):
+	if _lm == null:
+		return
+	var q := dm_find.text.strip_edges()
+	if q == "":
+		return
+	var n := q.trim_prefix("#")
+	if n.is_valid_integer() and int(n) > 0:
+		# (a player number: straight to the friend request)
+		_lm.social_action("request", int(n))
+		dm_find.text = ""
+		return
+	if not bool(_lm.get("find_supported")):
+		Globals.notify(Globals.NOTIFY_WARN, "This server can't look players up by name yet: type their player number (#123, it's on their profile).", "Friends")
+		return
+	_dm_found_q = q
+	_dm_found = []
+	_lm.find_players(q)
+
+func _on_players_found(q: String, found: Array):
+	if q != _dm_found_q:
+		return
+	_dm_found = found
+	if dm_view != null and dm_view.visible:
+		_fill_dm_list()
+
+static func _by_online_name(a: Dictionary, b: Dictionary) -> bool:
+	if bool(a.online) != bool(b.online):
+		return bool(a.online)
+	return String(a.name).to_lower() < String(b.name).to_lower()
+
+func _fill_dm_list():
+	for c in dm_box.get_children():
+		dm_box.remove_child(c)
+		c.queue_free()
+	if _lm == null:
+		return
+	if Rhythia.offline_mode:
+		_dm_note("Offline Mode is on: no friends or messages (Settings > Online).")
+		return
+	if not bool(_lm.get("dms_supported")):
+		_dm_note("Direct messages aren't on this server yet. Adding friends works.")
+	# players found by name
+	if _dm_found_q != "":
+		_dm_heading("Players named \"%s\"" % _dm_found_q)
+		if _dm_found.empty():
+			_dm_note("Nobody found yet by that name. Their player number works too: #123.")
+		for p in _dm_found:
+			if not (p is Dictionary) or p.get("number") == null:
+				continue
+			var num := int(p.number)
+			var h := _dm_person_row(String(p.get("name", "")), "#%d" % num, null, 0)
+			match String(_lm.relation(num)):
+				"friends": _dm_small_button(h, "Message", true, "_dm_open_from_row", [num])
+				"outgoing": _dm_small_button(h, "Sent", false, "_dm_social", ["request", num]).disabled = true
+				"incoming": _dm_small_button(h, "Accept", true, "_dm_social", ["accept", num])
+				"blocked": _dm_small_button(h, "Blocked", false, "_dm_social", ["request", num]).disabled = true
+				_: _dm_small_button(h, "Add friend", true, "_dm_social", ["request", num])
+	# friend requests to you
+	if not _lm.friend_requests_in.empty():
+		_dm_heading("Friend requests")
+		for p in _lm.friend_requests_in:
+			var h := _dm_person_row(String(p.name), "wants to be friends", null, 0)
+			_dm_small_button(h, "Accept", true, "_dm_social", ["accept", int(p.number)])
+			_dm_small_button(h, "Decline", false, "_dm_social", ["decline", int(p.number)])
+	# conversations (the newest first), then the friends you haven't written with
+	var seen := {}
+	var rows := 0
+	var online_of := {}
+	for p in _lm.friends:
+		online_of[int(p.number)] = bool(p.online)
+	if not _lm.dm_conversations.empty() or not _lm.friends.empty():
+		_dm_heading("Friends")
+	for c in _lm.dm_conversations:
+		var num := int(c.number)
+		seen[num] = true
+		var pre := ("You: " if int(c.last_from) == int(_lm.my_player_number) else "") + preload("res://scripts/ui/ChatCommands.gd").plain(String(c.last_text))
+		var on = online_of.get(num, bool(c.online)) if _lm.relation(num) == "friends" else null
+		var h := _dm_person_row(String(c.name), pre, on, int(c.unread))
+		_dm_row_click(h, num)
+		rows += 1
+	var rest := []
+	for p in _lm.friends:
+		if not seen.has(int(p.number)):
+			rest.append(p)
+	rest.sort_custom(self, "_by_online_name")
+	for p in rest:
+		var h := _dm_person_row(String(p.name), "Online" if p.online else "Offline", bool(p.online), 0)
+		_dm_row_click(h, int(p.number))
+		rows += 1
+	if rows == 0 and _lm.friend_requests_in.empty() and _dm_found_q == "":
+		_dm_note("No friends yet. Type a player's name above, or right-click someone in the list on the left (or their name in chat) and pick Add friend. Friends can message each other here.")
+	var more := Button.new()
+	more.text = "Manage friends (requests sent, remove, blocked)..."
+	more.flat = true
+	more.focus_mode = FOCUS_NONE
+	more.add_font_override("font", font_small)
+	more.add_color_override("font_color", DIM)
+	more.add_color_override("font_color_hover", TEXT)
+	more.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	more.connect("pressed", self, "_dm_manage")
+	dm_box.add_child(more)
+
+func _dm_manage():
+	preload("res://scripts/ui/FriendsWindow.gd").open_on(self)
+
+# the whole row opens the conversation
+func _dm_row_click(h: HBoxContainer, number: int):
+	var card: Control = h.get_parent()
+	card.mouse_filter = MOUSE_FILTER_STOP
+	card.mouse_default_cursor_shape = CURSOR_POINTING_HAND
+	card.connect("gui_input", self, "_on_dm_row_input", [number])
+	card.connect("mouse_entered", self, "_dm_row_hover", [card, true])
+	card.connect("mouse_exited", self, "_dm_row_hover", [card, false])
+
+func _dm_row_hover(card: Control, on: bool):
+	if is_instance_valid(card):
+		card.add_stylebox_override("panel", _pad(_flat(CARD_HOVER if on else CARD_BG, 3), 10, 7))
+
+func _on_dm_row_input(ev, number: int):
+	if ev is InputEventMouseButton and ev.button_index == BUTTON_LEFT and not ev.pressed:
+		open_dm(number)
+
+func _dm_open_from_row(number: int, _b = null):
+	open_dm(number)
+
+var _dm_refill := false
+func _on_dm_changed():
+	_tab_titles()
+	if badge != null:
+		_badge_text()
+	if _open and dm_view != null and dm_view.visible and not _dm_refill:
+		_dm_refill = true
+		call_deferred("_dm_refill_now")
+
+func _dm_refill_now():
+	_dm_refill = false
+	if _open and dm_view.visible:
+		_fill_dm_list()
+
+# ---- DMs: a conversation
+
+const MONTHS := ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+# the time, with the day when it wasn't today
+static func _stamp(ts: float) -> String:
+	var t := int(ts / 1000.0) if ts > 100000000000.0 else int(ts)
+	if t <= 0:
+		t = OS.get_unix_time()
+	var bias := int(OS.get_time_zone_info().get("bias", 0)) * 60
+	var d := OS.get_datetime_from_unix_time(t + bias)
+	var now := OS.get_datetime_from_unix_time(OS.get_unix_time() + bias)
+	var clock := "%02d:%02d" % [int(d.hour), int(d.minute)]
+	if int(d.day) == int(now.day) and int(d.month) == int(now.month) and int(d.year) == int(now.year):
+		return clock
+	return "%s %d, %s" % [MONTHS[int(d.month) - 1], int(d.day), clock]
+
+func _dm_name(number: int) -> String:
+	var nm: String = String(_lm.dm_name(number)) if _lm != null else ""
+	return nm if nm != "" else "player #%d" % number
+
+func _chat_hint(text: String):
+	chat.push_color(DIM)
+	chat.add_text(text)
+	chat.pop()
+	_chat_lines = -1 # (goes when the first message comes)
+
+func _fill_dm_thread():
 	chat.clear()
 	_chat_lines = 0
 	_chat_sizes = []
+	var nm := _dm_name(_dm_with)
+	dm_title.text = nm
+	if _lm == null or Rhythia.offline_mode:
+		chat_muted.text = "Offline Mode is on: no messages (Settings > Online)."
+		chat_muted.visible = true
+		chat.visible = false
+		chat_input.editable = false
+		chat_send.disabled = true
+		return
+	var friends: bool = String(_lm.relation(_dm_with)) == "friends"
+	var can: bool = friends and bool(_lm.dms_supported)
+	chat_input.set_meta("chat_placeholder", ("Message %s..." % nm) if can else ("You can only message friends." if not friends else "Direct messages aren't on this server yet."))
+	preload("res://scripts/ui/ChatBan.gd").apply(chat_input, chat_send, bool(_lm.get("chat_banned")))
+	if not can:
+		chat_input.editable = false
+		chat_send.disabled = true
+	if not _lm.dm_threads.has(_dm_with):
+		_lm.request_dm_history(_dm_with)
+		_chat_hint("Loading..." if bool(_lm.dms_supported) else "")
+		return
+	var th: Array = _lm.dm_threads[_dm_with]
+	if th.empty():
+		_chat_hint("No messages yet. Say hi!")
+	for m in th:
+		_add_dm_line(m)
+	_lm.mark_dm_read(_dm_with)
+
+func _add_dm_line(m: Dictionary):
+	if _chat_lines == -1:
+		chat.clear()
+		_chat_lines = 0
+	if _chat_lines > 0:
+		chat.newline()
+	chat.push_color(FAINT)
+	chat.add_text(_stamp(float(m.ts)) + "  ")
+	chat.pop()
+	var mine: bool = _lm != null and int(m.from) == int(_lm.my_player_number)
+	var nm := _dm_name(_dm_with)
+	chat.push_font(font_chat_bold)
+	chat.push_color(ACCENT if mine else _name_color(nm))
+	chat.add_text(("You" if mine else nm) + ": ")
+	chat.pop()
+	chat.pop()
+	preload("res://scripts/ui/ChatCommands.gd").add_text(chat, String(m.text), 18)
+	_chat_sizes.append(1)
+	_chat_lines += 1
+	if _chat_lines > CHAT_MAX_LINES:
+		for _i in int(_chat_sizes.pop_front()):
+			chat.remove_line(0)
+		_chat_lines -= 1
+
+func _on_dm_history(number: int):
+	if _open and _chat_tab == "dms" and _dm_with == number:
+		_fill_dm_thread()
+
+func _on_dm_message(number: int):
+	if _lm == null:
+		return
+	var th: Array = _lm.dm_threads.get(number, [])
+	if _open and _chat_tab == "dms" and _dm_with == number:
+		if not th.empty():
+			_add_dm_line(th[th.size() - 1])
+		return
+	if _open:
+		return # (the tab's count and the list say so)
+	# closed: a note by the eye, as for the global chat
+	var c = _lm.dm_conversation(number)
+	if c == null or int(c.last_from) == int(_lm.my_player_number) or Rhythia.chat_hidden():
+		return
+	_badge_text()
+	_place_notice()
+	if not eye.visible or not Rhythia.spectate_chat_notify:
+		return
+	_notice_dm = number
+	var max_w := 300.0 * _k
+	notice_name.text = _fit(String(c.name), font_bold, max_w * 0.4) + " (DM):"
+	notice_text.text = _fit(preload("res://scripts/ui/ChatCommands.gd").plain(String(c.last_text)), font_regular, max_w - font_bold.get_string_size(notice_name.text).x)
+	notice.rect_size = Vector2()
+	notice.visible = true
+	_place_notice()
+	call_deferred("_place_notice")
+	_notice_tween.remove_all()
+	notice.modulate.a = 0.0
+	_notice_tween.interpolate_property(notice, "modulate:a", 0.0, 1.0, 0.18, Tween.TRANS_SINE, Tween.EASE_OUT)
+	_notice_tween.interpolate_property(notice, "modulate:a", 1.0, 0.0, 0.4, Tween.TRANS_SINE, Tween.EASE_IN, NOTICE_TIME)
+	_notice_tween.interpolate_callback(self, NOTICE_TIME + 0.4, "_hide_notice")
+	_notice_tween.start()
+
+# ---- Announcements: the server's last ones, to read
+
+func _fill_news():
+	chat.clear()
+	_chat_lines = 0
+	_chat_sizes = []
+	if _lm == null or _lm.get("announcements") == null or _lm.announcements.empty():
+		_chat_hint("No announcements yet. News from the team shows up here.")
+		return
+	for a in _lm.announcements:
+		if _chat_lines > 0:
+			chat.newline()
+			chat.newline()
+		chat.push_color(FAINT)
+		chat.add_text(_stamp(float(a.ts)) + "  ")
+		chat.pop()
+		chat.push_font(font_chat_bold)
+		chat.push_color(PINK)
+		chat.add_text(String(a.from_name) if String(a.from_name) != "" else "Announcement")
+		chat.pop()
+		chat.pop()
+		chat.newline()
+		preload("res://scripts/ui/ChatCommands.gd").add_text(chat, String(a.text), 18)
+		_chat_lines += 1
+
+func _on_news_changed():
+	if _open and _chat_tab == "news":
+		_fill_news()
+	else:
+		_news_new = _lm != null and not _lm.announcements.empty() and _news_seen
+	_news_seen = true # (the first list, at sign-in, isn't news)
+	_tab_titles()
+var _news_seen := false
+
+# ---- the Global channel
+
+func _fill_global():
+	chat.clear()
+	_chat_lines = 0
+	_chat_sizes = []
+	chat_input.set_meta("chat_placeholder", GLOBAL_HINT)
 	var muted: bool = Rhythia.chat_hidden()
 	chat_muted.text = "Offline Mode is on: no chat (Settings > Online)." if Rhythia.offline_mode else "Global chat is muted (Settings > Online)."
 	chat_muted.visible = muted
@@ -1664,6 +2308,8 @@ func _on_chat_message(client_id: String, name: String, text: String, ts: float):
 	if not _open:
 		_notify_chat(client_id, name, text)
 		return
+	if _chat_tab != "global":
+		return # (it's in the history: drawn when Global is picked again)
 	if _chat_lines == -1:
 		chat.clear()
 		_chat_lines = 0
@@ -1751,10 +2397,18 @@ func _on_chat_entered(_t: String):
 	_send_chat()
 
 func _send_chat():
-	if _lm == null or Rhythia.chat_hidden():
+	if _lm == null or (Rhythia.chat_hidden() and not (_chat_tab == "dms" and not Rhythia.offline_mode)):
 		return
 	var text := chat_input.text.strip_edges()
 	if text == "":
+		return
+	if _chat_tab == "dms":
+		if _dm_with > 0:
+			_lm.send_dm(_dm_with, text)
+			chat_input.text = ""
+			chat_input.grab_focus()
+		return
+	if _chat_tab != "global":
 		return
 	# /share, /profile, /report, /help (ChatCommands.gd)
 	if preload("res://scripts/ui/ChatCommands.gd").handle(self, text, _lm, "send_global_chat_message"):
@@ -1870,6 +2524,16 @@ func _card_menu(c: Dictionary, at: Vector2):
 	# (you're in a lobby: bring them in)
 	if _lm != null and _lm.lobby_active and not _lm.watch_mode and not c.is_you:
 		_ctx.add_item("Invite to your lobby", 3)
+	# friends and blocking (LobbyManager social_action), like a name in chat
+	if _lm != null and not c.is_you and int(c.number) > 0:
+		_ctx.add_separator()
+		match String(_lm.relation(int(c.number))):
+			"none": _ctx.add_item("Add friend", 4)
+			"incoming": _ctx.add_item("Accept friend request", 5)
+		if String(_lm.relation(int(c.number))) == "blocked":
+			_ctx.add_item("Unblock", 7)
+		else:
+			_ctx.add_item("Block", 6)
 	_ctx_card = c
 	_ctx.popup(Rect2(at, Vector2(1, 1)))
 
@@ -1887,6 +2551,12 @@ func _on_card_menu(id: int):
 		3:
 			if _lm != null:
 				_lm.invite_player(int(c.number))
+		4, 5, 7:
+			if _lm != null:
+				_lm.social_action({4: "request", 5: "accept", 7: "unblock"}[id], int(c.number))
+		6:
+			if _lm != null:
+				_lm.confirm_block(int(c.number), String(c.nm))
 
 func _show_stats(number: int, nm: String):
 	if number <= 0:
@@ -1945,12 +2615,27 @@ func _on_stats_http(result: int, code: int, _h, body: PoolByteArray, r: HTTPRequ
 		j = parse_json(body.get_string_from_utf8())
 	call(method, j, number)
 
-func _stat_cell(grid: GridContainer, title: String, value: String, sub: String = ""):
+func _stat_cell(grid: GridContainer, title: String, value: String, sub: String = "", icon: Texture = null, col = null):
 	var v := VBoxContainer.new()
 	v.add_constant_override("separation", 0)
 	v.size_flags_horizontal = SIZE_EXPAND_FILL
 	v.add_child(_label(title, font_tiny, DIM))
-	v.add_child(_label(value, font_name, ACCENT))
+	var vl := _label(value, font_name, col if col is Color else ACCENT)
+	if icon != null:
+		# (a little picture before the number: the trophy)
+		var h := HBoxContainer.new()
+		h.add_constant_override("separation", int(4 * _k))
+		var t := TextureRect.new()
+		t.texture = icon
+		t.expand = true
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.rect_min_size = Vector2(1, 1) * float(font_name.get_height()) * 0.8
+		t.size_flags_vertical = SIZE_SHRINK_CENTER
+		h.add_child(t)
+		h.add_child(vl)
+		v.add_child(h)
+	else:
+		v.add_child(vl)
 	if sub != "":
 		v.add_child(_label(sub, font_tiny, DIM))
 	grid.add_child(v)
@@ -2007,7 +2692,7 @@ func _on_stats_profile(p, number: int):
 	_stats_box.add_child(badges)
 
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 5
 	grid.add_constant_override("hseparation", int(16 * _k))
 	_stats_box.add_child(grid)
 	var lv = p.get("level")
@@ -2019,6 +2704,9 @@ func _on_stats_profile(p, number: int):
 	_stat_cell(grid, "LEVEL", lv_text)
 	_stat_cell(grid, "XP", _num(p.get("xp", 0)), ("#%d" % int(p.xp_rank)) if p.get("xp_rank") != null else "")
 	_stat_cell(grid, "SP", _num(p.get("sp", 0)), ("#%d" % int(p.sp_rank)) if p.get("sp_rank") != null else "")
+	# trophies: the ranked maps they're #1 on (Trophy.gd)
+	var TR = load("res://scripts/ui/Trophy.gd")
+	_stat_cell(grid, "TROPHIES", _num(p.get("trophies", 0)), ("#%d" % int(p.trophies_rank)) if p.get("trophies_rank") != null else "", TR.texture(), TR.GOLD)
 	_stat_cell(grid, "PASSES", _num(p.get("pass_count", 0)), "%d maps" % int(p.get("map_count", 0)))
 	var bio := Globals.s(p.get("bio", "")).strip_edges()
 	if bio != "":

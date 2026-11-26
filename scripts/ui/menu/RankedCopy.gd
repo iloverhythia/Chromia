@@ -128,7 +128,9 @@ func _hash_job(path: String) -> String:
 func _process(_d):
 	if _thread == null or _thread.is_alive():
 		return
+	Rhythia.doing("waiting for the ranked-copy check to end")
 	_hashes[_thread_key] = String(_thread.wait_to_finish())
+	Rhythia.doing("")
 	_thread = null
 	set_process(false)
 	_refresh()

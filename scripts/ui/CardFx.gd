@@ -39,9 +39,31 @@ func set_fx(name: String, col = null):
 	set_process(fx != "")
 	update()
 
-func _process(_d):
-	if is_visible_in_tree():
+# (redrawn about 30 times a second, 15 on Quest, in VR and on phones, and only
+# while on screen: every card on a page used to be drawn again on every frame,
+# scrolled out of sight or not, so a player with many moving cards (a
+# prestige player has up to ten) lagged on the Cards page)
+var _acc := 0.0
+func _process(d):
+	_acc += d
+	var slow: bool = Rhythia.vr or OS.has_feature("quest") or Rhythia.dev == "mobile"
+	if _acc < (0.066 if slow else 0.033):
+		return
+	_acc = 0.0
+	if is_visible_in_tree() and _on_screen():
 		update()
+
+func _on_screen() -> bool:
+	var r := get_global_rect()
+	if not get_viewport_rect().intersects(r):
+		return false
+	# (inside a scrolling list: only the part of it that shows)
+	var p := get_parent()
+	while p != null and p is Control:
+		if p is ScrollContainer and not p.get_global_rect().intersects(r):
+			return false
+		p = p.get_parent()
+	return true
 
 func _draw():
 	if fx == "":

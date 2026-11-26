@@ -101,8 +101,8 @@ func files_dropped(files: PoolStringArray, _screen: int):
 		files = rest
 		var song
 		for file in files:
-			var ext = file.get_extension()
-			if ext == "sspm":
+			var ext = file.get_extension().to_lower()
+			if ext == "sspm" or ext == "chrm": # (a Chromia map is a .sspm with its extras in it: ChromiaMap.gd)
 				var imported = _import_sspm(file)
 				if imported != null:
 					song = imported

@@ -449,8 +449,17 @@ func _pick_song(method: String):
 	Globals.file_sel.open_file(self, method, PoolStringArray(["*.mp3, *.ogg ; Songs (mp3, ogg)"]), false, _start_dir())
 
 # ---- CREATE NEW MAP
+# SSQE+'s create screen (SSQELegacyScreens.gd), in both looks: the game it's
+# for (Chromia, Sound Space, Rhythia, Novastra/Phoenyx/Other) and the song. A
+# Chromia map (.chrm) has Chromia's extras: the editor shows its tools
+# (GRAPHICS > Lyrics); new_chromia says so to _on_new_song_picked.
+var new_chromia := false
 func _on_new_map():
-	_pick_song("_on_new_song_picked")
+	_ensure_legacy()
+	legacy.from_home = not _legacy_on()
+	if legacy.from_home and home != null:
+		home.visible = false
+	legacy.show_screen("create")
 
 func _on_new_song_picked(files):
 	var path := _first(files)
@@ -460,7 +469,18 @@ func _on_new_song_picked(files):
 	if res is String:
 		_notify(res, "Map Editor", Globals.NOTIFY_WARN)
 		return
+	if new_chromia:
+		res.chromia = true
+		res.save()
+	new_chromia = false
 	_open(res)
+	if res.chromia and ed != null:
+		# (exported as a .chrm; the Lyrics tool on the Extra Objects page too)
+		ed.s.exportType = "Chromia (CHRM)"
+		ed.s.modchartGame = "Chromia"
+		ed.settings_changed()
+		if ed.panels:
+			ed.panels._apply_visibility()
 	_notify("Set up the BPM in TIMING > OPEN BPM SETUP (or DETECT BPM), then place notes with Q W E / A S D / Z X C or the mouse.", "New map")
 
 # ---- EDIT SELECTED MAP
@@ -493,8 +513,8 @@ var _pending_cover := PoolByteArray()
 func _on_load_map():
 	Globals.file_sel.raise()
 	Globals.file_sel.open_file(self, "_on_map_file_picked", PoolStringArray([
-		"*.txt, *.sspm, *.osu, *.rhm, *.phxm, *.npk, *.nch, *.qem, *.qemz, *.phz, *.zip, *.json ; All maps",
-		"*.txt ; Map data (SSQE)", "*.qem, *.qemz ; SSQE maps", "*.sspm ; Sound Space maps", "*.rhm ; Rhythia maps",
+		"*.chrm, *.txt, *.sspm, *.osu, *.rhm, *.phxm, *.npk, *.nch, *.qem, *.qemz, *.phz, *.zip, *.json ; All maps",
+		"*.chrm ; Chromia maps", "*.txt ; Map data (SSQE)", "*.qem, *.qemz ; SSQE maps", "*.sspm ; Sound Space maps", "*.rhm ; Rhythia maps",
 		"*.phxm ; Rewrite maps", "*.npk, *.nch ; Novastra maps", "*.osu ; osu! maps", "*.phz ; Pulsus maps",
 		"*.zip, *.json ; Vulnus maps"]), false, _start_dir())
 
@@ -504,7 +524,7 @@ func _on_map_file_picked(files):
 		return
 	var ext := path.get_extension().to_lower()
 	match ext:
-		"sspm":
+		"sspm", "chrm":
 			var s = Song.new()
 			var r = s.load_from_sspm(path)
 			if r is String:

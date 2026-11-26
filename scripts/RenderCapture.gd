@@ -194,13 +194,17 @@ func _track_music(spawn, m, t: float):
 		_close_seg(t)
 		return
 	var pitch: float = float(m.pitch_scale)
+	var db: float = float(m.volume_db) + _bus_db(String(m.bus))
 	if _seg != null:
 		var expect: float = float(_seg.from) + (t - float(_seg.t)) * float(_seg.pitch)
-		if abs(song_s - expect) <= 0.03 and abs(pitch - float(_seg.pitch)) < 0.001 and _seg.stream == m.stream:
+		# (and the same loudness: after unpausing the music starts at -30 dB and
+		# fades back in, and a piece kept the -30 it began with, so the rest of
+		# the video's song was nearly silent: a new piece each 1.5 dB of the fade)
+		if abs(song_s - expect) <= 0.03 and abs(pitch - float(_seg.pitch)) < 0.001 and _seg.stream == m.stream and abs(db - float(_seg.db)) < 1.5:
 			return
 		_close_seg(t)
 	_seg = { "t": t, "from": song_s, "pitch": pitch, "keep_pitch": bool(Rhythia.retain_song_pitch),
-		"db": float(m.volume_db) + _bus_db(String(m.bus)), "sid": _sound_id(m.stream), "stream": m.stream }
+		"db": db, "sid": _sound_id(m.stream), "stream": m.stream }
 
 func _close_seg(t: float):
 	if _seg == null:

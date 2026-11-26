@@ -16,6 +16,7 @@ var tag_label: Label
 var motd_badge: Label # Map of the Day: how many days' maps completed
 var _badges_holder: VBoxContainer # your badges (BadgeRow.gd), the Map of the Day one included
 var rank_label: Label
+var _trophy_holder: HBoxContainer # your trophies (the ranked maps you're #1 on: Trophy.gd)
 var stats_label: Label
 var status_label: Label
 var top_play_box: VBoxContainer
@@ -135,6 +136,9 @@ func _ready():
 	names.add_child(_badges_holder)
 	rank_label = _label("", 20, _os.pick("ACCENT", Color(1, 0.75, 0.85)))
 	names.add_child(rank_label)
+	_trophy_holder = HBoxContainer.new()
+	_trophy_holder.add_constant_override("separation", 8)
+	names.add_child(_trophy_holder)
 
 	var refresh := Button.new()
 	refresh.text = "Refresh"
@@ -425,6 +429,21 @@ func _show_profile(p: Dictionary):
 	if p.get("badge_list") is Array:
 		tag_label.visible = false # (the tag is one of the badges, as on the website)
 	rank_label.text = "#%s SP   •   #%s XP%s" % [Globals.s(p.get("sp_rank", "-")), Globals.s(p.get("xp_rank", "-")), "   •   ranker" if p.get("is_ranker", false) else ""]
+	# trophies: how many ranked maps they're #1 on, and their place by them
+	for ch in _trophy_holder.get_children():
+		ch.queue_free()
+	var TR = load("res://scripts/ui/Trophy.gd")
+	var tf := DynamicFont.new()
+	tf.font_data = load("res://assets/font/Lato/Lato-Bold.ttf")
+	tf.size = 18
+	var trow: HBoxContainer = TR.row(int(p.get("trophies", 0)), tf, TR.GOLD)
+	_trophy_holder.add_child(trow)
+	var tl := Label.new()
+	tl.add_font_override("font", tf)
+	tl.add_color_override("font_color", Color(0.75, 0.75, 0.8))
+	tl.text = ("trophies   •   #%s by trophies" % Globals.s(p.get("trophies_rank"))) if p.get("trophies_rank") != null else ("trophy" if int(p.get("trophies", 0)) == 1 else "trophies")
+	_trophy_holder.add_child(tl)
+	_trophy_holder.hint_tooltip = "Ranked maps where you have the #1 pass"
 	stats_label.text = "%s SP     %s XP\n%s passes on %s maps%s" % [
 		_fmt(p.get("sp", 0)), _fmt(p.get("xp", 0)),
 		_fmt(p.get("pass_count", 0)), _fmt(p.get("map_count", 0)),

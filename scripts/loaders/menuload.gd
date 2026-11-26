@@ -11,6 +11,8 @@ func _ready():
 	Rhythia.trail("loading the menu")
 	load("res://scripts/game/SoundSpaceMode.gd").end_song() # leaving the song: your own settings back
 	load("res://scripts/SpectateSettings.gd").restore() # and yours if you were watching with someone's
+	if Rhythia.has_meta("board_replay"):
+		Rhythia.remove_meta("board_replay") # (a leaderboard replay: ScoreHistoryPanel)
 	Rhythia.end_forced_replay() # Record Replays back as you set it
 	var lm = get_node_or_null("/root/LobbyManager")
 	if lm != null and lm.watch_mode:

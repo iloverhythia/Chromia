@@ -12,7 +12,12 @@ extends Control
 #     as the Online page;
 #   - the search lists the settings that match from every category (their
 #     name or their hover text); picking one opens its category, scrolls to it
-#     and outlines it for a moment.
+#     and outlines it for a moment;
+#   - a category can be hidden from the list (right-click it), and "Hidden"
+#     at the bottom of the list shows them again (Rhythia.settings_hidden_tabs);
+#     the search still finds what's in them;
+#   - Collapsible Groups (Rhythia.settings_collapsible): click a group's title
+#     to fold it shut; remembered in Rhythia.settings_collapsed ("Page/Group").
 #
 # Nothing is moved or renamed in the pages themselves (they stay at
 # Main/Settings/S/F/TabContainer/..., so everything that finds a setting by
@@ -50,6 +55,10 @@ var _style_next := 0
 var _index := []
 var _index_sig := ""
 var _flash: Panel = null
+var _show_hidden := false
+var _hidden_btn: Button = null
+var _cat_menu: PopupMenu = null
+const FOLD_H := 46.0 # (a group's title strip: the Group's margin_top)
 
 static func install(settings_page: Control):
 	if settings_page == null or settings_page.has_node("NewUI"):
@@ -221,7 +230,145 @@ func _cat_button(title: String, i: int) -> Button:
 	b.add_stylebox_override("hover_pressed", on)
 	b.add_stylebox_override("focus", StyleBoxEmpty.new())
 	b.connect("pressed", self, "_on_cat", [i])
+	b.connect("gui_input", self, "_on_cat_input", [i])
 	return b
+
+# --- hiding categories --------------------------------------------------------------
+
+func _tab_key(i: int) -> String:
+	var c = tc.get_tab_control(i)
+	return String(c.name) if c != null else ""
+
+func _is_hidden(i: int) -> bool:
+	return Rhythia.settings_hidden_tabs.has(_tab_key(i))
+
+func _on_cat_input(ev, i: int):
+	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == BUTTON_RIGHT):
+		return
+	if _cat_menu == null or not is_instance_valid(_cat_menu):
+		_cat_menu = PopupMenu.new()
+		S.popup(_cat_menu)
+		_cat_menu.connect("id_pressed", self, "_on_cat_menu")
+		# (in a layer of its own on top: this page is drawn first, behind the
+		# settings pages, and a menu under it was drawn behind them too)
+		var layer := CanvasLayer.new()
+		layer.layer = 100
+		add_child(layer)
+		layer.add_child(_cat_menu)
+	_cat_menu.clear()
+	if _is_hidden(i):
+		_cat_menu.add_item("Show \"%s\" in the list again" % tc.get_tab_title(i), 1)
+	else:
+		_cat_menu.add_item("Hide \"%s\"" % tc.get_tab_title(i), 0)
+	_cat_menu.set_meta("tab", i)
+	_cat_menu.rect_size = Vector2()
+	_cat_menu.popup(Rect2(get_viewport().get_mouse_position(), Vector2(1, 1)))
+	get_tree().set_input_as_handled()
+
+func _on_cat_menu(id: int):
+	var i := int(_cat_menu.get_meta("tab"))
+	var key := _tab_key(i)
+	if key == "":
+		return
+	var list: Array = Rhythia.settings_hidden_tabs.duplicate()
+	if id == 0 and not list.has(key):
+		var shown := 0
+		for k in range(tc.get_tab_count()):
+			if not _is_hidden(k):
+				shown += 1
+		if shown <= 1:
+			Globals.notify(Globals.NOTIFY_WARN, "That's the last one in the list: at least one category stays.", "Settings")
+			return
+		list.append(key)
+	elif id == 1:
+		list.erase(key)
+	Rhythia.settings_hidden_tabs = list
+	Rhythia.save_settings()
+	_sig = "" # (the list is made again)
+	_tick()
+	_leave_hidden()
+
+# the page showing was hidden (and hidden ones aren't shown): the first one in the list instead
+func _leave_hidden():
+	if _show_hidden or search.text != "" or not _is_hidden(tc.current_tab):
+		return
+	for k in range(tc.get_tab_count()):
+		if not _is_hidden(k):
+			_on_cat(k)
+			return
+
+func _toggle_show_hidden():
+	_show_hidden = not _show_hidden
+	_sig = ""
+	_tick()
+	_leave_hidden()
+
+# --- collapsible groups ---------------------------------------------------------------
+
+func _fold_key(g: Control) -> String:
+	var page = g.get_parent()
+	return "%s/%s" % [String(page.name) if page != null else "", String(g.name)]
+
+func _folded(g: Control) -> bool:
+	return Rhythia.settings_collapsible and Rhythia.settings_collapsed.has(_fold_key(g))
+
+# a page's groups shut or open, as the setting says
+func _apply_folds(pg: Node):
+	if pg == null:
+		return
+	for g in pg.get_children():
+		if not (g is VBoxContainer and g.has_meta("nsu_group")):
+			continue
+		var m = g.get_node_or_null("Group")
+		if m == null:
+			continue
+		var shut := _folded(g)
+		if shut and m.visible:
+			m.visible = false
+			m.set_meta("nsu_folded", true)
+			g.set_meta("nsu_minh", g.rect_min_size.y)
+			g.rect_min_size.y = FOLD_H
+			g.update()
+		elif not shut and m.has_meta("nsu_folded"):
+			m.remove_meta("nsu_folded")
+			m.visible = true
+			g.rect_min_size.y = float(g.get_meta("nsu_minh")) if g.has_meta("nsu_minh") else 0.0
+			g.update()
+		elif bool(Rhythia.settings_collapsible) != g.has_meta("nsu_foldable"):
+			# (the arrow comes and goes with the setting)
+			if Rhythia.settings_collapsible:
+				g.set_meta("nsu_foldable", true)
+			else:
+				g.remove_meta("nsu_foldable")
+			g.update()
+
+# a click on a group's title strip folds it (Collapsible Groups on)
+func _fold_click(ev) -> bool:
+	if not Rhythia.settings_collapsible or results_scroll.visible or tc.get_tab_count() == 0:
+		return false
+	var at: Vector2 = ev.global_position
+	if not scroll.get_global_rect().has_point(at):
+		return false
+	var pg = tc.get_tab_control(tc.current_tab)
+	if pg == null:
+		return false
+	for g in pg.get_children():
+		if not (g is VBoxContainer and g.has_meta("nsu_group") and g.is_visible_in_tree()):
+			continue
+		var r: Rect2 = g.get_global_rect()
+		var strip: Rect2 = Rect2(r.position, Vector2(r.size.x, FOLD_H * g.get_global_transform().get_scale().y))
+		if strip.has_point(at):
+			var key := _fold_key(g)
+			var list: Array = Rhythia.settings_collapsed.duplicate()
+			if list.has(key):
+				list.erase(key)
+			else:
+				list.append(key)
+			Rhythia.settings_collapsed = list
+			Rhythia.save_settings()
+			_apply_folds(pg)
+			return true
+	return false
 
 func _on_cat(i: int):
 	if search.text != "":
@@ -236,6 +383,7 @@ func _on_page_tab(_i: int):
 	# (right away, not at the next tick: no moment of the old look)
 	if tc.get_tab_count() > 0:
 		_style(tc.get_tab_control(tc.current_tab), true)
+		_apply_folds(tc.get_tab_control(tc.current_tab))
 
 # Settings is opened: everything is in the new look before it's drawn
 func _on_shown():
@@ -253,17 +401,37 @@ func _tick():
 	var titles := []
 	for i in range(tc.get_tab_count()):
 		titles.append(tc.get_tab_title(i))
-	var sig := PoolStringArray(titles).join("|")
+	var sig: String = PoolStringArray(titles).join("|") + "#" + PoolStringArray(Rhythia.settings_hidden_tabs).join("|") + ("#all" if _show_hidden else "")
 	if sig != _sig:
 		_sig = sig
 		for b in cat_btns:
 			b.queue_free()
 		cat_btns = []
+		var n_hidden := 0
 		for i in range(titles.size()):
 			var b: Button = _cat_button(titles[i], i)
+			if _is_hidden(i):
+				n_hidden += 1
+				b.visible = _show_hidden
+				b.modulate.a = 0.5
+				b.hint_tooltip = "%s (hidden: right-click to show it in the list again)" % titles[i]
+			else:
+				b.hint_tooltip = "%s (right-click to hide it)" % titles[i]
 			cats.add_child(b)
 			cat_btns.append(b)
+		if _hidden_btn != null and is_instance_valid(_hidden_btn):
+			_hidden_btn.queue_free()
+		_hidden_btn = null
+		if n_hidden > 0:
+			_hidden_btn = Button.new()
+			_hidden_btn.text = ("Hide hidden (%d)" if _show_hidden else "Hidden (%d)") % n_hidden
+			_hidden_btn.hint_tooltip = "Categories you hid (right-click one to hide it, or to show it again)"
+			S.button(_hidden_btn, false, true)
+			_hidden_btn.focus_mode = FOCUS_NONE
+			_hidden_btn.connect("pressed", self, "_toggle_show_hidden")
+			cats.add_child(_hidden_btn)
 		_mark_cat()
+		_leave_hidden()
 	if tc.tabs_visible:
 		tc.tabs_visible = false
 	var n: int = tc.get_tab_count()
@@ -280,6 +448,7 @@ func _tick():
 	else:
 		_closed_ticks = n # (a few more passes after closing, for pages filled late)
 	_style(tc.get_tab_control(tc.current_tab), true)
+	_apply_folds(tc.get_tab_control(tc.current_tab))
 	_style_next = (_style_next + 1) % n
 	_style(tc.get_tab_control(_style_next), true)
 	if top_buttons != null and is_instance_valid(top_buttons):
@@ -402,10 +571,24 @@ func _draw_page(pg: Control):
 	pg.draw_style_box(S.flat(S.SECTION_BG, 5, Color(1, 1, 1, 0.06), 1), Rect2(Vector2.ZERO, pg.rect_size))
 
 func _draw_card(g: Control, title: String):
-	if g.rect_size.y < 50:
+	var m = g.get_node_or_null("Group")
+	var shut: bool = m != null and m.has_meta("nsu_folded")
+	if g.rect_size.y < 50 and not shut:
 		return # (an empty group)
 	g.draw_style_box(S.flat(S.SECTION_BG, 5, Color(1, 1, 1, 0.06), 1), Rect2(Vector2.ZERO, g.rect_size))
-	g.draw_string(S.f_head, Vector2(20, 12 + S.f_head.get_ascent()), tr(title), S.PINK)
+	var x := 20.0
+	if Rhythia.settings_collapsible:
+		# Collapsible Groups: an arrow, pointing down when open, right when shut
+		var cy: float = 12.0 + S.f_head.get_ascent() * 0.62
+		var c := Vector2(26, cy)
+		var pts: PoolVector2Array
+		if shut:
+			pts = PoolVector2Array([c + Vector2(-3, -5), c + Vector2(-3, 5), c + Vector2(4, 0)])
+		else:
+			pts = PoolVector2Array([c + Vector2(-5, -3), c + Vector2(5, -3), c + Vector2(0, 4)])
+		g.draw_colored_polygon(pts, S.PINK)
+		x = 40.0
+	g.draw_string(S.f_head, Vector2(x, 12 + S.f_head.get_ascent()), tr(title), S.PINK)
 
 func _style_node(n: Node):
 	# A control's hint (the box that shows when the mouse rests on it) is a
@@ -531,6 +714,10 @@ func _field(e: LineEdit):
 
 # Ctrl+F goes to the search box; Esc in it clears it
 func _input(event):
+	if event is InputEventMouseButton and event.pressed and event.button_index == BUTTON_LEFT and is_visible_in_tree():
+		if _fold_click(event):
+			get_tree().set_input_as_handled()
+		return
 	if not (event is InputEventKey) or not event.pressed or event.echo or not is_visible_in_tree():
 		return
 	if event.scancode == KEY_F and event.control and not event.alt:

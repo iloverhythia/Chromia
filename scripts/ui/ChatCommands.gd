@@ -4,6 +4,7 @@ extends Node
 #   /share (your selected map), /share <map name>,
 #   /share map | settings | colorset | mesh | cursor | hitsound
 #   /profile <name or #number>   /report <name or #number>   /help
+#   /casino (CasinoWindow.gd)   staff: /mute <who> <length> [reason], /unmute <who>, /adminpanel
 # A share uploads the file to the Content Browser and sends a link in the
 # chat ([[share:kind:id:song id:name]]); anyone can click it to get it.
 
@@ -14,7 +15,7 @@ const KINDS := {"map": "map", "maps": "map", "song": "map", "settings": "profile
 const NOUN := {"map": "Map", "profile": "Settings", "colorset": "Colorset", "mesh": "Note mesh", "cursor": "Cursor", "hitsound": "Hit sound", "skin": "Skin"}
 const META := "chromia_share:"
 const LINK := Color(0.55, 0.85, 1.0)
-const HELP := "/share: shares your selected map (/share <name> shares a map by its name)\n/share map | settings | colorset | skin | mesh | cursor | hitsound: shares it as a link\n/profile <name or #number>: their stats\n/report <name or #number>: report a player"
+const HELP := "/share: shares your selected map (/share <name> shares a map by its name)\n/share map | settings | colorset | skin | mesh | cursor | hitsound: shares it as a link\n/profile <name or #number>: their stats\n/report <name or #number>: report a player\n/casino: the casino (the same chips as on Discord)\n@D. Jarvis <message>: talk to the Chromia bot"
 
 var _send_target: Object
 var _send_method := ""
@@ -72,8 +73,41 @@ static func handle(host: Node, text: String, send_target: Object, send_method: S
 			var w = load("res://scripts/game/SpectateReport.gd").open_for(host, int(p.number), String(p.name), {}, "")
 			if w is CanvasLayer:
 				w.layer = 99 # (above the Spectate window)
+		"casino":
+			# the Discord bot's casino, the same chips (CasinoWindow.gd)
+			var cw = load("res://scripts/ui/CasinoWindow.gd") if ResourceLoader.exists("res://scripts/ui/CasinoWindow.gd") else null
+			if cw != null:
+				cw.open(host)
+			else:
+				_tell("The casino isn't in this version of the game yet.")
+		"mute", "unmute":
+			# staff with the Chat permission: a chat mute by name or #number, for
+			# as long as typed (30m, 2 centuries, 1 eon, forever...); the server says how long
+			var lm = Engine.get_main_loop().root.get_node_or_null("LobbyManager")
+			if lm == null or not lm.has_perm("chat"):
+				_tell("Only staff can mute players.")
+				return true
+			if cmd == "unmute":
+				if arg == "":
+					_tell("/unmute <name or #number>")
+				else:
+					lm.staff_unmute(arg)
+				return true
+			var m := _split_mute(arg)
+			if m.who == "" or m.length == "":
+				_tell("/mute <name or #number> <how long> [reason], e.g. /mute #12 3d spam, /mute Bob 2 centuries, /mute Bob forever")
+				return true
+			lm.staff_mute(m.who, m.length, m.reason)
+		"adminpanel", "admin":
+			# the admin panel (the website's, for staff: what they may do there is their permissions')
+			var lm2 = Engine.get_main_loop().root.get_node_or_null("LobbyManager")
+			if lm2 == null or not lm2.has_admin_key():
+				_tell("The admin panel is for staff.")
+				return true
+			OS.shell_open("https://chromia.lol/savia-admin-panel")
+			_tell("Opening the admin panel in your browser.")
 		"help", "commands", "?":
-			_tell(HELP)
+			_tell(HELP + (STAFF_HELP if _is_staff() else ""))
 		_:
 			_tell("Unknown command /%s. Commands:\n%s" % [cmd, HELP])
 	return true
@@ -91,6 +125,40 @@ static func _map_named(arg: String):
 		if part == null and nm.find(low) != -1:
 			part = s
 	return part
+
+const STAFF_HELP := "\nStaff: /mute <name or #number> <how long> [reason] (30m, 12h, 3d, 2 centuries, 1 eon, forever), /unmute <name or #number>, /adminpanel"
+const FOREVER := ["forever", "perm", "permanent", "permanently", "infinite", "inf", "max", "eternity"]
+
+static func _is_staff() -> bool:
+	var lm = Engine.get_main_loop().root.get_node_or_null("LobbyManager")
+	return lm != null and lm.has_admin_key()
+
+# "Bob Smith 2 centuries spam" -> {who: "Bob Smith", length: "2 centuries", reason: "spam"}
+# (the length starts at the first word that starts with a number, or "forever")
+static func _split_mute(arg: String) -> Dictionary:
+	var t := arg.split(" ", false)
+	var i := 0
+	while i < t.size() and not (String(t[i]).left(1).is_valid_integer() or FOREVER.has(String(t[i]).to_lower())):
+		i += 1
+	var who := PoolStringArray(Array(t).slice(0, i - 1)).join(" ") if i > 0 else ""
+	if i >= t.size():
+		return {"who": who, "length": "", "reason": ""}
+	var j := i
+	if FOREVER.has(String(t[j]).to_lower()):
+		j += 1
+	else:
+		while j < t.size():
+			var w := String(t[j]).to_lower()
+			if w.left(1).is_valid_integer():
+				j += 1
+				# ("2 centuries": the unit after a bare number)
+				if w.is_valid_float() and j < t.size() and not String(t[j]).left(1).is_valid_integer():
+					j += 1
+			elif w == "and" and j + 1 < t.size() and String(t[j + 1]).left(1).is_valid_integer():
+				j += 1
+			else:
+				break
+	return {"who": who, "length": PoolStringArray(Array(t).slice(i, j - 1)).join(" "), "reason": PoolStringArray(Array(t).slice(j, t.size() - 1)).join(" ") if j < t.size() else ""}
 
 static func _tell(text: String):
 	Globals.notify(Globals.NOTIFY_INFO, text, "Chat")
