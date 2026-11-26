@@ -26,6 +26,15 @@ func drift_cursor(rx, ry, cx, cy):
 			$Mesh2.transform.origin.y = -(ry - cy)
 		else: $Mesh2.visible = false
 
+# Co-op: each player keeps to their half of the grid (NoteManager sets
+# "coop_half": -1 the left, the first player; 1 the right). The wall is the
+# grid's middle line, so both can still reach the middle column's notes.
+func _coop_wall(x: float) -> float:
+	if not Rhythia.coop_now or Rhythia.replaying or not Rhythia.has_meta("coop_half"):
+		return x
+	var mid: float = 1.5 + sh.x
+	return min(x, mid) if int(Rhythia.get_meta("coop_half")) < 0 else max(x, mid)
+
 func move_cursor(mdel: Vector2):
 	var rx = rpos.x
 	var ry = rpos.y
@@ -40,6 +49,7 @@ func move_cursor(mdel: Vector2):
 		rx = clamp(rx, (0 + sh.x + edger), (3 + sh.x - edger))
 		ry = clamp(ry, (0 + sh.y + edger), (3 + sh.y - edger))
 
+	rx = _coop_wall(rx)
 	rpos.x = rx
 	rpos.y = ry
 
@@ -56,6 +66,7 @@ func move_cursor(mdel: Vector2):
 		cx = clamp(cx, (0 + sh.x + edgec), (3 + sh.x - edgec))
 		cy = clamp(cy, (0 + sh.y + edgec), (3 + sh.y - edgec))
 
+	cx = _coop_wall(cx)
 	transform.origin.x = cx
 	transform.origin.y = -cy
 
@@ -78,6 +89,7 @@ func move_cursor_abs(mdel: Vector2):
 		rx = clamp(rx, (0 + sh.x + edger), (3 + sh.x - edger))
 		ry = clamp(ry, (0 + sh.y + edger), (3 + sh.y - edger))
 
+	rx = _coop_wall(rx)
 	rpos.x = rx
 	rpos.y = ry
 
@@ -92,6 +104,7 @@ func move_cursor_abs(mdel: Vector2):
 		cx = clamp(cx, (0 + sh.x + edgec), (3 + sh.x - edgec))
 		cy = clamp(cy, (0 + sh.y + edgec), (3 + sh.y - edgec))
 
+	cx = _coop_wall(cx)
 	transform.origin.x = cx
 	transform.origin.y = -cy
 

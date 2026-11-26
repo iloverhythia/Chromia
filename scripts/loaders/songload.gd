@@ -29,6 +29,8 @@ func _ready():
 	var lm = get_node_or_null("/root/LobbyManager")
 	if lm == null or not lm.lobby_active or not lm.coop_on():
 		Rhythia.coop_now = false # (co-op only in a co-op lobby's round)
+	if Rhythia.has_meta("coop_half"):
+		Rhythia.remove_meta("coop_half") # (NoteManager sets it again in a co-op round)
 	var spec = load("res://scripts/SpectateSettings.gd")
 	if spec.active() and (lm == null or not lm.spectate_load_pending()) and not (Rhythia.replaying and Rhythia.has_meta("board_replay")):
 		spec.restore()

@@ -821,7 +821,7 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 # song time they were at: drawn at yours, less COOP_CURSOR_LAG_MS).
 const COOP_ANY_GRACE_MS := 220.0
 const COOP_WAIT_MS := 1500.0
-const COOP_THEIRS_ALPHA := 0.3
+const COOP_THEIRS_ALPHA := 0.6 # (Take turns: your partner's notes a little faded, not see-through)
 const COOP_CURSOR_LAG_MS := 120.0
 var _coop := false
 var _coop_split := false
@@ -840,8 +840,10 @@ func _coop_setup():
 		return
 	_coop = true
 	_coop_mode = lm.coop_mode()
-	_coop_split = _coop_mode != "any"
+	_coop_split = _coop_mode == "alternate" # (Left / right: like Any note, with each cursor kept to its half)
 	_coop_slot = lm.coop_slot()
+	if _coop_mode == "sides":
+		Rhythia.set_meta("coop_half", -1 if _coop_slot == 0 else 1) # (your half of the grid: Cursor._coop_wall)
 	_coop_mine = PoolByteArray()
 	_coop_mine.resize(notes.size())
 	for i in range(notes.size()):

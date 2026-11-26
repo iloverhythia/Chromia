@@ -2727,13 +2727,14 @@ var _presence_failures: int = 0
 var _pending_coop := false
 var _pending_coop_mode := "any"
 const COOP_MODES := ["any", "alternate", "sides"]
-const COOP_MODE_NAMES := {"any": "Any note", "alternate": "Take turns", "sides": "Left / right"}
+const COOP_MODE_NAMES := {"any": "Any note", "alternate": "Take turns", "sides": "Left / right halves"}
 
 func coop_on() -> bool:
 	return lobby_active and bool(lobby_state.get("coop", false))
 
 func coop_mode() -> String:
-	return "any" # (both of you see every note and either can hit it: the split ways are gone)
+	var m := String(lobby_state.get("coop_mode", "any"))
+	return m if m in COOP_MODES else "any"
 
 # 0 for the first player (the lower peer id), 1 for the other
 func coop_slot() -> int:
