@@ -2733,8 +2733,7 @@ func coop_on() -> bool:
 	return lobby_active and bool(lobby_state.get("coop", false))
 
 func coop_mode() -> String:
-	var m := String(lobby_state.get("coop_mode", "any"))
-	return m if m in COOP_MODES else "any"
+	return "any" # (both of you see every note and either can hit it: the split ways are gone)
 
 # 0 for the first player (the lower peer id), 1 for the other
 func coop_slot() -> int:

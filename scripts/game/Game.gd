@@ -172,10 +172,14 @@ func end(end_type: int):
 		else:
 			lobby_manager.notify_failed()
 			$Spawn.active = false
-			var first_peer_id = lobby_manager.get_first_place_peer_id()
-			var hud = get_node("HUD")
-			if hud != null and first_peer_id != -1:
-				hud.enter_spectate_mode(first_peer_id)
+			# (co-op: one health bar, so you fail together: your partner's game
+			# ends with yours (_on_lobby_player_failed) and the round's results
+			# come, no watching them)
+			if not (lobby_manager.has_method("coop_on") and lobby_manager.coop_on()):
+				var first_peer_id = lobby_manager.get_first_place_peer_id()
+				var hud = get_node("HUD")
+				if hud != null and first_peer_id != -1:
+					hud.enter_spectate_mode(first_peer_id)
 		get_tree().paused = false
 		return
 
@@ -805,6 +809,16 @@ func hit(col):
 	score += points
 	return points
 
+# co-op: your partner failed (your shared health ran out on their screen
+# first): you fail with them
+func _on_lobby_player_failed(peer_id: int):
+	var lm = get_node_or_null("/root/LobbyManager")
+	if ending or lm == null or not lm.coop_on() or peer_id == lm.local_peer_id or Rhythia.replaying:
+		return
+	if not $Spawn.active or ($Spawn.Grid != null and $Spawn.Grid.spectating):
+		return
+	end(Globals.END_FAIL)
+
 func miss(col):
 	if ending: return
 	emit_signal("miss", col)
@@ -907,6 +921,9 @@ func _ready():
 	$Spawn.connect("timer_update", self, "update_timer")
 
 	$Spawn.connect("miss", self, "miss")
+	var lm_coop = get_node_or_null("/root/LobbyManager")
+	if lm_coop != null and lm_coop.has_method("coop_on") and lm_coop.coop_on() and not lm_coop.is_connected("player_failed", self, "_on_lobby_player_failed"):
+		lm_coop.connect("player_failed", self, "_on_lobby_player_failed")
 	Rhythia.start_log("loading map")
 	loadMapFile()
 	Rhythia.start_log("map loaded")
