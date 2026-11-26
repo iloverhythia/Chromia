@@ -807,6 +807,7 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 
 	notes_loaded = true
 	_coop_setup()
+	_coop_replay_setup()
 	call_deferred("reposition_notes", true)
 
 # --- co-op (a co-op lobby: LobbyManager.coop_on) ------------------------------------
@@ -824,6 +825,10 @@ func spawn_notes(note_array: Array, in_order: bool = false):
 const COOP_ANY_GRACE_MS := 220.0
 const COOP_WAIT_MS := 1500.0
 const COOP_CURSOR_LAG_MS := 120.0
+const COOP_VIDEO_YOU := Color(1.0, 0.44, 0.72) # (a co-op video: your notes)
+const COOP_VIDEO_THEM := Color(0.45, 0.85, 1.0) # (and your partner's, the color of their cursor)
+var _coop_track := {}
+var _coop_rpts := [] # (a co-op video: your partner's whole path)
 var _coop := false
 var _coop_split := false
 var _coop_mode := "any"
@@ -854,6 +859,10 @@ func _coop_setup():
 	if not lm.is_connected("coop_partner_pts", self, "_on_coop_pts"):
 		lm.connect("coop_partner_pts", self, "_on_coop_pts")
 	_make_coop_cursor(lm.coop_partner_name())
+	# the co-op track, for Save video (VideoExport sends it with the replay):
+	# your partner's cursor and the notes they hit
+	_coop_track = {"v": 1, "partner": lm.coop_partner_name(), "slot": _coop_slot, "mode": _coop_mode, "replay_id": "", "pts": [], "theirs": []}
+	Rhythia.set_meta("coop_track", _coop_track)
 	Rhythia.trail("co-op: %s, you're player %d, %d of %d notes yours" % [_coop_mode, _coop_slot + 1, _coop_count_mine(), notes.size()])
 
 func _coop_count_mine() -> int:
@@ -882,6 +891,11 @@ func _on_coop_received(_peer: int, hits: Array, misses: Array):
 		if i < 0 or i >= notes.size() or notes[i][2] != Globals.NSTATE_ACTIVE:
 			continue
 		notes[i][2] = Globals.NSTATE_HIT
+		# (in your replay too: played back, their notes are hit as they were)
+		if Rhythia.record_replays and Rhythia.replay != null and not Rhythia.replaying:
+			Rhythia.replay.note_hit(i)
+		if not _coop_track.empty():
+			_coop_track.theirs.append(i)
 		if Rhythia.play_hit_snd and _frame_hit_snd < HIT_SOUNDS_PER_FRAME:
 			_frame_hit_snd += 1
 			SFXManager.play_hitsfx(notes[i][5])
@@ -894,6 +908,8 @@ func _on_coop_received(_peer: int, hits: Array, misses: Array):
 		if i < 0 or i >= notes.size() or notes[i][2] != Globals.NSTATE_ACTIVE:
 			continue
 		notes[i][2] = Globals.NSTATE_MISS
+		if Rhythia.record_replays and Rhythia.replay != null and not Rhythia.replaying:
+			Rhythia.replay.note_miss(i)
 		get_parent().miss(notes[i][3])
 
 func _on_coop_pts(_peer: int, pts: Array):
@@ -911,6 +927,19 @@ func _on_coop_pts(_peer: int, pts: Array):
 	while _coop_pts.size() > 600:
 		for _j in range(3):
 			_coop_pts.pop_front()
+	# (the whole path for the video, a point every 15 ms at most)
+	if not _coop_track.empty():
+		var tp: Array = _coop_track.pts
+		if String(_coop_track.replay_id) == "" and Rhythia.replay != null:
+			_coop_track.replay_id = String(Rhythia.replay.id)
+		for k in range(0, pts.size() - 2, 3):
+			var t := float(pts[k])
+			var tn: int = tp.size()
+			if tn >= 3 and t < float(tp[tn - 3]) + 15.0:
+				continue
+			tp.append(stepify(t, 0.1))
+			tp.append(stepify(float(pts[k + 1]), 0.001))
+			tp.append(stepify(float(pts[k + 2]), 0.001))
 
 func _coop_frame(delta: float):
 	# what you hit and missed, to your partner (a few times a second is plenty)
@@ -950,6 +979,50 @@ func _coop_frame(delta: float):
 				y = lerp(float(_coop_pts[k + 2]), float(_coop_pts[k + 5]), f)
 				break
 	_coop_cursor.visible = _coop_cursor_alpha() > 0.001 # (0%: hidden, Settings > Cursor)
+	_coop_cursor.transform.origin = Vector3(x, y, _n_cursor.transform.origin.z)
+
+# Save video of a co-op play (the Game view: WebReplay puts the track in
+# "replay_coop"): each player's notes in their own color, and your partner's
+# cursor moving as it did. (Their hits are in the replay itself.)
+func _coop_replay_setup():
+	if not Rhythia.replaying or not Rhythia.has_meta("replay_coop"):
+		return
+	var d = Rhythia.get_meta("replay_coop")
+	if not (d is Dictionary) or not (d.get("pts", null) is Array):
+		return
+	var theirs := {}
+	for v in d.get("theirs", []):
+		theirs[int(v)] = true
+	for i in range(notes.size()):
+		notes[i][3] = COOP_VIDEO_THEM if theirs.has(i) else COOP_VIDEO_YOU
+	_coop_rpts = d.pts
+	_make_coop_cursor(Globals.s(d.get("partner", "Partner")))
+
+func _coop_replay_frame():
+	if _coop_cursor == null or not is_instance_valid(_coop_cursor) or _coop_rpts.size() < 6:
+		return
+	var n: int = _coop_rpts.size() / 3
+	# the last point at or before now (halving the list each step)
+	var lo := 0
+	var hi := n - 1
+	if ms <= float(_coop_rpts[0]):
+		hi = 0
+	while lo < hi:
+		var mid: int = (lo + hi + 1) / 2
+		if float(_coop_rpts[mid * 3]) <= ms:
+			lo = mid
+		else:
+			hi = mid - 1
+	var k: int = lo * 3
+	var x: float = float(_coop_rpts[k + 1])
+	var y: float = float(_coop_rpts[k + 2])
+	if lo + 1 < n:
+		var t0: float = float(_coop_rpts[k])
+		var t1: float = float(_coop_rpts[k + 3])
+		var f: float = clamp((ms - t0) / max(t1 - t0, 0.001), 0.0, 1.0)
+		x = lerp(x, float(_coop_rpts[k + 4]), f)
+		y = lerp(y, float(_coop_rpts[k + 5]), f)
+	_coop_cursor.visible = true
 	_coop_cursor.transform.origin = Vector3(x, y, _n_cursor.transform.origin.z)
 
 # Settings > Cursor > Co-op Partner Cursor (yours only: 0 hides it)
@@ -1521,6 +1594,8 @@ func _process(delta: float):
 				drift = Vector2(m2.transform.origin.x, m2.transform.origin.y)
 			lobby_manager.send_live_state(cursor_pos.x, cursor_pos.y, get_parent().combo, get_parent().combo_level, energy_pct, lvl_progress_pct, ms, _vr_pose_for_spectators() if Rhythia.vr else null, pause_state != 0, drift)
 
+	if not _coop_rpts.empty() and notes_loaded:
+		_coop_replay_frame()
 	if _coop and active and notes_loaded and not (Grid != null and Grid.spectating):
 		_coop_frame(delta)
 	elif _coop and _coop_cursor != null and is_instance_valid(_coop_cursor):

@@ -12,6 +12,8 @@ func _ready():
 	load("res://scripts/game/SoundSpaceMode.gd").end_song() # leaving the song: your own settings back
 	load("res://scripts/SpectateSettings.gd").restore() # and yours if you were watching with someone's
 	Rhythia.coop_now = false # (a co-op round is over: the menu and your bests are yours again)
+	if Rhythia.has_meta("replay_coop") and not OS.has_feature("JavaScript"):
+		Rhythia.remove_meta("replay_coop") # (the Game view's co-op video: WebReplay)
 	if Rhythia.has_meta("board_replay"):
 		Rhythia.remove_meta("board_replay") # (a leaderboard replay: ScoreHistoryPanel)
 	Rhythia.end_forced_replay() # Record Replays back as you set it
