@@ -6,7 +6,8 @@ extends OptionButton
 # (/savia-public/api/leaderboard/sp?device=, /map/<id>?device=). The choice is
 # shared by every board and kept (Rhythia.lb_device).
 
-const MODES := [["All devices", ""], ["PC", "pc"], ["VR", "vr"], ["Spin", "spin"], ["Phone", "mobile"]]
+# (Spinlock: Spin with the grid following the cursor, the Spin-lock camera; Spin doesn't count those)
+const MODES := [["All devices", ""], ["PC", "pc"], ["VR", "vr"], ["Spin", "spin"], ["Spinlock", "spinlock"], ["Phone", "mobile"]]
 
 static func name_of(dev: String) -> String:
 	for m in MODES:

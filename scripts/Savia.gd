@@ -511,6 +511,9 @@ func _get_active_mods_dict() -> Dictionary:
 		"blox_saber": mod_blox_saber, # (never sent as a pass: report_map_completion; the server refuses it too)
 		"coop": coop_now, # (a co-op lobby's play: never sent as a pass either)
 		"spin": cam_unlock,
+		# (Spin with the grid following the cursor: the Spin-lock camera preset,
+		# negative HUD parallax. Leaderboards keep these apart from Spin)
+		"spinlock": cam_unlock and float(ui_parallax) < 0.0,
 		"note_pushback": do_note_pushback,
 		"retain_pitch": retain_song_pitch,
 		"speed_hitwindow": speed_hitwindow,
