@@ -197,6 +197,12 @@ func _process(delta):
 				call_deferred("pg_up")
 
 	pt += delta
+	# (asking the window system is slow on some PCs, about a millisecond on
+	# Linux: twice a second is enough to notice a resize)
+	_win_check += delta
+	if _win_check < 0.5:
+		return
+	_win_check = 0.0
 	if OS.window_maximized != was_maximized or OS.window_fullscreen != was_fullscreen:
 		was_maximized = OS.window_maximized
 		was_fullscreen = OS.window_fullscreen
@@ -254,6 +260,7 @@ func load_pg(select_cur: bool = false):
 	size_list()
 	for n in btns: n.queue_free()
 	btns.clear()
+	_tl_settled = false
 
 	if grid != null:
 		cur_map = int(clamp(cur_map, 0, max(disp.size() - 1, 0)))
@@ -724,6 +731,7 @@ func pg_up():
 	if grid != null: return
 	if cur_map < 0 or btns.empty(): return
 	cur_map -= 1
+	_tl_settled = false
 
 	$Press.play()
 	var out: Panel = btns.pop_back()
@@ -740,6 +748,7 @@ func pg_down():
 	if grid != null or btns.empty(): return
 	if cur_map >= disp.size() - 1: return
 	cur_map += 1
+	_tl_settled = false
 
 	$Press.play()
 	var out: Panel = btns.pop_front()
@@ -762,8 +771,15 @@ func tween_in(p: Panel):
 # Runs every physics frame: eases each button toward its width. (It used to
 # start a new tween per button per frame, thousands a second, many aimed at
 # buttons that were already being freed when the list rebuilt.)
+# (the buttons' widths ease to their place; once all are there it stops
+# looking, 120 times a second, until the list moves or is built again)
+var _tl_settled := false
+var _win_check := 0.0
 func tween_length():
+	if _tl_settled:
+		return
 	var mid: int = (next_index() - prev_index()) / 2
+	var moved := false
 	for i in btns.size():
 		var b = btns[i]
 		if not is_instance_valid(b) or b.is_queued_for_deletion():
@@ -772,6 +788,8 @@ func tween_length():
 		var cur: Vector2 = b.rect_min_size
 		if cur.distance_squared_to(target) > 0.25:
 			b.rect_min_size = cur.linear_interpolate(target, 0.25)
+			moved = true
+	_tl_settled = not moved
 
 
 func _input(ev: InputEvent):
@@ -1040,6 +1058,7 @@ func _exit_tree():
 
 func size_list():
 	size_x = get_viewport_rect().size.x / 2.8
+	_tl_settled = false
 	$"..".rect_min_size.x = size_x
 
 func _load_covers():

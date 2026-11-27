@@ -23,6 +23,12 @@ func _ready():
 		Rhythia.vr_menu_env = "classic"
 		Globals.call_deferred("notify", Globals.NOTIFY_INFO, "The game closed unexpectedly last time, so the menu is in the Classic environment. Pick your background again in Settings > VR if you like.", "VR menu")
 	apply_env()
+	# the settings boxes and mod buttons rest while their page is hidden (scripts/ui/HiddenIdle.gd)
+	var menu = get_node_or_null("PointerScreen/Viewport/Menu")
+	if menu != null:
+		var idle = preload("res://scripts/ui/HiddenIdle.gd").new()
+		idle.name = "HiddenIdle"
+		menu.add_child(idle)
 
 
 # --- What's around you (Settings > VR > Menu environment, vr/MenuEnvs.gd) ---
