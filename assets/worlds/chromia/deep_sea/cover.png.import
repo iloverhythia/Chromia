@@ -2,15 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/cover.png-1ae58ca4d59e20d5b4b05120b0f76965.stex"
+path="res://.import/cover.png-47d16ad279fd75e60a305d38dcd43b46.stex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/worlds/chromia/aurora/cover.png"
-dest_files=[ "res://.import/cover.png-1ae58ca4d59e20d5b4b05120b0f76965.stex" ]
+source_file="res://assets/worlds/chromia/deep_sea/cover.png"
+dest_files=[ "res://.import/cover.png-47d16ad279fd75e60a305d38dcd43b46.stex" ]
 
 [params]
 

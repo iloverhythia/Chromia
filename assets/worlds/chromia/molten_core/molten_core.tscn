@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=2]
 
-[ext_resource path="res://assets/worlds/chromia/aurora/aurora.gd" type="Script" id=1]
+[ext_resource path="res://assets/worlds/chromia/molten_core/molten_core.gd" type="Script" id=1]
 
 [node name="Space" type="Spatial"]
 script = ExtResource( 1 )

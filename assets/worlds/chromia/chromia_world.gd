@@ -1,9 +1,10 @@
 extends Spatial
 
-# The base of the Chromia worlds (Contours, Prism Rain, Lilac Orbit, Aurora,
-# Pulse Floor): the look of Neon Corners and the menu, dark with neon lines
-# in your colorset's first colour and Chromia's pink and lilac, fog into the
-# distance, a flash on every hit, and glow when it's on (Settings).
+# The base of the Chromia worlds (Prism Rain, Deep Sea, Molten Core, Nebula,
+# Crystal Cave): dark worlds with glowing lines and lights, a flash on every
+# hit, and glow when it's on (Settings). Prism Rain takes your colorset's
+# first colour with Chromia's pink and lilac and fades into a purple fog; the
+# others each have colours of their own and a sky (sky_dome) instead of fog.
 #
 # Kept light for headsets and phones: each world is one to three meshes,
 # made once when the song loads, and moves in its shader; the script only
@@ -36,14 +37,21 @@ func _ready():
 func _build():
 	pass
 
+# (a world's own background colour, and whether things fade into it with distance)
+func sky_color() -> Color:
+	return BG
+
+func uses_fog() -> bool:
+	return true
+
 func _make_env():
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
-	env.background_color = BG
+	env.background_color = sky_color()
 	env.background_energy = 0.0
 	env.ambient_light_color = Color(0.08, 0.06, 0.1)
-	env.fog_enabled = true
-	env.fog_color = BG
+	env.fog_enabled = uses_fog()
+	env.fog_color = sky_color()
 	env.fog_depth_begin = 22.0
 	env.fog_depth_end = 70.0
 	env.fog_depth_curve = 0.6
@@ -121,6 +129,30 @@ static func ribbon(st: SurfaceTool, pts: Array, width: float, up: Vector3, index
 			st.add_uv(v[1])
 			st.add_uv2(Vector2(v[2], 0.0))
 			st.add_vertex(v[0])
+
+# a sphere all round the camera, inside out: the world's sky, drawn by its shader
+# (v_dir: the direction from the middle, for gradients and patterns)
+func sky_dome(code: String) -> MeshInstance:
+	var sphere := SphereMesh.new()
+	sphere.radius = 60.0
+	sphere.height = 120.0
+	sphere.radial_segments = 32
+	sphere.rings = 16
+	var mat := shader_mat(UNIFORMS + """
+shader_type spatial;
+render_mode unshaded, cull_front, depth_draw_never;
+varying vec3 v_dir;
+void vertex() {
+	v_dir = normalize(VERTEX);
+}
+// (a speck of noise so the dark gradients don't show steps)
+vec3 dither(vec2 fc) { return vec3((fract(sin(dot(fc, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0); }
+""" + code)
+	mat.render_priority = -100 # (first: everything else is drawn over it)
+	var mi := mesh_instance(sphere, mat)
+	mi.name = "Sky"
+	add_child(mi)
+	return mi
 
 static func mesh_instance(mesh: Mesh, mat: Material) -> MeshInstance:
 	var mi := MeshInstance.new()

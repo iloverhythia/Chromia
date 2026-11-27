@@ -613,6 +613,8 @@ static func _lookup(k: String, id: String):
 	var reg = Rhythia.get(ID_KEYS[k])
 	if reg == null or id == "":
 		return null
+	if k == "selected_space":
+		id = Rhythia.RETIRED_WORLDS.get(id, id) # (someone on an older build with a replaced background)
 	var item = reg.get_item(id)
 	return item if item else null
 

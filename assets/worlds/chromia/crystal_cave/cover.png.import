@@ -2,15 +2,15 @@
 
 importer="texture"
 type="StreamTexture"
-path="res://.import/cover.png-16ab2a082256d1720b22c1cbf7105ab0.stex"
+path="res://.import/cover.png-e23df0ed4e56a9da8ecf5daf862f6d26.stex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/worlds/chromia/contours/cover.png"
-dest_files=[ "res://.import/cover.png-16ab2a082256d1720b22c1cbf7105ab0.stex" ]
+source_file="res://assets/worlds/chromia/crystal_cave/cover.png"
+dest_files=[ "res://.import/cover.png-e23df0ed4e56a9da8ecf5daf862f6d26.stex" ]
 
 [params]
 

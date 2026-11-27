@@ -1514,6 +1514,11 @@ var installed_packs: Array = []
 var registry_colorset: Registry
 var registry_song: Registry
 var registry_world: Registry
+# Chromia backgrounds that were replaced (Nov 27): whoever had one picked gets the new one in its place
+const RETIRED_WORLDS := {
+	"chromia_contours": "chromia_nebula", "chromia_lilac_orbit": "chromia_crystal_cave",
+	"chromia_aurora": "chromia_deep_sea", "chromia_pulse_floor": "chromia_molten_core",
+}
 var registry_mesh: Registry
 var registry_effect: Registry
 var registry_hit_sound: Registry
@@ -5268,7 +5273,7 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if data.has("cursor_spin"):
 			cursor_spin = data.cursor_spin
 		if data.has("selected_space"):
-			var world = registry_world.get_item(data.selected_space)
+			var world = registry_world.get_item(RETIRED_WORLDS.get(data.selected_space, data.selected_space))
 			if world:
 				select_world(world)
 		if data.has("enable_border"):
@@ -5886,7 +5891,8 @@ func load_saved_settings(saveFile: String = Globals.p("user://settings.json")):
 		if sv >= 12:
 			music_volume_db = file.get_float()
 		if sv >= 13:
-			var world = registry_world.get_item(file.get_line())
+			var world_id: String = file.get_line()
+			var world = registry_world.get_item(RETIRED_WORLDS.get(world_id, world_id))
 			if world:
 				select_world(world)
 
@@ -6745,9 +6751,9 @@ func register_worlds():
 		"res://assets/worlds/grid/grid.png"
 	))
 	# Chromia's own (assets/worlds/chromia: script-built, light enough for headsets)
-	for w in [["chromia_contours", "Contours", "contours"], ["chromia_prism_rain", "Prism Rain", "prism_rain"],
-			["chromia_lilac_orbit", "Lilac Orbit", "lilac_orbit"], ["chromia_aurora", "Aurora", "aurora"],
-			["chromia_pulse_floor", "Pulse Floor", "pulse_floor"]]:
+	for w in [["chromia_deep_sea", "Deep Sea", "deep_sea"], ["chromia_molten_core", "Molten Core", "molten_core"],
+			["chromia_nebula", "Nebula", "nebula"], ["chromia_crystal_cave", "Crystal Cave", "crystal_cave"],
+			["chromia_prism_rain", "Prism Rain", "prism_rain"]]:
 		registry_world.add_item(BackgroundWorld.new(
 			w[0], w[1],
 			"res://assets/worlds/chromia/%s/%s.tscn" % [w[2], w[2]], "Chromia",
