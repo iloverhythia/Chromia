@@ -101,6 +101,8 @@ func _ready():
 	m.add_child(box)
 
 	_build_store_move()
+	if not web():
+		_build_maps_only()
 	_label("Transfer settings", f_title, ACCENT)
 	_label("Copy your settings and custom content (colorsets, meshes, sounds, backgrounds, profiles, keybinds) to another device. Scores aren't included; maps are if you tick Include maps.", f_body, DIM, true)
 	_include_maps = CheckBox.new()
@@ -158,6 +160,159 @@ func _ready():
 	_file_status = _label("", f_body, TEXT, true)
 	_build_backups()
 	set_process(false)
+
+# --- Transfer maps only (scripts/MapTransfer.gd) ---------------------------------
+# Only your maps, only the ones the other device doesn't have, on a thread of
+# their own (no lag), added to the map list as they come (no restart).
+const MT = preload("res://scripts/MapTransfer.gd")
+var _mt = null
+var _mt_send: Button
+var _mt_get: Button
+var _mt_stop: Button
+var _mt_code: Label
+var _mt_in: LineEdit
+var _mt_bar: ProgressBar
+var _mt_status: Label
+var _mt_queue := [] # maps that came, for the map list
+var _mt_vfolders := {} # Vulnus map folders that came (added at the end)
+var _mt_added := 0
+var _mt_said := 0
+var _mt_was_busy := false
+
+func _build_maps_only():
+	_label("Transfer maps only", f_title, ACCENT)
+	_label("Send your maps to another device on the same Wi-Fi, without settings. Only the maps it doesn't have yet are sent, in the background, so both games keep running smoothly, and they show up in its map list as they arrive.", f_body, DIM, true)
+	var h := HBoxContainer.new()
+	h.add_constant_override("separation", 10)
+	box.add_child(h)
+	_mt_send = _button(h, "Send my maps", "_mt_start_send")
+	_mt_stop = _button(h, "Stop", "_mt_stop_now")
+	_mt_stop.visible = false
+	_mt_code = _label("", f_code, TEXT)
+	_mt_code.visible = false
+	var h2 := HBoxContainer.new()
+	h2.add_constant_override("separation", 10)
+	box.add_child(h2)
+	_mt_in = LineEdit.new()
+	_mt_in.theme = load("res://uitheme.tres")
+	_mt_in.add_font_override("font", f_bold)
+	_mt_in.placeholder_text = "Code from the other device"
+	_mt_in.rect_min_size = Vector2(260, 40)
+	_mt_in.max_length = 20
+	_mt_in.connect("text_entered", self, "_mt_start_get")
+	h2.add_child(_mt_in)
+	_mt_get = _button(h2, "Get maps", "_mt_start_get")
+	_mt_bar = ProgressBar.new()
+	_mt_bar.theme = load("res://uitheme.tres")
+	_mt_bar.min_value = 0.0
+	_mt_bar.max_value = 1.0
+	_mt_bar.step = 0.001
+	_mt_bar.percent_visible = false
+	_mt_bar.rect_min_size = Vector2(0, 14)
+	_mt_bar.visible = false
+	box.add_child(_mt_bar)
+	_mt_status = _label("", f_body, TEXT, true)
+	box.add_child(HSeparator.new())
+
+func _mt_dirs() -> Dictionary:
+	return {"maps": Rhythia.user_map_dir, "vmaps": Rhythia.user_vmap_dir}
+
+func _mt_busy_ui(on: bool):
+	_mt_send.disabled = on
+	_mt_get.disabled = on
+	_mt_in.editable = not on
+	_mt_stop.visible = on
+	_mt_bar.visible = on
+	if on:
+		_mt_bar.value = 0.0
+
+func _mt_start_send():
+	if _mt != null and _mt.busy():
+		return
+	_mt = MT.new(_mt_dirs())
+	var code: String = _mt.send()
+	if code == "":
+		_say(_mt_status, String(_mt.state().text), BAD)
+		_mt = null
+		return
+	_mt_code.text = code
+	_mt_code.visible = true
+	_mt_busy_ui(true)
+	_mt_was_busy = true
+	_say(_mt_status, "Type this code under \"Transfer maps only\" on the other device and press Get maps. Both need Chromia open on the same Wi-Fi.")
+	Rhythia.trail("map transfer: sending")
+	set_process(true)
+
+func _mt_start_get(_t = ""):
+	if _mt != null and _mt.busy():
+		return
+	_mt = MT.new(_mt_dirs())
+	if not _mt.receive(_mt_in.text):
+		_say(_mt_status, String(_mt.state().text), BAD)
+		_mt = null
+		return
+	_mt_code.visible = false
+	_mt_queue = []
+	_mt_vfolders = {}
+	_mt_added = 0
+	_mt_busy_ui(true)
+	_mt_was_busy = true
+	Rhythia.trail("map transfer: receiving")
+	set_process(true)
+
+func _mt_stop_now():
+	if _mt != null:
+		_mt.stop()
+
+func _process_maps_only():
+	if _mt == null:
+		return
+	var s: Dictionary = _mt.state()
+	# the maps that came: into the map list, a few at a time (it's the game's thread)
+	_mt_queue.append_array(_mt.take_added())
+	var until := OS.get_ticks_usec() + 3000
+	while not _mt_queue.empty() and OS.get_ticks_usec() < until:
+		var path: String = _mt_queue.pop_front()
+		if path.begins_with(Rhythia.user_vmap_dir):
+			_mt_vfolders[path.get_base_dir()] = true
+		elif path.get_extension().to_lower() in ["sspm", "chrm"] and Rhythia.registry_song != null:
+			if Rhythia.registry_song.add_sspm_map(path):
+				_mt_added += 1
+	# what it's doing (a few times a second)
+	if OS.get_ticks_msec() - _mt_said > 200 or not s.busy:
+		_mt_said = OS.get_ticks_msec()
+		if int(s.maps) > 0 and s.busy:
+			var mb := "%s / %s" % [ST.human_size(int(s.bytes_done)), ST.human_size(int(s.bytes))]
+			_say(_mt_status, "%s %d / %d maps (%s)%s" % ["Sending" if _mt_code.visible else "Receiving", int(s.maps_done), int(s.maps), mb,
+				(", %d it has already" % int(s.skipped)) if int(s.skipped) > 0 else ""])
+			_mt_bar.value = float(s.bytes_done) / max(1.0, float(s.bytes))
+		elif s.busy and String(s.text) != "" and not _mt_code.visible:
+			_say(_mt_status, String(s.text))
+	if s.busy or not _mt_was_busy:
+		return
+	# finished
+	_mt_was_busy = false
+	_mt.reap()
+	_mt_busy_ui(false)
+	_mt_code.visible = false
+	if not _mt_queue.empty():
+		_mt_was_busy = true # (the map list catches up first)
+		return
+	for folder in _mt_vfolders.keys():
+		if File.new().file_exists(String(folder).plus_file("meta.json")) and Rhythia.registry_song != null:
+			Rhythia.registry_song.add_vulnus_map(folder)
+			_mt_added += 1
+	_mt_vfolders = {}
+	var text := String(s.text)
+	if _mt_added > 0:
+		var map_list = Rhythia.menu_node("Main/Maps/MapRegistry/S/VBoxContainer")
+		if map_list != null and map_list.has_method("refresh_songs"):
+			map_list.refresh_songs()
+		text += " They're in your map list."
+		Globals.notify(Globals.NOTIFY_SUCCEED, "%d map(s) added from the other device." % _mt_added, "Maps transferred")
+	_say(_mt_status, text, GOOD if s.ok else BAD)
+	Rhythia.trail("map transfer: %s" % text)
+	_mt = null
 
 # --- Settings backups (scripts/SettingsBackup.gd) ------------------------------
 # --- Meta Quest: the sideloaded app to the store app (StoreTransfer.gd) --------------
@@ -819,10 +974,14 @@ func _process(_d):
 	_process_receive()
 	_process_file_out()
 	_process_file_in()
-	if _server == null and _client == null and _file_out == null and _file_in == null:
+	_process_maps_only()
+	if _server == null and _client == null and _file_out == null and _file_in == null and _mt == null:
 		set_process(false)
 
 func _exit_tree():
+	if _mt != null:
+		_mt.stop()
+		_mt = null
 	if _mv_thread != null:
 		_mv_thread.wait_to_finish()
 		_mv_thread = null
