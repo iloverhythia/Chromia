@@ -18,7 +18,7 @@ const EXT := {"map": "sspm", "colorset": "txt", "mesh": "obj", "profile": "json"
 const PICK := {"map": "*.sspm ; Maps (.sspm)", "colorset": "*.txt ; Colorsets (.txt)", "mesh": "*.obj ; Note meshes (.obj)",
 	"profile": "*.json ; Settings profiles (.json)", "cursor": "*.png, *.jpg, *.jpeg, *.webp ; Pictures",
 	"hitsound": "*.ogg, *.mp3, *.wav ; Sounds", "skin": "*.cskin ; Chromia skins (.cskin)", "hand": "*.chand ; VR hands (.chand)"}
-const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "512 KB", "cursor": "2 MB", "hitsound": "2 MB", "skin": "30 MB", "hand": "16 KB"}
+const LIMITS := {"map": "30 MB", "colorset": "64 KB", "mesh": "6 MB", "profile": "12 MB", "cursor": "2 MB", "hitsound": "2 MB", "skin": "30 MB", "hand": "16 KB"}
 const NOUN := {"map": "map", "colorset": "colorset", "mesh": "note mesh", "profile": "settings profile", "cursor": "cursor", "hitsound": "hit sound", "skin": "skin", "hand": "VR hand"}
 const SORTS := [["new", "Newest"], ["popular", "Most downloaded"], ["name", "Name"]]
 const DOWNLOAD_DIR := "user://content_downloads"
@@ -783,6 +783,10 @@ static func prepare_share(k: String) -> Dictionary:
 		"profile":
 			var p2: String = Globals.p(DOWNLOAD_DIR).plus_file("share_settings.json")
 			Rhythia.save_settings(p2)
+			# (your colorset, note mesh and cursor go along: Profiles._import_profile_file puts them in)
+			var err: String = add_shared_files(p2)
+			if err != "":
+				return {"error": err}
 			return {"path": p2, "name": "My settings"}
 		"skin":
 			# everything you have on, as a Chromia skin (Settings > Skins)
@@ -808,6 +812,61 @@ static func prepare_share(k: String) -> Dictionary:
 				nm += " - " + String(song.creator)
 			return {"path": mp, "name": nm.left(60), "song_id": String(song.id)}
 	return {"error": "That can't be shared."}
+
+# Shared settings carry the files they need: your colorset when it's one of
+# yours (a built-in one everyone has), your note mesh (.obj / .glb, with its
+# .mtl) and your cursor picture, in "shared_files" ({colorset: {name, text},
+# mesh: {file, data, mtl}, cursor: {ext, data}}, the files in base64).
+# Settings > Import Content and a shared link put them in (Profiles.gd). -> "" or why not
+const SHARED_FILES_MAX := 11 * 1024 * 1024 # (the server takes 12 MB a settings file)
+static func add_shared_files(json_path: String) -> String:
+	var f := File.new()
+	if f.open(json_path, File.READ) != OK:
+		return "Couldn't read your settings."
+	var parsed := JSON.parse(f.get_as_text())
+	f.close()
+	if parsed.error != OK or not (parsed.result is Dictionary):
+		return "Couldn't read your settings."
+	var data: Dictionary = parsed.result
+	var spec = load("res://scripts/SpectateSettings.gd")
+	var files := {}
+	var cs = Rhythia.selected_colorset
+	if cs != null and String(cs.id).begins_with("custom_") and not cs.colors.empty():
+		var lines := PoolStringArray()
+		for c in cs.colors:
+			lines.append("#" + Color(c).to_html(false))
+		if bool(cs.get("mirror")):
+			lines.append("m")
+		files["colorset"] = {"name": String(cs.name), "text": lines.join("\n") + "\n"}
+	var m: String = spec.own_mesh_file()
+	if m != "":
+		var mesh := {"file": m.get_file(), "data": _b64(m)}
+		var mtl: String = m.get_basename() + ".mtl"
+		if File.new().file_exists(mtl):
+			mesh["mtl"] = _b64(mtl)
+		files["mesh"] = mesh
+	var cur: String = spec.own_cursor_file()
+	if cur != "":
+		files["cursor"] = {"ext": cur.get_extension().to_lower(), "data": _b64(cur)}
+	if files.empty():
+		return ""
+	data["shared_files"] = files
+	var text := to_json(data)
+	if text.length() > SHARED_FILES_MAX:
+		return "Your note mesh and cursor are too big to go along with your settings. Share them on their own (/share mesh, /share cursor)."
+	if f.open(json_path, File.WRITE) != OK:
+		return "Couldn't write your settings."
+	f.store_string(text)
+	f.close()
+	return ""
+
+static func _b64(path: String) -> String:
+	var f := File.new()
+	if f.open(path, File.READ) != OK:
+		return ""
+	var b := f.get_buffer(f.get_len())
+	f.close()
+	return Marshalls.raw_to_base64(b)
 
 # a hit sound you have already with this very file (used again, not copied)
 static func _same_hit_sound(path: String):

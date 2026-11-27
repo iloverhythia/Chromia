@@ -93,6 +93,27 @@ func _import_profile_file(path: String):
 	if not parsed.result.has("approach_rate") or not parsed.result.has("sensitivity"):
 		Globals.notify(Globals.NOTIFY_ERROR, "That JSON file does not contain Chromia settings you messed up lil bro.", "Import Failed")
 		return
+	# (shared settings bring their colorset, note mesh and cursor along: ContentBrowser.add_shared_files)
+	var shared = parsed.result.get("shared_files")
+	var cursor_pic := {}
+	var brought := []
+	if shared is Dictionary:
+		var data: Dictionary = parsed.result
+		data.erase("shared_files")
+		if shared.get("colorset") is Dictionary:
+			var cid := _install_shared_colorset(shared.colorset)
+			if cid != "":
+				data["selected_colorset"] = cid
+				brought.append("colorset")
+		if shared.get("mesh") is Dictionary:
+			var mid := _install_shared_mesh(shared.mesh)
+			if mid != "":
+				data["selected_mesh"] = mid
+				brought.append("note mesh")
+		if shared.get("cursor") is Dictionary and String(shared.cursor.get("ext", "")) in ["png", "jpg", "jpeg", "webp"]:
+			cursor_pic = shared.cursor
+			brought.append("cursor")
+		profile_text = to_json(data)
 
 	var profile_name := path.get_file().get_basename()
 	if profile_name.ends_with(".settings"):
@@ -110,9 +131,106 @@ func _import_profile_file(path: String):
 		return
 	output_file.store_string(profile_text)
 	output_file.close()
+	# (its cursor beside it: put on when the profile is picked, _use_profile_cursor)
+	if not cursor_pic.empty():
+		var cb := Marshalls.base64_to_raw(String(cursor_pic.get("data", "")))
+		var cf := File.new()
+		if cb.size() > 0 and cf.open(destination.trim_suffix(".settings.json") + ".cursor." + String(cursor_pic.ext), File.WRITE) == OK:
+			cf.store_buffer(cb)
+			cf.close()
 	# added as a new profile next to yours (your settings stay as they are)
 	_ready()
-	Globals.notify(Globals.NOTIFY_SUCCEED, "Added the profile '%s'. Pick it in Presets to use it." % destination.get_file().trim_suffix(".settings.json"), "Content Imported")
+	var with_files := ""
+	if not brought.empty():
+		var last: String = brought.pop_back()
+		with_files = " with its " + (PoolStringArray(brought).join(", ") + " and " if not brought.empty() else "") + last
+	Globals.notify(Globals.NOTIFY_SUCCEED, "Added the profile '%s'%s. Pick it in Presets to use it." % [destination.get_file().trim_suffix(".settings.json"), with_files], "Content Imported")
+
+# a shared colorset: in your colorsets (the same one again is used, not copied) -> its id or ""
+func _install_shared_colorset(c: Dictionary) -> String:
+	var text := String(c.get("text", ""))
+	if text.strip_edges() == "":
+		return ""
+	var dir := Directory.new()
+	dir.make_dir_recursive(Globals.p(COLORSET_DIR))
+	var base := String(c.get("name", "Shared colorset")).strip_edges()
+	if not base.is_valid_filename() or base == "":
+		base = "Shared colorset"
+	var dest := Globals.p(COLORSET_DIR.plus_file(base + ".txt"))
+	var n := 2
+	while File.new().file_exists(dest):
+		var ef := File.new()
+		if ef.open(dest, File.READ) == OK:
+			var same: bool = ef.get_as_text().strip_edges() == text.strip_edges()
+			ef.close()
+			if same:
+				break
+		dest = Globals.p(COLORSET_DIR.plus_file("%s (%d).txt" % [base, n]))
+		n += 1
+	if not File.new().file_exists(dest):
+		var f := File.new()
+		if f.open(dest, File.WRITE) != OK:
+			return ""
+		f.store_string(text)
+		f.close()
+	var id: String = "custom_" + dest.get_file().to_lower().md5_text()
+	Rhythia.load_color_txt(dest, id)
+	return id
+
+# a shared note mesh (.obj with its .mtl, or .glb): in your meshes (the same file again is used) -> its id or ""
+func _install_shared_mesh(m: Dictionary) -> String:
+	var bytes := Marshalls.base64_to_raw(String(m.get("data", "")))
+	var fname := String(m.get("file", "")).get_file()
+	var ext := fname.get_extension().to_lower()
+	if bytes.size() == 0 or not (ext in ["obj", "glb"]):
+		return ""
+	var base := fname.get_basename()
+	if not base.is_valid_filename() or base == "":
+		base = "Shared mesh"
+	var dir := Directory.new()
+	dir.make_dir_recursive(Globals.p(MESH_DIR))
+	var dest := Globals.p(MESH_DIR.plus_file(base + "." + ext))
+	var n := 2
+	while File.new().file_exists(dest):
+		var ef := File.new()
+		if ef.open(dest, File.READ) == OK:
+			var same: bool = ef.get_buffer(ef.get_len()) == bytes
+			ef.close()
+			if same:
+				break
+		dest = Globals.p(MESH_DIR.plus_file("%s (%d).%s" % [base, n, ext]))
+		n += 1
+	if not File.new().file_exists(dest):
+		var f := File.new()
+		if f.open(dest, File.WRITE) != OK:
+			return ""
+		f.store_buffer(bytes)
+		f.close()
+		var mtl := Marshalls.base64_to_raw(String(m.get("mtl", "")))
+		if mtl.size() > 0 and f.open(dest.get_basename() + ".mtl", File.WRITE) == OK:
+			f.store_buffer(mtl)
+			f.close()
+	if ext == "obj":
+		var test = load("res://scripts/content/resources/ObjParse.gd").load_obj(dest)
+		if test == null or test.get_surface_count() == 0:
+			return ""
+	var id: String = "ugc_" + dest.get_file().to_lower().replace(" ", "_")
+	if Rhythia.registry_mesh != null and not (Rhythia.registry_mesh.get_item(id) is NoteMesh):
+		Rhythia.registry_mesh.add_item(NoteMesh.new(id, dest.get_file().get_basename() + " (custom)", dest, "You"))
+	return id
+
+# a profile that came with a cursor: that cursor on when it's picked
+static func _use_profile_cursor(profile_path: String):
+	var stem := profile_path.trim_suffix(".settings.json")
+	for ext in ["png", "jpg", "jpeg", "webp"]:
+		var side: String = stem + ".cursor." + String(ext)
+		if File.new().file_exists(side):
+			for old in ["png", "jpg", "jpeg", "webp", "bmp", "gif"]:
+				var op: String = Globals.p("user://cursor." + old)
+				if File.new().file_exists(op):
+					Directory.new().remove(op)
+			Directory.new().copy(side, Globals.p("user://cursor." + ext))
+			return
 
 
 func _import_colorset_file(path: String):
@@ -252,6 +370,7 @@ func on_pressed(i):
 	var profile = profiles[i]
 	print("Loading profile: " + profile)
 	Rhythia.trail("profile switch: " + profile.get_file())
+	_use_profile_cursor(profile)
 	_set_active_profile_path(profile)
 	get_viewport().get_node("Menu").black_fade_target = true
 	yield(get_tree().create_timer(0.35), "timeout")
