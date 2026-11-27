@@ -5,6 +5,8 @@ extends CanvasLayer
 # Note Hitboxes, Frame Markers: ReplayOverlay.gd). In the menus' look
 # (OnlineStyle.gd), so it takes the colours of your Menu Customizer look.
 # F1 hides it all (for recording); Hide leaves the small logo to bring it back.
+# The scrub bar has a red mark where each miss is (as the website's replay
+# viewer), so you can jump to them.
 
 const OnlineStyle = preload("res://scripts/ui/menu/OnlineStyle.gd")
 var S
@@ -29,6 +31,8 @@ var _speed_bar: Dictionary
 func setup(spawn: NoteManager):
 	Spawn = spawn
 	scrub_slider.max_value = max(Rhythia.replay.end_ms, 1)
+	if _miss_marks != null:
+		_miss_marks.update()
 	# the drawings on the grid, in the note area's own units
 	var ov = load("res://scripts/game/ReplayOverlay.gd").new()
 	ov.name = "ReplayOverlay"
@@ -241,6 +245,7 @@ func _ready():
 	_speed_bar = _wrap_slider_with_bar(speed_slider, track_color, fill_color, grabber_tex, blank_tex)
 	if _path_slider != null:
 		_path_bar = _wrap_slider_with_bar(_path_slider, track_color, fill_color, grabber_tex, blank_tex)
+	_add_miss_marks()
 
 	play_button.connect("pressed", self, "_on_play_pressed")
 	scrub_slider.connect("drag_started", self, "_on_scrub_drag_started")
@@ -252,6 +257,46 @@ func _ready():
 	_hidden = Rhythia.hide_replay_ui
 	# Run after the cursor sets up the mouse mode for the replay.
 	call_deferred("_apply_visibility")
+
+# the misses on the scrub bar: a thin red mark each, over the bar (under the handle)
+class MissMarks extends Control:
+	var track: Control
+	var slider: HSlider
+	var times: Array = []
+	const RED := Color(0.94, 0.27, 0.27)
+	func _draw():
+		if track == null or slider == null or times.empty():
+			return
+		var span: float = slider.max_value - slider.min_value
+		if span <= 0.0:
+			return
+		var x0: float = track.rect_position.x
+		var w: float = track.rect_size.x
+		var cy: float = track.rect_position.y + track.rect_size.y / 2.0
+		var last_x := -10.0
+		for t in times:
+			var x: float = round(x0 + w * clamp((float(t) - slider.min_value) / span, 0.0, 1.0))
+			if x == last_x:
+				continue # (misses close together: one mark per pixel)
+			last_x = x
+			draw_rect(Rect2(x - 1.0, cy - 7.0, 2.0, 14.0), RED)
+
+var _miss_marks: MissMarks
+func _add_miss_marks():
+	if _scrub_bar.empty() or Rhythia.replay == null or typeof(Rhythia.replay.get("miss_rms")) != TYPE_ARRAY or Rhythia.replay.miss_rms.empty():
+		return
+	var wrapper: Control = _scrub_bar.track.get_parent()
+	_miss_marks = MissMarks.new()
+	_miss_marks.track = _scrub_bar.track
+	_miss_marks.slider = scrub_slider
+	_miss_marks.times = Rhythia.replay.miss_rms
+	_miss_marks.anchor_right = 1.0
+	_miss_marks.anchor_bottom = 1.0
+	_miss_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrapper.add_child(_miss_marks)
+	wrapper.move_child(_miss_marks, _scrub_bar.fill.get_index() + 1)
+	_miss_marks.connect("resized", _miss_marks, "update")
+	_scrub_bar.track.connect("resized", _miss_marks, "update")
 
 # _hidden: nothing on screen (for recording). _collapsed: only the small logo button.
 var _hidden: bool = false

@@ -13,6 +13,7 @@ var past_triggers: Array = []
 var triggers: Array = []
 var note_results: Dictionary = {}
 var hit_rms: Dictionary = {} # note id -> replay ms of the cursor sample just before its hit (_lead_in_from_hits)
+var miss_rms: Array = [] # replay ms of each miss (the cursor sample just before it), for the red marks on the replay bar (ReplayControls.gd)
 var settings: Dictionary = {}
 
 var id: String
@@ -251,6 +252,7 @@ func read_data(from_path: String = ""):
 				elif kind == Globals.RS_MISS and sv >= 2:
 					var nid = file.get_32()
 					note_results[nid] = false
+					miss_rms.append(_last_cursor_ms)
 
 				else:
 					file.close()
