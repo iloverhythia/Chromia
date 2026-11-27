@@ -64,9 +64,11 @@ void fragment() {
 	mm.instance_count = CRYSTALS
 	var n := 0
 	while n < CRYSTALS:
-		var p := Vector3(rng.randf_range(-24, 24), rng.randf_range(-10, 14), rng.randf_range(-42, -6))
-		# (none in front of the grid, where the notes come)
-		if abs(p.x) < 5.0 and abs(p.y) < 4.0:
+		var p := Vector3(rng.randf_range(-45, 45), rng.randf_range(-22, 26), rng.randf_range(-48, -10))
+		# (none round the grid and its panels: they'd clutter what you read and aim at.
+		# The space kept clear widens with distance, like the view does.)
+		var clear := 0.8 * (-p.z + 3.5)
+		if abs(p.x) < clear and abs(p.y) < clear * 0.7:
 			continue
 		var s := rng.randf_range(0.7, 2.6) * (1.0 + (-p.z - 6.0) / 40.0)
 		var basis := Basis(Vector3(rng.randf_range(-1, 1), rng.randf_range(-1, 1), rng.randf_range(-1, 1)).normalized(), rng.randf_range(0, TAU))

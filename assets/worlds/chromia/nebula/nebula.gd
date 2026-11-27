@@ -24,29 +24,31 @@ float n3(vec3 p) {
 	return mix(mix(mix(h3(i), h3(i + vec3(1, 0, 0)), f.x), mix(h3(i + vec3(0, 1, 0)), h3(i + vec3(1, 1, 0)), f.x), f.y),
 		mix(mix(h3(i + vec3(0, 0, 1)), h3(i + vec3(1, 0, 1)), f.x), mix(h3(i + vec3(0, 1, 1)), h3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
-float fbm(vec3 p) {
+float fbm(vec3 p, int octaves) {
 	float v = 0.0;
 	float a = 0.5;
-	for (int k = 0; k < 4; k++) {
+	for (int k = 0; k < 3; k++) { // (a fixed count with a break: older phones' GLES2 needs one)
+		if (k >= octaves) break;
 		v += a * n3(p);
 		p = p * 2.03 + vec3(1.7, 9.2, 3.1);
 		a *= 0.5;
 	}
-	return v;
+	return v / (1.0 - pow(0.5, float(octaves))) * 0.9375; // (the same range whatever the octaves)
 }
 void fragment() {
 	vec3 d = normalize(v_dir);
 	float t = TIME * 0.012;
 	vec3 q = d * 2.2 + vec3(t, t * 0.6, -t * 0.4);
-	float warp = fbm(q * 1.3);
-	float gas = fbm(q + warp * 1.6);
-	float gas2 = fbm(q * 1.7 - warp + vec3(4.0, 1.0, 7.0));
-	float dust = smoothstep(0.42, 0.62, fbm(q * 2.4 + vec3(9.0, 3.0, 1.0)));
+	// (11 noise lookups a pixel: the sky covers the whole screen, so it's kept cheap)
+	float warp = fbm(q * 1.3, 2);
+	float gas = fbm(q + warp * 1.6, 3);
+	float gas2 = fbm(q * 1.7 - warp + vec3(4.0, 1.0, 7.0), 3);
+	float dust = smoothstep(0.42, 0.62, fbm(q * 2.4 + vec3(9.0, 3.0, 1.0), 2));
 	vec3 magenta = vec3(0.95, 0.16, 0.58);
 	vec3 blue = vec3(0.16, 0.3, 1.0);
 	vec3 teal = vec3(0.1, 0.9, 0.78);
 	// (which colour the gas is changes across the sky on its own, slowly: blue, magenta, teal)
-	float hue = fbm(d * 1.1 + vec3(20.0, 5.0, 11.0) + vec3(t * 0.5));
+	float hue = n3(d * 1.1 + vec3(20.0, 5.0, 11.0) + vec3(t * 0.5));
 	vec3 col = mix(blue, magenta, smoothstep(0.38, 0.62, hue));
 	col = mix(col, teal, smoothstep(0.55, 0.8, gas2) * 0.75);
 	col = mix(col, vec3(1.0, 0.55, 0.3), smoothstep(0.7, 0.9, gas) * 0.35); // (a warm glow where it's thickest)
@@ -104,7 +106,7 @@ void fragment() {
 	add_child(mmi)
 
 	# the planet: bands of gas, lit from one side, a thin blue edge of atmosphere
-	var at := Vector3(-17, 8, -44)
+	var at := Vector3(36, 26, -46) # (up in the top right corner, clear of the grid and its score panels)
 	var sphere := SphereMesh.new()
 	sphere.radius = 6.0
 	sphere.height = 12.0
